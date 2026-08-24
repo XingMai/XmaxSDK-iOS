@@ -2,7 +2,6 @@ import Foundation
 
 /// 表示视频帧中的一个像素数据平面。
 struct VideoFramePlane: Equatable, Sendable {
-
     let data: Data
     let stride: Int
     let byteOffset: Int

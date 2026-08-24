@@ -2,7 +2,6 @@ import Foundation
 
 /// 检查并申请 SDK 使用相机和麦克风所需的平台权限。
 final class PermissionProvider: PermissionProviding, Sendable {
-
     private let authorizationClient: PermissionAuthorizationClient
 
     init(authorizationClient: PermissionAuthorizationClient = .live) {

@@ -1,6 +1,5 @@
 /// 表示视频帧的固定尺寸和像素格式。
 struct VideoFormat: Equatable, Sendable {
-
     let width: Int
     let height: Int
     let pixelFormat: VideoPixelFormat

@@ -2,7 +2,6 @@
 
 /// 使用 Core Graphics 提供 SDK 内部图片处理能力。
 final class ImageProvider: ImageProviding, Sendable {
-
     func resizeImageToFill(
         _ image: CGImage,
         targetWidth: Int,

@@ -3,7 +3,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class StorageProviderTests: XCTestCase {
-
     private let configuration = StorageConfiguration(
         bucket: "example-1250000000",
         region: "ap-shanghai",
@@ -158,7 +157,6 @@ final class StorageProviderTests: XCTestCase {
 }
 
 private final class StorageProgressRecorder: @unchecked Sendable {
-
     private let lock = NSLock()
     private var bytes: [Int64] = []
 
@@ -176,7 +174,6 @@ private final class StorageProgressRecorder: @unchecked Sendable {
 }
 
 private final class URLProtocolStub: URLProtocol {
-
     private static let state = URLProtocolStubState()
 
     static func setResponse(statusCode: Int, data: Data) {
@@ -213,7 +210,6 @@ private final class URLProtocolStub: URLProtocol {
 }
 
 private final class URLProtocolStubState: @unchecked Sendable {
-
     private let lock = NSLock()
     private var statusCode = 200
     private var data = Data()

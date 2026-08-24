@@ -1,6 +1,5 @@
 /// 由内存缓冲区持有像素数据的视频帧。
 struct BufferVideoFrame: VideoFrame, Equatable, Sendable {
-
     let format: VideoFormat
     let timestampUs: Int64
     let rotation: VideoRotation

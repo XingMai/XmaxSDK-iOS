@@ -3,7 +3,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class FoundationErrorTests: XCTestCase {
-
     func testFromKeepsExistingXmaxError() {
         let expected = XmaxError(
             code: .networkError,

@@ -5,7 +5,6 @@ import OSLog
 ///
 /// 调用方不得传入 API Key、Token、Secret、Authorization 或完整敏感响应。
 enum XmaxLogger {
-
     private static let logger = Logger(
         subsystem: "ai.xmax.XmaxSDK",
         category: "XmaxSDK"

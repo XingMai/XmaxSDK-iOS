@@ -3,7 +3,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class ImageProviderTests: XCTestCase {
-
     func testCenterCropRectCropsWideImageHorizontally() {
         XCTAssertEqual(
             ImageProvider.centerCropRect(

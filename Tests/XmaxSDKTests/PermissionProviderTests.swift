@@ -3,7 +3,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class PermissionProviderTests: XCTestCase {
-
     func testAuthorizedPermissionReturnsWithoutRequestingAccess() async throws {
         let recorder = PermissionRequestRecorder(result: true)
         let provider = PermissionProvider(authorizationClient: .init(
@@ -86,7 +85,6 @@ final class PermissionProviderTests: XCTestCase {
 }
 
 private final class PermissionRequestRecorder: @unchecked Sendable {
-
     private let lock = NSLock()
     private let result: Bool
     private var requestedPermissions: [MediaPermission] = []

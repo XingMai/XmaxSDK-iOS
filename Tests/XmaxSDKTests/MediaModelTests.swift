@@ -3,7 +3,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class MediaModelTests: XCTestCase {
-
     func testMediaEnumRawValuesMatchCrossPlatformContract() {
         XCTAssertEqual(CameraPosition.allCases.map(\.rawValue), ["front", "back"])
         XCTAssertEqual(VideoContentMode.allCases.map(\.rawValue), ["fit", "fill"])

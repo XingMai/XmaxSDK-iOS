@@ -2,7 +2,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class XmaxLoggerTests: XCTestCase {
-
     func testFormattedMessagePrefixesEveryLine() {
         XCTAssertEqual(
             XmaxLogger.formattedMessage(

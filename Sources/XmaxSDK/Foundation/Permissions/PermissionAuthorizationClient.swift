@@ -2,14 +2,12 @@
 
 /// SDK 需要检查的媒体权限。
 enum MediaPermission: Equatable, Sendable {
-
     case camera
     case microphone
 }
 
 /// 平台媒体权限的中性授权状态。
 enum MediaAuthorizationStatus: Sendable {
-
     case notDetermined
     case restricted
     case denied
@@ -18,7 +16,6 @@ enum MediaAuthorizationStatus: Sendable {
 
 /// 隔离系统权限 API，便于 Provider 保持中性且可测试。
 struct PermissionAuthorizationClient: Sendable {
-
     let authorizationStatus: @Sendable (
         _ permission: MediaPermission
     ) -> MediaAuthorizationStatus
@@ -51,7 +48,6 @@ struct PermissionAuthorizationClient: Sendable {
 }
 
 private extension MediaPermission {
-
     var mediaType: AVMediaType {
         switch self {
         case .camera:

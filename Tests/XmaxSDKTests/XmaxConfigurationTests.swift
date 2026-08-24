@@ -2,7 +2,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class XmaxConfigurationTests: XCTestCase {
-
     func testConfigurationTrimsAPIKey() throws {
         let configuration = XmaxConfiguration(apiKey: "  test-key\n")
 
