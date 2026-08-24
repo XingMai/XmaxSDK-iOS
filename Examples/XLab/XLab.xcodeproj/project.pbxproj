@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		100000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* AppDelegate.swift */; };
 		100000000000000000000002 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000002 /* ViewController.swift */; };
+		B10000000000000000000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* SceneDelegate.swift */; };
 		E0FB2629DA5E80F22DA96DCC /* libPods-XLab.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6A34BD3F5BEDACB7E31CFC98 /* libPods-XLab.a */; };
 /* End PBXBuildFile section */
 
@@ -17,6 +18,7 @@
 		200000000000000000000002 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		200000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		200000000000000000000004 /* XLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		6A34BD3F5BEDACB7E31CFC98 /* libPods-XLab.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-XLab.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLab.release.xcconfig"; path = "Target Support Files/Pods-XLab/Pods-XLab.release.xcconfig"; sourceTree = "<group>"; };
 		D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLab.debug.xcconfig"; path = "Target Support Files/Pods-XLab/Pods-XLab.debug.xcconfig"; sourceTree = "<group>"; };
@@ -48,6 +50,7 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000001 /* AppDelegate.swift */,
+				B20000000000000000000001 /* SceneDelegate.swift */,
 				200000000000000000000002 /* ViewController.swift */,
 				200000000000000000000003 /* Info.plist */,
 			);
@@ -163,6 +166,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				100000000000000000000001 /* AppDelegate.swift in Sources */,
+				B10000000000000000000001 /* SceneDelegate.swift in Sources */,
 				100000000000000000000002 /* ViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
