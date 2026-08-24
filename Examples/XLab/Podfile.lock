@@ -1,18 +1,42 @@
 PODS:
-  - XmaxSDK (0.1.0)
-  - XmaxSDK/Tests (0.1.0)
+  - QCloudCore/WithoutMTA (6.5.7)
+  - QCloudCOSXML/Transfer (6.5.7):
+    - QCloudCore/WithoutMTA (= 6.5.7)
+  - VolcEngineRTC/Core (3.60.106.600)
+  - VolcEngineRTC/RealXBase (3.60.106.600)
+  - VolcEngineRTC/RTCFFmpeg (3.60.106.600)
+  - XmaxSDK (0.1.0):
+    - QCloudCOSXML/Transfer (= 6.5.7)
+    - VolcEngineRTC/Core (= 3.60.106.600)
+    - VolcEngineRTC/RealXBase (= 3.60.106.600)
+    - VolcEngineRTC/RTCFFmpeg (= 3.60.106.600)
+  - XmaxSDK/Tests (0.1.0):
+    - QCloudCOSXML/Transfer (= 6.5.7)
+    - VolcEngineRTC/Core (= 3.60.106.600)
+    - VolcEngineRTC/RealXBase (= 3.60.106.600)
+    - VolcEngineRTC/RTCFFmpeg (= 3.60.106.600)
 
 DEPENDENCIES:
   - XmaxSDK (from `../..`)
   - XmaxSDK/Tests (from `../..`)
+
+SPEC REPOS:
+  https://github.com/volcengine/volcengine-specs.git:
+    - VolcEngineRTC
+  trunk:
+    - QCloudCore
+    - QCloudCOSXML
 
 EXTERNAL SOURCES:
   XmaxSDK:
     :path: "../.."
 
 SPEC CHECKSUMS:
-  XmaxSDK: 850b2f4d6587afe89fc6708379f9a3cdf3f8bd16
+  QCloudCore: ff21b867b51f1d7e043c5013a3f876cd29bdca63
+  QCloudCOSXML: 35ef870a55a58d193eeb62c37c8904630740480e
+  VolcEngineRTC: 3dae32878b5edec218ddea722e90934e55fabb1e
+  XmaxSDK: fd46c492f28ae04681ff2dc3903d438c7e0531e0
 
-PODFILE CHECKSUM: 05d37991d62a46b1a13ebcf02746d6406fbc0f47
+PODFILE CHECKSUM: ea98ff9c5bfb839dad8074fba98e1ea4c0cfec66
 
 COCOAPODS: 1.17.0

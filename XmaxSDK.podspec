@@ -19,7 +19,14 @@ Pod::Spec.new do |spec|
   spec.platform = :ios, '15.0'
   spec.swift_version = '6.0'
   spec.module_name = 'XmaxSDK'
+  spec.static_framework = true
   spec.source_files = 'Sources/XmaxSDK/**/*.swift'
+  spec.preserve_paths = 'THIRD_PARTY_NOTICES.md'
+
+  spec.dependency 'VolcEngineRTC/Core', '3.60.106.600'
+  spec.dependency 'VolcEngineRTC/RealXBase', '3.60.106.600'
+  spec.dependency 'VolcEngineRTC/RTCFFmpeg', '3.60.106.600'
+  spec.dependency 'QCloudCOSXML/Transfer', '6.5.7'
 
   spec.test_spec 'Tests' do |tests|
     tests.source_files = 'Tests/XmaxSDKTests/**/*.swift'
