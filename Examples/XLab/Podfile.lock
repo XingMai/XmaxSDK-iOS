@@ -1,0 +1,18 @@
+PODS:
+  - XmaxSDK (0.1.0)
+  - XmaxSDK/Tests (0.1.0)
+
+DEPENDENCIES:
+  - XmaxSDK (from `../..`)
+  - XmaxSDK/Tests (from `../..`)
+
+EXTERNAL SOURCES:
+  XmaxSDK:
+    :path: "../.."
+
+SPEC CHECKSUMS:
+  XmaxSDK: 850b2f4d6587afe89fc6708379f9a3cdf3f8bd16
+
+PODFILE CHECKSUM: 05d37991d62a46b1a13ebcf02746d6406fbc0f47
+
+COCOAPODS: 1.17.0

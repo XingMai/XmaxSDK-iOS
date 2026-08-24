@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+DerivedData/
+Pods/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+xcuserdata/
+
+# 第三方二进制在确认分发许可前仅供本地开发使用。
+Vendor/*.framework/
+Vendor/*.xcframework/

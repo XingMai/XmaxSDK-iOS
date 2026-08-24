@@ -1,0 +1,5 @@
+platform :ios, '15.0'
+
+target 'XLab' do
+  pod 'XmaxSDK', path: '../..', testspecs: ['Tests']
+end
