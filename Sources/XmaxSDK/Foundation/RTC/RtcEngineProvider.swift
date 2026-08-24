@@ -5,7 +5,7 @@ import Foundation
 final class RtcEngineLease: @unchecked Sendable {
     let engine: ByteRTCEngine
 
-    fileprivate let id = UUID()
+    let id = UUID()
 
     fileprivate init(engine: ByteRTCEngine) {
         self.engine = engine
