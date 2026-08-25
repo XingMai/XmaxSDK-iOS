@@ -21,6 +21,22 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
     }
 
+    func testPublicInterfaceForwardsImageLifecycle() async throws {
+        let components = makeComponents()
+        let manager: any XmaxRealtimeManaging = components.manager
+        let fileURL = URL(fileURLWithPath: "/tmp/reference.png")
+
+        let stream = try await manager.createLocalImageStream(
+            fileURL: fileURL
+        )
+        try await manager.stopLocalImageStream()
+
+        XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
+        XCTAssertNil(stream.videoTrack?.position)
+        XCTAssertEqual(components.rtcProvider.calls.first, .initialize)
+        XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
+    }
+
     func testConnectAndDisconnectPreserveLocalCameraPreview() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
@@ -50,6 +66,38 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         try await components.manager.stopLocalCameraStream()
         XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
+    }
+
+    func testReplaceConnectedCameraWithImagePreservesConnection() async throws {
+        let components = makeComponents()
+        let cameraStream = try await components.manager
+            .createLocalCameraStream(
+                videoFormat: videoFormat,
+                position: .front
+            )
+        let remoteStream = try await components.manager.connect(
+            localStream: cameraStream
+        )
+
+        let imageStream = try await components.manager
+            .replaceLocalImageStream(
+                fileURL: URL(fileURLWithPath: "/tmp/reference.png"),
+                videoFormat: nil
+            )
+        let state = await components.manager.currentState
+
+        XCTAssertEqual(state.connectionState, .connected)
+        XCTAssertEqual(imageStream.videoTrack?.videoFormat, imageFormat)
+        XCTAssertEqual(remoteStream.videoTrack?.videoFormat, imageFormat)
+        XCTAssertFalse(components.rtcProvider.calls.contains(.leaveRoom))
+        XCTAssertFalse(
+            components.sessionService.calls.contains(
+                .closeSession("session-id")
+            )
+        )
+
+        await components.manager.disconnect()
+        try await components.manager.stopLocalImageStream()
     }
 
     func testGenerationLifecycleTransitionsAndUpdatesCondition() async throws {
@@ -103,6 +151,44 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         await components.manager.disconnect()
         try await components.manager.stopLocalCameraStream()
+    }
+
+    func testVideoGenerationRestartsFileTimelineAfterStartSignal() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalVideoStream(
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
+            videoFormat: nil
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+
+        let startTask = Task {
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "video")
+            )
+        }
+        await waitForEvent("start", rtcProvider: components.rtcProvider)
+        await waitForVideoRestart(components.videoSource)
+        let startEvent = try XCTUnwrap(
+            decodedEvents(components.rtcProvider).first {
+                $0["event"] as? String == "start"
+            }
+        )
+        let taskID = try XCTUnwrap(startEvent["uid"] as? String)
+        components.rtcProvider.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: taskID
+        )
+        try await startTask.value
+
+        XCTAssertTrue(components.videoSource.calls.contains(.restart))
+        XCTAssertTrue(components.rtcProvider.calls.contains(.publishLocalAudio))
+
+        await components.manager.stopGeneration()
+        await components.manager.disconnect()
+        try await components.manager.stopLocalVideoStream()
     }
 
     func testRepeatedDisconnectReusesSingleTermination() async throws {
@@ -244,10 +330,15 @@ private extension XmaxRealtimeManagerTests {
         let mediaManager: XmaxRealtimeMediaManager
         let rtcProvider: RtcProvidingStub
         let sessionService: RealtimeSessionServicingStub
+        let videoSource: MediaSourceControllingStub
     }
 
     var videoFormat: RealtimeVideoFormat {
         RealtimeVideoFormat(width: 1_024, height: 768, fps: 24)
+    }
+
+    var imageFormat: RealtimeVideoFormat {
+        RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
     }
 
     func makeComponents() -> Components {
@@ -260,9 +351,30 @@ private extension XmaxRealtimeManagerTests {
             ),
             encodingController: EncodingController(rtcProvider: rtcProvider)
         )
+        let imageManager = XmaxRealtimeImageManager(
+            rtcProvider: rtcProvider,
+            imageSourceController: ImageSourceControllingStub(
+                resolvedFormat: imageFormat
+            ),
+            encodingController: EncodingController(rtcProvider: rtcProvider)
+        )
+        let videoSource = MediaSourceControllingStub(
+            configuration: MediaSourceConfiguration(
+                videoFormat: imageFormat,
+                hasAudio: true
+            )
+        )
+        let videoManager = XmaxRealtimeVideoManager(
+            rtcProvider: rtcProvider,
+            permissionProvider: PermissionProvidingStub(),
+            mediaSourceController: videoSource,
+            encodingController: EncodingController(rtcProvider: rtcProvider)
+        )
         let mediaManager = XmaxRealtimeMediaManager(
             rtcProvider: rtcProvider,
-            cameraManager: cameraManager
+            cameraManager: cameraManager,
+            imageManager: imageManager,
+            videoManager: videoManager
         )
         let roomController = RoomController(rtcProvider: rtcProvider)
         let remoteVideoController = RemoteVideoController(
@@ -315,7 +427,8 @@ private extension XmaxRealtimeManagerTests {
             ),
             mediaManager: mediaManager,
             rtcProvider: rtcProvider,
-            sessionService: sessionService
+            sessionService: sessionService,
+            videoSource: videoSource
         )
     }
 
@@ -332,6 +445,18 @@ private extension XmaxRealtimeManagerTests {
             await Task.yield()
         }
         XCTFail("Timed out waiting for room event: \(event)")
+    }
+
+    func waitForVideoRestart(
+        _ videoSource: MediaSourceControllingStub
+    ) async {
+        for _ in 0..<1_000 {
+            if videoSource.calls.contains(.restart) {
+                return
+            }
+            await Task.yield()
+        }
+        XCTFail("Timed out waiting for video timeline restart")
     }
 
     func decodedEvents(

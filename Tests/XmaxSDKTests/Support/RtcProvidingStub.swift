@@ -9,6 +9,9 @@ enum RtcProvidingCall: Equatable {
     case startVideoCapture(width: Int, height: Int, frameRate: Int)
     case stopVideoCapture
     case switchCamera(CameraPosition)
+    case useExternalVideoSource
+    case startExternalAudioSource
+    case stopExternalAudioSource
     case pushExternalVideoFrame(seiData: Data?)
     case pushExternalAudioFrame(AudioFrame)
     case publishLocalVideo
@@ -172,11 +175,23 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         }
     }
 
-    func useExternalVideoSource() throws {}
+    func useExternalVideoSource() throws {
+        lock.withLock {
+            storedCalls.append(.useExternalVideoSource)
+        }
+    }
 
-    func startExternalAudioSource() throws {}
+    func startExternalAudioSource() throws {
+        lock.withLock {
+            storedCalls.append(.startExternalAudioSource)
+        }
+    }
 
-    func stopExternalAudioSource() throws {}
+    func stopExternalAudioSource() throws {
+        lock.withLock {
+            storedCalls.append(.stopExternalAudioSource)
+        }
+    }
 
     func configureLocalVideoMirror(
         for position: CameraPosition

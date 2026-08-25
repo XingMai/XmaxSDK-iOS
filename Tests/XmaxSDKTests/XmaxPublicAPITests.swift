@@ -118,6 +118,46 @@ final class XmaxPublicAPITests: XCTestCase {
         try await manager.stopLocalCameraStream()
     }
 
+    private func createDefaultImageStream(
+        using manager: any XmaxRealtimeManaging,
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await manager.createLocalImageStream(fileURL: fileURL)
+    }
+
+    private func replaceDefaultImageStream(
+        using manager: any XmaxRealtimeManaging,
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await manager.replaceLocalImageStream(fileURL: fileURL)
+    }
+
+    private func stopImageStream(
+        using manager: any XmaxRealtimeManaging
+    ) async throws {
+        try await manager.stopLocalImageStream()
+    }
+
+    private func createDefaultVideoStream(
+        using manager: any XmaxRealtimeManaging,
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await manager.createLocalVideoStream(fileURL: fileURL)
+    }
+
+    private func replaceDefaultVideoStream(
+        using manager: any XmaxRealtimeManaging,
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await manager.replaceLocalVideoStream(fileURL: fileURL)
+    }
+
+    private func stopVideoStream(
+        using manager: any XmaxRealtimeManaging
+    ) async throws {
+        try await manager.stopLocalVideoStream()
+    }
+
     private func readPublicRealtimeStream(
         _ stream: RealtimeMediaStream
     ) -> (String, String?, RealtimeVideoFormat?, CameraPosition?) {

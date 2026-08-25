@@ -46,8 +46,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             }
         )
         let qualityController = QualityController(rtcProvider: rtcProvider)
+        let mediaErrorRelay = RealtimeMediaErrorRelay()
         let mediaManager = XmaxRealtimeMediaManager(
-            rtcProvider: rtcProvider
+            rtcProvider: rtcProvider,
+            streamController: streamController,
+            mediaErrorListener: { error in
+                mediaErrorRelay.report(error)
+            }
         )
         let connectionManager = XmaxRealtimeConnectionManager(
             rtcProvider: rtcProvider,
@@ -66,6 +71,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.mediaManager = mediaManager
         self.connectionManager = connectionManager
         self.generationManager = generationManager
+
+        mediaErrorRelay.setListener { [weak self] error in
+            Task {
+                _ = await self?.reportError(error)
+            }
+        }
     }
 
     init(
@@ -163,7 +174,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 position: position
             )
             if hasConnection {
-                await connectionManager.updateRemoteVideoFormat(videoFormat)
+                await synchronizeConnectionAfterReplacement(stream)
             }
             return stream
         } catch {
@@ -201,6 +212,156 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         } catch {
             throw await reportError(error)
         }
+    }
+
+    func createLocalImageStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        guard await connectionManager.currentSessionID == "",
+              state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Local image stream is unavailable during " +
+                        "a realtime connection"
+                )
+            )
+        }
+
+        do {
+            return try await mediaManager.createLocalImageStream(
+                fileURL: fileURL,
+                videoFormat: videoFormat
+            )
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
+    func replaceLocalImageStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        guard state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Local media replacement is unavailable while " +
+                        "realtime is transitioning"
+                )
+            )
+        }
+
+        let hasConnection = await connectionManager.currentSessionID != ""
+        if hasConnection {
+            await stopGeneration()
+        }
+
+        do {
+            let stream = try await mediaManager.replaceLocalImageStream(
+                fileURL: fileURL,
+                videoFormat: videoFormat
+            )
+            if hasConnection {
+                await synchronizeConnectionAfterReplacement(stream)
+            }
+            return stream
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
+    func stopLocalImageStream() async throws {
+        guard await connectionManager.currentSessionID == "",
+              state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Disconnect realtime before stopping the local " +
+                        "image stream"
+                )
+            )
+        }
+        await mediaManager.stopLocalImageStream()
+    }
+
+    func createLocalVideoStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        guard await connectionManager.currentSessionID == "",
+              state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Local video stream is unavailable during " +
+                        "a realtime connection"
+                )
+            )
+        }
+
+        do {
+            return try await mediaManager.createLocalVideoStream(
+                fileURL: fileURL,
+                videoFormat: videoFormat
+            )
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
+    func replaceLocalVideoStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        guard state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Local media replacement is unavailable while " +
+                        "realtime is transitioning"
+                )
+            )
+        }
+
+        let hasConnection = await connectionManager.currentSessionID != ""
+        if hasConnection {
+            await stopGeneration()
+        }
+
+        do {
+            let stream = try await mediaManager.replaceLocalVideoStream(
+                fileURL: fileURL,
+                videoFormat: videoFormat
+            )
+            if hasConnection {
+                await synchronizeConnectionAfterReplacement(stream)
+            }
+            return stream
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
+    func stopLocalVideoStream() async throws {
+        guard await connectionManager.currentSessionID == "",
+              state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Disconnect realtime before stopping the local " +
+                        "video stream"
+                )
+            )
+        }
+        await mediaManager.stopLocalVideoStream()
     }
 
     func connect(
@@ -331,7 +492,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                         )
                     }
                 },
-                onGenerationStarted: {}
+                onGenerationStarted: { [mediaManager] in
+                    try await mediaManager.restartForGeneration()
+                }
             )
             guard operationVersion.isCurrent(version),
                   await connectionManager.currentSessionID == sessionID else {
@@ -378,6 +541,21 @@ private extension XmaxRealtimeManager {
     struct TerminationOperation {
         let id: UUID
         let task: Task<Void, Never>
+    }
+
+    func synchronizeConnectionAfterReplacement(
+        _ stream: RealtimeMediaStream
+    ) async {
+        do {
+            try streamController.setLocalAudioEnabled(
+                await mediaManager.hasAudio
+            )
+        } catch {
+            _ = await reportError(error)
+        }
+        if let videoFormat = stream.videoTrack?.videoFormat {
+            await connectionManager.updateRemoteVideoFormat(videoFormat)
+        }
     }
 
     func beginTermination(
@@ -498,5 +676,28 @@ private final class RealtimeOperationVersion: @unchecked Sendable {
 
     func isCurrent(_ version: UInt64) -> Bool {
         lock.withLock { value == version }
+    }
+}
+
+/// 将同步媒体回调安全转发给实时 Manager 的异步错误监听器。
+private final class RealtimeMediaErrorRelay: @unchecked Sendable {
+
+    // 并发控制
+    private let lock = NSLock()
+
+    // 事件监听
+    private var listener: (@Sendable (XmaxError) -> Void)?
+
+    func setListener(
+        _ listener: @escaping @Sendable (XmaxError) -> Void
+    ) {
+        lock.withLock {
+            self.listener = listener
+        }
+    }
+
+    func report(_ error: XmaxError) {
+        let listener = lock.withLock { listener }
+        listener?(error)
     }
 }

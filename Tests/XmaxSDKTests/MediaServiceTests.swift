@@ -301,6 +301,19 @@ private final class MediaImageProcessingSessionStub:
             contentType: "image/jpeg"
         )
     }
+
+    func makeVideoFrameData(
+        width: Int,
+        height: Int
+    ) throws -> ImageVideoFrameData {
+        ImageVideoFrameData(
+            data: Data(repeating: 0, count: width * height * 4),
+            width: width,
+            height: height,
+            bytesPerRow: width * 4,
+            pixelFormat: .bgra
+        )
+    }
 }
 
 private final class MediaImageProviderStub:

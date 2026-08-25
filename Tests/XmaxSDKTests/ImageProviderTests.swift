@@ -131,6 +131,27 @@ final class ImageProviderTests: XCTestCase {
         XCTAssertFalse(output.data.isEmpty)
     }
 
+    func testProcessingSessionCreatesBGRAFrameData() throws {
+        let sourceData = try encode(
+            makeImage(width: 4, height: 2),
+            type: .png
+        )
+        let session = try ImageProvider().makeProcessingSession(
+            data: sourceData
+        )
+
+        let frameData = try session.makeVideoFrameData(
+            width: 2,
+            height: 2
+        )
+
+        XCTAssertEqual(frameData.width, 2)
+        XCTAssertEqual(frameData.height, 2)
+        XCTAssertEqual(frameData.bytesPerRow, 8)
+        XCTAssertEqual(frameData.pixelFormat, .bgra)
+        XCTAssertEqual(frameData.data.count, 16)
+    }
+
     private func makeImage(width: Int, height: Int) throws -> CGImage {
         let context = try XCTUnwrap(CGContext(
             data: nil,

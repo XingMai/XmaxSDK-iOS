@@ -4,16 +4,13 @@ import Foundation
 final class ApiService: ApiServicing, Sendable {
 
     // API 配置
-    static let defaultBaseURL = URL(
-        string: "https://cloud.xmax.22duck.cn/open/api/v1"
-    )!
+    static let defaultBaseURL = URL(string: "https://cloud.xmax.22duck.cn/open/api/v1")!
     static let defaultTimeoutInterval: TimeInterval = 15
 
+    // 平台资源
     private let apiKey: String
     private let baseURL: URL
     private let timeoutInterval: TimeInterval
-
-    // 平台资源
     private let session: URLSession
 
     /// 创建 API Service。

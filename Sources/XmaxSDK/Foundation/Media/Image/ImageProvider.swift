@@ -214,9 +214,78 @@ private final class CoreGraphicsImageProcessingSession:
             contentType: contentType
         )
     }
+
+    func makeVideoFrameData(
+        width: Int,
+        height: Int
+    ) throws -> ImageVideoFrameData {
+        let outputImage = try ImageProvider().resizeImageToFill(
+            image,
+            targetWidth: width,
+            targetHeight: height
+        )
+        let (byteCount, overflow) = width.multipliedReportingOverflow(
+            by: height
+        )
+        guard !overflow else {
+            throw Self.processingError("Image dimensions are too large")
+        }
+        let (resolvedByteCount, byteOverflow) = byteCount
+            .multipliedReportingOverflow(by: 4)
+        guard !byteOverflow else {
+            throw Self.processingError("Image dimensions are too large")
+        }
+
+        let bytesPerRow = try Self.bytesPerRow(width: width)
+        var data = Data(count: resolvedByteCount)
+        let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue |
+            CGImageAlphaInfo.premultipliedFirst.rawValue
+        let didRender = data.withUnsafeMutableBytes { bytes -> Bool in
+            guard let address = bytes.baseAddress,
+                  let context = CGContext(
+                      data: address,
+                      width: width,
+                      height: height,
+                      bitsPerComponent: 8,
+                      bytesPerRow: bytesPerRow,
+                      space: CGColorSpaceCreateDeviceRGB(),
+                      bitmapInfo: bitmapInfo
+                  ) else {
+                return false
+            }
+
+            context.interpolationQuality = .high
+            context.translateBy(x: 0, y: CGFloat(height))
+            context.scaleBy(x: 1, y: -1)
+            context.draw(
+                outputImage,
+                in: CGRect(x: 0, y: 0, width: width, height: height)
+            )
+            return true
+        }
+        guard didRender else {
+            throw Self.processingError("Failed to create image frame data")
+        }
+
+        return ImageVideoFrameData(
+            data: data,
+            width: width,
+            height: height,
+            bytesPerRow: bytesPerRow,
+            pixelFormat: .bgra
+        )
+    }
 }
 
 private extension CoreGraphicsImageProcessingSession {
+    static func bytesPerRow(width: Int) throws -> Int {
+        let (value, overflow) = width.multipliedReportingOverflow(by: 4)
+        guard !overflow else {
+            throw processingError("Image dimensions are too large")
+        }
+        return value
+    }
+
     func resizedImage(width: Int, height: Int) throws -> CGImage {
         guard width > 0, height > 0 else {
             throw Self.processingError("Image target size is invalid")

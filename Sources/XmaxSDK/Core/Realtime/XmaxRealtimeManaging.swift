@@ -1,3 +1,5 @@
+import Foundation
+
 /// 定义 SDK 对接入方提供的实时媒体与生成控制能力。
 public protocol XmaxRealtimeManaging: Sendable {
 
@@ -41,12 +43,42 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 切换前后置摄像头。
     func switchCamera() async throws -> RealtimeMediaStream
 
+    /// 从本地图片文件创建持续输出帧的媒体流。
+    func createLocalImageStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+    /// 将当前本地媒体流替换为图片流。
+    func replaceLocalImageStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+    /// 停止本地图片流并释放本地预览与 RTC 资源。
+    func stopLocalImageStream() async throws
+
+    /// 从本地视频文件创建循环播放的音视频流。
+    func createLocalVideoStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+    /// 将当前本地媒体流替换为文件视频流。
+    func replaceLocalVideoStream(
+        fileURL: URL,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+    /// 停止本地文件视频流并释放音视频、预览与 RTC 资源。
+    func stopLocalVideoStream() async throws
+
     /// 使用当前 Manager 创建的本地流建立实时连接。
     func connect(
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream
 
-    /// 断开实时连接并保留本地相机预览。
+    /// 断开实时连接并保留当前本地媒体预览。
     func disconnect() async
 
     /// 开始生成，生成中再次调用时更新当前条件。
@@ -74,6 +106,46 @@ public extension XmaxRealtimeManaging {
         try await replaceLocalCameraStream(
             videoFormat: videoFormat,
             position: .front
+        )
+    }
+
+    /// 根据图片原始尺寸创建本地图片流并开始预览。
+    func createLocalImageStream(
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await createLocalImageStream(
+            fileURL: fileURL,
+            videoFormat: nil
+        )
+    }
+
+    /// 根据图片原始尺寸替换当前本地媒体流。
+    func replaceLocalImageStream(
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await replaceLocalImageStream(
+            fileURL: fileURL,
+            videoFormat: nil
+        )
+    }
+
+    /// 根据视频原始尺寸创建本地文件视频流并开始预览。
+    func createLocalVideoStream(
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await createLocalVideoStream(
+            fileURL: fileURL,
+            videoFormat: nil
+        )
+    }
+
+    /// 根据视频原始尺寸替换当前本地媒体流。
+    func replaceLocalVideoStream(
+        fileURL: URL
+    ) async throws -> RealtimeMediaStream {
+        try await replaceLocalVideoStream(
+            fileURL: fileURL,
+            videoFormat: nil
         )
     }
 

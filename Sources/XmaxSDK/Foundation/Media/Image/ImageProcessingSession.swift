@@ -14,4 +14,10 @@ protocol ImageProcessingSession: Sendable {
 
     /// 按指定质量重新编码为 JPEG。
     func encodeJPEG(quality: Int) throws -> ImageProcessingResult
+
+    /// 居中裁剪并转换为可供外部视频源重复使用的像素数据。
+    func makeVideoFrameData(
+        width: Int,
+        height: Int
+    ) throws -> ImageVideoFrameData
 }
