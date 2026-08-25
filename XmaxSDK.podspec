@@ -10,7 +10,7 @@ Pod::Spec.new do |spec|
 
   spec.homepage = 'https://xmax.ai'
   spec.license = { type: 'MIT', file: 'LICENSE' }
-  spec.author = { 'xmax.ai' => 'sdk@xmax.ai' }
+  spec.author = { 'XMAX.AI PTE.LTD' => 'sdk@xmax.ai' }
   spec.source = {
     git: 'https://github.com/XingMai/XmaxSDK-iOS.git',
     tag: spec.version.to_s
