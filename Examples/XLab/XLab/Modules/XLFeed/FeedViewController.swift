@@ -1,10 +1,20 @@
+import PhotosUI
 import SnapKit
 import UIKit
+import UniformTypeIdentifiers
 import XmaxSDK
 
 final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
+    private enum MediaSelectionKind: Sendable {
+        case image
+        case video
+    }
+
     private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
+    private var networkPreflightTask: URLSessionDataTask?
+    private var isPickingMedia = false
+    private var pendingMediaSelectionKind: MediaSelectionKind?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
         .lightContent
@@ -28,6 +38,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         configureScrollView()
         populateFeed()
         configureKeyboardDismissal()
+        performNetworkPreflight()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -105,23 +116,33 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         )
         contentStack.addArrangedSubview(realtimeCard)
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
-        contentStack.addArrangedSubview(FeedPipelineCardView(
+        let videoCard = FeedPipelineCardView(
             sequence: "02",
             modeID: "MODE_02 / VIDEO.FILE",
             statusColor: FeedPalette.blue,
             title: "视频生成管线",
             subtitle: "选择本地视频，将连续画面逐帧送入生成链路。",
             capability: "createLocalVideoStream()"
-        ))
+        )
+        videoCard.isUserInteractionEnabled = true
+        videoCard.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(selectLocalVideo))
+        )
+        contentStack.addArrangedSubview(videoCard)
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
-        contentStack.addArrangedSubview(FeedPipelineCardView(
+        let imageCard = FeedPipelineCardView(
             sequence: "03",
             modeID: "MODE_03 / IMAGE.FILE",
             statusColor: FeedPalette.purple,
             title: "图片生成管线",
             subtitle: "选择本地图片，让静态画面持续流动起来。",
             capability: "createLocalImageStream()"
-        ))
+        )
+        imageCard.isUserInteractionEnabled = true
+        imageCard.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(selectLocalImage))
+        )
+        contentStack.addArrangedSubview(imageCard)
 
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
         contentStack.addArrangedSubview(makeSectionHeader(title: "SDK FEATURES", subtitle: "更多能力与接入示例"))
@@ -166,6 +187,145 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         tapGesture.cancelsTouchesInView = false
         tapGesture.delegate = self
         view.addGestureRecognizer(tapGesture)
+    }
+
+    private func performNetworkPreflight() {
+        guard let url = URL(
+            string: "https://cloud.xmax.22duck.cn/open/api/v1"
+        ) else {
+            return
+        }
+
+        var request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 8
+        )
+        request.httpMethod = "HEAD"
+        networkPreflightTask = URLSession.shared.dataTask(with: request)
+        networkPreflightTask?.resume()
+    }
+
+    @objc private func selectLocalVideo() {
+        presentMediaPicker(for: .video)
+    }
+
+    @objc private func selectLocalImage() {
+        presentMediaPicker(for: .image)
+    }
+
+    private func presentMediaPicker(for kind: MediaSelectionKind) {
+        guard !isPickingMedia else { return }
+        isPickingMedia = true
+        pendingMediaSelectionKind = kind
+
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.selectionLimit = 1
+        configuration.filter = kind == .video ? .videos : .images
+        configuration.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    private func loadSelectedMedia(
+        _ result: PHPickerResult,
+        kind: MediaSelectionKind
+    ) {
+        let provider = result.itemProvider
+        let expectedType = kind == .video ? UTType.movie : UTType.image
+        let registeredType = provider.registeredTypeIdentifiers
+            .compactMap(UTType.init)
+            .first { type in
+                kind == .video
+                    ? type.conforms(to: .movie)
+                    : type.conforms(to: .image)
+            }
+        let typeIdentifier = registeredType?.identifier ?? expectedType.identifier
+        let preferredExtension = registeredType?.preferredFilenameExtension
+
+        provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] sourceURL, error in
+            guard let self else { return }
+            if let error {
+                DispatchQueue.main.async {
+                    self.finishMediaSelection(error: error, kind: kind)
+                }
+                return
+            }
+            guard let sourceURL else {
+                DispatchQueue.main.async {
+                    self.finishMediaSelection(error: FeedMediaSelectionError.unreadableFile, kind: kind)
+                }
+                return
+            }
+
+            do {
+                let localURL = try Self.copySelectedMedia(
+                    sourceURL,
+                    kind: kind,
+                    preferredExtension: preferredExtension
+                )
+                DispatchQueue.main.async {
+                    self.isPickingMedia = false
+                    self.pendingMediaSelectionKind = nil
+                    let input: RealtimeLocalInput = kind == .video
+                        ? .video(localURL)
+                        : .image(localURL)
+                    self.navigationController?.pushViewController(
+                        RealtimeViewController(localInput: input),
+                        animated: true
+                    )
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.finishMediaSelection(error: error, kind: kind)
+                }
+            }
+        }
+    }
+
+    private nonisolated static func copySelectedMedia(
+        _ sourceURL: URL,
+        kind: MediaSelectionKind,
+        preferredExtension: String?
+    ) throws -> URL {
+        let cachesDirectory = FileManager.default.urls(
+            for: .cachesDirectory,
+            in: .userDomainMask
+        )[0]
+        let directory = cachesDirectory.appendingPathComponent(
+            "realtime_input",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+
+        var fileExtension = sourceURL.pathExtension
+        if fileExtension.isEmpty {
+            fileExtension = preferredExtension ?? (kind == .video ? "mp4" : "jpg")
+        }
+        let destination = directory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(fileExtension)
+        try FileManager.default.copyItem(at: sourceURL, to: destination)
+        return destination
+    }
+
+    private func finishMediaSelection(error: Error, kind: MediaSelectionKind) {
+        isPickingMedia = false
+        pendingMediaSelectionKind = nil
+        let fallback = kind == .video ? "读取视频失败，请重试" : "读取图片失败，请重试"
+        let message = error.localizedDescription
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let alert = UIAlertController(
+            title: nil,
+            message: message.isEmpty ? fallback : message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "知道了", style: .default))
+        present(alert, animated: true)
     }
 
     func gestureRecognizer(
@@ -340,5 +500,27 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
 
     @objc private func openRealtime() {
         navigationController?.pushViewController(RealtimeViewController(), animated: true)
+    }
+}
+
+extension FeedViewController: PHPickerViewControllerDelegate {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        guard let result = results.first, let kind = pendingMediaSelectionKind else {
+            isPickingMedia = false
+            pendingMediaSelectionKind = nil
+            picker.dismiss(animated: true)
+            return
+        }
+        picker.dismiss(animated: true) { [weak self] in
+            self?.loadSelectedMedia(result, kind: kind)
+        }
+    }
+}
+
+private enum FeedMediaSelectionError: LocalizedError {
+    case unreadableFile
+
+    var errorDescription: String? {
+        "无法读取所选文件，请重试"
     }
 }

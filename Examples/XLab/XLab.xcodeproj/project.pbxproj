@@ -13,8 +13,8 @@
 		D10000000000000000000002 /* FeedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* FeedViewController.swift */; };
 		D10000000000000000000003 /* FeedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000003 /* FeedComponents.swift */; };
 		E10000000000000000000001 /* StorageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* StorageViewController.swift */; };
-		F10000000000000000000001 /* RealtimeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* RealtimeViewController.swift */; };
 		F01D3860A57CC15F489DE622 /* Pods_XLab.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */; };
+		F10000000000000000000001 /* RealtimeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* RealtimeViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,10 +26,10 @@
 		D20000000000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D20000000000000000000002 /* FeedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewController.swift; sourceTree = "<group>"; };
 		D20000000000000000000003 /* FeedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedComponents.swift; sourceTree = "<group>"; };
-		E20000000000000000000001 /* StorageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageViewController.swift; sourceTree = "<group>"; };
-		F20000000000000000000001 /* RealtimeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeViewController.swift; sourceTree = "<group>"; };
 		D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLab.debug.xcconfig"; path = "Target Support Files/Pods-XLab/Pods-XLab.debug.xcconfig"; sourceTree = "<group>"; };
+		E20000000000000000000001 /* StorageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageViewController.swift; sourceTree = "<group>"; };
 		EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_XLab.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F20000000000000000000001 /* RealtimeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +64,31 @@
 				200000000000000000000003 /* Info.plist */,
 			);
 			path = XLab;
+			sourceTree = "<group>";
+		};
+		400000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				200000000000000000000004 /* XLab.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		690C6DA96B3BD327674A6601 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A556804D3D23FF78A0CA9B77 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */,
+				BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */,
+			);
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		C00000000000000000000001 /* Modules */ = {
@@ -107,31 +132,6 @@
 				D20000000000000000000001 /* Assets.xcassets */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		400000000000000000000003 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				200000000000000000000004 /* XLab.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		690C6DA96B3BD327674A6601 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		A556804D3D23FF78A0CA9B77 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */,
-				BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */,
-			);
-			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -180,7 +180,6 @@
 				Base,
 			);
 			mainGroup = 400000000000000000000001;
-			ORGANIZATIONNAME = "XMAX.AI PTE.LTD";
 			productRefGroup = 400000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -189,6 +188,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D40000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D10000000000000000000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		2A4254CA27D2399F36026A10 /* [CP] Embed Pods Frameworks */ = {
@@ -199,9 +209,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-XLab/Pods-XLab-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-XLab/Pods-XLab-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -231,17 +245,6 @@
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
-		D40000000000000000000001 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D10000000000000000000001 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		700000000000000000000001 /* Sources */ = {
@@ -294,7 +297,7 @@
 				INFOPLIST_FILE = XLab/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -314,7 +317,7 @@
 				INFOPLIST_FILE = XLab/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
