@@ -3,7 +3,7 @@ import Foundation
 import UIKit
 
 /// 定义图片选择、尺寸处理和编码能力。
-protocol MediaServicing: Sendable {
+public protocol MediaServicing: Sendable {
 
     /// 从指定 UIKit 页面呈现系统图库并选择一张图片。
     @MainActor

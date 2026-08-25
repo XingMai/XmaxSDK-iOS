@@ -1,5 +1,5 @@
 /// 视频内容在渲染容器中的显示模式。
-enum VideoContentMode: String, CaseIterable, Sendable {
+public enum VideoContentMode: String, CaseIterable, Sendable {
 
     /// 等比完整显示，允许容器留空。
     case fit

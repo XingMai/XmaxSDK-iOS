@@ -24,6 +24,19 @@ public final class XmaxClient: Sendable {
         self.apiService = apiService
     }
 
+    /// 创建实时媒体 Manager。
+    ///
+    /// 本地相机预览不依赖 API Key 校验；服务端连接能力接入后，相关操作再校验配置。
+    ///
+    /// - Parameter options: 实时生成模型等业务配置。
+    /// - Returns: 可用于创建和控制本地相机流的实时 Manager。
+    @MainActor
+    public func createRealtimeManager(
+        options: RealtimeConfiguration
+    ) -> any XmaxRealtimeManaging {
+        XmaxRealtimeManager(options: options)
+    }
+
     /// 创建文件存储 Manager。
     ///
     /// - Returns: 可用于上传和下载媒体文件的存储 Manager。
@@ -31,5 +44,13 @@ public final class XmaxClient: Sendable {
     public func createStorageManager() throws -> any XmaxStorageManaging {
         try configuration.validate()
         return XmaxStorageManager(apiService: apiService)
+    }
+
+    /// 创建媒体处理 Service。
+    ///
+    /// - Returns: 可用于选择和处理图片的媒体 Service。
+    @MainActor
+    public func createMediaService() -> any MediaServicing {
+        MediaService()
     }
 }
