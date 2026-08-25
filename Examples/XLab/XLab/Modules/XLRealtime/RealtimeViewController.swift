@@ -14,6 +14,7 @@ final class RealtimeViewController: UIViewController {
 
     // 本地配置
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
+    private static let filePreviewTopOffset: CGFloat = 60
     private static let cameraVideoFormat = RealtimeVideoFormat(
         width: 832,
         height: 1472,
@@ -23,12 +24,12 @@ final class RealtimeViewController: UIViewController {
     // 实时资源
     private let localInput: RealtimeLocalInput?
     private lazy var realtimeManager = makeRealtimeManager()
-    private var localCameraStream: RealtimeMediaStream?
+    private var localMediaStream: RealtimeMediaStream?
     private var remoteRealtimeStream: RealtimeMediaStream?
     private var isGenerationRequested = false
 
     // 异步任务
-    private var cameraOperationTask: Task<Void, Never>?
+    private var localMediaOperationTask: Task<Void, Never>?
     private var generationOperationTask: Task<Void, Never>?
     private var stateListenerTask: Task<Void, Never>?
 
@@ -36,7 +37,9 @@ final class RealtimeViewController: UIViewController {
     private var promptKeyboardBottomConstraint: Constraint?
 
     // 界面组件
-    private lazy var previewView = RealtimePreviewBackdropView()
+    private lazy var previewView = RealtimePreviewBackdropView(
+        usesFileLayout: localInput != nil
+    )
 
     private lazy var controlPanelView: RealtimeControlPanelView = {
         let view = RealtimeControlPanelView()
@@ -108,7 +111,7 @@ final class RealtimeViewController: UIViewController {
         configurePromptKeyboard()
         observeKeyboard()
         observeRealtimeState()
-        startCameraIfNeeded()
+        startLocalMedia()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -119,7 +122,7 @@ final class RealtimeViewController: UIViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isMovingFromParent || navigationController?.isBeingDismissed == true {
-            stopCamera()
+            stopLocalMedia()
         }
     }
 
@@ -133,7 +136,13 @@ final class RealtimeViewController: UIViewController {
         previewView.display(localInput)
 
         previewView.snp.makeConstraints { make in
-            make.top.horizontalEdges.equalToSuperview()
+            make.horizontalEdges.equalToSuperview()
+            if localInput == nil {
+                make.top.equalToSuperview()
+            } else {
+                make.top.equalTo(view.safeAreaLayoutGuide)
+                    .offset(Self.filePreviewTopOffset)
+            }
         }
 
         previewView.addSubview(loadingOverlay)
@@ -149,9 +158,9 @@ final class RealtimeViewController: UIViewController {
         backButton.imageView?.contentMode = .scaleAspectFit
         backButton.accessibilityLabel = "返回首页"
         backButton.addTarget(self, action: #selector(goBack), for: .touchUpInside)
-        previewView.addSubview(backButton)
+        view.addSubview(backButton)
 
-        previewView.addSubview(switchCameraButton)
+        view.addSubview(switchCameraButton)
 
         backButton.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
@@ -255,63 +264,88 @@ final class RealtimeViewController: UIViewController {
         )
     }
 
-    private func startCameraIfNeeded() {
-        guard localInput == nil else {
-            return
-        }
-
-        cameraOperationTask?.cancel()
-        cameraOperationTask = Task { @MainActor [weak self] in
+    private func startLocalMedia() {
+        localMediaOperationTask?.cancel()
+        localMediaOperationTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
             do {
-                let stream = try await realtimeManager.createLocalCameraStream(
-                    videoFormat: Self.cameraVideoFormat,
-                    position: .front
-                )
+                let stream = try await createLocalMediaStream()
                 guard !Task.isCancelled else {
-                    try? await realtimeManager.stopLocalCameraStream()
+                    await stopLocalMediaStream()
                     return
                 }
-                localCameraStream = stream
-                previewView.displayCamera(stream.videoTrack)
-                switchCameraButton.isEnabled = true
+                localMediaStream = stream
+                previewView.displayLocal(stream.videoTrack)
+                switchCameraButton.isEnabled = localInput == nil
             } catch {
                 guard !Task.isCancelled else {
                     return
                 }
-                showCameraError(error)
+                showLocalMediaError(error)
             }
         }
     }
 
-    private func stopCamera() {
-        guard localInput == nil else {
-            return
+    private func createLocalMediaStream() async throws -> RealtimeMediaStream {
+        switch localInput {
+        case let .image(fileURL):
+            return try await realtimeManager.createLocalImageStream(
+                fileURL: fileURL
+            )
+        case let .video(fileURL):
+            return try await realtimeManager.createLocalVideoStream(
+                fileURL: fileURL
+            )
+        case nil:
+            return try await realtimeManager.createLocalCameraStream(
+                videoFormat: Self.cameraVideoFormat,
+                position: .front
+            )
         }
+    }
 
+    private func stopLocalMedia() {
         let pendingGenerationOperation = generationOperationTask
         pendingGenerationOperation?.cancel()
         generationOperationTask = nil
         let pendingStateListener = stateListenerTask
         pendingStateListener?.cancel()
         stateListenerTask = nil
-        cameraOperationTask?.cancel()
-        cameraOperationTask = nil
+        localMediaOperationTask?.cancel()
+        localMediaOperationTask = nil
         isGenerationRequested = false
-        localCameraStream = nil
+        localMediaStream = nil
         remoteRealtimeStream = nil
         switchCameraButton.isEnabled = false
         loadingOverlay.hideLoading()
-        previewView.displayCamera(nil)
+        previewView.displayLocal(nil)
         let realtimeManager = realtimeManager
-        Task {
+        Task { [localInput] in
             await pendingStateListener?.value
             await realtimeManager.setStateListener(nil)
             await pendingGenerationOperation?.value
             await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
+            switch localInput {
+            case .image:
+                try? await realtimeManager.stopLocalImageStream()
+            case .video:
+                try? await realtimeManager.stopLocalVideoStream()
+            case nil:
+                try? await realtimeManager.stopLocalCameraStream()
+            }
+        }
+    }
+
+    private func stopLocalMediaStream() async {
+        switch localInput {
+        case .image:
+            try? await realtimeManager.stopLocalImageStream()
+        case .video:
+            try? await realtimeManager.stopLocalVideoStream()
+        case nil:
             try? await realtimeManager.stopLocalCameraStream()
         }
     }
@@ -321,14 +355,14 @@ final class RealtimeViewController: UIViewController {
     ) {
         isGenerationRequested = true
         loadingOverlay.startLoading()
-        guard let localCameraStream else {
+        guard let localMediaStream else {
             isGenerationRequested = false
             loadingOverlay.hideLoading()
             controlPanelView.clearReferenceSelection(
                 matching: reference.id
             )
             showGenerationError(
-                message: "摄像头尚未准备好，请稍后重试。"
+                message: "本地媒体尚未准备好，请稍后重试。"
             )
             return
         }
@@ -344,7 +378,7 @@ final class RealtimeViewController: UIViewController {
                 switch state.connectionState {
                 case .idle, .disconnected, .error:
                     let remoteStream = try await realtimeManager.connect(
-                        localStream: localCameraStream
+                        localStream: localMediaStream
                     )
                     guard !Task.isCancelled else {
                         await realtimeManager.disconnect()
@@ -372,7 +406,7 @@ final class RealtimeViewController: UIViewController {
                 isGenerationRequested = false
                 loadingOverlay.hideLoading()
                 remoteRealtimeStream = nil
-                previewView.displayCamera(localCameraStream.videoTrack)
+                previewView.displayLocal(localMediaStream.videoTrack)
                 await realtimeManager.disconnect()
                 controlPanelView.clearReferenceSelection(
                     matching: reference.id
@@ -386,7 +420,7 @@ final class RealtimeViewController: UIViewController {
         isGenerationRequested = false
         loadingOverlay.hideLoading()
         remoteRealtimeStream = nil
-        previewView.displayCamera(localCameraStream?.videoTrack)
+        previewView.displayLocal(localMediaStream?.videoTrack)
         let previousOperation = generationOperationTask
         previousOperation?.cancel()
         generationOperationTask = Task { [realtimeManager] in
@@ -410,12 +444,12 @@ final class RealtimeViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func showCameraError(_ error: any Error) {
+    private func showLocalMediaError(_ error: any Error) {
         guard presentedViewController == nil else {
             return
         }
         let alert = UIAlertController(
-            title: "摄像头操作失败",
+            title: "本地媒体读取失败",
             message: error.localizedDescription,
             preferredStyle: .alert
         )
@@ -454,13 +488,13 @@ final class RealtimeViewController: UIViewController {
 
     @objc private func switchCamera(_ sender: UIControl) {
         guard localInput == nil,
-              localCameraStream != nil else {
+              localMediaStream != nil else {
             return
         }
 
         sender.isEnabled = false
-        cameraOperationTask?.cancel()
-        cameraOperationTask = Task { @MainActor [weak self, weak sender] in
+        localMediaOperationTask?.cancel()
+        localMediaOperationTask = Task { @MainActor [weak self, weak sender] in
             guard let self else {
                 return
             }
@@ -472,13 +506,13 @@ final class RealtimeViewController: UIViewController {
                 guard !Task.isCancelled else {
                     return
                 }
-                localCameraStream = stream
-                previewView.updateCamera(stream.videoTrack)
+                localMediaStream = stream
+                previewView.updateLocal(stream.videoTrack)
             } catch {
                 guard !Task.isCancelled else {
                     return
                 }
-                showCameraError(error)
+                showLocalMediaError(error)
             }
         }
     }
@@ -666,6 +700,7 @@ private final class RealtimePreviewBackdropView: UIView {
     }
 
     // 播放资源
+    private let videoContentMode: VideoContentMode
     private var mediaPlayer: AVQueuePlayer?
     private var mediaLooper: AVPlayerLooper?
     private var remoteVisibilityVersion: UInt64 = 0
@@ -677,14 +712,14 @@ private final class RealtimePreviewBackdropView: UIView {
     // 媒体视图
     private lazy var localVideoView: XmaxVideoView = {
         let view = XmaxVideoView()
-        view.videoContentMode = .fill
+        view.videoContentMode = videoContentMode
         view.isHidden = true
         return view
     }()
 
     private lazy var remoteVideoView: XmaxVideoView = {
         let view = XmaxVideoView()
-        view.videoContentMode = .fill
+        view.videoContentMode = videoContentMode
         view.backgroundColor = .feed(rgb: 0x101010)
         view.alpha = 0
         view.isHidden = true
@@ -705,8 +740,9 @@ private final class RealtimePreviewBackdropView: UIView {
         return layer
     }()
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(usesFileLayout: Bool) {
+        videoContentMode = usesFileLayout ? .fit : .fill
+        super.init(frame: .zero)
         clipsToBounds = true
         gradientLayer.colors = [
             UIColor.feed(rgb: 0x171719).cgColor,
@@ -772,12 +808,12 @@ private final class RealtimePreviewBackdropView: UIView {
         }
     }
 
-    func displayCamera(_ track: RealtimeVideoTrack?) {
-        updateCamera(track)
+    func displayLocal(_ track: RealtimeVideoTrack?) {
+        updateLocal(track)
         clearRealtime()
     }
 
-    func updateCamera(_ track: RealtimeVideoTrack?) {
+    func updateLocal(_ track: RealtimeVideoTrack?) {
         stopVideo()
         mediaImageView.image = nil
         mediaImageView.isHidden = true
