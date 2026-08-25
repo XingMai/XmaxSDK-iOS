@@ -116,12 +116,13 @@ final class FeedPillView: UIView {
         fontSize: CGFloat = 9,
         horizontalPadding: CGFloat = 11,
         height: CGFloat = 26,
-        letterSpacing: CGFloat = 0.8
+        letterSpacing: CGFloat = 0.8,
+        cornerRadius: CGFloat? = nil
     ) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         self.backgroundColor = backgroundColor
-        layer.cornerRadius = height / 2
+        layer.cornerRadius = cornerRadius ?? height / 2
         layer.borderWidth = 1
         layer.borderColor = borderColor.cgColor
 
@@ -133,6 +134,10 @@ final class FeedPillView: UIView {
             letterSpacing: letterSpacing
         )
         label.textAlignment = .center
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+        setContentHuggingPriority(.required, for: .horizontal)
         addSubview(label)
 
         snp.makeConstraints { make in
@@ -141,6 +146,82 @@ final class FeedPillView: UIView {
         label.snp.makeConstraints { make in
             make.horizontalEdges.equalToSuperview().inset(horizontalPadding)
             make.centerY.equalToSuperview()
+        }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+@MainActor
+enum XLToast {
+    static func show(
+        _ message: String,
+        in hostView: UIView,
+        duration: TimeInterval = 2
+    ) {
+        hostView.subviews
+            .compactMap { $0 as? XLToastView }
+            .forEach { $0.removeFromSuperview() }
+
+        let toastView = XLToastView(message: message)
+        hostView.addSubview(toastView)
+        toastView.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.width.lessThanOrEqualTo(hostView.snp.width).offset(-64)
+        }
+        hostView.layoutIfNeeded()
+
+        UIAccessibility.post(notification: .announcement, argument: message)
+
+        UIView.animate(
+            withDuration: 0.2,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            toastView.alpha = 1
+            toastView.transform = .identity
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(duration, 0)) {
+            guard toastView.superview != nil else { return }
+            UIView.animate(
+                withDuration: 0.2,
+                delay: 0,
+                options: [.beginFromCurrentState, .allowUserInteraction],
+                animations: {
+                    toastView.alpha = 0
+                    toastView.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+                },
+                completion: { _ in toastView.removeFromSuperview() }
+            )
+        }
+    }
+}
+
+private final class XLToastView: UIView {
+    init(message: String) {
+        super.init(frame: .zero)
+        backgroundColor = UIColor.feed(rgb: 0x101010, alpha: 0.6)
+        layer.cornerRadius = 4
+        layer.cornerCurve = .continuous
+        alpha = 0
+        transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+        isUserInteractionEnabled = false
+
+        let label = makeFeedLabel(
+            message,
+            size: 13,
+            weight: .medium,
+            color: .white
+        )
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        addSubview(label)
+        label.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(9)
         }
     }
 
