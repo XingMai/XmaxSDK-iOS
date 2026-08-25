@@ -56,9 +56,11 @@ final class FeedGradientView: UIView {
 }
 
 class FeedCardView: UIView {
-    let contentView = UIView()
-    private let surfaceView: FeedGradientView
+    private let surfaceColors: [UIColor]
     private let cornerRadius: CGFloat
+
+    lazy var contentView = UIView()
+    private lazy var surfaceView = FeedGradientView(colors: surfaceColors)
 
     init(
         colors: [UIColor],
@@ -67,8 +69,8 @@ class FeedCardView: UIView {
         shadowRadius: CGFloat = 20,
         shadowOffset: CGSize = CGSize(width: 0, height: 9)
     ) {
+        surfaceColors = colors
         self.cornerRadius = cornerRadius
-        surfaceView = FeedGradientView(colors: colors)
         super.init(frame: .zero)
 
         layer.shadowColor = UIColor.black.cgColor
@@ -146,82 +148,6 @@ final class FeedPillView: UIView {
         label.snp.makeConstraints { make in
             make.horizontalEdges.equalToSuperview().inset(horizontalPadding)
             make.centerY.equalToSuperview()
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-}
-
-@MainActor
-enum XLToast {
-    static func show(
-        _ message: String,
-        in hostView: UIView,
-        duration: TimeInterval = 2
-    ) {
-        hostView.subviews
-            .compactMap { $0 as? XLToastView }
-            .forEach { $0.removeFromSuperview() }
-
-        let toastView = XLToastView(message: message)
-        hostView.addSubview(toastView)
-        toastView.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.width.lessThanOrEqualTo(hostView.snp.width).offset(-64)
-        }
-        hostView.layoutIfNeeded()
-
-        UIAccessibility.post(notification: .announcement, argument: message)
-
-        UIView.animate(
-            withDuration: 0.2,
-            delay: 0,
-            options: [.beginFromCurrentState, .allowUserInteraction]
-        ) {
-            toastView.alpha = 1
-            toastView.transform = .identity
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + max(duration, 0)) {
-            guard toastView.superview != nil else { return }
-            UIView.animate(
-                withDuration: 0.2,
-                delay: 0,
-                options: [.beginFromCurrentState, .allowUserInteraction],
-                animations: {
-                    toastView.alpha = 0
-                    toastView.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
-                },
-                completion: { _ in toastView.removeFromSuperview() }
-            )
-        }
-    }
-}
-
-private final class XLToastView: UIView {
-    init(message: String) {
-        super.init(frame: .zero)
-        backgroundColor = UIColor.feed(rgb: 0x101010, alpha: 0.6)
-        layer.cornerRadius = 4
-        layer.cornerCurve = .continuous
-        alpha = 0
-        transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
-        isUserInteractionEnabled = false
-
-        let label = makeFeedLabel(
-            message,
-            size: 13,
-            weight: .medium,
-            color: .white
-        )
-        label.textAlignment = .center
-        label.numberOfLines = 0
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        addSubview(label)
-        label.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(9)
         }
     }
 
@@ -311,8 +237,39 @@ final class FeedRuntimeMetricView: UIView {
 final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
 
-    private let apiKeyTextField = UITextField()
-    private let visibilityButton = UIButton(type: .custom)
+    private lazy var apiKeyTextField: UITextField = {
+        let textField = UITextField()
+        textField.attributedPlaceholder = NSAttributedString(
+            string: "输入 Xmax API Key",
+            attributes: [
+                .font: feedFont(ofSize: 10),
+                .foregroundColor: UIColor.feed(rgb: 0x607080, alpha: 0.50)
+            ]
+        )
+        textField.text = UserDefaults.standard.string(forKey: Self.apiKeyStorageKey)
+        textField.textColor = .feed(rgb: 0xD6DEE9)
+        textField.font = feedFont(ofSize: 10)
+        textField.isSecureTextEntry = true
+        textField.autocapitalizationType = .none
+        textField.autocorrectionType = .no
+        textField.spellCheckingType = .no
+        textField.smartDashesType = .no
+        textField.smartQuotesType = .no
+        textField.returnKeyType = .done
+        textField.delegate = self
+        textField.addTarget(self, action: #selector(apiKeyDidChange), for: .editingChanged)
+        return textField
+    }()
+
+    private lazy var visibilityButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "api_key_visible"), for: .normal)
+        button.imageView?.contentMode = .scaleAspectFit
+        button.alpha = 0.78
+        button.accessibilityLabel = "显示 API Key"
+        button.addTarget(self, action: #selector(toggleApiKeyVisibility), for: .touchUpInside)
+        return button
+    }()
 
     init() {
         super.init(
@@ -353,53 +310,6 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
         passwordField.layer.borderWidth = 1
         passwordField.layer.borderColor = UIColor.feed(rgb: 0xFFFFFF, alpha: 0.11).cgColor
 
-        apiKeyTextField.translatesAutoresizingMaskIntoConstraints = false
-        apiKeyTextField.attributedPlaceholder = NSAttributedString(
-            string: "输入 Xmax API Key",
-            attributes: [
-                .font: UIFont.systemFont(
-                    ofSize: 10 * FeedTypography.visualScale
-                ),
-                .foregroundColor: UIColor.feed(
-                    rgb: 0x607080,
-                    alpha: 0.50
-                )
-            ]
-        )
-        apiKeyTextField.text = UserDefaults.standard.string(
-            forKey: Self.apiKeyStorageKey
-        )
-        apiKeyTextField.textColor = .feed(rgb: 0xD6DEE9)
-        apiKeyTextField.font = .systemFont(
-            ofSize: 10 * FeedTypography.visualScale
-        )
-        apiKeyTextField.isSecureTextEntry = true
-        apiKeyTextField.autocapitalizationType = .none
-        apiKeyTextField.autocorrectionType = .no
-        apiKeyTextField.spellCheckingType = .no
-        apiKeyTextField.smartDashesType = .no
-        apiKeyTextField.smartQuotesType = .no
-        apiKeyTextField.returnKeyType = .done
-        apiKeyTextField.delegate = self
-        apiKeyTextField.addTarget(
-            self,
-            action: #selector(apiKeyDidChange),
-            for: .editingChanged
-        )
-
-        visibilityButton.translatesAutoresizingMaskIntoConstraints = false
-        visibilityButton.setImage(
-            UIImage(named: "api_key_visible"),
-            for: .normal
-        )
-        visibilityButton.imageView?.contentMode = .scaleAspectFit
-        visibilityButton.alpha = 0.78
-        visibilityButton.accessibilityLabel = "显示 API Key"
-        visibilityButton.addTarget(
-            self,
-            action: #selector(toggleApiKeyVisibility),
-            for: .touchUpInside
-        )
         passwordField.addSubview(apiKeyTextField)
         passwordField.addSubview(visibilityButton)
 
@@ -736,7 +646,10 @@ final class FeedFeatureCardView: FeedCardView {
         )
         let header = feedHorizontalStack([categoryRow, feedFlexibleSpacer(), available])
 
-        let iconTile = FeedGradientView(colors: [accentColor.withAlphaComponent(0.28), .feed(rgb: 0x1B1712, alpha: 0.28)])
+        let iconTile = FeedGradientView(colors: [
+            accentColor.withAlphaComponent(0.28),
+            .feed(rgb: 0x1B1712, alpha: 0.28)
+        ])
         iconTile.translatesAutoresizingMaskIntoConstraints = false
         iconTile.layer.cornerRadius = 14
         iconTile.layer.borderWidth = 1
@@ -777,7 +690,9 @@ final class FeedFeatureCardView: FeedCardView {
                 height: 24,
                 horizontalPadding: 9,
                 cornerRadius: 8,
-                backgroundColor: tag == highlightedTag ? .white.withAlphaComponent(0.07) : .feed(rgb: 0x080C12, alpha: 0.40)
+                backgroundColor: tag == highlightedTag
+                    ? .white.withAlphaComponent(0.07)
+                    : .feed(rgb: 0x080C12, alpha: 0.40)
             )
         }
         let tagsSpacer = feedFlexibleSpacer()
@@ -838,6 +753,14 @@ final class FeedFeatureCardView: FeedCardView {
 }
 
 @MainActor
+func feedFont(
+    ofSize size: CGFloat,
+    weight: UIFont.Weight = .regular
+) -> UIFont {
+    .systemFont(ofSize: size * FeedTypography.visualScale, weight: weight)
+}
+
+@MainActor
 func makeFeedLabel(
     _ text: String,
     size: CGFloat,
@@ -847,10 +770,7 @@ func makeFeedLabel(
 ) -> UILabel {
     let label = UILabel()
     label.translatesAutoresizingMaskIntoConstraints = false
-    label.font = .systemFont(
-        ofSize: size * FeedTypography.visualScale,
-        weight: weight
-    )
+    label.font = feedFont(ofSize: size, weight: weight)
     label.textColor = color
     if let letterSpacing {
         label.attributedText = NSAttributedString(

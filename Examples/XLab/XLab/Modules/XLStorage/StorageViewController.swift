@@ -13,50 +13,245 @@ final class StorageViewController: UIViewController {
         var title: String { self == .image ? "图片" : "视频" }
     }
 
+    private enum Layout {
+        static let cardContentInset: CGFloat = 17
+        static let sectionTitleFontSize: CGFloat = 13.5
+        static let compactControlHeight: CGFloat = 26
+        static let compactControlHorizontalPadding: CGFloat = 8
+        static let compactControlCornerRadius: CGFloat = 9
+        static let resultURLInset: CGFloat = 10
+    }
+
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
     private let orange = FeedPalette.orange
-    private let topBar = UIView()
-    private let scrollView = UIScrollView()
-    private let contentStack = UIStackView()
-    private let pickerContainer = UIView()
-    private let emptyPickerContent = UIView()
-    private let imagePreview = UIImageView()
-    private let videoPreview = StorageVideoPreviewView()
-    private let pickerButton = UIButton(type: .custom)
-    private let reselectButton = UIButton(type: .custom)
-    private let videoSafetyHint = UILabel()
-    private let typeValue = UILabel()
-    private let resolutionValue = UILabel()
-    private let sizeValue = UILabel()
-    private let uploadProgressRow = UIStackView()
-    private let uploadProgressLabel = UILabel()
-    private let uploadModeLabel = UILabel()
-    private let uploadProgressView = UIProgressView(progressViewStyle: .default)
-    private let imageActions = UIStackView()
-    private let safetyUploadButton = UIButton(type: .custom)
-    private let normalUploadButton = UIButton(type: .custom)
-    private let videoUploadButton = UIButton(type: .custom)
-    private let errorContainer = UIView()
-    private let errorLabel = UILabel()
-    private let resultCard = FeedCardView(
-        colors: [.feed(rgb: 0x1B1712, alpha: 0.93), .feed(rgb: 0x111216, alpha: 0.91)],
-        cornerRadius: 18,
-        borderColor: FeedPalette.orange.withAlphaComponent(0.35),
-        shadowRadius: 18,
-        shadowOffset: CGSize(width: 0, height: 8)
-    )
-    private let elapsedValue = UILabel()
-    private let remoteURLContainer = UIView()
-    private let remoteURLLabel = UILabel()
-    private let copyButton = UIButton(type: .custom)
 
+    // 媒体状态
     private var selectedFileURL: URL?
     private var selectedMediaKind: MediaKind = .image
+
+    // 上传状态
     private var uploadedURL: URL?
     private var uploadTask: Task<Void, Never>?
     private var isPicking = false
     private var isUploading = false
     private var activeUploadUsesSafetyCheck = false
+
+    // 界面组件
+    private lazy var topBar = UIView()
+
+    private lazy var scrollView: UIScrollView = {
+        let view = UIScrollView()
+        view.showsVerticalScrollIndicator = false
+        view.alwaysBounceVertical = true
+        return view
+    }()
+
+    private lazy var contentStack: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.spacing = 0
+        return stack
+    }()
+
+    private lazy var pickerContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = .feed(rgb: 0x0B0C0F, alpha: 0.56)
+        view.layer.cornerRadius = 14
+        view.layer.borderWidth = 1
+        view.layer.borderColor = orange.withAlphaComponent(0.15).cgColor
+        view.clipsToBounds = true
+        view.snp.makeConstraints { make in
+            make.height.equalTo(176)
+        }
+        return view
+    }()
+
+    private lazy var emptyPickerContent = UIView()
+
+    private lazy var imagePreview: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+
+    private lazy var videoPreview = StorageVideoPreviewView()
+
+    private lazy var pickerButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.accessibilityLabel = "选择图片或视频"
+        button.addTarget(self, action: #selector(selectMedia), for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var reselectButton: UIButton = {
+        let button = UIButton(type: .custom)
+        configureOutlineButton(
+            button,
+            title: "重新上传",
+            height: Layout.compactControlHeight,
+            fontSize: 8,
+            horizontalPadding: Layout.compactControlHorizontalPadding
+        )
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        button.addTarget(self, action: #selector(selectMedia), for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var videoSafetyHint: UILabel = {
+        let label = UILabel()
+        label.font = feedFont(ofSize: 9)
+        label.textColor = .feed(rgb: 0x596678)
+        label.text = "视频生成暂不支持安全检测"
+        return label
+    }()
+
+    private lazy var typeValue: UILabel = {
+        let label = UILabel()
+        configureMetadataValueLabel(label, fontSize: 10)
+        return label
+    }()
+
+    private lazy var resolutionValue: UILabel = {
+        let label = UILabel()
+        configureMetadataValueLabel(label, fontSize: 9)
+        return label
+    }()
+
+    private lazy var sizeValue: UILabel = {
+        let label = UILabel()
+        configureMetadataValueLabel(label, fontSize: 9)
+        return label
+    }()
+
+    private lazy var uploadProgressRow: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.alignment = .center
+        return stack
+    }()
+
+    private lazy var uploadProgressLabel: UILabel = {
+        let label = UILabel()
+        label.font = feedFont(ofSize: 10)
+        label.textColor = orange
+        return label
+    }()
+
+    private lazy var uploadModeLabel: UILabel = {
+        let label = UILabel()
+        label.font = feedFont(ofSize: 9)
+        label.textColor = .feed(rgb: 0x657386)
+        return label
+    }()
+
+    private lazy var uploadProgressView: UIProgressView = {
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.progressTintColor = orange
+        progressView.trackTintColor = orange.withAlphaComponent(0.14)
+        progressView.layer.cornerRadius = 2.5
+        progressView.clipsToBounds = true
+        progressView.snp.makeConstraints { make in
+            make.height.equalTo(5)
+        }
+        return progressView
+    }()
+
+    private lazy var imageActions: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 10
+        stack.distribution = .fillEqually
+        return stack
+    }()
+
+    private lazy var safetyUploadButton: UIButton = {
+        let button = UIButton(type: .custom)
+        configureOutlineButton(button, title: "安全检测上传")
+        button.addTarget(self, action: #selector(uploadWithSafetyCheck), for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var normalUploadButton: UIButton = {
+        let button = UIButton(type: .custom)
+        configureOutlineButton(button, title: "普通上传")
+        button.addTarget(self, action: #selector(uploadNormally), for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var videoUploadButton: UIButton = {
+        let button = UIButton(type: .custom)
+        configureOutlineButton(button, title: "上传并获取地址")
+        button.addTarget(self, action: #selector(uploadNormally), for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var errorContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = .feed(rgb: 0xFF5F68, alpha: 0.16)
+        view.layer.cornerRadius = 11
+        view.layer.borderWidth = 1
+        view.layer.borderColor = UIColor.feed(rgb: 0xFF6B72, alpha: 0.22).cgColor
+        view.clipsToBounds = true
+        return view
+    }()
+
+    private lazy var errorLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 10)
+        label.textColor = .feed(rgb: 0xFFB5B5)
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.setContentHuggingPriority(.required, for: .vertical)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        return label
+    }()
+
+    private lazy var resultCard = FeedCardView(
+        colors: [.feed(rgb: 0x1B1712, alpha: 0.93), .feed(rgb: 0x111216, alpha: 0.91)],
+        cornerRadius: 18,
+        borderColor: orange.withAlphaComponent(0.35),
+        shadowRadius: 18,
+        shadowOffset: CGSize(width: 0, height: 8)
+    )
+
+    private lazy var elapsedValue: UILabel = {
+        let label = UILabel()
+        label.font = feedFont(ofSize: 10, weight: .bold)
+        label.textColor = orange
+        return label
+    }()
+
+    private lazy var remoteURLContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = .feed(rgb: 0x0B0C0F, alpha: 0.58)
+        view.layer.cornerRadius = 11
+        view.layer.borderWidth = 1
+        view.layer.borderColor = orange.withAlphaComponent(0.13).cgColor
+        view.clipsToBounds = true
+        view.snp.makeConstraints { make in
+            make.height.greaterThanOrEqualTo(58)
+        }
+        return view
+    }()
+
+    private lazy var remoteURLLabel: UILabel = {
+        let label = UILabel()
+        label.font = feedFont(ofSize: 10)
+        label.textColor = .feed(rgb: 0xCDBEAF)
+        label.numberOfLines = 0
+        label.lineBreakMode = .byCharWrapping
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        return label
+    }()
+
+    private lazy var copyButton: UIButton = {
+        let button = UIButton(type: .custom)
+        configureOutlineButton(button, title: "复制地址")
+        button.addTarget(self, action: #selector(copyUploadedURL), for: .touchUpInside)
+        return button
+    }()
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
 
@@ -138,12 +333,7 @@ final class StorageViewController: UIViewController {
     }
 
     private func configureScrollView() {
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.alwaysBounceVertical = true
         view.addSubview(scrollView)
-        contentStack.axis = .vertical
-        contentStack.alignment = .fill
-        contentStack.spacing = 0
         scrollView.addSubview(contentStack)
         scrollView.snp.makeConstraints { make in
             make.top.equalTo(topBar.snp.bottom)
@@ -162,17 +352,6 @@ final class StorageViewController: UIViewController {
         contentStack.addArrangedSubview(makePipelineOverviewCard())
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         contentStack.addArrangedSubview(makeFilePreviewCard())
-        errorContainer.backgroundColor = .feed(rgb: 0xFF5F68, alpha: 0.16)
-        errorContainer.layer.cornerRadius = 11
-        errorContainer.layer.borderWidth = 1
-        errorContainer.layer.borderColor = UIColor.feed(rgb: 0xFF6B72, alpha: 0.22).cgColor
-        errorContainer.clipsToBounds = true
-        errorLabel.font = .systemFont(ofSize: 10)
-        errorLabel.textColor = .feed(rgb: 0xFFB5B5)
-        errorLabel.numberOfLines = 0
-        errorLabel.lineBreakMode = .byWordWrapping
-        errorLabel.setContentHuggingPriority(.required, for: .vertical)
-        errorLabel.setContentCompressionResistancePriority(.required, for: .vertical)
         errorContainer.addSubview(errorLabel)
         errorLabel.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(UIEdgeInsets(top: 11, left: 12, bottom: 11, right: 12))
@@ -191,17 +370,35 @@ final class StorageViewController: UIViewController {
             shadowRadius: 20, shadowOffset: CGSize(width: 0, height: 9)
         )
         let dot = feedDot(color: orange, size: 6, glows: false)
-        let eyebrow = makeFeedLabel("STORAGE PIPELINE", size: 9, weight: .bold, color: orange, letterSpacing: 1)
+        let eyebrow = makeFeedLabel(
+            "STORAGE PIPELINE",
+            size: 9,
+            weight: .bold,
+            color: orange,
+            letterSpacing: 1
+        )
         let ready = FeedPillView(
             text: "READY", foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.13),
             borderColor: .clear, fontSize: 8, horizontalPadding: 9, height: 23
         )
-        let header = feedHorizontalStack([feedHorizontalStack([dot, eyebrow], spacing: 7), feedFlexibleSpacer(), ready])
-        let title = makeFeedLabel("把本地媒体交给 XmaxSDK", size: 18, weight: .bold, color: .feed(rgb: 0xF4EEE6))
+        let header = feedHorizontalStack(
+            [feedHorizontalStack([dot, eyebrow], spacing: 7), feedFlexibleSpacer(), ready]
+        )
+        let title = makeFeedLabel(
+            "把本地媒体交给 XmaxSDK",
+            size: 18,
+            weight: .bold,
+            color: .feed(rgb: 0xF4EEE6)
+        )
         let subtitleText = "选择图片或视频，上传后获取可直接使用的远程地址。"
         let subtitle = makeFeedLabel(subtitleText, size: 10, color: .feed(rgb: 0x8E8377))
         subtitle.numberOfLines = 0
-        subtitle.attributedText = feedAttributedText(subtitleText, font: subtitle.font, color: subtitle.textColor, lineHeight: 17)
+        subtitle.attributedText = feedAttributedText(
+            subtitleText,
+            font: subtitle.font,
+            color: subtitle.textColor,
+            lineHeight: 17
+        )
         let localFile = makeFeedLabel("LOCAL FILE", size: 8, weight: .bold, color: .feed(rgb: 0x9A8B7A))
         let firstSeparator = makeFeedLabel("—", size: 9, color: .feed(rgb: 0x66513A))
         let sdk = makeFeedLabel("XMAX SDK", size: 8, weight: .bold, color: orange)
@@ -221,7 +418,9 @@ final class StorageViewController: UIViewController {
         stack.setCustomSpacing(7, after: title)
         stack.setCustomSpacing(15, after: subtitle)
         card.contentView.addSubview(stack)
-        stack.snp.makeConstraints { make in make.edges.equalToSuperview().inset(17) }
+        stack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(Layout.cardContentInset)
+        }
         return card
     }
 
@@ -231,22 +430,14 @@ final class StorageViewController: UIViewController {
             cornerRadius: 18, borderColor: orange.withAlphaComponent(0.18),
             shadowRadius: 16, shadowOffset: CGSize(width: 0, height: 7)
         )
-        let step = FeedPillView(
-            text: "01", foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.13),
-            borderColor: orange.withAlphaComponent(0.27), fontSize: 9,
-            horizontalPadding: 8, height: 22, letterSpacing: 0
+        let step = makeStepPill("01")
+        let title = makeFeedLabel(
+            "文件预览",
+            size: Layout.sectionTitleFontSize,
+            weight: .bold,
+            color: .feed(rgb: 0xF2ECE4)
         )
-        let title = makeFeedLabel("文件预览", size: 13.5, weight: .bold, color: .feed(rgb: 0xF2ECE4))
-        configureOutlineButton(reselectButton, title: "重新上传", height: 26)
-        reselectButton.titleLabel?.font = .systemFont(ofSize: 8 * FeedTypography.visualScale, weight: .bold)
-        reselectButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
-        reselectButton.setContentHuggingPriority(.required, for: .horizontal)
-        reselectButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        reselectButton.addTarget(self, action: #selector(selectMedia), for: .touchUpInside)
         let header = feedHorizontalStack([step, title, feedFlexibleSpacer(), reselectButton], spacing: 9)
-        videoSafetyHint.font = .systemFont(ofSize: 9 * FeedTypography.visualScale)
-        videoSafetyHint.textColor = .feed(rgb: 0x596678)
-        videoSafetyHint.text = "视频生成暂不支持安全检测"
         configurePicker()
         let typeMetric = makeMetadataView(label: "type", valueLabel: typeValue)
         let resolutionMetric = makeMetadataView(label: "resolution", valueLabel: resolutionValue)
@@ -266,17 +457,13 @@ final class StorageViewController: UIViewController {
         stack.setCustomSpacing(7, after: uploadProgressRow)
         stack.setCustomSpacing(16, after: uploadProgressView)
         card.contentView.addSubview(stack)
-        stack.snp.makeConstraints { make in make.edges.equalToSuperview().inset(17) }
+        stack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(Layout.cardContentInset)
+        }
         return card
     }
 
     private func configurePicker() {
-        pickerContainer.backgroundColor = .feed(rgb: 0x0B0C0F, alpha: 0.56)
-        pickerContainer.layer.cornerRadius = 14
-        pickerContainer.layer.borderWidth = 1
-        pickerContainer.layer.borderColor = orange.withAlphaComponent(0.15).cgColor
-        pickerContainer.clipsToBounds = true
-        pickerContainer.snp.makeConstraints { make in make.height.equalTo(176) }
         let plus = makeFeedLabel("+", size: 22, color: orange)
         plus.textAlignment = .center
         plus.backgroundColor = orange.withAlphaComponent(0.09)
@@ -285,7 +472,12 @@ final class StorageViewController: UIViewController {
         plus.layer.borderColor = orange.withAlphaComponent(0.24).cgColor
         plus.clipsToBounds = true
         plus.snp.makeConstraints { make in make.size.equalTo(42) }
-        let pickerTitle = makeFeedLabel("点击选择图片或视频", size: 12, weight: .bold, color: .feed(rgb: 0x9D9185))
+        let pickerTitle = makeFeedLabel(
+            "点击选择图片或视频",
+            size: 12,
+            weight: .bold,
+            color: .feed(rgb: 0x9D9185)
+        )
         let pickerType = makeFeedLabel("IMAGE  /  VIDEO", size: 9, color: .feed(rgb: 0x62584E), letterSpacing: 0.8)
         let pickerStack = feedVerticalStack([plus, pickerTitle, pickerType])
         pickerStack.alignment = .center
@@ -293,7 +485,6 @@ final class StorageViewController: UIViewController {
         pickerStack.setCustomSpacing(5, after: pickerTitle)
         emptyPickerContent.addSubview(pickerStack)
         pickerStack.snp.makeConstraints { make in make.center.equalToSuperview() }
-        imagePreview.contentMode = .scaleAspectFit
         pickerContainer.addSubview(emptyPickerContent)
         pickerContainer.addSubview(imagePreview)
         pickerContainer.addSubview(videoPreview)
@@ -301,80 +492,67 @@ final class StorageViewController: UIViewController {
         [emptyPickerContent, imagePreview, videoPreview, pickerButton].forEach { child in
             child.snp.makeConstraints { make in make.edges.equalToSuperview() }
         }
-        pickerButton.accessibilityLabel = "选择图片或视频"
-        pickerButton.addTarget(self, action: #selector(selectMedia), for: .touchUpInside)
     }
 
     private func configureUploadControls() {
-        uploadProgressRow.axis = .horizontal
-        uploadProgressRow.alignment = .center
-        uploadProgressLabel.font = .systemFont(ofSize: 10 * FeedTypography.visualScale)
-        uploadProgressLabel.textColor = orange
-        uploadModeLabel.font = .systemFont(ofSize: 9 * FeedTypography.visualScale)
-        uploadModeLabel.textColor = .feed(rgb: 0x657386)
         uploadProgressRow.addArrangedSubview(uploadProgressLabel)
         uploadProgressRow.addArrangedSubview(feedFlexibleSpacer())
         uploadProgressRow.addArrangedSubview(uploadModeLabel)
-        uploadProgressView.progressTintColor = orange
-        uploadProgressView.trackTintColor = orange.withAlphaComponent(0.14)
-        uploadProgressView.layer.cornerRadius = 2.5
-        uploadProgressView.clipsToBounds = true
-        uploadProgressView.snp.makeConstraints { make in make.height.equalTo(5) }
-        configureOutlineButton(safetyUploadButton, title: "安全检测上传")
-        configureOutlineButton(normalUploadButton, title: "普通上传")
-        configureOutlineButton(videoUploadButton, title: "上传并获取地址")
-        safetyUploadButton.addTarget(self, action: #selector(uploadWithSafetyCheck), for: .touchUpInside)
-        normalUploadButton.addTarget(self, action: #selector(uploadNormally), for: .touchUpInside)
-        videoUploadButton.addTarget(self, action: #selector(uploadNormally), for: .touchUpInside)
-        imageActions.axis = .horizontal
-        imageActions.spacing = 10
-        imageActions.distribution = .fillEqually
         imageActions.addArrangedSubview(safetyUploadButton)
         imageActions.addArrangedSubview(normalUploadButton)
     }
 
     private func configureResultCard() {
-        let step = FeedPillView(
-            text: "02", foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.13),
-            borderColor: orange.withAlphaComponent(0.27), fontSize: 9,
-            horizontalPadding: 8, height: 22, letterSpacing: 0
+        let step = makeStepPill("02")
+        let title = makeFeedLabel(
+            "上传结果",
+            size: Layout.sectionTitleFontSize,
+            weight: .bold,
+            color: .feed(rgb: 0xF2ECE4)
         )
-        let title = makeFeedLabel("上传结果", size: 13.5, weight: .bold, color: .feed(rgb: 0xF2ECE4))
         let success = FeedPillView(
             text: "SUCCESS", foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.08),
-            borderColor: orange.withAlphaComponent(0.28), fontSize: 8, horizontalPadding: 8,
-            height: 26, cornerRadius: 9
+            borderColor: orange.withAlphaComponent(0.28), fontSize: 8,
+            horizontalPadding: Layout.compactControlHorizontalPadding,
+            height: Layout.compactControlHeight,
+            cornerRadius: Layout.compactControlCornerRadius
         )
         let header = feedHorizontalStack([step, title, feedFlexibleSpacer(), success], spacing: 9)
         let elapsedTitle = makeFeedLabel("上传耗时", size: 11, color: .feed(rgb: 0x718095))
-        elapsedValue.font = .systemFont(ofSize: 10 * FeedTypography.visualScale, weight: .bold)
-        elapsedValue.textColor = orange
         let elapsedRow = feedHorizontalStack([elapsedTitle, feedFlexibleSpacer(), elapsedValue])
-        let urlTitle = makeFeedLabel("REMOTE URL", size: 9, weight: .bold, color: .feed(rgb: 0x667589), letterSpacing: 0.8)
-        remoteURLLabel.font = .systemFont(ofSize: 10 * FeedTypography.visualScale)
-        remoteURLLabel.textColor = .feed(rgb: 0xCDBEAF)
-        remoteURLLabel.numberOfLines = 0
-        remoteURLLabel.lineBreakMode = .byCharWrapping
-        remoteURLLabel.setContentCompressionResistancePriority(.required, for: .vertical)
-        remoteURLContainer.backgroundColor = .feed(rgb: 0x0B0C0F, alpha: 0.58)
-        remoteURLContainer.layer.cornerRadius = 11
-        remoteURLContainer.layer.borderWidth = 1
-        remoteURLContainer.layer.borderColor = orange.withAlphaComponent(0.13).cgColor
-        remoteURLContainer.clipsToBounds = true
+        let urlTitle = makeFeedLabel(
+            "REMOTE URL",
+            size: 9,
+            weight: .bold,
+            color: .feed(rgb: 0x667589),
+            letterSpacing: 0.8
+        )
         remoteURLContainer.addSubview(remoteURLLabel)
-        remoteURLContainer.snp.makeConstraints { make in make.height.greaterThanOrEqualTo(58) }
         remoteURLLabel.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(10)
+            make.edges.equalToSuperview().inset(Layout.resultURLInset)
         }
-        configureOutlineButton(copyButton, title: "复制地址")
-        copyButton.addTarget(self, action: #selector(copyUploadedURL), for: .touchUpInside)
         let stack = feedVerticalStack([header, elapsedRow, urlTitle, remoteURLContainer, copyButton])
         stack.setCustomSpacing(15, after: header)
         stack.setCustomSpacing(14, after: elapsedRow)
         stack.setCustomSpacing(7, after: urlTitle)
         stack.setCustomSpacing(12, after: remoteURLContainer)
         resultCard.contentView.addSubview(stack)
-        stack.snp.makeConstraints { make in make.edges.equalToSuperview().inset(17) }
+        stack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(Layout.cardContentInset)
+        }
+    }
+
+    private func makeStepPill(_ text: String) -> FeedPillView {
+        FeedPillView(
+            text: text,
+            foregroundColor: orange,
+            backgroundColor: orange.withAlphaComponent(0.13),
+            borderColor: orange.withAlphaComponent(0.27),
+            fontSize: 9,
+            horizontalPadding: 8,
+            height: 22,
+            letterSpacing: 0
+        )
     }
 
     private func makeMetadataView(label: String, valueLabel: UILabel) -> UIView {
@@ -382,12 +560,6 @@ final class StorageViewController: UIViewController {
         container.backgroundColor = .feed(rgb: 0x0C0D10, alpha: 0.54)
         container.layer.cornerRadius = 10
         let labelView = makeFeedLabel(label, size: 9, color: .feed(rgb: 0x6E6257))
-        let valueSize: CGFloat = label == "type" ? 10 : 9
-        valueLabel.font = .systemFont(ofSize: valueSize * FeedTypography.visualScale, weight: .bold)
-        valueLabel.textColor = .feed(rgb: 0xB9AA9B)
-        valueLabel.text = "--"
-        valueLabel.adjustsFontSizeToFitWidth = true
-        valueLabel.minimumScaleFactor = 0.72
         let stack = feedVerticalStack([labelView, valueLabel], spacing: 4)
         container.addSubview(stack)
         container.snp.makeConstraints { make in make.height.equalTo(51) }
@@ -399,10 +571,40 @@ final class StorageViewController: UIViewController {
         return container
     }
 
-    private func configureOutlineButton(_ button: UIButton, title: String, height: CGFloat = 38) {
+    private func configureMetadataValueLabel(
+        _ label: UILabel,
+        fontSize: CGFloat
+    ) {
+        label.font = feedFont(ofSize: fontSize, weight: .bold)
+        label.textColor = .feed(rgb: 0xB9AA9B)
+        label.text = "--"
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.72
+    }
+
+    private func configureOutlineButton(
+        _ button: UIButton,
+        title: String,
+        height: CGFloat = 38,
+        fontSize: CGFloat = 11,
+        horizontalPadding: CGFloat = 16
+    ) {
+        var configuration = UIButton.Configuration.plain()
+        configuration.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: horizontalPadding,
+            bottom: 0,
+            trailing: horizontalPadding
+        )
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer {
+            incoming in
+            var outgoing = incoming
+            outgoing.font = feedFont(ofSize: fontSize, weight: .bold)
+            return outgoing
+        }
+        configuration.baseForegroundColor = orange
+        button.configuration = configuration
         button.setTitle(title, for: .normal)
-        button.setTitleColor(orange, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 11 * FeedTypography.visualScale, weight: .bold)
         button.backgroundColor = orange.withAlphaComponent(0.08)
         button.layer.cornerRadius = height == 38 ? 12 : 9
         button.layer.borderWidth = 1
@@ -436,7 +638,8 @@ final class StorageViewController: UIViewController {
         uploadProgressRow.isHidden = !isUploading
         uploadProgressView.isHidden = !isUploading
         resultCard.isHidden = uploadedURL == nil
-        errorContainer.isHidden = errorLabel.text?.isEmpty != false && errorLabel.attributedText?.string.isEmpty != false
+        errorContainer.isHidden = errorLabel.text?.isEmpty != false
+            && errorLabel.attributedText?.string.isEmpty != false
         let enabled = !isPicking && !isUploading
         pickerButton.isEnabled = enabled
         reselectButton.isEnabled = enabled
@@ -573,7 +776,14 @@ final class StorageViewController: UIViewController {
         errorLabel.attributedText = nil
         uploadProgressView.progress = 0
         uploadProgressLabel.text = "上传中 0%"
-        uploadModeLabel.text = selectedMediaKind == .video ? "正在上传视频" : (withSafetyCheck ? "包含内容安全检查" : "正在上传图片")
+        uploadModeLabel.text = switch selectedMediaKind {
+        case .video:
+            "正在上传视频"
+        case .image where withSafetyCheck:
+            "包含内容安全检查"
+        case .image:
+            "正在上传图片"
+        }
         updateUploadButtonTitles()
         refreshState()
         let apiKey = UserDefaults.standard.string(forKey: Self.apiKeyStorageKey) ?? ""
@@ -591,7 +801,11 @@ final class StorageViewController: UIViewController {
                 let uploaded: XmaxUploadedFile
                 switch kind {
                 case .image where withSafetyCheck:
-                    uploaded = try await storage.uploadImageWithSafetyCheck(at: fileURL, contentType: nil, progress: progress)
+                    uploaded = try await storage.uploadImageWithSafetyCheck(
+                        at: fileURL,
+                        contentType: nil,
+                        progress: progress
+                    )
                 case .image:
                     uploaded = try await storage.uploadImage(at: fileURL, contentType: nil, progress: progress)
                 case .video:
@@ -621,7 +835,9 @@ final class StorageViewController: UIViewController {
         isUploading = false
         uploadedURL = url
         uploadProgressView.progress = 1
-        elapsedValue.text = elapsed < 1 ? "\(Int((elapsed * 1_000).rounded())) ms" : String(format: "%.2f s", elapsed)
+        elapsedValue.text = elapsed < 1
+            ? "\(Int((elapsed * 1_000).rounded())) ms"
+            : String(format: "%.2f s", elapsed)
         remoteURLLabel.text = url.absoluteString
         updateUploadButtonTitles()
         refreshState()
@@ -631,8 +847,14 @@ final class StorageViewController: UIViewController {
     }
 
     private func updateUploadButtonTitles() {
-        safetyUploadButton.setTitle(isUploading && activeUploadUsesSafetyCheck ? "正在检测上传" : "安全检测上传", for: .normal)
-        normalUploadButton.setTitle(isUploading && !activeUploadUsesSafetyCheck ? "正在上传" : "普通上传", for: .normal)
+        safetyUploadButton.setTitle(
+            isUploading && activeUploadUsesSafetyCheck ? "正在检测上传" : "安全检测上传",
+            for: .normal
+        )
+        normalUploadButton.setTitle(
+            isUploading && !activeUploadUsesSafetyCheck ? "正在上传" : "普通上传",
+            for: .normal
+        )
         videoUploadButton.setTitle(isUploading ? "正在上传" : "上传并获取地址", for: .normal)
     }
 

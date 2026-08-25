@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		100000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* AppDelegate.swift */; };
 		B10000000000000000000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* SceneDelegate.swift */; };
+		C10000000000000000000001 /* XLToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* XLToast.swift */; };
 		D10000000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* Assets.xcassets */; };
 		D10000000000000000000002 /* FeedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* FeedViewController.swift */; };
 		D10000000000000000000003 /* FeedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000003 /* FeedComponents.swift */; };
@@ -23,6 +24,7 @@
 		200000000000000000000004 /* XLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000000000000000000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLab.release.xcconfig"; path = "Target Support Files/Pods-XLab/Pods-XLab.release.xcconfig"; sourceTree = "<group>"; };
+		C20000000000000000000001 /* XLToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLToast.swift; sourceTree = "<group>"; };
 		D20000000000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D20000000000000000000002 /* FeedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewController.swift; sourceTree = "<group>"; };
 		D20000000000000000000003 /* FeedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedComponents.swift; sourceTree = "<group>"; };
@@ -59,6 +61,7 @@
 			children = (
 				200000000000000000000001 /* AppDelegate.swift */,
 				B20000000000000000000001 /* SceneDelegate.swift */,
+				C30000000000000000000001 /* Components */,
 				C00000000000000000000001 /* Modules */,
 				D30000000000000000000001 /* Resources */,
 				200000000000000000000003 /* Info.plist */,
@@ -124,6 +127,14 @@
 				E20000000000000000000001 /* StorageViewController.swift */,
 			);
 			path = XLStorage;
+			sourceTree = "<group>";
+		};
+		C30000000000000000000001 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				C20000000000000000000001 /* XLToast.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		D30000000000000000000001 /* Resources */ = {
@@ -253,6 +264,7 @@
 			files = (
 				100000000000000000000001 /* AppDelegate.swift in Sources */,
 				B10000000000000000000001 /* SceneDelegate.swift in Sources */,
+				C10000000000000000000001 /* XLToast.swift in Sources */,
 				D10000000000000000000002 /* FeedViewController.swift in Sources */,
 				D10000000000000000000003 /* FeedComponents.swift in Sources */,
 				E10000000000000000000001 /* StorageViewController.swift in Sources */,

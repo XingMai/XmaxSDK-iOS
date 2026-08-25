@@ -20,13 +20,6 @@ final class RealtimeViewController: UIViewController {
         fps: 24
     )
 
-    // 界面组件
-    private let previewView = RealtimePreviewBackdropView()
-    private let controlPanelView = RealtimeControlPanelView()
-    private let promptKeyboardView = RealtimePromptKeyboardView()
-    private let switchCameraButton = RealtimeCameraSwitchButton()
-    private let loadingOverlay = RealtimeLoadingOverlay()
-
     // 实时资源
     private let localInput: RealtimeLocalInput?
     private lazy var realtimeManager = makeRealtimeManager()
@@ -41,6 +34,52 @@ final class RealtimeViewController: UIViewController {
 
     // 布局约束
     private var promptKeyboardBottomConstraint: Constraint?
+
+    // 界面组件
+    private lazy var previewView = RealtimePreviewBackdropView()
+
+    private lazy var controlPanelView: RealtimeControlPanelView = {
+        let view = RealtimeControlPanelView()
+        view.onBeginPromptEditing = { [weak self] text in
+            self?.showPromptKeyboard(text: text)
+        }
+        view.onReferenceSelectionChanged = { [weak self] reference in
+            guard let self else { return }
+            if let reference {
+                startGeneration(with: reference)
+            } else {
+                disconnectGeneration()
+            }
+        }
+        return view
+    }()
+
+    private lazy var promptKeyboardView: RealtimePromptKeyboardView = {
+        let view = RealtimePromptKeyboardView()
+        view.isHidden = true
+        view.onTextChange = { [weak self] text in
+            self?.controlPanelView.setPromptText(text)
+        }
+        view.onSubmit = { [weak self] text in
+            self?.controlPanelView.setPromptText(text)
+            self?.promptKeyboardView.endEditing()
+        }
+        return view
+    }()
+
+    private lazy var switchCameraButton: RealtimeCameraSwitchButton = {
+        let button = RealtimeCameraSwitchButton()
+        button.isEnabled = false
+        button.isHidden = localInput != nil
+        button.addTarget(
+            self,
+            action: #selector(switchCamera(_:)),
+            for: .touchUpInside
+        )
+        return button
+    }()
+
+    private lazy var loadingOverlay = RealtimeLoadingOverlay()
 
     init(localInput: RealtimeLocalInput? = nil) {
         self.localInput = localInput
@@ -112,14 +151,6 @@ final class RealtimeViewController: UIViewController {
         backButton.addTarget(self, action: #selector(goBack), for: .touchUpInside)
         previewView.addSubview(backButton)
 
-        switchCameraButton.translatesAutoresizingMaskIntoConstraints = false
-        switchCameraButton.isEnabled = false
-        switchCameraButton.isHidden = localInput != nil
-        switchCameraButton.addTarget(
-            self,
-            action: #selector(switchCamera(_:)),
-            for: .touchUpInside
-        )
         previewView.addSubview(switchCameraButton)
 
         backButton.snp.makeConstraints { make in
@@ -146,28 +177,9 @@ final class RealtimeViewController: UIViewController {
             make.bottom.equalTo(controlPanelView.snp.top)
         }
 
-        controlPanelView.onBeginPromptEditing = { [weak self] text in
-            self?.showPromptKeyboard(text: text)
-        }
-        controlPanelView.onReferenceSelectionChanged = { [weak self] reference in
-            guard let self else { return }
-            if let reference {
-                startGeneration(with: reference)
-            } else {
-                disconnectGeneration()
-            }
-        }
     }
 
     private func configurePromptKeyboard() {
-        promptKeyboardView.isHidden = true
-        promptKeyboardView.onTextChange = { [weak self] text in
-            self?.controlPanelView.setPromptText(text)
-        }
-        promptKeyboardView.onSubmit = { [weak self] text in
-            self?.controlPanelView.setPromptText(text)
-            self?.promptKeyboardView.endEditing()
-        }
         view.addSubview(promptKeyboardView)
         promptKeyboardView.snp.makeConstraints { make in
             make.horizontalEdges.equalToSuperview()
@@ -508,22 +520,27 @@ private enum RealtimeDemoError: LocalizedError {
 }
 
 private final class RealtimeLoadingOverlay: UIView {
-    private let loadingImageView = UIImageView()
-    private let fallbackIndicator = UIActivityIndicatorView(style: .medium)
     private var isLoading = false
     private var transitionVersion: UInt64 = 0
 
+    private lazy var loadingImageView: UIImageView = {
+        let imageView = UIImageView(image: RealtimeLoadingImageLoader.animatedImage())
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+
+    private lazy var fallbackIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.color = UIColor.white.withAlphaComponent(0.86)
+        indicator.hidesWhenStopped = true
+        return indicator
+    }()
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = UIColor.black.withAlphaComponent(0.72)
         isHidden = true
         alpha = 0
         isUserInteractionEnabled = false
-
-        loadingImageView.image = RealtimeLoadingImageLoader.animatedImage()
-        loadingImageView.contentMode = .scaleAspectFit
-        fallbackIndicator.color = UIColor.white.withAlphaComponent(0.86)
-        fallbackIndicator.hidesWhenStopped = true
 
         addSubview(loadingImageView)
         addSubview(fallbackIndicator)
@@ -644,25 +661,49 @@ private enum RealtimeLoadingImageLoader {
 }
 
 private final class RealtimePreviewBackdropView: UIView {
-
-    // 媒体视图
-    private let localVideoView = XmaxVideoView()
-    private let remoteVideoView = XmaxVideoView()
-    private let mediaImageView = UIImageView()
-    private let mediaPlayerLayer = AVPlayerLayer()
+    override class var layerClass: AnyClass {
+        CAGradientLayer.self
+    }
 
     // 播放资源
     private var mediaPlayer: AVQueuePlayer?
     private var mediaLooper: AVPlayerLooper?
     private var remoteVisibilityVersion: UInt64 = 0
 
-    override class var layerClass: AnyClass {
-        CAGradientLayer.self
-    }
-
     private var gradientLayer: CAGradientLayer {
         layer as! CAGradientLayer
     }
+
+    // 媒体视图
+    private lazy var localVideoView: XmaxVideoView = {
+        let view = XmaxVideoView()
+        view.videoContentMode = .fill
+        view.isHidden = true
+        return view
+    }()
+
+    private lazy var remoteVideoView: XmaxVideoView = {
+        let view = XmaxVideoView()
+        view.videoContentMode = .fill
+        view.backgroundColor = .feed(rgb: 0x101010)
+        view.alpha = 0
+        view.isHidden = true
+        return view
+    }()
+
+    private lazy var mediaImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFit
+        imageView.backgroundColor = .black
+        imageView.isHidden = true
+        return imageView
+    }()
+
+    private lazy var mediaPlayerLayer: AVPlayerLayer = {
+        let layer = AVPlayerLayer()
+        layer.videoGravity = .resizeAspect
+        return layer
+    }()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -676,22 +717,12 @@ private final class RealtimePreviewBackdropView: UIView {
         gradientLayer.startPoint = CGPoint(x: 0.25, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.75, y: 1)
 
-        mediaPlayerLayer.videoGravity = .resizeAspect
         layer.addSublayer(mediaPlayerLayer)
 
-        localVideoView.videoContentMode = .fill
-        localVideoView.isHidden = true
         addSubview(localVideoView)
 
-        mediaImageView.contentMode = .scaleAspectFit
-        mediaImageView.backgroundColor = .black
-        mediaImageView.isHidden = true
         addSubview(mediaImageView)
 
-        remoteVideoView.videoContentMode = .fill
-        remoteVideoView.backgroundColor = .feed(rgb: 0x101010)
-        remoteVideoView.alpha = 0
-        remoteVideoView.isHidden = true
         addSubview(remoteVideoView)
 
         localVideoView.snp.makeConstraints { make in
@@ -806,29 +837,28 @@ private final class RealtimePreviewBackdropView: UIView {
 }
 
 private final class RealtimeCameraSwitchButton: UIControl {
-    private let iconView = UIImageView()
-    private let titleLabel = UILabel()
+    private lazy var iconView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.image = UIImage(named: "realtime_camera_rotate")?
+            .withRenderingMode(.alwaysTemplate)
+        imageView.tintColor = .white
+        imageView.contentMode = .scaleAspectFit
+        configureShadow(for: imageView)
+        return imageView
+    }()
+
+    private lazy var titleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "翻转"
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.textAlignment = .center
+        configureShadow(for: label)
+        return label
+    }()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        iconView.image = UIImage(named: "realtime_camera_rotate")?.withRenderingMode(.alwaysTemplate)
-        iconView.tintColor = .white
-        iconView.contentMode = .scaleAspectFit
-
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = "翻转"
-        titleLabel.textColor = .white
-        titleLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-        titleLabel.textAlignment = .center
-
-        [iconView, titleLabel].forEach {
-            $0.layer.shadowColor = UIColor.black.cgColor
-            $0.layer.shadowOpacity = 0.5
-            $0.layer.shadowRadius = 2
-            $0.layer.shadowOffset = CGSize(width: 0, height: 1)
-        }
 
         addSubview(iconView)
         addSubview(titleLabel)
@@ -848,6 +878,13 @@ private final class RealtimeCameraSwitchButton: UIControl {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private func configureShadow(for view: UIView) {
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.5
+        view.layer.shadowRadius = 2
+        view.layer.shadowOffset = CGSize(width: 0, height: 1)
     }
 }
 
@@ -885,9 +922,6 @@ private struct RealtimeReferenceCatalog: Decodable {
 }
 
 private final class RealtimeControlPanelView: UIView {
-    var onBeginPromptEditing: ((String) -> Void)?
-    var onReferenceSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
-
     private enum Layout {
         static let topSpacing: CGFloat = 6
         static let categoryHeight: CGFloat = 36
@@ -925,36 +959,15 @@ private final class RealtimeControlPanelView: UIView {
         grouping: RealtimeReferenceCatalog.load().items,
         by: \.categoryID
     )
-
-    private let disabledActionButton = UIButton(type: .custom)
-    private let categoryScrollView = RealtimeCategoryScrollView()
-    private let categoryStackView = UIStackView()
-    private let contentContainerView = UIView()
-    private let referenceListView = RealtimeReferenceListView()
-    private let instructionButton = UIButton(type: .custom)
-    private let promptInputView = RealtimePromptFieldView()
     private var categoryButtons: [UIButton] = []
     private var selectedCategoryIndex = 0
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .feed(rgb: 0x101010)
-        configureCategoryRow()
-        configureContentArea()
-        promptInputView.onBeginEditing = { [weak self] text in
-            self?.onBeginPromptEditing?(text)
-        }
-        updateCategorySelection()
-        updateVisibleContent()
-    }
+    var onBeginPromptEditing: ((String) -> Void)?
+    var onReferenceSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func configureCategoryRow() {
-        disabledActionButton.translatesAutoresizingMaskIntoConstraints = false
-        disabledActionButton.setImage(
+    private lazy var disabledActionButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(
             UIImage(
                 systemName: "nosign",
                 withConfiguration: UIImage.SymbolConfiguration(
@@ -964,28 +977,79 @@ private final class RealtimeControlPanelView: UIView {
             ),
             for: .normal
         )
-        disabledActionButton.tintColor = .white
-        disabledActionButton.addTarget(
-            self,
-            action: #selector(disableGeneration),
-            for: .touchUpInside
-        )
-        disabledActionButton.accessibilityLabel = "停止生成"
+        button.tintColor = .white
+        button.accessibilityLabel = "停止生成"
+        button.addTarget(self, action: #selector(disableGeneration), for: .touchUpInside)
+        return button
+    }()
+
+    private lazy var categoryScrollView: RealtimeCategoryScrollView = {
+        let scrollView = RealtimeCategoryScrollView()
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.alwaysBounceHorizontal = true
+        scrollView.delaysContentTouches = true
+        scrollView.canCancelContentTouches = true
+        scrollView.isDirectionalLockEnabled = true
+        scrollView.contentInsetAdjustmentBehavior = .never
+        return scrollView
+    }()
+
+    private lazy var categoryStackView: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.alignment = .fill
+        stack.spacing = Layout.categoryItemSpacing
+        return stack
+    }()
+
+    private lazy var contentContainerView = UIView()
+
+    private lazy var referenceListView: RealtimeReferenceListView = {
+        let view = RealtimeReferenceListView()
+        view.onSelectionChanged = { [weak self] reference in
+            self?.onReferenceSelectionChanged?(reference)
+        }
+        return view
+    }()
+
+    private lazy var instructionButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setTitle("点击开始生成", for: .normal)
+        button.setTitleColor(.white.withAlphaComponent(0.85), for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+        button.backgroundColor = .white.withAlphaComponent(0.14)
+        button.layer.cornerRadius = 20
+        button.layer.borderWidth = 1
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.19).cgColor
+        button.accessibilityLabel = "点击开始生成"
+        return button
+    }()
+
+    private lazy var promptInputView: RealtimePromptFieldView = {
+        let view = RealtimePromptFieldView()
+        view.onBeginEditing = { [weak self] text in
+            self?.onBeginPromptEditing?(text)
+        }
+        return view
+    }()
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .feed(rgb: 0x101010)
+        configureCategoryRow()
+        configureContentArea()
+        updateCategorySelection()
+        updateVisibleContent()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func configureCategoryRow() {
         addSubview(disabledActionButton)
 
-        categoryScrollView.translatesAutoresizingMaskIntoConstraints = false
-        categoryScrollView.showsHorizontalScrollIndicator = false
-        categoryScrollView.alwaysBounceHorizontal = true
-        categoryScrollView.delaysContentTouches = true
-        categoryScrollView.canCancelContentTouches = true
-        categoryScrollView.isDirectionalLockEnabled = true
-        categoryScrollView.contentInsetAdjustmentBehavior = .never
         addSubview(categoryScrollView)
 
-        categoryStackView.translatesAutoresizingMaskIntoConstraints = false
-        categoryStackView.axis = .horizontal
-        categoryStackView.alignment = .fill
-        categoryStackView.spacing = Layout.categoryItemSpacing
         categoryScrollView.addSubview(categoryStackView)
 
         for (index, category) in categories.enumerated() {
@@ -1037,26 +1101,11 @@ private final class RealtimeControlPanelView: UIView {
     }
 
     private func configureContentArea() {
-        contentContainerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(contentContainerView)
 
         contentContainerView.addSubview(referenceListView)
-        referenceListView.onSelectionChanged = { [weak self] reference in
-            self?.onReferenceSelectionChanged?(reference)
-        }
-
-        instructionButton.translatesAutoresizingMaskIntoConstraints = false
-        instructionButton.setTitle("点击开始生成", for: .normal)
-        instructionButton.setTitleColor(.white.withAlphaComponent(0.85), for: .normal)
-        instructionButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
-        instructionButton.backgroundColor = .white.withAlphaComponent(0.14)
-        instructionButton.layer.cornerRadius = 20
-        instructionButton.layer.borderWidth = 1
-        instructionButton.layer.borderColor = UIColor.white.withAlphaComponent(0.19).cgColor
-        instructionButton.accessibilityLabel = "点击开始生成"
         contentContainerView.addSubview(instructionButton)
 
-        promptInputView.translatesAutoresizingMaskIntoConstraints = false
         contentContainerView.addSubview(promptInputView)
 
         contentContainerView.snp.makeConstraints { make in
@@ -1153,8 +1202,6 @@ private final class RealtimeCategoryScrollView: UIScrollView {
 }
 
 private final class RealtimeReferenceListView: UIView {
-    var onSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
-
     private enum Layout {
         static let itemLength: CGFloat = 50
         static let itemSpacing: CGFloat = 10
@@ -1163,9 +1210,6 @@ private final class RealtimeReferenceListView: UIView {
         static let edgeFadeTransitionDuration: CFTimeInterval = 0.3
     }
 
-    private let collectionView: UICollectionView
-    private let addReferenceButton = UIButton(type: .custom)
-    private let edgeFadeMaskLayer = CAGradientLayer()
     private let feedbackGenerator = UISelectionFeedbackGenerator()
     private var references: [RealtimeReferenceCatalog.Item] = []
     private var selectedReferenceID: String?
@@ -1173,7 +1217,9 @@ private final class RealtimeReferenceListView: UIView {
     private var isShowingLeftFade = false
     private var isShowingRightFade = false
 
-    override init(frame: CGRect) {
+    var onSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
+
+    private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
         layout.itemSize = CGSize(
@@ -1187,24 +1233,11 @@ private final class RealtimeReferenceListView: UIView {
             bottom: 0,
             right: 14
         )
-        collectionView = UICollectionView(
+
+        let collectionView = UICollectionView(
             frame: .zero,
             collectionViewLayout: layout
         )
-
-        super.init(frame: frame)
-
-        addReferenceButton.setImage(
-            UIImage(named: "realtime_add_reference"),
-            for: .normal
-        )
-        addReferenceButton.imageView?.contentMode = .scaleAspectFill
-        addReferenceButton.backgroundColor = .feed(rgb: 0x303032)
-        addReferenceButton.layer.cornerRadius = 10
-        addReferenceButton.layer.cornerCurve = .continuous
-        addReferenceButton.clipsToBounds = true
-        addReferenceButton.accessibilityLabel = "添加参考图"
-
         collectionView.backgroundColor = .clear
         collectionView.clipsToBounds = false
         collectionView.showsHorizontalScrollIndicator = false
@@ -1217,6 +1250,25 @@ private final class RealtimeReferenceListView: UIView {
             RealtimeReferenceCell.self,
             forCellWithReuseIdentifier: RealtimeReferenceCell.reuseIdentifier
         )
+        return collectionView
+    }()
+
+    private lazy var addReferenceButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "realtime_add_reference"), for: .normal)
+        button.imageView?.contentMode = .scaleAspectFill
+        button.backgroundColor = .feed(rgb: 0x303032)
+        button.layer.cornerRadius = 10
+        button.layer.cornerCurve = .continuous
+        button.clipsToBounds = true
+        button.accessibilityLabel = "添加参考图"
+        return button
+    }()
+
+    private lazy var edgeFadeMaskLayer = CAGradientLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
 
         addSubview(addReferenceButton)
         addSubview(collectionView)
@@ -1409,27 +1461,37 @@ extension RealtimeReferenceListView: UICollectionViewDataSource,
 }
 
 private final class RealtimeReferenceCell: UICollectionViewCell {
+    private enum Layout {
+        static let selectionBorderWidth: CGFloat = 2
+    }
+
     static let reuseIdentifier = "RealtimeReferenceCell"
 
-    private let selectionBorderView = UIView()
-    private let imageView = UIImageView()
+    private lazy var selectionBorderView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.layer.borderWidth = Layout.selectionBorderWidth
+        view.layer.borderColor = UIColor.feed(rgb: 0xFF2E88).cgColor
+        view.layer.cornerRadius = 12
+        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        return view
+    }()
+
+    private lazy var imageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        return imageView
+    }()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = false
 
-        selectionBorderView.backgroundColor = .clear
-        selectionBorderView.layer.borderWidth = Layout.selectionBorderWidth
-        selectionBorderView.layer.borderColor = UIColor.feed(rgb: 0xFF2E88).cgColor
-        selectionBorderView.layer.cornerRadius = 12
-        selectionBorderView.isHidden = true
-        selectionBorderView.isUserInteractionEnabled = false
-
         contentView.backgroundColor = .feed(rgb: 0x303032)
         contentView.layer.cornerRadius = 10
         contentView.clipsToBounds = true
-        imageView.contentMode = .scaleAspectFill
-        imageView.clipsToBounds = true
         insertSubview(selectionBorderView, belowSubview: contentView)
         contentView.addSubview(imageView)
 
@@ -1480,28 +1542,13 @@ private final class RealtimeReferenceCell: UICollectionViewCell {
         )
     }
 
-    private enum Layout {
-        static let selectionBorderWidth: CGFloat = 2
-    }
 }
 
 private final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
     var onBeginEditing: ((String) -> Void)?
 
-    private let textField = UITextField()
-    private let submitControl = RealtimePromptCircleView(
-        imageName: "realtime_prompt_submit",
-        imageSize: CGSize(width: 13, height: 14),
-        backgroundColor: .feed(rgb: 0xFF2E88)
-    )
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .feed(rgb: 0x272728)
-        layer.cornerRadius = 8
-        layer.cornerCurve = .continuous
-
-        textField.translatesAutoresizingMaskIntoConstraints = false
+    private lazy var textField: UITextField = {
+        let textField = UITextField()
         textField.attributedPlaceholder = NSAttributedString(
             string: "输入你想要的效果",
             attributes: [
@@ -1513,11 +1560,21 @@ private final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
         textField.font = .systemFont(ofSize: 14)
         textField.returnKeyType = .send
         textField.delegate = self
-        textField.addTarget(
-            self,
-            action: #selector(textDidChange),
-            for: .editingChanged
-        )
+        textField.addTarget(self, action: #selector(textDidChange), for: .editingChanged)
+        return textField
+    }()
+
+    private lazy var submitControl = RealtimePromptCircleView(
+        imageName: "realtime_prompt_submit",
+        imageSize: CGSize(width: 13, height: 14),
+        backgroundColor: .feed(rgb: 0xFF2E88)
+    )
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .feed(rgb: 0x272728)
+        layer.cornerRadius = 8
+        layer.cornerCurve = .continuous
 
         let addControl = RealtimePromptCircleView(
             imageName: "realtime_prompt_add",
@@ -1580,20 +1637,16 @@ private final class RealtimePromptKeyboardView: UIView, UITextViewDelegate {
     var onTextChange: ((String) -> Void)?
     var onSubmit: ((String) -> Void)?
 
-    private let contentView = UIView()
-    private let textView = UITextView()
-    private let placeholderLabel = UILabel()
-    private let addButton = UIButton(type: .custom)
-    private let submitButton = UIButton(type: .custom)
+    private lazy var contentView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .feed(rgb: 0x252525)
+        view.layer.cornerRadius = 15
+        view.layer.cornerCurve = .continuous
+        return view
+    }()
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .feed(rgb: 0x101010)
-
-        contentView.backgroundColor = .feed(rgb: 0x252525)
-        contentView.layer.cornerRadius = 15
-        contentView.layer.cornerCurve = .continuous
-
+    private lazy var textView: UITextView = {
+        let textView = UITextView()
         textView.backgroundColor = .clear
         textView.textColor = .white
         textView.font = .systemFont(ofSize: 14)
@@ -1602,32 +1655,46 @@ private final class RealtimePromptKeyboardView: UIView, UITextViewDelegate {
         textView.textContainer.lineFragmentPadding = 0
         textView.showsVerticalScrollIndicator = false
         textView.delegate = self
+        return textView
+    }()
 
-        placeholderLabel.text = "输入你想要的效果"
-        placeholderLabel.textColor = .white.withAlphaComponent(0.5)
-        placeholderLabel.font = .systemFont(ofSize: 14)
-        placeholderLabel.isUserInteractionEnabled = false
+    private lazy var placeholderLabel: UILabel = {
+        let label = UILabel()
+        label.text = "输入你想要的效果"
+        label.textColor = .white.withAlphaComponent(0.5)
+        label.font = .systemFont(ofSize: 14)
+        label.isUserInteractionEnabled = false
+        return label
+    }()
 
+    private lazy var addButton: UIButton = {
+        let button = UIButton(type: .custom)
         configureButton(
-            addButton,
+            button,
             imageName: "realtime_prompt_add",
             imageSize: CGSize(width: 12, height: 12),
             backgroundColor: .white.withAlphaComponent(0.10)
         )
-        addButton.accessibilityLabel = "添加自定义模式参考图"
+        button.accessibilityLabel = "添加自定义模式参考图"
+        return button
+    }()
 
+    private lazy var submitButton: UIButton = {
+        let button = UIButton(type: .custom)
         configureButton(
-            submitButton,
+            button,
             imageName: "realtime_prompt_submit",
             imageSize: CGSize(width: 11, height: 12),
             backgroundColor: .feed(rgb: 0xFF2E88)
         )
-        submitButton.accessibilityLabel = "提交自定义模式描述"
-        submitButton.addTarget(
-            self,
-            action: #selector(submitPrompt),
-            for: .touchUpInside
-        )
+        button.accessibilityLabel = "提交自定义模式描述"
+        button.addTarget(self, action: #selector(submitPrompt), for: .touchUpInside)
+        return button
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .feed(rgb: 0x101010)
 
         addSubview(contentView)
         contentView.addSubview(textView)

@@ -10,12 +10,28 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         case video
     }
 
-    private let scrollView = UIScrollView()
-    private let contentStack = UIStackView()
+    // 网络与媒体选择状态
     private var networkPreflightTask: URLSessionDataTask?
     private var isPickingMedia = false
     private var pendingMediaSelectionKind: MediaSelectionKind?
 
+    // 界面组件
+    private lazy var scrollView: UIScrollView = {
+        let view = UIScrollView()
+        view.showsVerticalScrollIndicator = false
+        view.alwaysBounceVertical = true
+        view.keyboardDismissMode = .interactive
+        view.contentInsetAdjustmentBehavior = .always
+        return view
+    }()
+
+    private lazy var contentStack: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.spacing = 0
+        return stack
+    }()
     override var preferredStatusBarStyle: UIStatusBarStyle {
         .lightContent
     }
@@ -65,17 +81,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     private func configureScrollView() {
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.alwaysBounceVertical = true
-        scrollView.keyboardDismissMode = .interactive
-        scrollView.contentInsetAdjustmentBehavior = .always
         view.addSubview(scrollView)
 
-        contentStack.translatesAutoresizingMaskIntoConstraints = false
-        contentStack.axis = .vertical
-        contentStack.alignment = .fill
-        contentStack.spacing = 0
         scrollView.addSubview(contentStack)
 
         scrollView.snp.makeConstraints { make in
@@ -99,7 +106,12 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         contentStack.addArrangedSubview(FeedModelRegistryCardView())
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
-        contentStack.addArrangedSubview(makeSectionHeader(title: "GENERATION PIPELINES", subtitle: "选择一种内容输入方式"))
+        contentStack.addArrangedSubview(
+            makeSectionHeader(
+                title: "GENERATION PIPELINES",
+                subtitle: "选择一种内容输入方式"
+            )
+        )
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
 
         let realtimeCard = FeedPipelineCardView(
@@ -145,7 +157,9 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         contentStack.addArrangedSubview(imageCard)
 
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
-        contentStack.addArrangedSubview(makeSectionHeader(title: "SDK FEATURES", subtitle: "更多能力与接入示例"))
+        contentStack.addArrangedSubview(
+            makeSectionHeader(title: "SDK FEATURES", subtitle: "更多能力与接入示例")
+        )
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         contentStack.addArrangedSubview(FeedFeatureCardView(
             category: "SDK RENDERING / TRAJECTORY",
@@ -397,8 +411,18 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             letterSpacing: 1.2
         )
         let eyebrowRow = feedHorizontalStack([line, eyebrow], spacing: 7)
-        let title = makeFeedLabel("实时交互视频模型", size: 24, weight: .bold, color: .feed(rgb: 0xF5F7FB), letterSpacing: -0.3)
-        let subtitle = makeFeedLabel("选择输入源，启动 XmaxSDK 流式生成链路", size: 12, color: .feed(rgb: 0x91A0B2))
+        let title = makeFeedLabel(
+            "实时交互视频模型",
+            size: 24,
+            weight: .bold,
+            color: .feed(rgb: 0xF5F7FB),
+            letterSpacing: -0.3
+        )
+        let subtitle = makeFeedLabel(
+            "选择输入源，启动 XmaxSDK 流式生成链路",
+            size: 12,
+            color: .feed(rgb: 0x91A0B2)
+        )
         let stack = feedVerticalStack([eyebrowRow, title, subtitle])
         stack.setCustomSpacing(18, after: eyebrowRow)
         stack.setCustomSpacing(12, after: title)
