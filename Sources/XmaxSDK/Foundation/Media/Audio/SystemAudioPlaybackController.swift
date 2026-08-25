@@ -3,9 +3,13 @@ import Foundation
 
 /// 使用系统音频引擎播放 48 kHz 单声道 PCM16 数据。
 final class SystemAudioPlaybackController: AudioPlaybackControlling, @unchecked Sendable {
+
+    // 播放资源
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let format: AVAudioFormat
+
+    // 运行状态
     private var isStarted = false
 
     init() throws {

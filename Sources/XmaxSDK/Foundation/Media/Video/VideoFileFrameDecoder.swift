@@ -20,9 +20,15 @@ protocol VideoFileFrameDecoderListener: AnyObject, Sendable {
 ///
 /// 解码结果由媒体层转换为统一视频帧，并交由后续业务链路处理。
 final class VideoFileFrameDecoder: @unchecked Sendable {
+
+    // 并发控制
     private let lock = NSLock()
+
+    // 解码资源
     private let operation: VideoFileDecodeOperation
     private var task: Task<Void, Never>?
+
+    // 运行状态
     private var isReleased = false
 
     init(
@@ -78,12 +84,22 @@ final class VideoFileFrameDecoder: @unchecked Sendable {
 }
 
 private final class VideoFileDecodeOperation: @unchecked Sendable {
+
+    // 并发控制
     private let lock = NSLock()
+
+    // 平台资源
     private let reader: AVAssetReader
     private let output: AVAssetReaderTrackOutput
+
+    // 时间线配置
     private let playbackAnchorUs: Int64
     private let mediaStartUs: Int64
+
+    // 事件监听
     private let listener: any VideoFileFrameDecoderListener
+
+    // 运行状态
     private var isReleased = false
     private var hasReportedTerminalEvent = false
 

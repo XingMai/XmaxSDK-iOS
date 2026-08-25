@@ -3,6 +3,8 @@ import Foundation
 
 /// 将火山 RTC 运行统计输出为统一的 Xmax 调试日志。
 enum RtcStatsLogger {
+
+    // 日志配置
     private static let category = "RTC"
 
     static func logLocalStreamStats(_ stats: ByteRTCLocalStreamStats) {

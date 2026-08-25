@@ -2,11 +2,16 @@ import Foundation
 
 /// 将 48 kHz 单声道 PCM16 数据切分为固定 10 ms 音频帧。
 final class AudioPCMFramePacketizer {
+
+    // 音频参数
     private static let bytesPerSample = MemoryLayout<Int16>.size
     private static let frameDurationUs: Int64 = 10_000
 
+    // 时间线配置
     private let mediaStartUs: Int64
     private let cycleSampleCount: Int64
+
+    // 运行状态
     private var pendingData = Data()
     private var scheduledSampleCount: Int64 = 0
     private var hasReceivedSourceData = false

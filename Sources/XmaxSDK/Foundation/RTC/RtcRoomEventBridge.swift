@@ -30,6 +30,7 @@ final class RtcRoomEventBridge: NSObject, ByteRTCRoomDelegate {
         ByteRTCRemoteStreamStats
     ) -> Void
 
+    // 事件回调
     private let onRoomState: RoomStateHandler
     private let onRemoteVideo: RemoteVideoHandler
     private let onNetworkQuality: NetworkQualityHandler

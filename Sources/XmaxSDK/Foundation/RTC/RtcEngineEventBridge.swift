@@ -20,6 +20,7 @@ final class RtcEngineEventBridge: NSObject, ByteRTCEngineDelegate {
         ByteRTCSourceWantedData
     ) -> Void
 
+    // 事件回调
     private let onSei: SeiHandler
     private let onSystemStats: SystemStatsHandler
     private let onPerformanceAlarm: PerformanceAlarmHandler

@@ -16,6 +16,8 @@ enum MediaAuthorizationStatus: Sendable {
 
 /// 隔离系统权限 API，便于 Provider 保持中性且可测试。
 struct PermissionAuthorizationClient: Sendable {
+
+    // 授权接口
     let authorizationStatus: @Sendable (
         _ permission: MediaPermission
     ) -> MediaAuthorizationStatus
@@ -23,6 +25,7 @@ struct PermissionAuthorizationClient: Sendable {
         _ permission: MediaPermission
     ) async throws -> Bool
 
+    // 平台实现
     static let live = PermissionAuthorizationClient(
         authorizationStatus: { permission in
             let status = AVCaptureDevice.authorizationStatus(

@@ -17,9 +17,15 @@ protocol AudioFileFrameDecoderListener: AnyObject, Sendable {
 
 /// 使用系统音频解码器连续输出 48 kHz 单声道 PCM16 帧。
 final class AudioFileFrameDecoder: @unchecked Sendable {
+
+    // 并发控制
     private let lock = NSLock()
+
+    // 解码资源
     private let operation: AudioFileDecodeOperation
     private var task: Task<Void, Never>?
+
+    // 运行状态
     private var isReleased = false
 
     init(
@@ -76,16 +82,29 @@ final class AudioFileFrameDecoder: @unchecked Sendable {
 }
 
 private final class AudioFileDecodeOperation: @unchecked Sendable {
+
+    // 解码参数
     private static let lateFrameThresholdUs: Int64 = 30_000
     private static let bytesPerSample = MemoryLayout<Int16>.size
 
+    // 并发控制
     private let lock = NSLock()
+
+    // 平台资源
     private let reader: AVAssetReader
     private let output: AVAssetReaderTrackOutput
+
+    // 时间线配置
     private let playbackAnchorUs: Int64
     private let mediaStartUs: Int64
+
+    // 事件监听
     private let listener: any AudioFileFrameDecoderListener
+
+    // 解码资源
     private let packetizer: AudioPCMFramePacketizer
+
+    // 运行状态
     private var isReleased = false
     private var hasReportedTerminalEvent = false
 

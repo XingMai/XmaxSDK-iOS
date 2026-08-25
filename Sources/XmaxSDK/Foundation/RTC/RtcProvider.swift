@@ -5,22 +5,31 @@ import UIKit
 /// 提供基于火山引擎的 RTC 基础能力。
 final class RtcProvider: RtcProviding, @unchecked Sendable {
 
+    // RTC 配置
     /// RTC 进房回调的最长等待时间。
     static let joinTimeoutNanoseconds: UInt64 = 15_000_000_000
 
+    // 依赖
     private let engineProvider: RtcEngineProvider
+
+    // 并发控制
     private let stateLock = NSLock()
     private let operationLock = NSRecursiveLock()
 
+    // RTC 资源
+    private var remoteStreamIDs: [RemoteStream: String] = [:]
     private var engineLease: RtcEngineLease?
     private var engineBridge: RtcEngineEventBridge?
-    private var initialization: Initialization?
     private var activeRoom: RoomContext?
     private var pendingJoin: PendingJoin?
-    private var remoteStreamIDs: [RemoteStream: String] = [:]
-    private var localVideoMirrorType = ByteRTCMirrorType.none
+
+    // 事件监听
     private weak var eventListener: (any RtcEventListener)?
     private weak var qualityListener: (any RtcQualityListener)?
+
+    // 运行状态
+    private var initialization: Initialization?
+    private var localVideoMirrorType = ByteRTCMirrorType.none
 
     init(engineProvider: RtcEngineProvider = .shared) {
         self.engineProvider = engineProvider

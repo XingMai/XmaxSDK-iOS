@@ -4,8 +4,13 @@ import Foundation
 final class AudioProvider: AudioProviding, @unchecked Sendable {
     typealias PlaybackFactory = @Sendable () throws -> any AudioPlaybackControlling
 
-    private let lock = NSLock()
+    // 依赖
     private let playbackFactory: PlaybackFactory
+
+    // 并发控制
+    private let lock = NSLock()
+
+    // 播放资源
     private var playbackController: (any AudioPlaybackControlling)?
 
     init(

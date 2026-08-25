@@ -3,8 +3,11 @@ import Foundation
 
 /// 表示对进程级火山 RTC Engine 的独占使用权。
 final class RtcEngineLease: @unchecked Sendable {
+
+    // RTC 资源
     let engine: ByteRTCEngine
 
+    // 运行标识
     let id = UUID()
 
     fileprivate init(engine: ByteRTCEngine) {
@@ -17,14 +20,21 @@ actor RtcEngineProvider {
     typealias EngineFactory = @Sendable (String) -> ByteRTCEngine?
     typealias EngineDestructor = @Sendable () -> Void
 
+    // 共享实例
     static let shared = RtcEngineProvider()
 
+    // RTC 配置
     private static let defaultAppID = "69a177e226e9b90176a86b96"
 
+    // 依赖
     private let appID: String
     private let makeEngine: EngineFactory
     private let destroyEngine: EngineDestructor
+
+    // RTC 资源
     private var activeLease: RtcEngineLease?
+
+    // 运行状态
     private var requests: [Request] = []
 
     init(

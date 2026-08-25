@@ -5,8 +5,11 @@ import UIKit
 
 /// 保存可同步推送给火山 RTC 的视频帧及其底层内存。
 final class RtcVideoFrame {
+
+    // RTC 资源
     let value: ByteRTCVideoFrameData
 
+    // 内存资源
     private let planeBuffers: [NSData]
     private let planeData: UnsafeMutablePointer<UnsafeMutableRawPointer?>
     private let planeStrides: UnsafeMutablePointer<Int32>
