@@ -218,9 +218,7 @@ final class RealtimeViewController: UIViewController {
             }
         case .generating:
             guard isGenerationRequested else { return }
-            previewView.displayRealtime(
-                remoteRealtimeStream?.videoTrack
-            )
+            previewView.showRealtime(animated: true)
             loadingOverlay.hideLoading()
         case .idle, .disconnecting, .disconnected, .error:
             loadingOverlay.hideLoading()
@@ -341,6 +339,7 @@ final class RealtimeViewController: UIViewController {
                         return
                     }
                     remoteRealtimeStream = remoteStream
+                    previewView.prepareRealtime(remoteStream.videoTrack)
                 case .connected, .generating:
                     break
                 case .connecting, .disconnecting:
@@ -352,9 +351,7 @@ final class RealtimeViewController: UIViewController {
                     context: reference.context
                 )
                 guard !Task.isCancelled else { return }
-                previewView.displayRealtime(
-                    remoteRealtimeStream?.videoTrack
-                )
+                previewView.showRealtime(animated: true)
                 loadingOverlay.hideLoading()
             } catch is CancellationError {
                 return
@@ -464,7 +461,7 @@ final class RealtimeViewController: UIViewController {
                     return
                 }
                 localCameraStream = stream
-                previewView.displayCamera(stream.videoTrack)
+                previewView.updateCamera(stream.videoTrack)
             } catch {
                 guard !Task.isCancelled else {
                     return
@@ -649,13 +646,15 @@ private enum RealtimeLoadingImageLoader {
 private final class RealtimePreviewBackdropView: UIView {
 
     // 媒体视图
-    private let realtimeVideoView = XmaxVideoView()
+    private let localVideoView = XmaxVideoView()
+    private let remoteVideoView = XmaxVideoView()
     private let mediaImageView = UIImageView()
     private let mediaPlayerLayer = AVPlayerLayer()
 
     // 播放资源
     private var mediaPlayer: AVQueuePlayer?
     private var mediaLooper: AVPlayerLooper?
+    private var remoteVisibilityVersion: UInt64 = 0
 
     override class var layerClass: AnyClass {
         CAGradientLayer.self
@@ -680,19 +679,28 @@ private final class RealtimePreviewBackdropView: UIView {
         mediaPlayerLayer.videoGravity = .resizeAspect
         layer.addSublayer(mediaPlayerLayer)
 
-        realtimeVideoView.translatesAutoresizingMaskIntoConstraints = false
-        realtimeVideoView.videoContentMode = .fill
-        realtimeVideoView.isHidden = true
-        addSubview(realtimeVideoView)
+        localVideoView.videoContentMode = .fill
+        localVideoView.isHidden = true
+        addSubview(localVideoView)
 
         mediaImageView.contentMode = .scaleAspectFit
         mediaImageView.backgroundColor = .black
         mediaImageView.isHidden = true
         addSubview(mediaImageView)
-        realtimeVideoView.snp.makeConstraints { make in
+
+        remoteVideoView.videoContentMode = .fill
+        remoteVideoView.backgroundColor = .feed(rgb: 0x101010)
+        remoteVideoView.alpha = 0
+        remoteVideoView.isHidden = true
+        addSubview(remoteVideoView)
+
+        localVideoView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
         mediaImageView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        remoteVideoView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
     }
@@ -708,8 +716,9 @@ private final class RealtimePreviewBackdropView: UIView {
 
     func display(_ input: RealtimeLocalInput?) {
         stopVideo()
-        realtimeVideoView.track = nil
-        realtimeVideoView.isHidden = true
+        localVideoView.track = nil
+        localVideoView.isHidden = true
+        clearRealtime()
         mediaImageView.image = nil
         mediaImageView.isHidden = true
 
@@ -733,15 +742,59 @@ private final class RealtimePreviewBackdropView: UIView {
     }
 
     func displayCamera(_ track: RealtimeVideoTrack?) {
+        updateCamera(track)
+        clearRealtime()
+    }
+
+    func updateCamera(_ track: RealtimeVideoTrack?) {
         stopVideo()
         mediaImageView.image = nil
         mediaImageView.isHidden = true
-        realtimeVideoView.isHidden = false
-        realtimeVideoView.track = track
+        localVideoView.isHidden = false
+        localVideoView.track = track
     }
 
-    func displayRealtime(_ track: RealtimeVideoTrack?) {
-        displayCamera(track)
+    func prepareRealtime(_ track: RealtimeVideoTrack?) {
+        remoteVisibilityVersion &+= 1
+        remoteVideoView.layer.removeAllAnimations()
+        remoteVideoView.alpha = 0
+        remoteVideoView.isHidden = true
+        remoteVideoView.track = track
+    }
+
+    func showRealtime(animated: Bool) {
+        guard remoteVideoView.track != nil else { return }
+        guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
+            return
+        }
+        remoteVisibilityVersion &+= 1
+        let version = remoteVisibilityVersion
+        remoteVideoView.layer.removeAllAnimations()
+        remoteVideoView.isHidden = false
+
+        let changes = {
+            self.remoteVideoView.alpha = 1
+        }
+        guard animated, window != nil else {
+            changes()
+            return
+        }
+        UIView.animate(
+            withDuration: 0.3,
+            delay: 0,
+            options: [.beginFromCurrentState, .curveEaseInOut],
+            animations: changes
+        ) { _ in
+            guard version == self.remoteVisibilityVersion else { return }
+        }
+    }
+
+    private func clearRealtime() {
+        remoteVisibilityVersion &+= 1
+        remoteVideoView.layer.removeAllAnimations()
+        remoteVideoView.alpha = 0
+        remoteVideoView.isHidden = true
+        remoteVideoView.track = nil
     }
 
     private func stopVideo() {
