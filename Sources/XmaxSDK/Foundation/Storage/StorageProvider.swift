@@ -29,7 +29,7 @@ final class StorageProvider: StorageProviding, Sendable {
         )
 
         do {
-            let service = try Self.makeTransferService(configuration: configuration)
+            let service = try Self.makeStorageService(configuration: configuration)
             let request = try Self.makeUploadRequest(
                 source: source,
                 objectKey: objectKey,
@@ -198,9 +198,9 @@ final class StorageProvider: StorageProviding, Sendable {
         }
     }
 
-    private static func makeTransferService(
+    private static func makeStorageService(
         configuration: StorageConfiguration
-    ) throws -> QCloudCOSTransferMangerService {
+    ) throws -> QCloudCOSXMLService {
         let serviceConfiguration = QCloudServiceConfiguration()
         let endpointValue = configuration.endpoint
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -224,7 +224,7 @@ final class StorageProvider: StorageProviding, Sendable {
             serviceConfiguration.endpoint = endpoint
         }
 
-        return QCloudCOSTransferMangerService(
+        return QCloudCOSXMLService(
             configuration: serviceConfiguration
         )
     }
@@ -234,8 +234,8 @@ final class StorageProvider: StorageProviding, Sendable {
         objectKey: String,
         contentType: String,
         configuration: StorageConfiguration
-    ) throws -> QCloudCOSXMLUploadObjectRequest<AnyObject> {
-        let request = QCloudCOSXMLUploadObjectRequest<AnyObject>()
+    ) throws -> QCloudPutObjectRequest<AnyObject> {
+        let request = QCloudPutObjectRequest<AnyObject>()
         request.bucket = configuration.bucket
         request.object = objectKey
         request.contentType = contentType
@@ -339,8 +339,8 @@ final class StorageProvider: StorageProviding, Sendable {
 private final class StorageUploadOperation: @unchecked Sendable {
 
     // 上传资源
-    private let service: QCloudCOSTransferMangerService
-    private let request: QCloudCOSXMLUploadObjectRequest<AnyObject>
+    private let service: QCloudCOSXMLService
+    private let request: QCloudPutObjectRequest<AnyObject>
 
     // 上传配置
     private let objectKey: String
@@ -360,8 +360,8 @@ private final class StorageUploadOperation: @unchecked Sendable {
     private var completed = false
 
     init(
-        service: QCloudCOSTransferMangerService,
-        request: QCloudCOSXMLUploadObjectRequest<AnyObject>,
+        service: QCloudCOSXMLService,
+        request: QCloudPutObjectRequest<AnyObject>,
         objectKey: String,
         configuration: StorageConfiguration,
         progress: StorageProgressListener?
@@ -390,7 +390,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
         request.sendProcessBlock = { [progress] _, totalBytes, expectedBytes in
             progress?(totalBytes, max(expectedBytes, 0))
         }
-        request.setFinish { [weak self] result, error in
+        request.finishBlock = { [weak self] result, error in
             guard let self else {
                 return
             }
@@ -412,22 +412,21 @@ private final class StorageUploadOperation: @unchecked Sendable {
                 return
             }
 
-            guard let result else {
-                finish(.failure(XmaxError(
-                    code: .uploadError,
-                    message: "Storage upload returned no result"
-                )))
-                return
-            }
-
             do {
+                let headers = result as? [AnyHashable: Any]
+                let location = Self.headerValue(
+                    keys: ["Location", "location"],
+                    headers: headers
+                )
                 let url = try StorageProvider.resolveObjectURL(
-                    candidate: result.location,
+                    candidate: location,
                     configuration: configuration,
                     objectKey: objectKey
                 )
-                let etag = result.eTag
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let etag = Self.headerValue(
+                    keys: ["Etag", "ETag", "etag"],
+                    headers: headers
+                )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 finish(.success(StoredFile(
                     url: url,
                     objectKey: objectKey,
@@ -464,7 +463,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
         started = true
         lock.unlock()
 
-        service.uploadObject(request)
+        service.putObject(request)
     }
 
     private func cancel() {
@@ -498,5 +497,17 @@ private final class StorageUploadOperation: @unchecked Sendable {
             return "\(milliseconds) ms"
         }
         return String(format: "%.2f s", Double(milliseconds) / 1_000)
+    }
+
+    private static func headerValue(
+        keys: [String],
+        headers: [AnyHashable: Any]?
+    ) -> String? {
+        for key in keys {
+            if let value = headers?[key] as? String {
+                return value
+            }
+        }
+        return nil
     }
 }
