@@ -1,4 +1,7 @@
 import CoreGraphics
+import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 @testable import XmaxSDK
 
@@ -60,6 +63,74 @@ final class ImageProviderTests: XCTestCase {
         }
     }
 
+    func testProcessingSessionReadsResizesAndPreservesPNG() throws {
+        let source = try makeImage(width: 4, height: 2)
+        let sourceData = try encode(
+            source,
+            type: .png
+        )
+
+        let session = try ImageProvider().makeProcessingSession(
+            data: sourceData
+        )
+        let output = try session.resizeAndEncode(
+            width: 2,
+            height: 2,
+            requestedContentType: "image/png",
+            quality: 90
+        )
+
+        XCTAssertEqual(
+            session.metadata,
+            ImageProcessingMetadata(
+                width: 4,
+                height: 2,
+                contentType: "image/png"
+            )
+        )
+        XCTAssertEqual(output.width, 2)
+        XCTAssertEqual(output.height, 2)
+        XCTAssertEqual(output.contentType, "image/png")
+        XCTAssertFalse(output.data.isEmpty)
+    }
+
+    func testProcessingSessionFallsBackToJPEGForUnsupportedContentType() throws {
+        let sourceData = try encode(
+            makeImage(width: 3, height: 2),
+            type: .png
+        )
+        let session = try ImageProvider().makeProcessingSession(
+            data: sourceData
+        )
+
+        let output = try session.resizeAndEncode(
+            width: 3,
+            height: 2,
+            requestedContentType: "image/not-supported",
+            quality: 90
+        )
+
+        XCTAssertEqual(output.contentType, "image/jpeg")
+        XCTAssertFalse(output.data.isEmpty)
+    }
+
+    func testProcessingSessionEncodesJPEG() throws {
+        let sourceData = try encode(
+            makeImage(width: 3, height: 2),
+            type: .png
+        )
+        let session = try ImageProvider().makeProcessingSession(
+            data: sourceData
+        )
+
+        let output = try session.encodeJPEG(quality: 75)
+
+        XCTAssertEqual(output.width, 3)
+        XCTAssertEqual(output.height, 2)
+        XCTAssertEqual(output.contentType, "image/jpeg")
+        XCTAssertFalse(output.data.isEmpty)
+    }
+
     private func makeImage(width: Int, height: Int) throws -> CGImage {
         let context = try XCTUnwrap(CGContext(
             data: nil,
@@ -83,5 +154,21 @@ final class ImageProviderTests: XCTestCase {
             height: CGFloat(height)
         ))
         return try XCTUnwrap(context.makeImage())
+    }
+
+    private func encode(
+        _ image: CGImage,
+        type: UTType
+    ) throws -> Data {
+        let data = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(
+            data,
+            type.identifier as CFString,
+            1,
+            nil
+        ))
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return data as Data
     }
 }
