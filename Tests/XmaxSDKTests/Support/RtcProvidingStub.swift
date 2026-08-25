@@ -9,11 +9,24 @@ enum RtcProvidingCall: Equatable {
     case startVideoCapture(width: Int, height: Int, frameRate: Int)
     case stopVideoCapture
     case switchCamera(CameraPosition)
+    case publishLocalVideo
+    case unpublishLocalVideo
+    case publishLocalAudio
+    case unpublishLocalAudio
+    case subscribeRemoteVideo(userID: String, subscribe: Bool)
+    case joinRoom(RoomJoinConfiguration)
+    case leaveRoom
+    case sendRoomMessage(String)
     case bindLocalVideo(VideoContentMode)
     case unbindLocalVideo
 }
 
 final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
+
+    typealias JoinRoomHandler = @Sendable (
+        RoomJoinConfiguration
+    ) async throws -> Void
+    typealias LeaveRoomHandler = @Sendable () async -> Void
 
     // 测试配置
     private let encodingError: (any Error)?
@@ -21,12 +34,22 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
     private let startVideoCaptureError: (any Error)?
     private let stopVideoCaptureError: (any Error)?
     private let switchCameraError: (any Error)?
+    private let publishLocalVideoError: (any Error)?
+    private let unpublishLocalVideoError: (any Error)?
+    private let publishLocalAudioError: (any Error)?
+    private let unpublishLocalAudioError: (any Error)?
+    private let subscribeRemoteVideoError: (any Error)?
+    private let joinRoomError: (any Error)?
+    private let sendRoomMessageError: (any Error)?
+    private let joinRoomHandler: JoinRoomHandler?
+    private let leaveRoomHandler: LeaveRoomHandler?
     private let bindLocalVideoError: (any Error)?
     private let unbindLocalVideoError: (any Error)?
 
     // 并发状态
     private let lock = NSLock()
     private var storedCalls: [RtcProvidingCall] = []
+    private weak var storedEventListener: (any RtcEventListener)?
 
     init(
         initializationError: (any Error)? = nil,
@@ -34,6 +57,15 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         startVideoCaptureError: (any Error)? = nil,
         stopVideoCaptureError: (any Error)? = nil,
         switchCameraError: (any Error)? = nil,
+        publishLocalVideoError: (any Error)? = nil,
+        unpublishLocalVideoError: (any Error)? = nil,
+        publishLocalAudioError: (any Error)? = nil,
+        unpublishLocalAudioError: (any Error)? = nil,
+        subscribeRemoteVideoError: (any Error)? = nil,
+        joinRoomError: (any Error)? = nil,
+        sendRoomMessageError: (any Error)? = nil,
+        joinRoomHandler: JoinRoomHandler? = nil,
+        leaveRoomHandler: LeaveRoomHandler? = nil,
         bindLocalVideoError: (any Error)? = nil,
         unbindLocalVideoError: (any Error)? = nil
     ) {
@@ -42,6 +74,15 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         self.startVideoCaptureError = startVideoCaptureError
         self.stopVideoCaptureError = stopVideoCaptureError
         self.switchCameraError = switchCameraError
+        self.publishLocalVideoError = publishLocalVideoError
+        self.unpublishLocalVideoError = unpublishLocalVideoError
+        self.publishLocalAudioError = publishLocalAudioError
+        self.unpublishLocalAudioError = unpublishLocalAudioError
+        self.subscribeRemoteVideoError = subscribeRemoteVideoError
+        self.joinRoomError = joinRoomError
+        self.sendRoomMessageError = sendRoomMessageError
+        self.joinRoomHandler = joinRoomHandler
+        self.leaveRoomHandler = leaveRoomHandler
         self.bindLocalVideoError = bindLocalVideoError
         self.unbindLocalVideoError = unbindLocalVideoError
     }
@@ -139,22 +180,43 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
 
     func joinRoom(
         configuration: RoomJoinConfiguration
-    ) async throws {}
+    ) async throws {
+        try record(.joinRoom(configuration), error: joinRoomError)
+        try await joinRoomHandler?(configuration)
+    }
 
-    func leaveRoom() async {}
+    func leaveRoom() async {
+        lock.withLock {
+            storedCalls.append(.leaveRoom)
+        }
+        await leaveRoomHandler?()
+    }
 
-    func publishLocalVideo() throws {}
+    func publishLocalVideo() throws {
+        try record(.publishLocalVideo, error: publishLocalVideoError)
+    }
 
-    func unpublishLocalVideo() throws {}
+    func unpublishLocalVideo() throws {
+        try record(.unpublishLocalVideo, error: unpublishLocalVideoError)
+    }
 
-    func publishLocalAudio() throws {}
+    func publishLocalAudio() throws {
+        try record(.publishLocalAudio, error: publishLocalAudioError)
+    }
 
-    func unpublishLocalAudio() throws {}
+    func unpublishLocalAudio() throws {
+        try record(.unpublishLocalAudio, error: unpublishLocalAudioError)
+    }
 
     func subscribeRemoteVideo(
         userID: String,
         subscribe: Bool
-    ) throws {}
+    ) throws {
+        try record(
+            .subscribeRemoteVideo(userID: userID, subscribe: subscribe),
+            error: subscribeRemoteVideoError
+        )
+    }
 
     @MainActor
     func bindLocalVideo(
@@ -193,9 +255,46 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         "test"
     }
 
-    func sendRoomMessage(_ message: String) throws {}
+    func sendRoomMessage(_ message: String) throws {
+        try record(
+            .sendRoomMessage(message),
+            error: sendRoomMessageError
+        )
+    }
 
-    func setEventListener(_ listener: (any RtcEventListener)?) {}
+    func setEventListener(_ listener: (any RtcEventListener)?) {
+        lock.withLock {
+            storedEventListener = listener
+        }
+    }
 
     func setQualityListener(_ listener: (any RtcQualityListener)?) {}
+}
+
+extension RtcProvidingStub {
+    @MainActor
+    func emitRemoteVideoPublished(
+        userID: String,
+        published: Bool
+    ) {
+        let listener = lock.withLock { storedEventListener }
+        listener?.onRemoteVideoPublished(
+            userID: userID,
+            published: published
+        )
+    }
+}
+
+private extension RtcProvidingStub {
+    func record(
+        _ call: RtcProvidingCall,
+        error: (any Error)?
+    ) throws {
+        try lock.withLock {
+            storedCalls.append(call)
+            if let error {
+                throw error
+            }
+        }
+    }
 }
