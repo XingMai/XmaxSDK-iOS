@@ -1,8 +1,27 @@
-/// 定义 SDK 对接入方提供的实时媒体控制能力。
+/// 定义 SDK 对接入方提供的实时媒体与生成控制能力。
 public protocol XmaxRealtimeManaging: Sendable {
 
     /// 实时能力配置。
     var options: RealtimeConfiguration { get }
+
+    /// 当前实时连接与生成状态。
+    var currentState: RealtimeState { get async }
+
+    /// 设置实时状态监听器，传入空值时清除监听器。
+    func setStateListener(_ listener: RealtimeStateListener?) async
+
+    /// 设置实时错误监听器，传入空值时清除监听器。
+    func setErrorListener(_ listener: RealtimeErrorListener?) async
+
+    /// 设置网络质量监听器，传入空值时清除监听器。
+    func setNetworkQualityListener(
+        _ listener: RealtimeNetworkQualityListener?
+    ) async
+
+    /// 设置设备性能告警监听器，传入空值时清除监听器。
+    func setPerformanceAlarmListener(
+        _ listener: RealtimePerformanceAlarmListener?
+    ) async
 
     /// 创建本地相机流并开始预览。
     func createLocalCameraStream(
@@ -21,6 +40,20 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 切换前后置摄像头。
     func switchCamera() async throws -> RealtimeMediaStream
+
+    /// 使用当前 Manager 创建的本地流建立实时连接。
+    func connect(
+        localStream: RealtimeMediaStream
+    ) async throws -> RealtimeMediaStream
+
+    /// 断开实时连接并保留本地相机预览。
+    func disconnect() async
+
+    /// 开始生成，生成中再次调用时更新当前条件。
+    func startGeneration(context: RealtimeContext?) async throws
+
+    /// 停止当前生成任务并保留实时连接。
+    func stopGeneration() async
 }
 
 public extension XmaxRealtimeManaging {
@@ -42,5 +75,10 @@ public extension XmaxRealtimeManaging {
             videoFormat: videoFormat,
             position: .front
         )
+    }
+
+    /// 使用缓存条件开始生成；首次生成仍需显式传入条件。
+    func startGeneration() async throws {
+        try await startGeneration(context: nil)
     }
 }

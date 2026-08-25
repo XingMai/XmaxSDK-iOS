@@ -10,16 +10,17 @@ enum RtcQualityLevel: Int, CaseIterable, Sendable {
 }
 
 /// 接收 RTC 网络质量和性能回退事件。
-@MainActor
 protocol RtcQualityListener: AnyObject {
 
     /// 处理本地发送和远端接收的实时网络质量。
+    @MainActor
     func onNetworkQuality(
         uplink: RtcQualityLevel,
         downlink: RtcQualityLevel
     )
 
     /// 处理实时性能受限或恢复事件。
+    @MainActor
     func onPerformanceAlarm(
         limited: Bool,
         suggestedWidth: Int,

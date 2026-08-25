@@ -34,6 +34,42 @@ final class XmaxPublicAPITests: XCTestCase {
         XCTAssertEqual(position.rawValue, "front")
     }
 
+    func testPublicRealtimeContextIsConstructible() {
+        let context = RealtimeContext(
+            prompt: " prompt ",
+            referencePath: " reference/image.png "
+        )
+
+        XCTAssertEqual(context.prompt, "prompt")
+        XCTAssertEqual(context.referencePath, "reference/image.png")
+    }
+
+    @MainActor
+    func testPublicRealtimeQualityModelsAreConstructible() {
+        let networkQuality = RealtimeNetworkQuality(
+            uplink: .excellent,
+            downlink: .good
+        )
+        let performanceAlarm = RealtimePerformanceAlarm(
+            status: .limited,
+            suggestedVideoFormat: RealtimeVideoFormat(
+                width: 540,
+                height: 960,
+                fps: 15
+            )
+        )
+        let networkListener: RealtimeNetworkQualityListener = { _ in }
+        let performanceListener: RealtimePerformanceAlarmListener = { _ in }
+
+        networkListener(networkQuality)
+        performanceListener(performanceAlarm)
+
+        XCTAssertEqual(networkQuality.uplink, .excellent)
+        XCTAssertEqual(networkQuality.downlink, .good)
+        XCTAssertEqual(performanceAlarm.status, .limited)
+        XCTAssertEqual(performanceAlarm.suggestedVideoFormat?.fps, 15)
+    }
+
     @MainActor
     func testPublicVideoViewAcceptsRealtimeTrackAndContentMode() {
         let view = XmaxVideoView(videoContentMode: .fit)

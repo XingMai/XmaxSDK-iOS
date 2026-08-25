@@ -9,6 +9,8 @@ enum RtcProvidingCall: Equatable {
     case startVideoCapture(width: Int, height: Int, frameRate: Int)
     case stopVideoCapture
     case switchCamera(CameraPosition)
+    case pushExternalVideoFrame(seiData: Data?)
+    case pushExternalAudioFrame(AudioFrame)
     case publishLocalVideo
     case unpublishLocalVideo
     case publishLocalAudio
@@ -19,6 +21,8 @@ enum RtcProvidingCall: Equatable {
     case sendRoomMessage(String)
     case bindLocalVideo(VideoContentMode)
     case unbindLocalVideo
+    case bindRemoteVideo(RemoteStream, VideoContentMode)
+    case unbindRemoteVideo(RemoteStream)
 }
 
 final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
@@ -45,11 +49,14 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
     private let leaveRoomHandler: LeaveRoomHandler?
     private let bindLocalVideoError: (any Error)?
     private let unbindLocalVideoError: (any Error)?
+    private let bindRemoteVideoError: (any Error)?
+    private let unbindRemoteVideoError: (any Error)?
 
     // 并发状态
     private let lock = NSLock()
     private var storedCalls: [RtcProvidingCall] = []
     private weak var storedEventListener: (any RtcEventListener)?
+    private weak var storedQualityListener: (any RtcQualityListener)?
 
     init(
         initializationError: (any Error)? = nil,
@@ -67,7 +74,9 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         joinRoomHandler: JoinRoomHandler? = nil,
         leaveRoomHandler: LeaveRoomHandler? = nil,
         bindLocalVideoError: (any Error)? = nil,
-        unbindLocalVideoError: (any Error)? = nil
+        unbindLocalVideoError: (any Error)? = nil,
+        bindRemoteVideoError: (any Error)? = nil,
+        unbindRemoteVideoError: (any Error)? = nil
     ) {
         self.initializationError = initializationError
         self.encodingError = encodingError
@@ -85,6 +94,8 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         self.leaveRoomHandler = leaveRoomHandler
         self.bindLocalVideoError = bindLocalVideoError
         self.unbindLocalVideoError = unbindLocalVideoError
+        self.bindRemoteVideoError = bindRemoteVideoError
+        self.unbindRemoteVideoError = unbindRemoteVideoError
     }
 
     var calls: [RtcProvidingCall] {
@@ -174,9 +185,17 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
     func pushExternalVideoFrame(
         _ frame: any VideoFrame,
         seiData: Data?
-    ) throws {}
+    ) throws {
+        lock.withLock {
+            storedCalls.append(.pushExternalVideoFrame(seiData: seiData))
+        }
+    }
 
-    func pushExternalAudioFrame(_ frame: AudioFrame) throws {}
+    func pushExternalAudioFrame(_ frame: AudioFrame) throws {
+        lock.withLock {
+            storedCalls.append(.pushExternalAudioFrame(frame))
+        }
+    }
 
     func joinRoom(
         configuration: RoomJoinConfiguration
@@ -246,10 +265,24 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         _ stream: RemoteStream,
         to view: UIView,
         contentMode: VideoContentMode
-    ) throws {}
+    ) throws {
+        try lock.withLock {
+            storedCalls.append(.bindRemoteVideo(stream, contentMode))
+            if let bindRemoteVideoError {
+                throw bindRemoteVideoError
+            }
+        }
+    }
 
     @MainActor
-    func unbindRemoteVideo(_ stream: RemoteStream) throws {}
+    func unbindRemoteVideo(_ stream: RemoteStream) throws {
+        try lock.withLock {
+            storedCalls.append(.unbindRemoteVideo(stream))
+            if let unbindRemoteVideoError {
+                throw unbindRemoteVideoError
+            }
+        }
+    }
 
     var renderLibraryName: String {
         "test"
@@ -268,7 +301,11 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         }
     }
 
-    func setQualityListener(_ listener: (any RtcQualityListener)?) {}
+    func setQualityListener(_ listener: (any RtcQualityListener)?) {
+        lock.withLock {
+            storedQualityListener = listener
+        }
+    }
 }
 
 extension RtcProvidingStub {
@@ -281,6 +318,46 @@ extension RtcProvidingStub {
         listener?.onRemoteVideoPublished(
             userID: userID,
             published: published
+        )
+    }
+
+    @MainActor
+    func emitNetworkQuality(
+        uplink: RtcQualityLevel,
+        downlink: RtcQualityLevel
+    ) {
+        let listener = lock.withLock { storedQualityListener }
+        listener?.onNetworkQuality(
+            uplink: uplink,
+            downlink: downlink
+        )
+    }
+
+    @MainActor
+    func emitPerformanceAlarm(
+        limited: Bool,
+        suggestedWidth: Int,
+        suggestedHeight: Int,
+        suggestedFrameRate: Int
+    ) {
+        let listener = lock.withLock { storedQualityListener }
+        listener?.onPerformanceAlarm(
+            limited: limited,
+            suggestedWidth: suggestedWidth,
+            suggestedHeight: suggestedHeight,
+            suggestedFrameRate: suggestedFrameRate
+        )
+    }
+
+    @MainActor
+    func emitSeiMessage(
+        stream: RemoteStream,
+        message: String
+    ) {
+        let listener = lock.withLock { storedEventListener }
+        listener?.onSeiMessageReceived(
+            stream: stream,
+            message: message
         )
     }
 }

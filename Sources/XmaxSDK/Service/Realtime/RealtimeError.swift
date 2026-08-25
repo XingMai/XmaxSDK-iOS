@@ -1,2 +1,4 @@
 /// 实时业务错误监听器。
-typealias RealtimeErrorListener = @Sendable (XmaxError) -> Void
+public typealias RealtimeErrorListener = @MainActor @Sendable (
+    XmaxError
+) -> Void

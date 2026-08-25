@@ -34,7 +34,10 @@ public final class XmaxClient: Sendable {
     public func createRealtimeManager(
         options: RealtimeConfiguration
     ) -> any XmaxRealtimeManaging {
-        XmaxRealtimeManager(options: options)
+        XmaxRealtimeManager(
+            options: options,
+            apiService: apiService
+        )
     }
 
     /// 创建文件存储 Manager。

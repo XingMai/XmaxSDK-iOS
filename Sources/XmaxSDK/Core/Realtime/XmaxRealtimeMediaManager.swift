@@ -41,6 +41,11 @@ actor XmaxRealtimeMediaManager {
         currentTrack?.videoFormat
     }
 
+    /// 当前相机输入不包含由 SDK 管理的本地音频。
+    var hasAudio: Bool {
+        false
+    }
+
     /// 创建相机媒体来源并取得本地媒体所有权。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
