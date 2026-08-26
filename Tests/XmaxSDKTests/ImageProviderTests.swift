@@ -2,13 +2,14 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+import UIKit
 import XCTest
 @testable import XmaxSDK
 
 final class ImageProviderTests: XCTestCase {
     func testCenterCropRectCropsWideImageHorizontally() {
         XCTAssertEqual(
-            ImageProvider.centerCropRect(
+            CoreGraphicsDecodedImage.centerCropRect(
                 sourceWidth: 400,
                 sourceHeight: 200,
                 targetWidth: 100,
@@ -20,7 +21,7 @@ final class ImageProviderTests: XCTestCase {
 
     func testCenterCropRectCropsTallImageVertically() {
         XCTAssertEqual(
-            ImageProvider.centerCropRect(
+            CoreGraphicsDecodedImage.centerCropRect(
                 sourceWidth: 200,
                 sourceHeight: 400,
                 targetWidth: 200,
@@ -30,121 +31,19 @@ final class ImageProviderTests: XCTestCase {
         )
     }
 
-    func testResizeImageToFillReturnsRequestedPixelDimensions() throws {
-        let source = try makeImage(width: 8, height: 4)
-
-        let output = try ImageProvider().resizeImageToFill(
-            source,
-            targetWidth: 3,
-            targetHeight: 5
-        )
-
-        XCTAssertEqual(output.width, 3)
-        XCTAssertEqual(output.height, 5)
-    }
-
-    func testResizeImageToFillRejectsInvalidDimensions() throws {
-        let source = try makeImage(width: 2, height: 2)
-
-        XCTAssertThrowsError(
-            try ImageProvider().resizeImageToFill(
-                source,
-                targetWidth: 0,
-                targetHeight: 2
-            )
-        ) { error in
-            XCTAssertEqual(
-                error as? XmaxError,
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Image width and height must be finite numbers greater than zero"
-                )
-            )
-        }
-    }
-
-    func testProcessingSessionReadsResizesAndPreservesPNG() throws {
-        let source = try makeImage(width: 4, height: 2)
-        let sourceData = try encode(
-            source,
-            type: .png
-        )
-
-        let session = try ImageProvider().makeProcessingSession(
-            data: sourceData
-        )
-        let output = try session.resizeAndEncode(
-            width: 2,
-            height: 2,
-            requestedContentType: "image/png",
-            quality: 90
-        )
-
-        XCTAssertEqual(
-            session.metadata,
-            ImageProcessingMetadata(
-                width: 4,
-                height: 2,
-                contentType: "image/png"
-            )
-        )
-        XCTAssertEqual(output.width, 2)
-        XCTAssertEqual(output.height, 2)
-        XCTAssertEqual(output.contentType, "image/png")
-        XCTAssertFalse(output.data.isEmpty)
-    }
-
-    func testProcessingSessionFallsBackToJPEGForUnsupportedContentType() throws {
-        let sourceData = try encode(
-            makeImage(width: 3, height: 2),
-            type: .png
-        )
-        let session = try ImageProvider().makeProcessingSession(
-            data: sourceData
-        )
-
-        let output = try session.resizeAndEncode(
-            width: 3,
-            height: 2,
-            requestedContentType: "image/not-supported",
-            quality: 90
-        )
-
-        XCTAssertEqual(output.contentType, "image/jpeg")
-        XCTAssertFalse(output.data.isEmpty)
-    }
-
-    func testProcessingSessionEncodesJPEG() throws {
-        let sourceData = try encode(
-            makeImage(width: 3, height: 2),
-            type: .png
-        )
-        let session = try ImageProvider().makeProcessingSession(
-            data: sourceData
-        )
-
-        let output = try session.encodeJPEG(quality: 75)
-
-        XCTAssertEqual(output.width, 3)
-        XCTAssertEqual(output.height, 2)
-        XCTAssertEqual(output.contentType, "image/jpeg")
-        XCTAssertFalse(output.data.isEmpty)
-    }
-
-    func testProcessingSessionCreatesBGRAFrameData() throws {
+    func testDecodeReadsImageSizeAndCreatesBGRAFrameData() throws {
         let sourceData = try encode(
             makeImage(width: 4, height: 2),
             type: .png
         )
-        let session = try ImageProvider().makeProcessingSession(
-            data: sourceData
-        )
 
-        let frameData = try session.makeVideoFrameData(
+        let decodedImage = try ImageProvider().decode(sourceData)
+        let frameData = try decodedImage.makeVideoFrameData(
             width: 2,
             height: 2
         )
 
+        XCTAssertEqual(decodedImage.size, CGSize(width: 4, height: 2))
         XCTAssertEqual(frameData.width, 2)
         XCTAssertEqual(frameData.height, 2)
         XCTAssertEqual(frameData.bytesPerRow, 8)
@@ -152,7 +51,49 @@ final class ImageProviderTests: XCTestCase {
         XCTAssertEqual(frameData.data.count, 16)
     }
 
-    private func makeImage(width: Int, height: Int) throws -> CGImage {
+    @MainActor
+    func testDecodeAcceptsUIKitImageDirectly() throws {
+        let image = UIImage(cgImage: try makeImage(width: 4, height: 2))
+
+        let decodedImage = try ImageProvider().decode(image)
+
+        XCTAssertEqual(decodedImage.size, CGSize(width: 4, height: 2))
+    }
+
+    func testDecodeRejectsEmptyData() {
+        XCTAssertThrowsError(try ImageProvider().decode(Data())) { error in
+            XCTAssertEqual(
+                error as? XmaxError,
+                XmaxError(
+                    code: .mediaError,
+                    message: "Failed to create image source from data"
+                )
+            )
+        }
+    }
+
+    func testVideoFrameRejectsInvalidDimensions() throws {
+        let decodedImage = CoreGraphicsDecodedImage(
+            image: try makeImage(width: 2, height: 2)
+        )
+
+        XCTAssertThrowsError(
+            try decodedImage.makeVideoFrameData(width: 0, height: 2)
+        ) { error in
+            XCTAssertEqual(
+                error as? XmaxError,
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Image width and height must be finite numbers " +
+                        "greater than zero"
+                )
+            )
+        }
+    }
+}
+
+private extension ImageProviderTests {
+    func makeImage(width: Int, height: Int) throws -> CGImage {
         let context = try XCTUnwrap(CGContext(
             data: nil,
             width: width,
@@ -168,16 +109,13 @@ final class ImageProviderTests: XCTestCase {
             blue: 0.75,
             alpha: 1
         )
-        context.fill(CGRect(
-            x: 0,
-            y: 0,
-            width: CGFloat(width),
-            height: CGFloat(height)
-        ))
+        context.fill(
+            CGRect(x: 0, y: 0, width: width, height: height)
+        )
         return try XCTUnwrap(context.makeImage())
     }
 
-    private func encode(
+    func encode(
         _ image: CGImage,
         type: UTType
     ) throws -> Data {

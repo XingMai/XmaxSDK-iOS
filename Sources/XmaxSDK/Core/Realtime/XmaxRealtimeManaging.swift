@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// 定义 SDK 对接入方提供的实时媒体与生成控制能力。
 public protocol XmaxRealtimeManaging: Sendable {
@@ -42,6 +45,32 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 切换前后置摄像头。
     func switchCamera() async throws -> RealtimeMediaStream
+
+    /// 从编码后的图片数据创建持续输出帧的媒体流。
+    func createLocalImageStream(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+    /// 将当前本地媒体流替换为编码后的图片数据流。
+    func replaceLocalImageStream(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+#if canImport(UIKit)
+    /// 从 UIKit 图片创建持续输出帧的媒体流。
+    func createLocalImageStream(
+        image: UIImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+
+    /// 将当前本地媒体流替换为 UIKit 图片流。
+    func replaceLocalImageStream(
+        image: UIImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream
+#endif
 
     /// 从本地图片文件创建持续输出帧的媒体流。
     func createLocalImageStream(
@@ -106,6 +135,26 @@ public extension XmaxRealtimeManaging {
         try await replaceLocalCameraStream(
             videoFormat: videoFormat,
             position: .front
+        )
+    }
+
+    /// 根据编码后的图片数据创建本地图片流并开始预览。
+    func createLocalImageStream(
+        imageData: Data
+    ) async throws -> RealtimeMediaStream {
+        try await createLocalImageStream(
+            imageData: imageData,
+            videoFormat: nil
+        )
+    }
+
+    /// 根据编码后的图片数据替换当前本地媒体流。
+    func replaceLocalImageStream(
+        imageData: Data
+    ) async throws -> RealtimeMediaStream {
+        try await replaceLocalImageStream(
+            imageData: imageData,
+            videoFormat: nil
         )
     }
 

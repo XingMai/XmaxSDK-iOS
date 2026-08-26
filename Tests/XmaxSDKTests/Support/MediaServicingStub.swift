@@ -1,6 +1,5 @@
 import CoreGraphics
 import Foundation
-import UIKit
 @testable import XmaxSDK
 
 final class MediaServicingStub: MediaServicing, @unchecked Sendable {
@@ -25,13 +24,6 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
         lock.withLock { storedRequestedSizes }
     }
 
-    @MainActor
-    func pickImage(
-        from presentingViewController: UIViewController
-    ) async throws -> Data {
-        Data()
-    }
-
     func resolveModelInputSize(_ size: CGSize) throws -> CGSize {
         try lock.withLock {
             storedRequestedSizes.append(size)
@@ -40,37 +32,5 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
             }
             return resolvedSize
         }
-    }
-
-    func resizeToModelInput(
-        _ data: Data
-    ) async throws -> ProcessedImage {
-        ProcessedImage(
-            data: data,
-            size: resolvedSize,
-            contentType: "image/jpeg"
-        )
-    }
-
-    func resizeToFit(
-        _ data: Data,
-        maximumSize: CGSize
-    ) async throws -> ProcessedImage {
-        ProcessedImage(
-            data: data,
-            size: maximumSize,
-            contentType: "image/jpeg"
-        )
-    }
-
-    func compressJPEG(
-        _ data: Data,
-        quality: Double
-    ) async throws -> ProcessedImage {
-        ProcessedImage(
-            data: data,
-            size: resolvedSize,
-            contentType: "image/jpeg"
-        )
     }
 }

@@ -4,6 +4,25 @@ import XCTest
 @testable import XmaxSDK
 
 final class XmaxRealtimeImageManagerTests: XCTestCase {
+    func testCreateAcceptsEncodedImageData() async throws {
+        let sourceController = ImageSourceControllingStub(
+            resolvedFormat: imageFormat
+        )
+        let manager = makeManager(sourceController: sourceController)
+        let imageData = Data("encoded-image".utf8)
+
+        let stream = try await manager.createLocalImageStream(
+            imageData: imageData,
+            videoFormat: nil
+        )
+
+        XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
+        XCTAssertEqual(
+            sourceController.calls,
+            [.prepareData(imageData, nil), .start]
+        )
+    }
+
     func testCreateConfiguresExternalSourceAndRegistersTrack() async throws {
         let rtcProvider = RtcProvidingStub()
         let sourceController = ImageSourceControllingStub(

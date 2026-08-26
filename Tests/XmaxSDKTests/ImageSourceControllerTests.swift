@@ -4,17 +4,45 @@ import XCTest
 @testable import XmaxSDK
 
 final class ImageSourceControllerTests: XCTestCase {
+    func testPrepareAcceptsEncodedImageDataDirectly() async throws {
+        let imageData = Data("encoded-image".utf8)
+        let decodedImage = DecodedImageStub(width: 400, height: 800)
+        let controller = ImageSourceController(
+            imageProvider: ImageProvidingStub(decodedImage: decodedImage),
+            mediaService: MediaServicingStub(
+                resolvedSize: CGSize(width: 832, height: 1_472)
+            ),
+            frameListener: { _ in },
+            errorListener: { _ in }
+        )
+
+        let format = try await controller.prepare(
+            imageData: imageData,
+            videoFormat: nil
+        )
+        controller.stop()
+
+        XCTAssertEqual(
+            format,
+            RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
+        )
+        XCTAssertEqual(
+            decodedImage.frameSizes,
+            [CGSize(width: 832, height: 1_472)]
+        )
+    }
+
     func testPrepareResolvesDefaultFormatAndStartEmitsFrame() async throws {
         let fileURL = try makeTemporaryImageDataFile()
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        let session = ImageProcessingSessionStub(
+        let decodedImage = DecodedImageStub(
             width: 640,
             height: 480
         )
         let recorder = ImageFrameRecorder()
         let controller = ImageSourceController(
-            imageProvider: ImageProvidingStub(session: session),
+            imageProvider: ImageProvidingStub(decodedImage: decodedImage),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 896, height: 672)
             ),
@@ -35,7 +63,10 @@ final class ImageSourceControllerTests: XCTestCase {
             format,
             RealtimeVideoFormat(width: 896, height: 672, fps: 24)
         )
-        XCTAssertEqual(session.frameSizes, [CGSize(width: 896, height: 672)])
+        XCTAssertEqual(
+            decodedImage.frameSizes,
+            [CGSize(width: 896, height: 672)]
+        )
         let frame = try XCTUnwrap(recorder.frames.first)
         XCTAssertEqual(
             frame.format,
@@ -53,7 +84,7 @@ final class ImageSourceControllerTests: XCTestCase {
         )
         let controller = ImageSourceController(
             imageProvider: ImageProvidingStub(
-                session: ImageProcessingSessionStub(width: 400, height: 800)
+                decodedImage: DecodedImageStub(width: 400, height: 800)
             ),
             mediaService: mediaService,
             frameListener: { _ in },
@@ -83,7 +114,7 @@ final class ImageSourceControllerTests: XCTestCase {
     func testStartRejectsSourceThatHasNotBeenPrepared() {
         let controller = ImageSourceController(
             imageProvider: ImageProvidingStub(
-                session: ImageProcessingSessionStub(width: 1, height: 1)
+                decodedImage: DecodedImageStub(width: 1, height: 1)
             ),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 832, height: 1_472)
@@ -99,6 +130,35 @@ final class ImageSourceControllerTests: XCTestCase {
                     code: .invalidConfiguration,
                     message: "Prepare the local image before starting the " +
                         "image source"
+                )
+            )
+        }
+    }
+
+    func testPrepareRejectsEmptyImageData() async {
+        let controller = ImageSourceController(
+            imageProvider: ImageProvidingStub(
+                decodedImage: DecodedImageStub(width: 1, height: 1)
+            ),
+            mediaService: MediaServicingStub(
+                resolvedSize: CGSize(width: 832, height: 1_472)
+            ),
+            frameListener: { _ in },
+            errorListener: { _ in }
+        )
+
+        do {
+            _ = try await controller.prepare(
+                imageData: Data(),
+                videoFormat: nil
+            )
+            XCTFail("Expected empty image data to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error as? XmaxError,
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Image source data must not be empty"
                 )
             )
         }
@@ -132,50 +192,23 @@ private final class ImageFrameRecorder: @unchecked Sendable {
     }
 }
 
-private final class ImageProcessingSessionStub:
-    ImageProcessingSession,
+private final class DecodedImageStub:
+    DecodedImage,
     @unchecked Sendable {
 
     // 图片信息
-    let metadata: ImageProcessingMetadata
+    let size: CGSize
 
     // 并发状态
     private let lock = NSLock()
     private var storedFrameSizes: [CGSize] = []
 
     init(width: Int, height: Int) {
-        metadata = ImageProcessingMetadata(
-            width: width,
-            height: height,
-            contentType: "image/png"
-        )
+        size = CGSize(width: width, height: height)
     }
 
     var frameSizes: [CGSize] {
         lock.withLock { storedFrameSizes }
-    }
-
-    func resizeAndEncode(
-        width: Int,
-        height: Int,
-        requestedContentType: String,
-        quality: Int
-    ) throws -> ImageProcessingResult {
-        ImageProcessingResult(
-            data: Data("image".utf8),
-            width: width,
-            height: height,
-            contentType: requestedContentType
-        )
-    }
-
-    func encodeJPEG(quality: Int) throws -> ImageProcessingResult {
-        ImageProcessingResult(
-            data: Data("image".utf8),
-            width: metadata.width,
-            height: metadata.height,
-            contentType: "image/jpeg"
-        )
     }
 
     func makeVideoFrameData(
@@ -198,23 +231,13 @@ private final class ImageProcessingSessionStub:
 private final class ImageProvidingStub: ImageProviding, Sendable {
 
     // 图片资源
-    private let session: any ImageProcessingSession
+    private let decodedImage: any DecodedImage
 
-    init(session: any ImageProcessingSession) {
-        self.session = session
+    init(decodedImage: any DecodedImage) {
+        self.decodedImage = decodedImage
     }
 
-    func makeProcessingSession(
-        data: Data
-    ) throws -> any ImageProcessingSession {
-        session
-    }
-
-    func resizeImageToFill(
-        _ image: CGImage,
-        targetWidth: Int,
-        targetHeight: Int
-    ) throws -> CGImage {
-        image
+    func decode(_ data: Data) throws -> any DecodedImage {
+        decodedImage
     }
 }

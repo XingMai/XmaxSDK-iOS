@@ -92,19 +92,6 @@ final class XmaxPublicAPITests: XCTestCase {
         XCTAssertNotNil(service as Any)
     }
 
-    private func readPublicProcessedImage(
-        _ image: ProcessedImage
-    ) -> (Data, CGSize, String) {
-        (image.data, image.size, image.contentType)
-    }
-
-    private func presentPicker(
-        using service: any MediaServicing,
-        from viewController: UIViewController
-    ) async throws -> Data {
-        try await service.pickImage(from: viewController)
-    }
-
     private func createDefaultCameraStream(
         using manager: any XmaxRealtimeManaging,
         videoFormat: RealtimeVideoFormat
@@ -125,11 +112,41 @@ final class XmaxPublicAPITests: XCTestCase {
         try await manager.createLocalImageStream(fileURL: fileURL)
     }
 
+    private func createImageDataStream(
+        using manager: any XmaxRealtimeManaging,
+        imageData: Data
+    ) async throws -> RealtimeMediaStream {
+        try await manager.createLocalImageStream(imageData: imageData)
+    }
+
+    @MainActor
+    private func createUIKitImageStream(
+        using manager: any XmaxRealtimeManaging,
+        image: UIImage
+    ) async throws -> RealtimeMediaStream {
+        try await manager.createLocalImageStream(image: image)
+    }
+
     private func replaceDefaultImageStream(
         using manager: any XmaxRealtimeManaging,
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await manager.replaceLocalImageStream(fileURL: fileURL)
+    }
+
+    private func replaceImageDataStream(
+        using manager: any XmaxRealtimeManaging,
+        imageData: Data
+    ) async throws -> RealtimeMediaStream {
+        try await manager.replaceLocalImageStream(imageData: imageData)
+    }
+
+    @MainActor
+    private func replaceUIKitImageStream(
+        using manager: any XmaxRealtimeManaging,
+        image: UIImage
+    ) async throws -> RealtimeMediaStream {
+        try await manager.replaceLocalImageStream(image: image)
     }
 
     private func stopImageStream(

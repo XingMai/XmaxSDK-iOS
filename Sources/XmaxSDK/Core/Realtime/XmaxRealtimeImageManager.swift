@@ -55,6 +55,44 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
         stateLock.withLock { activeTrack }
     }
 
+    /// 从已经解码的图片创建持续输出帧的媒体流。
+    func createLocalImageStream(
+        decodedImage: any DecodedImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        guard currentTrack == nil else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Stop the current local image stream before " +
+                    "creating another one"
+            )
+        }
+
+        return try await createStream(
+            input: .decoded(decodedImage),
+            videoFormat: videoFormat
+        )
+    }
+
+    /// 从编码后的图片数据创建持续输出帧的媒体流。
+    func createLocalImageStream(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        guard currentTrack == nil else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Stop the current local image stream before " +
+                    "creating another one"
+            )
+        }
+
+        return try await createStream(
+            input: .data(imageData),
+            videoFormat: videoFormat
+        )
+    }
+
     /// 从本地图片文件创建持续输出帧的媒体流。
     func createLocalImageStream(
         fileURL: URL,
@@ -69,7 +107,7 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
         }
 
         return try await createStream(
-            fileURL: fileURL,
+            input: .file(fileURL),
             videoFormat: videoFormat
         )
     }
@@ -100,17 +138,37 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
 }
 
 private extension XmaxRealtimeImageManager {
+    enum ImageInput: Sendable {
+        case data(Data)
+        case decoded(any DecodedImage)
+        case file(URL)
+    }
+
     func createStream(
-        fileURL: URL,
+        input: ImageInput,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
         var track: RealtimeVideoTrack?
 
         do {
-            let resolvedFormat = try await imageSourceController.prepare(
-                fileURL: fileURL,
-                videoFormat: videoFormat
-            )
+            let resolvedFormat: RealtimeVideoFormat
+            switch input {
+            case .data(let imageData):
+                resolvedFormat = try await imageSourceController.prepare(
+                    imageData: imageData,
+                    videoFormat: videoFormat
+                )
+            case .decoded(let decodedImage):
+                resolvedFormat = try await imageSourceController.prepare(
+                    decodedImage: decodedImage,
+                    videoFormat: videoFormat
+                )
+            case .file(let fileURL):
+                resolvedFormat = try await imageSourceController.prepare(
+                    fileURL: fileURL,
+                    videoFormat: videoFormat
+                )
+            }
             let localTrack = RealtimeVideoTrack(
                 id: Self.localVideoTrackID,
                 videoFormat: resolvedFormat

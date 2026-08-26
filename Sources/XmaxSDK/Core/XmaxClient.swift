@@ -51,8 +51,7 @@ public final class XmaxClient: Sendable {
 
     /// 创建媒体处理 Service。
     ///
-    /// - Returns: 可用于选择和处理图片的媒体 Service。
-    @MainActor
+    /// - Returns: 可用于计算模型输入尺寸的媒体 Service。
     public func createMediaService() -> any MediaServicing {
         MediaService()
     }

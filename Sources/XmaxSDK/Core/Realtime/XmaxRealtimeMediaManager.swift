@@ -84,6 +84,34 @@ actor XmaxRealtimeMediaManager {
         }
     }
 
+    /// 创建图片数据媒体来源并取得本地媒体所有权。
+    func createLocalImageStream(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        let imageManager = try requiredImageManager()
+        return try await createSource(kind: .image) {
+            try await imageManager.createLocalImageStream(
+                imageData: imageData,
+                videoFormat: videoFormat
+            )
+        }
+    }
+
+    /// 创建已解码图片媒体来源并取得本地媒体所有权。
+    func createLocalImageStream(
+        decodedImage: any DecodedImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        let imageManager = try requiredImageManager()
+        return try await createSource(kind: .image) {
+            try await imageManager.createLocalImageStream(
+                decodedImage: decodedImage,
+                videoFormat: videoFormat
+            )
+        }
+    }
+
     /// 创建图片媒体来源并取得本地媒体所有权。
     func createLocalImageStream(
         fileURL: URL,
@@ -128,6 +156,34 @@ actor XmaxRealtimeMediaManager {
             return try await self.cameraManager.createLocalCameraStream(
                 videoFormat: videoFormat,
                 position: position
+            )
+        }
+    }
+
+    /// 将当前本地媒体来源替换为图片数据流。
+    func replaceLocalImageStream(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        let imageManager = try requiredImageManager()
+        return try await replaceSource(with: .image) { _ in
+            try await imageManager.createLocalImageStream(
+                imageData: imageData,
+                videoFormat: videoFormat
+            )
+        }
+    }
+
+    /// 将当前本地媒体来源替换为已解码图片流。
+    func replaceLocalImageStream(
+        decodedImage: any DecodedImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        let imageManager = try requiredImageManager()
+        return try await replaceSource(with: .image) { _ in
+            try await imageManager.createLocalImageStream(
+                decodedImage: decodedImage,
+                videoFormat: videoFormat
             )
         }
     }

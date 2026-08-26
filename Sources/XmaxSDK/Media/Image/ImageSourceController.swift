@@ -43,13 +43,6 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeVideoFormat {
-        guard stateLock.withLock({ preparedFrame == nil }) else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Stop the current image source before preparing " +
-                    "another image"
-            )
-        }
         guard fileURL.isFileURL, !fileURL.path.isEmpty else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -59,13 +52,55 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
 
         do {
             let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
-            let session = try imageProvider.makeProcessingSession(data: data)
+            return try await prepare(
+                imageData: data,
+                videoFormat: videoFormat
+            )
+        } catch {
+            throw XmaxError.from(error)
+        }
+    }
+
+    func prepare(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeVideoFormat {
+        guard !imageData.isEmpty else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Image source data must not be empty"
+            )
+        }
+
+        do {
+            return try await prepare(
+                decodedImage: imageProvider.decode(imageData),
+                videoFormat: videoFormat
+            )
+        } catch {
+            throw XmaxError.from(error)
+        }
+    }
+
+    func prepare(
+        decodedImage: any DecodedImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeVideoFormat {
+        guard stateLock.withLock({ preparedFrame == nil }) else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Stop the current image source before preparing " +
+                    "another image"
+            )
+        }
+
+        do {
             let resolvedFormat = try resolveVideoFormat(
-                sourceWidth: session.metadata.width,
-                sourceHeight: session.metadata.height,
+                sourceWidth: Int(decodedImage.size.width),
+                sourceHeight: Int(decodedImage.size.height),
                 requestedFormat: videoFormat
             )
-            let frameData = try session.makeVideoFrameData(
+            let frameData = try decodedImage.makeVideoFrameData(
                 width: resolvedFormat.width,
                 height: resolvedFormat.height
             )

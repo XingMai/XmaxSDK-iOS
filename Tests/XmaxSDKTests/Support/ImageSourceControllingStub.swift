@@ -1,7 +1,10 @@
+import CoreGraphics
 import Foundation
 @testable import XmaxSDK
 
 enum ImageSourceControllingCall: Equatable {
+    case prepareData(Data, RealtimeVideoFormat?)
+    case prepareDecoded(CGSize, RealtimeVideoFormat?)
     case prepare(URL, RealtimeVideoFormat?)
     case start
     case stop
@@ -32,6 +35,34 @@ final class ImageSourceControllingStub:
 
     var calls: [ImageSourceControllingCall] {
         lock.withLock { storedCalls }
+    }
+
+    func prepare(
+        imageData: Data,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeVideoFormat {
+        try lock.withLock {
+            storedCalls.append(.prepareData(imageData, videoFormat))
+            if let prepareError {
+                throw prepareError
+            }
+            return resolvedFormat
+        }
+    }
+
+    func prepare(
+        decodedImage: any DecodedImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeVideoFormat {
+        try lock.withLock {
+            storedCalls.append(
+                .prepareDecoded(decodedImage.size, videoFormat)
+            )
+            if let prepareError {
+                throw prepareError
+            }
+            return resolvedFormat
+        }
     }
 
     func prepare(

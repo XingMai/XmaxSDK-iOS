@@ -37,6 +37,52 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
     }
 
+    func testPublicInterfaceAcceptsEncodedImageData() async throws {
+        let components = makeComponents()
+        let imageData = Data("encoded-image".utf8)
+
+        let stream = try await components.manager.createLocalImageStream(
+            imageData: imageData
+        )
+
+        XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
+        XCTAssertEqual(
+            components.imageSource.calls,
+            [.prepareData(imageData, nil), .start]
+        )
+        try await components.manager.stopLocalImageStream()
+    }
+
+    func testPublicInterfaceAcceptsUIKitImage() async throws {
+        let components = makeComponents()
+        let image = UIGraphicsImageRenderer(
+            size: CGSize(width: 2, height: 2)
+        ).image { context in
+            UIColor.red.setFill()
+            context.cgContext.fill(
+                CGRect(x: 0, y: 0, width: 2, height: 2)
+            )
+        }
+
+        let stream = try await components.manager.createLocalImageStream(
+            image: image
+        )
+
+        XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
+        let cgImage = try XCTUnwrap(image.cgImage)
+        XCTAssertEqual(
+            components.imageSource.calls,
+            [
+                .prepareDecoded(
+                    CGSize(width: cgImage.width, height: cgImage.height),
+                    nil
+                ),
+                .start
+            ]
+        )
+        try await components.manager.stopLocalImageStream()
+    }
+
     func testConnectAndDisconnectPreserveLocalCameraPreview() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
@@ -330,6 +376,7 @@ private extension XmaxRealtimeManagerTests {
         let mediaManager: XmaxRealtimeMediaManager
         let rtcProvider: RtcProvidingStub
         let sessionService: RealtimeSessionServicingStub
+        let imageSource: ImageSourceControllingStub
         let videoSource: MediaSourceControllingStub
     }
 
@@ -351,11 +398,12 @@ private extension XmaxRealtimeManagerTests {
             ),
             encodingController: EncodingController(rtcProvider: rtcProvider)
         )
+        let imageSource = ImageSourceControllingStub(
+            resolvedFormat: imageFormat
+        )
         let imageManager = XmaxRealtimeImageManager(
             rtcProvider: rtcProvider,
-            imageSourceController: ImageSourceControllingStub(
-                resolvedFormat: imageFormat
-            ),
+            imageSourceController: imageSource,
             encodingController: EncodingController(rtcProvider: rtcProvider)
         )
         let videoSource = MediaSourceControllingStub(
@@ -428,6 +476,7 @@ private extension XmaxRealtimeManagerTests {
             mediaManager: mediaManager,
             rtcProvider: rtcProvider,
             sessionService: sessionService,
+            imageSource: imageSource,
             videoSource: videoSource
         )
     }
