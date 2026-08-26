@@ -11,6 +11,7 @@ final class RealtimeControlPanelView: UIView {
         static let clearButtonWidth: CGFloat = 28
         static let rowSpacing: CGFloat = 4
         static let referenceHeight: CGFloat = 50
+        static let instructionHeight: CGFloat = 40
         static let promptInputHeight: CGFloat = 50
         static let bottomSpacing: CGFloat = 10
     }
@@ -43,12 +44,12 @@ final class RealtimeControlPanelView: UIView {
             name: "换风格",
             content: .references(categoryID: "vibex")
         ),
-        Category(id: "mox", name: "触控动图", content: .instruction),
         Category(
             id: "dimx",
             name: "虚拟召唤",
             content: .references(categoryID: "dimx")
         ),
+        Category(id: "mox", name: "触控动图", content: .instruction),
         Category(id: "free", name: "自由", content: .prompt)
     ]
     private var referencesByCategory = Dictionary(
@@ -59,12 +60,14 @@ final class RealtimeControlPanelView: UIView {
     private var referenceListViews: [String: RealtimeReferenceListView] = [:]
     private var selectedCategoryIndex = 0
     private var selectedReferenceID: String?
+    private var isGenerationActive = false
 
     var onBeginPromptEditing: ((String) -> Void)?
     var onReferenceSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
     var onAddReference: ((String) -> Void)?
     var onRetryReferenceUpload: ((RealtimeReferenceCatalog.Item) -> Void)?
     var onPromptReferenceAction: (() -> Void)?
+    var onInstructionAction: (() -> Void)?
     var onDisableGeneration: (() -> Void)?
 
     private lazy var disabledActionButton: UIButton = {
@@ -118,12 +121,17 @@ final class RealtimeControlPanelView: UIView {
         button.setTitleColor(.white.withAlphaComponent(0.85), for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
         button.backgroundColor = .white.withAlphaComponent(0.14)
-        button.layer.cornerRadius = 20
+        button.layer.cornerRadius = Layout.instructionHeight / 2
         button.layer.borderWidth = 1
         button.layer.borderColor = UIColor.white
             .withAlphaComponent(0.19)
             .cgColor
         button.accessibilityLabel = "点击开始生成"
+        button.addTarget(
+            self,
+            action: #selector(performInstructionAction),
+            for: .touchUpInside
+        )
         return button
     }()
 
@@ -184,6 +192,8 @@ final class RealtimeControlPanelView: UIView {
     }
 
     func setGenerationActive(_ isActive: Bool, animated: Bool = true) {
+        isGenerationActive = isActive
+        updateInstructionState()
         guard disabledActionButton.isEnabled != isActive else { return }
         disabledActionButton.isEnabled = isActive
 
@@ -204,6 +214,29 @@ final class RealtimeControlPanelView: UIView {
             ],
             animations: changes
         )
+    }
+
+    private func updateInstructionState() {
+        instructionButton.setTitle(
+            isGenerationActive
+                ? "在画面上拖拽，用轨迹控制角色"
+                : "点击开始生成",
+            for: .normal
+        )
+        instructionButton.titleLabel?.font = .systemFont(
+            ofSize: 13,
+            weight: .medium
+        )
+        instructionButton.setTitleColor(
+            .white.withAlphaComponent(isGenerationActive ? 0.4 : 0.85),
+            for: .normal
+        )
+        instructionButton.backgroundColor = .white.withAlphaComponent(
+            isGenerationActive ? 0.09 : 0.14
+        )
+        instructionButton.accessibilityLabel = isGenerationActive
+            ? "触控动图生成中"
+            : "点击开始生成"
     }
 
     private func configureCategoryRow() {
@@ -280,7 +313,7 @@ final class RealtimeControlPanelView: UIView {
         instructionButton.snp.makeConstraints { make in
             make.horizontalEdges.equalToSuperview().inset(14)
             make.centerY.equalToSuperview()
-            make.height.equalTo(Layout.referenceHeight)
+            make.height.equalTo(Layout.instructionHeight)
         }
         promptInputView.snp.makeConstraints { make in
             make.horizontalEdges.equalToSuperview().inset(14)
@@ -395,6 +428,11 @@ final class RealtimeControlPanelView: UIView {
     @objc private func disableGeneration() {
         clearReferenceSelection()
         onDisableGeneration?()
+    }
+
+    @objc private func performInstructionAction() {
+        guard !isGenerationActive else { return }
+        onInstructionAction?()
     }
 }
 

@@ -13,6 +13,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     // 本地配置
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
+    private static let touchAnimationPrompt = "让画面自然动起来"
     private static let filePreviewTopOffset: CGFloat = 60
     private static let cameraVideoFormat = RealtimeVideoFormat(
         width: 832,
@@ -28,7 +29,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var selectedReference: RealtimeReferenceCatalog.Item?
     private var currentGenerationContext: RealtimeContext?
     private var isGenerationRequested = false
+    private var isTouchAnimationGenerationRequested = false
     private var hasDisplayedPreview = false
+    private var isSuspendedForBackground = false
+
+    // 触控动图
+    private var touchAnimationReferencePath: String?
 
     // 参考图状态
     private var referencePickerDestination: ReferencePickerDestination?
@@ -42,7 +48,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     // 异步任务
     private var localMediaOperationTask: Task<Void, Never>?
     private var generationOperationTask: Task<Void, Never>?
+    private var touchAnimationPreparationTask: Task<Void, Never>?
     private var stateListenerTask: Task<Void, Never>?
+    private var mediaCleanupTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
     // 布局约束
@@ -94,6 +102,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
         view.onPromptReferenceAction = { [weak self] in
             self?.handlePromptReferenceAction()
+        }
+        view.onInstructionAction = { [weak self] in
+            self?.startTouchAnimationGeneration()
         }
         view.onDisableGeneration = { [weak self] in
             guard let self else { return }
@@ -173,7 +184,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         configureControlPanel()
         configurePromptKeyboard()
         configureKeyboardDismissal()
-        observeKeyboard()
+        observeNotifications()
         setPreviewDisplayed(false)
         observeRealtimeState()
         startLocalMedia()
@@ -182,6 +193,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        resumeRealtimeAfterBackgroundIfNeeded()
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -290,32 +302,14 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         return true
     }
 
-    private func observeKeyboard() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillShow(_:)),
-            name: UIResponder.keyboardWillShowNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillHide(_:)),
-            name: UIResponder.keyboardWillHideNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardDidHide),
-            name: UIResponder.keyboardDidHideNotification,
-            object: nil
-        )
-    }
-
     private func observeRealtimeState() {
+        let pendingCleanup = mediaCleanupTask
         let realtimeManager = realtimeManager
         stateListenerTask?.cancel()
         stateListenerTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            await pendingCleanup?.value
+            guard !Task.isCancelled else { return }
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
             }
@@ -493,6 +487,78 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         )
     }
 
+    private func startTouchAnimationGeneration() {
+        guard !isGenerationRequested else { return }
+
+        selectedReference = nil
+        controlPanelView.clearReferenceSelection()
+        isGenerationRequested = true
+        isTouchAnimationGenerationRequested = true
+        controlPanelView.setGenerationActive(true)
+        loadingOverlay.startLoading()
+
+        touchAnimationPreparationTask?.cancel()
+        let input = localInput
+        touchAnimationPreparationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let referencePath = try await resolveTouchAnimationReferencePath(
+                    for: input
+                )
+                try Task.checkCancellation()
+                touchAnimationPreparationTask = nil
+                startGeneration(
+                    context: RealtimeContext(
+                        prompt: Self.touchAnimationPrompt,
+                        referencePath: referencePath
+                    ),
+                    selectedReferenceID: nil,
+                    isTouchAnimation: true
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                touchAnimationPreparationTask = nil
+                isGenerationRequested = false
+                isTouchAnimationGenerationRequested = false
+                controlPanelView.setGenerationActive(false)
+                renderPreviewLoadingState()
+                showGenerationError(error)
+            }
+        }
+    }
+
+    private func resolveTouchAnimationReferencePath(
+        for input: RealtimeLocalInput?
+    ) async throws -> String? {
+        guard case let .image(image) = input else { return nil }
+        if let touchAnimationReferencePath {
+            return touchAnimationReferencePath
+        }
+
+        guard let imageData = image.jpegData(compressionQuality: 0.92) else {
+            throw RealtimeDemoError.imageEncodingFailed
+        }
+        let apiKey = UserDefaults.standard.string(
+            forKey: Self.apiKeyStorageKey
+        ) ?? ""
+        let client = XmaxClient(
+            configuration: XmaxConfiguration(apiKey: apiKey)
+        )
+        let storageManager = try client.createStorageManager()
+        let uploaded = try await storageManager.uploadImage(
+            imageData,
+            fileName: "touch-animation-\(UUID().uuidString).jpg",
+            contentType: "image/jpeg",
+            progress: nil
+        )
+        try Task.checkCancellation()
+        let referencePath = uploaded.url.absoluteString
+        touchAnimationReferencePath = referencePath
+        return referencePath
+    }
+
     private func startReferenceUpload(
         _ reference: RealtimeReferenceCatalog.Item
     ) {
@@ -603,11 +669,14 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func startLocalMedia() {
         let input = localInput
+        let pendingCleanup = mediaCleanupTask
         localMediaOperationTask?.cancel()
         localMediaOperationTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
+            await pendingCleanup?.value
+            guard !Task.isCancelled else { return }
             if input == nil {
                 await realtimeManager.setCameraPreviewReadyListener {
                     [weak self] in
@@ -667,22 +736,33 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         previewView.displayLocal(videoTrack)
     }
 
-    private func stopLocalMedia() {
-        referenceUploadTasks.values.forEach { $0.cancel() }
-        referenceUploadTasks.removeAll()
-        referenceUploadRequestIDs.removeAll()
+    private func stopLocalMedia(
+        cancelsReferenceUploads: Bool = true
+    ) {
+        if cancelsReferenceUploads {
+            referenceUploadTasks.values.forEach { $0.cancel() }
+            referenceUploadTasks.removeAll()
+            referenceUploadRequestIDs.removeAll()
+        }
+        let previousCleanup = mediaCleanupTask
+        let pendingLocalMediaOperation = localMediaOperationTask
+        pendingLocalMediaOperation?.cancel()
+        localMediaOperationTask = nil
         let pendingGenerationOperation = generationOperationTask
         pendingGenerationOperation?.cancel()
         generationOperationTask = nil
+        touchAnimationPreparationTask?.cancel()
+        touchAnimationPreparationTask = nil
         let pendingStateListener = stateListenerTask
         pendingStateListener?.cancel()
         stateListenerTask = nil
-        localMediaOperationTask?.cancel()
-        localMediaOperationTask = nil
         isGenerationRequested = false
+        isTouchAnimationGenerationRequested = false
         controlPanelView.setGenerationActive(false)
+        controlPanelView.clearReferenceSelection()
         selectedReference = nil
         currentGenerationContext = nil
+        touchAnimationReferencePath = nil
         localMediaStream = nil
         remoteRealtimeStream = nil
         switchCameraButton.isEnabled = false
@@ -691,10 +771,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         controlPanelView.isUserInteractionEnabled = false
         previewView.displayLocal(nil)
         let realtimeManager = realtimeManager
-        Task { [localInput] in
+        mediaCleanupTask = Task { [localInput] in
+            await previousCleanup?.value
             await pendingStateListener?.value
             await realtimeManager.setStateListener(nil)
             await realtimeManager.setCameraPreviewReadyListener(nil)
+            await pendingLocalMediaOperation?.value
             await pendingGenerationOperation?.value
             await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
@@ -707,6 +789,25 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 try? await realtimeManager.stopLocalCameraStream()
             }
         }
+    }
+
+    func suspendRealtimeForBackground() {
+        guard !isSuspendedForBackground else { return }
+        isSuspendedForBackground = true
+        view.endEditing(true)
+        stopLocalMedia(cancelsReferenceUploads: false)
+    }
+
+    func resumeRealtimeAfterBackgroundIfNeeded() {
+        guard isSuspendedForBackground,
+              UIApplication.shared.applicationState == .active,
+              viewIfLoaded?.window != nil else {
+            return
+        }
+        isSuspendedForBackground = false
+        setPreviewDisplayed(false)
+        observeRealtimeState()
+        startLocalMedia()
     }
 
     private func stopLocalMediaStream(
@@ -729,14 +830,21 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let pendingGenerationOperation = generationOperationTask
         pendingGenerationOperation?.cancel()
         generationOperationTask = nil
+        let pendingTouchAnimationPreparation = touchAnimationPreparationTask
+        pendingTouchAnimationPreparation?.cancel()
+        touchAnimationPreparationTask = nil
 
-        let restartContext = isGenerationRequested
+        let restartsTouchAnimation = isGenerationRequested
+            && isTouchAnimationGenerationRequested
+        let restartContext = isGenerationRequested && !restartsTouchAnimation
             ? currentGenerationContext
             : nil
         let selectedReferenceID = selectedReference?.id
         isGenerationRequested = false
+        isTouchAnimationGenerationRequested = false
         controlPanelView.setGenerationActive(false)
         currentGenerationContext = nil
+        touchAnimationReferencePath = nil
         localMediaStream = nil
         remoteRealtimeStream = nil
         previewView.displayLocal(nil)
@@ -747,6 +855,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
             await pendingLocalOperation?.value
             await pendingGenerationOperation?.value
+            await pendingTouchAnimationPreparation?.value
             guard !Task.isCancelled else { return }
 
             await realtimeManager.stopGeneration()
@@ -765,7 +874,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 try displayLocalPreview(stream)
                 setPreviewDisplayed(true)
 
-                if let restartContext {
+                if restartsTouchAnimation {
+                    startTouchAnimationGeneration()
+                } else if let restartContext {
                     startGeneration(
                         context: restartContext,
                         selectedReferenceID: selectedReferenceID
@@ -784,14 +895,21 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func startGeneration(
         context: RealtimeContext,
-        selectedReferenceID: String?
+        selectedReferenceID: String?,
+        isTouchAnimation: Bool = false
     ) {
+        if !isTouchAnimation {
+            touchAnimationPreparationTask?.cancel()
+            touchAnimationPreparationTask = nil
+        }
         isGenerationRequested = true
+        isTouchAnimationGenerationRequested = isTouchAnimation
         controlPanelView.setGenerationActive(true)
         currentGenerationContext = context
         loadingOverlay.startLoading()
         guard let localMediaStream else {
             isGenerationRequested = false
+            isTouchAnimationGenerationRequested = false
             controlPanelView.setGenerationActive(false)
             currentGenerationContext = nil
             renderPreviewLoadingState()
@@ -843,6 +961,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             } catch {
                 guard !Task.isCancelled else { return }
                 isGenerationRequested = false
+                isTouchAnimationGenerationRequested = false
                 controlPanelView.setGenerationActive(false)
                 if currentGenerationContext == context {
                     currentGenerationContext = nil
@@ -862,7 +981,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func disconnectGeneration() {
+        touchAnimationPreparationTask?.cancel()
+        touchAnimationPreparationTask = nil
         isGenerationRequested = false
+        isTouchAnimationGenerationRequested = false
         controlPanelView.setGenerationActive(false)
         currentGenerationContext = nil
         loadingOverlay.hideLoading()
@@ -905,7 +1027,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         present(alert, animated: true)
     }
 
-    @objc private func keyboardWillShow(_ notification: Notification) {
+    @objc func keyboardWillShow(_ notification: Notification) {
         guard let keyboardFrame = notification.userInfo?[
             UIResponder.keyboardFrameEndUserInfoKey
         ] as? CGRect else { return }
@@ -919,7 +1041,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
     }
 
-    @objc private func keyboardWillHide(_ notification: Notification) {
+    @objc func keyboardWillHide(_ notification: Notification) {
         view.layoutIfNeeded()
         promptKeyboardBottomConstraint?.update(
             offset: RealtimePromptKeyboardView.preferredHeight
@@ -929,7 +1051,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
     }
 
-    @objc private func keyboardDidHide() {
+    @objc func keyboardDidHide() {
         promptKeyboardView.isHidden = true
         promptKeyboardView.alpha = 0
     }
@@ -1102,12 +1224,15 @@ extension RealtimeViewController: PHPickerViewControllerDelegate {
 
 private enum RealtimeDemoError: LocalizedError {
     case connectionTransitioning
+    case imageEncodingFailed
     case localPreviewUnavailable
 
     var errorDescription: String? {
         switch self {
         case .connectionTransitioning:
             return "实时连接正在切换状态，请稍后重试。"
+        case .imageEncodingFailed:
+            return "图片处理失败，请重新选择图片。"
         case .localPreviewUnavailable:
             return "本地预览尚未准备好，请重试。"
         }
