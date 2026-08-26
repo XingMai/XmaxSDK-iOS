@@ -258,49 +258,88 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         let typeIdentifier = registeredType?.identifier ?? expectedType.identifier
         let preferredExtension = registeredType?.preferredFilenameExtension
 
-        provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] sourceURL, error in
+        switch kind {
+        case .image:
+            loadSelectedImage(from: provider)
+        case .video:
+            loadSelectedVideo(
+                from: provider,
+                typeIdentifier: typeIdentifier,
+                preferredExtension: preferredExtension
+            )
+        }
+    }
+
+    private func loadSelectedImage(
+        from provider: NSItemProvider
+    ) {
+        provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
             guard let self else { return }
             if let error {
                 DispatchQueue.main.async {
-                    self.finishMediaSelection(error: error, kind: kind)
+                    self.finishMediaSelection(error: error, kind: .image)
+                }
+                return
+            }
+            guard let image = object as? UIImage else {
+                DispatchQueue.main.async {
+                    self.finishMediaSelection(
+                        error: FeedMediaSelectionError.unreadableFile,
+                        kind: .image
+                    )
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.finishMediaSelection(with: .image(image))
+            }
+        }
+    }
+
+    private func loadSelectedVideo(
+        from provider: NSItemProvider,
+        typeIdentifier: String,
+        preferredExtension: String?
+    ) {
+        provider.loadFileRepresentation(
+            forTypeIdentifier: typeIdentifier
+        ) { [weak self] sourceURL, error in
+            guard let self else { return }
+            if let error {
+                DispatchQueue.main.async {
+                    self.finishMediaSelection(error: error, kind: .video)
                 }
                 return
             }
             guard let sourceURL else {
                 DispatchQueue.main.async {
-                    self.finishMediaSelection(error: FeedMediaSelectionError.unreadableFile, kind: kind)
+                    self.finishMediaSelection(
+                        error: FeedMediaSelectionError.unreadableFile,
+                        kind: .video
+                    )
                 }
                 return
             }
 
             do {
-                let localURL = try Self.copySelectedMedia(
+                let localURL = try Self.copySelectedVideo(
                     sourceURL,
-                    kind: kind,
                     preferredExtension: preferredExtension
                 )
                 DispatchQueue.main.async {
-                    self.isPickingMedia = false
-                    self.pendingMediaSelectionKind = nil
-                    let input: RealtimeLocalInput = kind == .video
-                        ? .video(localURL)
-                        : .image(localURL)
-                    self.navigationController?.pushViewController(
-                        RealtimeViewController(localInput: input),
-                        animated: true
-                    )
+                    self.finishMediaSelection(with: .video(localURL))
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.finishMediaSelection(error: error, kind: kind)
+                    self.finishMediaSelection(error: error, kind: .video)
                 }
             }
         }
     }
 
-    private nonisolated static func copySelectedMedia(
+    private nonisolated static func copySelectedVideo(
         _ sourceURL: URL,
-        kind: MediaSelectionKind,
         preferredExtension: String?
     ) throws -> URL {
         let cachesDirectory = FileManager.default.urls(
@@ -318,13 +357,22 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
 
         var fileExtension = sourceURL.pathExtension
         if fileExtension.isEmpty {
-            fileExtension = preferredExtension ?? (kind == .video ? "mp4" : "jpg")
+            fileExtension = preferredExtension ?? "mp4"
         }
         let destination = directory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(fileExtension)
         try FileManager.default.copyItem(at: sourceURL, to: destination)
         return destination
+    }
+
+    private func finishMediaSelection(with input: RealtimeLocalInput) {
+        isPickingMedia = false
+        pendingMediaSelectionKind = nil
+        navigationController?.pushViewController(
+            RealtimeViewController(localInput: input),
+            animated: true
+        )
     }
 
     private func finishMediaSelection(error: Error, kind: MediaSelectionKind) {

@@ -73,13 +73,15 @@ final class RealtimeControlPanelView: UIView {
             UIImage(
                 systemName: "nosign",
                 withConfiguration: UIImage.SymbolConfiguration(
-                    pointSize: 11,
+                    pointSize: 13,
                     weight: .regular
                 )
             ),
             for: .normal
         )
         button.tintColor = .white
+        button.alpha = 0.5
+        button.isEnabled = false
         button.accessibilityLabel = "停止生成"
         button.addTarget(
             self,
@@ -179,6 +181,29 @@ final class RealtimeControlPanelView: UIView {
         }
         selectedReferenceID = nil
         updateReferenceSelection()
+    }
+
+    func setGenerationActive(_ isActive: Bool, animated: Bool = true) {
+        guard disabledActionButton.isEnabled != isActive else { return }
+        disabledActionButton.isEnabled = isActive
+
+        let changes = {
+            self.disabledActionButton.alpha = isActive ? 1 : 0.5
+        }
+        guard animated, window != nil else {
+            changes()
+            return
+        }
+        UIView.animate(
+            withDuration: 0.3,
+            delay: 0,
+            options: [
+                .beginFromCurrentState,
+                .allowUserInteraction,
+                .curveEaseInOut
+            ],
+            animations: changes
+        )
     }
 
     private func configureCategoryRow() {

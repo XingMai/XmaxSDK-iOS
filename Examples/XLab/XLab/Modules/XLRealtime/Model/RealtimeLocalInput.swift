@@ -1,6 +1,6 @@
-import Foundation
+import UIKit
 
 enum RealtimeLocalInput: Sendable {
-    case image(URL)
+    case image(UIImage)
     case video(URL)
 }

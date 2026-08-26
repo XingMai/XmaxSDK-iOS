@@ -590,9 +590,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func createLocalMediaStream() async throws -> RealtimeMediaStream {
         switch localInput {
-        case let .image(fileURL):
+        case let .image(image):
             return try await realtimeManager.createLocalImageStream(
-                fileURL: fileURL
+                image: image
             )
         case let .video(fileURL):
             return try await realtimeManager.createLocalVideoStream(
@@ -619,6 +619,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         localMediaOperationTask?.cancel()
         localMediaOperationTask = nil
         isGenerationRequested = false
+        controlPanelView.setGenerationActive(false)
         selectedReference = nil
         currentGenerationContext = nil
         localMediaStream = nil
@@ -660,10 +661,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         selectedReferenceID: String?
     ) {
         isGenerationRequested = true
+        controlPanelView.setGenerationActive(true)
         currentGenerationContext = context
         loadingOverlay.startLoading()
         guard let localMediaStream else {
             isGenerationRequested = false
+            controlPanelView.setGenerationActive(false)
             currentGenerationContext = nil
             loadingOverlay.hideLoading()
             if let selectedReferenceID {
@@ -714,6 +717,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             } catch {
                 guard !Task.isCancelled else { return }
                 isGenerationRequested = false
+                controlPanelView.setGenerationActive(false)
                 if currentGenerationContext == context {
                     currentGenerationContext = nil
                 }
@@ -733,6 +737,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func disconnectGeneration() {
         isGenerationRequested = false
+        controlPanelView.setGenerationActive(false)
         currentGenerationContext = nil
         loadingOverlay.hideLoading()
         remoteRealtimeStream = nil
