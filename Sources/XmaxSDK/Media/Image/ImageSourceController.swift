@@ -115,6 +115,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
             )
             stateLock.withLock {
                 preparedFrame = PreparedFrame(
+                    bufferReuseID: UUID(),
                     format: frameFormat,
                     plane: framePlane,
                     videoFormat: resolvedFormat
@@ -201,6 +202,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
 
 private extension ImageSourceController {
     struct PreparedFrame {
+        let bufferReuseID: UUID
         let format: VideoFormat
         let plane: VideoFramePlane
         let videoFormat: RealtimeVideoFormat
@@ -223,7 +225,8 @@ private extension ImageSourceController {
             try BufferVideoFrame(
                 format: frame.format,
                 timestampUs: timestampUs,
-                planes: [frame.plane]
+                planes: [frame.plane],
+                bufferReuseID: frame.bufferReuseID
             )
         )
     }

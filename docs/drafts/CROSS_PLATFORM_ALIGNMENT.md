@@ -13,7 +13,7 @@
 
 ## SYNC-001 图片输入 API
 
-状态：已确认，iOS 已完成。
+状态：已确认；iOS 与 Harmony 均已完成代码调整，待端到端运行验证。
 
 统一行为：
 
@@ -31,18 +31,20 @@
 
 iOS：
 
-- [x] 增加 `imageData: Data` 创建和替换接口。
-- [x] 保留 `fileURL` 创建和替换接口，并读取为 Data 后解码。
-- [x] 增加 `UIImage` 创建和替换便利接口。
+- [x] 增加 `imageData: Data` 创建接口。
+- [x] 保留 `fileURL` 创建接口，并读取为 Data 后解码。
+- [x] 增加 `UIImage` 创建便利接口。
 - [x] `UIImage` 直接规范化为已解码图片，不经过 PNG/JPEG 中转。
 - [ ] XLab 改用 Data 或 UIImage，删除图片临时文件中转。
 - [ ] 真机验证 Data、UIImage 和 fileURL 三种入口。
 
 Harmony：
 
-- [ ] 检查现有 `ArrayBuffer`、`Uint8Array` 和 `PixelMap` 能力。
-- [ ] 对齐文件、二进制数据和平台图片对象入口。
-- [ ] 验证三种入口进入同一图片处理链路。
+- [x] 使用 `ArrayBuffer`、`Uint8Array` 和 `PixelMap` 作为公开图片输入，不增加 `EncodedImage` 包装类型。
+- [x] 对齐文件、二进制数据和平台图片对象入口。
+- [x] 三种入口统一收敛为内部 `DecodedImage`，再转换为循环输出的视频帧。
+- [x] `PixelMap` 入口先创建 SDK 自有快照，不修改或释放接入方对象。
+- [ ] 真机验证文件、二进制数据和 `PixelMap` 三种入口。
 
 ## SYNC-002 视频输入 API
 
@@ -56,7 +58,7 @@ Harmony：
 
 iOS：
 
-- [x] 保持 `fileURL: URL` 创建和替换接口。
+- [x] 保持 `fileURL: URL` 创建接口。
 - [x] 不增加 `videoData: Data` 接口。
 - [ ] XLab 从 `PHPickerViewController` 获取视频临时文件并复制到缓存目录。
 - [ ] 评估后续是否需要增加 `AVAsset` 便利入口；不影响文件核心链路。
@@ -68,7 +70,7 @@ Harmony：
 
 ## SYNC-003 图片处理职责收敛
 
-状态：已确认；iOS 已完成代码调整和真机目标编译，Harmony 已完成 Media Service 职责收敛。
+状态：已确认；iOS 与 Harmony 均已完成代码调整和构建验证，待图片流端到端运行验证。
 
 统一行为：
 
@@ -93,8 +95,11 @@ Harmony：
 - [x] `MediaServicing` 只保留 `resolveModelInputSize()`，继续通过 `XmaxClient.createMediaService()` 对外提供模型尺寸规则。
 - [x] 删除 Service 层的图片选择、通用缩放、JPEG 编码能力和 `ProcessedImage`。
 - [x] 将模型尺寸规则与底层图片像素处理分离。
-- [ ] 评估是否需要将已解码图片抽象统一为 `DecodedImage` 对应模型。
+- [x] 增加内部 `DecodedImage`，统一持有已解码图片尺寸、视频帧像素转换和平台资源生命周期。
+- [x] `ImageManager` 负责文件、编码数据和 `PixelMap` 解码；Media 层不再直接调用 CoreFileKit 或 ImageKit 解码 API。
+- [x] 编码图片继续使用平台二进制类型，不增加没有独立职责的 `EncodedImage`。
 - [x] Harmony HAR 构建通过。
+- [ ] 图片流端到端运行验证。
 
 ## SYNC-004 iOS Manager 命名规范
 
@@ -154,3 +159,31 @@ Harmony：
 - [x] 业务层接口沿用 JSDoc 规范，逐项说明 `@param`、`@returns` 和重要生命周期语义。
 - [x] Transport 层统一入口使用 `setVideoEncoderConfig()`；Foundation 层保留 `RtcManaging.configureVideoEncoding()`。
 - [x] Harmony HAR 构建通过。
+
+## SYNC-006 图片与视频来源 API 收敛
+
+状态：已对齐；iOS 测试目标与 Harmony SDK、XLab 均已编译通过。
+
+统一行为：
+
+- 图片和视频只提供 `createLocalImageStream()`、`createLocalVideoStream()`
+  以及对应的停止接口。
+- 不提供图片或视频 `replaceLocal*Stream()`，避免每种输入形式同时扩展
+  create 和 replace 变体。
+- 更换图片或视频来源由接入方显式执行 disconnect、stop、create，并按需
+  重新 connect；SDK 不隐藏跨连接生命周期的复合操作。
+- 相机保留 `replaceLocalCameraStream()`，用于保持相机 Track 语义下更新
+  采集格式或位置，不扩展到图片和视频来源。
+
+iOS：
+
+- [x] 删除 Data、UIImage、图片文件和视频文件的 replace 公共入口。
+- [x] 删除 Core、Media 实现及对应 replace 测试。
+- [x] 使用 stop 后 create 的测试覆盖媒体所有权和 RTC 生命周期。
+- [x] XmaxSDK 单元测试 Scheme 真机目标编译通过。
+
+Harmony：
+
+- [x] 删除图片和视频 replace 公共入口及 Core、Media 实现。
+- [x] XLab 改为 disconnect、stop、create、connect 的显式切换编排。
+- [x] Harmony HAR 与 XLab HAP 构建通过。

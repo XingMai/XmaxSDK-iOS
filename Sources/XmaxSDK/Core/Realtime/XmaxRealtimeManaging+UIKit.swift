@@ -13,15 +13,6 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 根据 UIKit 图片原始尺寸替换当前本地媒体流。
-    func replaceLocalImageStream(
-        image: UIImage
-    ) async throws -> RealtimeMediaStream {
-        try await replaceLocalImageStream(
-            image: image,
-            videoFormat: nil
-        )
-    }
 }
 
 extension XmaxRealtimeManager {
@@ -36,15 +27,5 @@ extension XmaxRealtimeManager {
         )
     }
 
-    func replaceLocalImageStream(
-        image: UIImage,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        let decodedImage = try ImageManager().decode(image)
-        return try await replaceLocalImageStream(
-            decodedImage: decodedImage,
-            videoFormat: videoFormat
-        )
-    }
 }
 #endif

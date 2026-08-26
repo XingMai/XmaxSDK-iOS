@@ -1,5 +1,8 @@
+import Foundation
+
 /// 由内存缓冲区持有像素数据的视频帧。
 struct BufferVideoFrame: VideoFrame, Equatable, Sendable {
+    let bufferReuseID: UUID?
     let format: VideoFormat
     let timestampUs: Int64
     let rotation: VideoRotation
@@ -9,7 +12,8 @@ struct BufferVideoFrame: VideoFrame, Equatable, Sendable {
         format: VideoFormat,
         timestampUs: Int64,
         planes: [VideoFramePlane],
-        rotation: VideoRotation = .rotation0
+        rotation: VideoRotation = .rotation0,
+        bufferReuseID: UUID? = nil
     ) throws {
         guard timestampUs >= 0 else {
             throw XmaxError(
@@ -24,6 +28,7 @@ struct BufferVideoFrame: VideoFrame, Equatable, Sendable {
             )
         }
 
+        self.bufferReuseID = bufferReuseID
         self.format = format
         self.timestampUs = timestampUs
         self.rotation = rotation

@@ -370,31 +370,31 @@ mediaController.restartForGeneration()
 - 创建新的共享时间线。
 - 音频和视频同时从文件开头重新播放。
 
-## 6. 媒体替换
+## 6. 媒体来源更新
 
-连接前可以直接创建和停止；连接过程中不能停止本地来源，但可以替换：
+图片和视频只提供创建与停止接口。更换来源时显式执行：
 
 ```swift
-try await realtime.replaceLocalImageStream(fileURL: imageURL)
-try await realtime.replaceLocalVideoStream(fileURL: videoURL)
+await realtime.disconnect()
+try await realtime.stopLocalImageStream()
+let stream = try await realtime.createLocalVideoStream(fileURL: videoURL)
+_ = try await realtime.connect(localStream: stream)
+```
+
+相机仍可在相机 Track 语义下更新采集参数：
+
+```swift
 try await realtime.replaceLocalCameraStream(videoFormat: format)
 ```
 
-连接中的替换顺序：
-
-1. 如果正在生成，先停止生成。
-2. 停止旧媒体来源。
-3. 保留 RTC Engine、Session 和 Room。
-4. 创建新来源。
-5. 根据新来源重新发布或取消发布本地音频。
-6. 将新视频格式同步给远端生成流。
-7. 返回新的本地 `RealtimeMediaStream`。
+不为 Data、UIImage、图片文件和视频文件分别增加 replace 变体。更换图片或
+视频来源由接入方明确控制 disconnect、stop、create 和 connect 生命周期。
 
 ## 7. 当前尚未完成的部分
 
 核心采集和 RTC 推送链路已经具备，但还有以下接入和体验工作：
 
-- XLab 需要把视频文件选择、创建、替换和停止按钮接到公开 API。
+- XLab 需要把视频文件选择、创建和停止按钮接到公开 API。
 - 鸿蒙版“开始生成时冻结视频首帧、远端结果出现后解除冻结”的预览优化尚未实现。
 
 因此当前状态是：图片与视频可以进入 RTC、预览、连接和生成生命周期；下一步可以接入 XLab 做真机端到端调试，并基于本稿继续优化 Pipeline。

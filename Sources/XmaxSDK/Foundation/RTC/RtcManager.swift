@@ -22,6 +22,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     private var engineBridge: RtcEngineEventBridge?
     private var activeRoom: RoomContext?
     private var pendingJoin: PendingJoin?
+    private let videoFrameCache = RtcVideoFrameCache()
 
     // 事件监听
     private weak var eventListener: (any RtcEventListener)?
@@ -86,6 +87,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 engineBridge = nil
                 initialization = nil
                 remoteStreamIDs.removeAll()
+                videoFrameCache.removeAll()
                 return resources
             }
         }
@@ -173,6 +175,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
 
     func useExternalVideoSource() throws {
         try withEngine { engine in
+            videoFrameCache.removeAll()
             try checkResult(
                 engine.setVideoSourceType(.external),
                 operation: "setVideoSourceType"
@@ -228,11 +231,11 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         _ frame: any VideoFrame,
         seiData: Data?
     ) throws {
-        let rtcFrame = try RtcVideoConverter.convertFrame(
-            frame,
-            seiData: seiData
-        )
         try withEngine { engine in
+            let rtcFrame = try videoFrameCache.frame(
+                for: frame,
+                seiData: seiData
+            )
             try checkResult(
                 engine.pushExternalVideoFrame(rtcFrame.value),
                 operation: "pushExternalVideoFrame"

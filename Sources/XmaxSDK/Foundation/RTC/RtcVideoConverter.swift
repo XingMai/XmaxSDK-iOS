@@ -86,6 +86,19 @@ final class RtcVideoFrame {
         planeStrides = stridePointers
     }
 
+    /// 在复用同一像素缓冲区时更新逐帧变化的 RTC 元数据。
+    func updateMetadata(
+        from frame: any VideoFrame,
+        seiData: Data?
+    ) {
+        value.timestamp = CMTime(
+            value: frame.timestampUs,
+            timescale: 1_000_000
+        )
+        value.rotation = RtcVideoConverter.convertRotation(frame.rotation)
+        value.seiData = seiData
+    }
+
     deinit {
         planeData.deinitialize(count: planeBuffers.count)
         planeData.deallocate()
@@ -104,6 +117,56 @@ final class RtcVideoFrame {
         case .rgba, .bgra, .argb:
             1
         }
+    }
+}
+
+/// 仅为显式声明像素不变的视频帧复用 RTC 底层内存。
+final class RtcVideoFrameCache {
+
+    // RTC 帧缓存
+    private var cachedFrame: CachedFrame?
+
+    func frame(
+        for frame: any VideoFrame,
+        seiData: Data?
+    ) throws -> RtcVideoFrame {
+        guard let bufferReuseID = frame.bufferReuseID else {
+            cachedFrame = nil
+            return try RtcVideoConverter.convertFrame(
+                frame,
+                seiData: seiData
+            )
+        }
+
+        if let cachedFrame,
+           cachedFrame.bufferReuseID == bufferReuseID {
+            cachedFrame.frame.updateMetadata(
+                from: frame,
+                seiData: seiData
+            )
+            return cachedFrame.frame
+        }
+
+        let rtcFrame = try RtcVideoConverter.convertFrame(
+            frame,
+            seiData: seiData
+        )
+        cachedFrame = CachedFrame(
+            bufferReuseID: bufferReuseID,
+            frame: rtcFrame
+        )
+        return rtcFrame
+    }
+
+    func removeAll() {
+        cachedFrame = nil
+    }
+}
+
+private extension RtcVideoFrameCache {
+    struct CachedFrame {
+        let bufferReuseID: UUID
+        let frame: RtcVideoFrame
     }
 }
 

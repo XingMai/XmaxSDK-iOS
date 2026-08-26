@@ -149,7 +149,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             throw await reportError(
                 XmaxError(
                     code: .invalidConfiguration,
-                    message: "Local media replacement is unavailable while " +
+                    message: "Local camera update is unavailable while " +
                         "realtime is transitioning"
                 )
             )
@@ -166,7 +166,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 position: position
             )
             if hasConnection {
-                await synchronizeConnectionAfterReplacement(stream)
+                await synchronizeConnectionAfterCameraUpdate(stream)
             }
             return stream
         } catch {
@@ -232,40 +232,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    func replaceLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        guard state.connectionState != .connecting,
-              state.connectionState != .disconnecting else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Local media replacement is unavailable while " +
-                        "realtime is transitioning"
-                )
-            )
-        }
-
-        let hasConnection = await connectionManager.currentSessionID != ""
-        if hasConnection {
-            await stopGeneration()
-        }
-
-        do {
-            let stream = try await mediaController.replaceLocalImageStream(
-                imageData: imageData,
-                videoFormat: videoFormat
-            )
-            if hasConnection {
-                await synchronizeConnectionAfterReplacement(stream)
-            }
-            return stream
-        } catch {
-            throw await reportError(error)
-        }
-    }
-
     func createLocalImageStream(
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
@@ -292,40 +258,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    func replaceLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        guard state.connectionState != .connecting,
-              state.connectionState != .disconnecting else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Local media replacement is unavailable while " +
-                        "realtime is transitioning"
-                )
-            )
-        }
-
-        let hasConnection = await connectionManager.currentSessionID != ""
-        if hasConnection {
-            await stopGeneration()
-        }
-
-        do {
-            let stream = try await mediaController.replaceLocalImageStream(
-                decodedImage: decodedImage,
-                videoFormat: videoFormat
-            )
-            if hasConnection {
-                await synchronizeConnectionAfterReplacement(stream)
-            }
-            return stream
-        } catch {
-            throw await reportError(error)
-        }
-    }
-
     func createLocalImageStream(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
@@ -347,40 +279,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
-        } catch {
-            throw await reportError(error)
-        }
-    }
-
-    func replaceLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        guard state.connectionState != .connecting,
-              state.connectionState != .disconnecting else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Local media replacement is unavailable while " +
-                        "realtime is transitioning"
-                )
-            )
-        }
-
-        let hasConnection = await connectionManager.currentSessionID != ""
-        if hasConnection {
-            await stopGeneration()
-        }
-
-        do {
-            let stream = try await mediaController.replaceLocalImageStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
-            )
-            if hasConnection {
-                await synchronizeConnectionAfterReplacement(stream)
-            }
-            return stream
         } catch {
             throw await reportError(error)
         }
@@ -422,40 +320,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
-        } catch {
-            throw await reportError(error)
-        }
-    }
-
-    func replaceLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        guard state.connectionState != .connecting,
-              state.connectionState != .disconnecting else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Local media replacement is unavailable while " +
-                        "realtime is transitioning"
-                )
-            )
-        }
-
-        let hasConnection = await connectionManager.currentSessionID != ""
-        if hasConnection {
-            await stopGeneration()
-        }
-
-        do {
-            let stream = try await mediaController.replaceLocalVideoStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
-            )
-            if hasConnection {
-                await synchronizeConnectionAfterReplacement(stream)
-            }
-            return stream
         } catch {
             throw await reportError(error)
         }
@@ -655,7 +519,7 @@ private extension XmaxRealtimeManager {
         let task: Task<Void, Never>
     }
 
-    func synchronizeConnectionAfterReplacement(
+    func synchronizeConnectionAfterCameraUpdate(
         _ stream: RealtimeMediaStream
     ) async {
         do {

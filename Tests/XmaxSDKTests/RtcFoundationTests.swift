@@ -218,4 +218,58 @@ final class RtcFoundationTests: XCTestCase {
             )
         }
     }
+
+    func testVideoFrameCacheReusesStaticPixelBufferAndUpdatesMetadata() throws {
+        let format = try VideoFormat(
+            width: 2,
+            height: 2,
+            pixelFormat: .bgra
+        )
+        let plane = try VideoFramePlane(
+            data: Data(repeating: 7, count: 16),
+            stride: 8
+        )
+        let bufferReuseID = UUID()
+        let cache = RtcVideoFrameCache()
+        let firstFrame = try BufferVideoFrame(
+            format: format,
+            timestampUs: 1_000,
+            planes: [plane],
+            bufferReuseID: bufferReuseID
+        )
+        let secondFrame = try BufferVideoFrame(
+            format: format,
+            timestampUs: 2_000,
+            planes: [plane],
+            bufferReuseID: bufferReuseID
+        )
+
+        let firstRtcFrame = try cache.frame(
+            for: firstFrame,
+            seiData: nil
+        )
+        let firstPlaneAddress = firstRtcFrame.value.planeDataArray?[0]
+        let secondRtcFrame = try cache.frame(
+            for: secondFrame,
+            seiData: Data("task-id".utf8)
+        )
+
+        XCTAssertTrue(firstRtcFrame === secondRtcFrame)
+        XCTAssertEqual(
+            firstPlaneAddress,
+            secondRtcFrame.value.planeDataArray?[0]
+        )
+        XCTAssertEqual(
+            CMTimeConvertScale(
+                secondRtcFrame.value.timestamp,
+                timescale: 1_000_000,
+                method: .default
+            ).value,
+            2_000
+        )
+        XCTAssertEqual(
+            secondRtcFrame.value.seiData,
+            Data("task-id".utf8)
+        )
+    }
 }

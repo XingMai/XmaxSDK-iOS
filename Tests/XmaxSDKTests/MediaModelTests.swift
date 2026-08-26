@@ -90,6 +90,7 @@ final class MediaModelTests: XCTestCase {
         )
 
         XCTAssertEqual(frame.format, format)
+        XCTAssertNil(frame.bufferReuseID)
         XCTAssertEqual(frame.timestampUs, 33_333)
         XCTAssertEqual(frame.rotation, .rotation90)
         XCTAssertEqual(frame.planes, [plane])

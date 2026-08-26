@@ -127,28 +127,6 @@ final class XmaxPublicAPITests: XCTestCase {
         try await manager.createLocalImageStream(image: image)
     }
 
-    private func replaceDefaultImageStream(
-        using manager: any XmaxRealtimeManaging,
-        fileURL: URL
-    ) async throws -> RealtimeMediaStream {
-        try await manager.replaceLocalImageStream(fileURL: fileURL)
-    }
-
-    private func replaceImageDataStream(
-        using manager: any XmaxRealtimeManaging,
-        imageData: Data
-    ) async throws -> RealtimeMediaStream {
-        try await manager.replaceLocalImageStream(imageData: imageData)
-    }
-
-    @MainActor
-    private func replaceUIKitImageStream(
-        using manager: any XmaxRealtimeManaging,
-        image: UIImage
-    ) async throws -> RealtimeMediaStream {
-        try await manager.replaceLocalImageStream(image: image)
-    }
-
     private func stopImageStream(
         using manager: any XmaxRealtimeManaging
     ) async throws {
@@ -160,13 +138,6 @@ final class XmaxPublicAPITests: XCTestCase {
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await manager.createLocalVideoStream(fileURL: fileURL)
-    }
-
-    private func replaceDefaultVideoStream(
-        using manager: any XmaxRealtimeManaging,
-        fileURL: URL
-    ) async throws -> RealtimeMediaStream {
-        try await manager.replaceLocalVideoStream(fileURL: fileURL)
     }
 
     private func stopVideoStream(

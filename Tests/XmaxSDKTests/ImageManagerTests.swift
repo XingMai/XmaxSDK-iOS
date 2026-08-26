@@ -51,6 +51,26 @@ final class ImageManagerTests: XCTestCase {
         XCTAssertEqual(frameData.data.count, 16)
     }
 
+    func testVideoFramePreservesTopToBottomImageOrientation() throws {
+        let decodedImage = CoreGraphicsDecodedImage(
+            image: try makeTwoRowImage()
+        )
+
+        let frameData = try decodedImage.makeVideoFrameData(
+            width: 2,
+            height: 2
+        )
+
+        XCTAssertEqual(
+            Data(frameData.data.prefix(4)),
+            Data([0, 0, 255, 255])
+        )
+        XCTAssertEqual(
+            Data(frameData.data.suffix(4)),
+            Data([255, 0, 0, 255])
+        )
+    }
+
     @MainActor
     func testDecodeAcceptsUIKitImageDirectly() throws {
         let image = UIImage(cgImage: try makeImage(width: 4, height: 2))
@@ -112,6 +132,33 @@ private extension ImageManagerTests {
         context.fill(
             CGRect(x: 0, y: 0, width: width, height: height)
         )
+        return try XCTUnwrap(context.makeImage())
+    }
+
+    func makeTwoRowImage() throws -> CGImage {
+        let context = try XCTUnwrap(CGContext(
+            data: nil,
+            width: 2,
+            height: 2,
+            bitsPerComponent: 8,
+            bytesPerRow: 8,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(
+            red: 0,
+            green: 0,
+            blue: 1,
+            alpha: 1
+        )
+        context.fill(CGRect(x: 0, y: 0, width: 2, height: 1))
+        context.setFillColor(
+            red: 1,
+            green: 0,
+            blue: 0,
+            alpha: 1
+        )
+        context.fill(CGRect(x: 0, y: 1, width: 2, height: 1))
         return try XCTUnwrap(context.makeImage())
     }
 

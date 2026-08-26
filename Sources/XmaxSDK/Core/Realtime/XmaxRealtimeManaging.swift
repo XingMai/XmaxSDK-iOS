@@ -34,7 +34,7 @@ public protocol XmaxRealtimeManaging: Sendable {
         position: CameraPosition
     ) async throws -> RealtimeMediaStream
 
-    /// 将当前本地媒体流替换为相机流。
+    /// 更新当前相机流的采集格式与摄像头位置。
     func replaceLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -52,12 +52,6 @@ public protocol XmaxRealtimeManaging: Sendable {
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream
 
-    /// 将当前本地媒体流替换为编码后的图片数据流。
-    func replaceLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream
-
 #if canImport(UIKit)
     /// 从 UIKit 图片创建持续输出帧的媒体流。
     func createLocalImageStream(
@@ -65,21 +59,10 @@ public protocol XmaxRealtimeManaging: Sendable {
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream
 
-    /// 将当前本地媒体流替换为 UIKit 图片流。
-    func replaceLocalImageStream(
-        image: UIImage,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream
 #endif
 
     /// 从本地图片文件创建持续输出帧的媒体流。
     func createLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream
-
-    /// 将当前本地媒体流替换为图片流。
-    func replaceLocalImageStream(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream
@@ -89,12 +72,6 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 从本地视频文件创建循环播放的音视频流。
     func createLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream
-
-    /// 将当前本地媒体流替换为文件视频流。
-    func replaceLocalVideoStream(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream
@@ -128,7 +105,7 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 使用前置摄像头替换当前本地媒体流。
+    /// 使用前置摄像头更新当前相机流。
     func replaceLocalCameraStream(
         videoFormat: RealtimeVideoFormat
     ) async throws -> RealtimeMediaStream {
@@ -148,16 +125,6 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 根据编码后的图片数据替换当前本地媒体流。
-    func replaceLocalImageStream(
-        imageData: Data
-    ) async throws -> RealtimeMediaStream {
-        try await replaceLocalImageStream(
-            imageData: imageData,
-            videoFormat: nil
-        )
-    }
-
     /// 根据图片原始尺寸创建本地图片流并开始预览。
     func createLocalImageStream(
         fileURL: URL
@@ -168,31 +135,11 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 根据图片原始尺寸替换当前本地媒体流。
-    func replaceLocalImageStream(
-        fileURL: URL
-    ) async throws -> RealtimeMediaStream {
-        try await replaceLocalImageStream(
-            fileURL: fileURL,
-            videoFormat: nil
-        )
-    }
-
     /// 根据视频原始尺寸创建本地文件视频流并开始预览。
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await createLocalVideoStream(
-            fileURL: fileURL,
-            videoFormat: nil
-        )
-    }
-
-    /// 根据视频原始尺寸替换当前本地媒体流。
-    func replaceLocalVideoStream(
-        fileURL: URL
-    ) async throws -> RealtimeMediaStream {
-        try await replaceLocalVideoStream(
             fileURL: fileURL,
             videoFormat: nil
         )

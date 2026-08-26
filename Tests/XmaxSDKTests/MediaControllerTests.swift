@@ -187,7 +187,7 @@ final class MediaControllerTests: XCTestCase {
         }
     }
 
-    func testReplaceCameraWithImageReusesRTCAndChangesOwnership() async throws {
+    func testStopCameraThenCreateImageChangesOwnership() async throws {
         let rtcManager = RtcManagingStub()
         let imageFormat = RealtimeVideoFormat(
             width: 832,
@@ -210,7 +210,8 @@ final class MediaControllerTests: XCTestCase {
             position: .front
         )
 
-        let imageStream = try await manager.replaceLocalImageStream(
+        await manager.stopLocalCameraStream()
+        let imageStream = try await manager.createLocalImageStream(
             fileURL: URL(fileURLWithPath: "/tmp/reference.png"),
             videoFormat: nil
         )
@@ -223,9 +224,12 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertFalse(ownsCameraStream)
         XCTAssertEqual(
             rtcManager.calls.filter { $0 == .initialize }.count,
+            2
+        )
+        XCTAssertEqual(
+            rtcManager.calls.filter { $0 == .destroy }.count,
             1
         )
-        XCTAssertFalse(rtcManager.calls.contains(.destroy))
         XCTAssertTrue(rtcManager.calls.contains(.stopVideoCapture))
         XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
 
@@ -237,7 +241,7 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(trackAfterImageStop)
         XCTAssertEqual(
             rtcManager.calls.filter { $0 == .destroy }.count,
-            1
+            2
         )
     }
 

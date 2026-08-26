@@ -114,38 +114,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
-    func testReplaceConnectedCameraWithImagePreservesConnection() async throws {
-        let components = makeComponents()
-        let cameraStream = try await components.manager
-            .createLocalCameraStream(
-                videoFormat: videoFormat,
-                position: .front
-            )
-        let remoteStream = try await components.manager.connect(
-            localStream: cameraStream
-        )
-
-        let imageStream = try await components.manager
-            .replaceLocalImageStream(
-                fileURL: URL(fileURLWithPath: "/tmp/reference.png"),
-                videoFormat: nil
-            )
-        let state = await components.manager.currentState
-
-        XCTAssertEqual(state.connectionState, .connected)
-        XCTAssertEqual(imageStream.videoTrack?.videoFormat, imageFormat)
-        XCTAssertEqual(remoteStream.videoTrack?.videoFormat, imageFormat)
-        XCTAssertFalse(components.rtcManager.calls.contains(.leaveRoom))
-        XCTAssertFalse(
-            components.sessionService.calls.contains(
-                .closeSession("session-id")
-            )
-        )
-
-        await components.manager.disconnect()
-        try await components.manager.stopLocalImageStream()
-    }
-
     func testGenerationLifecycleTransitionsAndUpdatesCondition() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(

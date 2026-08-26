@@ -148,73 +148,10 @@ actor MediaController: MediaControlling {
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
     ) async throws -> RealtimeMediaStream {
-        try await replaceSource(with: .camera) { previousKind in
-            if previousKind == .camera {
-                return try await self.cameraController
-                    .replaceLocalCameraStream(
-                        videoFormat: videoFormat,
-                        position: position
-                    )
-            }
-            return try await self.cameraController.createLocalCameraStream(
+        try await updateCameraSource {
+            try await self.cameraController.replaceLocalCameraStream(
                 videoFormat: videoFormat,
                 position: position
-            )
-        }
-    }
-
-    /// 将当前本地媒体来源替换为图片数据流。
-    func replaceLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        let imageController = try requiredImageController()
-        return try await replaceSource(with: .image) { _ in
-            try await imageController.createLocalImageStream(
-                imageData: imageData,
-                videoFormat: videoFormat
-            )
-        }
-    }
-
-    /// 将当前本地媒体来源替换为已解码图片流。
-    func replaceLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        let imageController = try requiredImageController()
-        return try await replaceSource(with: .image) { _ in
-            try await imageController.createLocalImageStream(
-                decodedImage: decodedImage,
-                videoFormat: videoFormat
-            )
-        }
-    }
-
-    /// 将当前本地媒体来源替换为图片流。
-    func replaceLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        let imageController = try requiredImageController()
-        return try await replaceSource(with: .image) { _ in
-            try await imageController.createLocalImageStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
-            )
-        }
-    }
-
-    /// 将当前本地媒体来源替换为文件视频流。
-    func replaceLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeMediaStream {
-        let videoController = try requiredVideoController()
-        return try await replaceSource(with: .video) { _ in
-            try await videoController.createLocalVideoStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
             )
         }
     }
@@ -272,7 +209,7 @@ private extension MediaController {
 
     final class ActiveLocalMediaSource {
         let id: UUID
-        var kind: LocalMediaKind
+        let kind: LocalMediaKind
 
         init(id: UUID, kind: LocalMediaKind) {
             self.id = id
@@ -329,30 +266,21 @@ private extension MediaController {
         }
     }
 
-    func replaceSource(
-        with targetKind: LocalMediaKind,
-        operation body: @escaping @Sendable (LocalMediaKind) async throws ->
+    func updateCameraSource(
+        operation body: @escaping @Sendable () async throws ->
             RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
-        guard let activeSource else {
+        guard let activeSource, activeSource.kind == .camera else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Create a local media stream before replacing it"
+                message: "Create a local camera stream before updating it"
             )
         }
         try ensureNoOperationInProgress()
 
         let sourceID = activeSource.id
-        let previousKind = activeSource.kind
         let operation = makeMediaOperation(sourceID: sourceID) {
-            if previousKind != targetKind || targetKind != .camera {
-                await self.stopSource(kind: previousKind)
-                try await self.updateSourceKind(
-                    targetKind,
-                    sourceID: sourceID
-                )
-            }
-            return try await body(previousKind)
+            try await body()
         }
         mediaOperation = operation
 
@@ -444,19 +372,6 @@ private extension MediaController {
         case .video:
             videoController?.currentTrack
         }
-    }
-
-    func updateSourceKind(
-        _ kind: LocalMediaKind,
-        sourceID: UUID
-    ) throws {
-        guard let activeSource, activeSource.id == sourceID else {
-            throw XmaxError(
-                code: .cancelled,
-                message: "Local media stream replacement was cancelled"
-            )
-        }
-        activeSource.kind = kind
     }
 
     func requiredImageController() throws -> ImageController {

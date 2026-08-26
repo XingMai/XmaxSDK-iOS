@@ -73,6 +73,7 @@ final class ImageSourceControllerTests: XCTestCase {
             try VideoFormat(width: 896, height: 672, pixelFormat: .bgra)
         )
         XCTAssertEqual(frame.planes.first?.stride, 896 * 4)
+        XCTAssertNotNil(frame.bufferReuseID)
         XCTAssertGreaterThan(frame.timestampUs, 0)
     }
 
