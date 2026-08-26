@@ -1,7 +1,7 @@
 import Foundation
 
 /// 协调本地图片解码、循环帧输出、编码和预览资源。
-final class XmaxRealtimeImageManager: @unchecked Sendable {
+final class ImageController: @unchecked Sendable {
 
     // 轨道标识
     private static let localVideoTrackID = "video0"
@@ -11,7 +11,7 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
 
     // 业务层组件
     private let imageSourceController: any ImageSourceControlling
-    private let encodingController: any EncodingControlling
+    private let transportController: any TransportControlling
 
     // 并发控制
     private let stateLock = NSLock()
@@ -22,7 +22,7 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
-        streamController: any StreamControlling,
+        transportController: any TransportControlling,
         errorListener: @escaping ImageSourceErrorListener
     ) {
         let imageManager = ImageManager()
@@ -32,22 +32,22 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
                 imageManager: imageManager,
                 mediaService: MediaService(),
                 frameListener: { frame in
-                    try streamController.pushLocalVideoFrame(frame)
+                    try transportController.pushLocalVideoFrame(frame)
                 },
                 errorListener: errorListener
             ),
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: transportController
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         imageSourceController: any ImageSourceControlling,
-        encodingController: any EncodingControlling
+        transportController: any TransportControlling
     ) {
         self.rtcManager = rtcManager
         self.imageSourceController = imageSourceController
-        self.encodingController = encodingController
+        self.transportController = transportController
     }
 
     /// 当前活动的本地图片视频轨道；尚未创建时返回空值。
@@ -137,7 +137,7 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
     }
 }
 
-private extension XmaxRealtimeImageManager {
+private extension ImageController {
     enum ImageInput: Sendable {
         case data(Data)
         case decoded(any DecodedImage)
@@ -175,7 +175,7 @@ private extension XmaxRealtimeImageManager {
             )
             track = localTrack
 
-            try encodingController.configure(resolvedFormat)
+            try transportController.configureVideoEncoding(resolvedFormat)
             try rtcManager.useExternalVideoSource()
             await registerPreview(for: localTrack)
             try imageSourceController.start()

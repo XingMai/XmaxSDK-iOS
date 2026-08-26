@@ -22,6 +22,9 @@ Sources/XmaxSDK
 
 目录按实际能力逐步创建，不添加空模块或占位类型。
 
+业务层通过与层同名的 Controller 向 Core 暴露能力。Core 只依赖
+`MediaControlling` 和 `TransportControlling`，不直接调用业务层内部组件。
+
 ## CocoaPods 本地开发
 
 ```bash

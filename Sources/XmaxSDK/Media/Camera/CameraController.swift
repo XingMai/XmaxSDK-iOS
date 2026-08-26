@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// 协调相机权限、RTC 内部采集、编码和本地预览资源。
-final class XmaxRealtimeCameraManager: @unchecked Sendable {
+final class CameraController: @unchecked Sendable {
 
     // 轨道标识
     private static let localVideoTrackID = "video0"
@@ -15,7 +15,7 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
     private let mediaService: any MediaServicing
 
     // 业务层组件
-    private let encodingController: any EncodingControlling
+    private let transportController: any TransportControlling
 
     // 并发控制
     private let stateLock = NSLock()
@@ -24,12 +24,15 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
     private var activeTrack: RealtimeVideoTrack?
 
     @MainActor
-    convenience init(rtcManager: any RtcManaging) {
+    convenience init(
+        rtcManager: any RtcManaging,
+        transportController: any TransportControlling
+    ) {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
             mediaService: MediaService(),
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: transportController
         )
     }
 
@@ -37,12 +40,12 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
         mediaService: any MediaServicing,
-        encodingController: any EncodingControlling
+        transportController: any TransportControlling
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaService = mediaService
-        self.encodingController = encodingController
+        self.transportController = transportController
     }
 
     /// 当前活动的本地相机视频轨道；尚未创建时返回空值。
@@ -84,7 +87,7 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
         do {
             let resolvedFormat = try resolveVideoFormat(videoFormat)
             try rtcManager.stopVideoCapture()
-            try encodingController.configure(resolvedFormat)
+            try transportController.configureVideoEncoding(resolvedFormat)
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
@@ -159,7 +162,7 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
     }
 }
 
-private extension XmaxRealtimeCameraManager {
+private extension CameraController {
     func createStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -173,7 +176,7 @@ private extension XmaxRealtimeCameraManager {
 
         do {
             try await permissionManager.ensureCameraPermission()
-            try encodingController.configure(resolvedFormat)
+            try transportController.configureVideoEncoding(resolvedFormat)
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,

@@ -1,7 +1,7 @@
 import Foundation
 
 /// 协调本地视频文件解码、音视频循环、编码和 RTC 预览资源。
-final class XmaxRealtimeVideoManager: @unchecked Sendable {
+final class VideoController: @unchecked Sendable {
 
     // 轨道标识
     private static let localVideoTrackID = "video0"
@@ -12,7 +12,7 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
 
     // 业务层组件
     private let mediaSourceController: any MediaSourceControlling
-    private let encodingController: any EncodingControlling
+    private let transportController: any TransportControlling
 
     // 并发控制
     private let stateLock = NSLock()
@@ -23,7 +23,7 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
-        streamController: any StreamControlling,
+        transportController: any TransportControlling,
         errorListener: @escaping MediaSourceErrorListener
     ) {
         let audioManager = AudioManager()
@@ -33,14 +33,14 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
             mediaService: MediaService(),
             videoSourceController: VideoSourceController(
                 frameListener: { frame in
-                    try streamController.pushLocalVideoFrame(frame)
+                    try transportController.pushLocalVideoFrame(frame)
                 },
                 errorListener: errorListener
             ),
             audioSourceController: AudioSourceController(
                 frameListener: { frame in
                     audioManager.write(frame: frame)
-                    try streamController.pushLocalAudioFrame(frame)
+                    try transportController.pushLocalAudioFrame(frame)
                 },
                 errorListener: errorListener
             )
@@ -49,7 +49,7 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
             mediaSourceController: mediaSourceController,
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: transportController
         )
     }
 
@@ -57,12 +57,12 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
         mediaSourceController: any MediaSourceControlling,
-        encodingController: any EncodingControlling
+        transportController: any TransportControlling
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaSourceController = mediaSourceController
-        self.encodingController = encodingController
+        self.transportController = transportController
     }
 
     /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
@@ -141,7 +141,7 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
     }
 }
 
-private extension XmaxRealtimeVideoManager {
+private extension VideoController {
     func createStream(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
@@ -163,7 +163,9 @@ private extension XmaxRealtimeVideoManager {
             if configuration.hasAudio {
                 try await permissionManager.ensureMicrophonePermission()
             }
-            try encodingController.configure(configuration.videoFormat)
+            try transportController.configureVideoEncoding(
+                configuration.videoFormat
+            )
             try rtcManager.useExternalVideoSource()
             if configuration.hasAudio {
                 try rtcManager.startExternalAudioSource()

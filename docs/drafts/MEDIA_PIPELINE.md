@@ -4,7 +4,7 @@
 >
 > 基线提交：`cc35183 feat: add image and video media pipelines`
 
-当前图片和文件视频都被抽象为“本地外部视频源”，最终通过同一套 `StreamController → RtcManager → VolcEngineRTC` 链路推送。
+当前图片和文件视频都被抽象为“本地外部视频源”，最终通过同一套 `TransportController → StreamController → RtcManager → VolcEngineRTC` 链路推送。
 
 ```text
 XmaxRealtimeManaging 公开 API
@@ -14,18 +14,22 @@ XmaxRealtimeManager
 连接、替换、生成生命周期
         │
         ▼
-XmaxRealtimeMediaManager
+MediaController
 保证相机 / 图片 / 视频只存在一个活动来源
         │
-        ├── 图片：XmaxRealtimeImageManager
+        ├── 图片：ImageController
         │          └── ImageSourceController
         │                 └── ImageManager.decode()
         │                        └── DecodedImage → BGRA 帧
         │
-        └── 视频：XmaxRealtimeVideoManager
+        └── 视频：VideoController
                    └── MediaSourceController
                           ├── VideoSourceController → NV12 帧
                           └── AudioSourceController → PCM 音频帧
+        │
+        ▼
+TransportController
+统一传输层入口
         │
         ▼
 StreamController
@@ -77,7 +81,7 @@ let stream = try await realtime.createLocalVideoStream(
 )
 ```
 
-`XmaxRealtimeMediaManager` 负责统一所有权：
+`MediaController` 负责统一所有权：
 
 - 相机、图片、视频只能有一个活动来源。
 - 首次创建来源时初始化 RTC Engine。
@@ -90,16 +94,16 @@ let stream = try await realtime.createLocalVideoStream(
 
 - `Sources/XmaxSDK/Core/Realtime/XmaxRealtimeManaging.swift`
 - `Sources/XmaxSDK/Core/Realtime/XmaxRealtimeManager.swift`
-- `Sources/XmaxSDK/Core/Realtime/XmaxRealtimeMediaManager.swift`
+- `Sources/XmaxSDK/Media/MediaController.swift`
 
 ## 2. 图片链路
 
 ```text
 createLocalImageStream(imageData:/image:/fileURL:, videoFormat:)
     ↓
-XmaxRealtimeMediaManager
+MediaController
     ↓
-XmaxRealtimeImageManager
+ImageController
     ↓
 ImageSourceController.prepare()
     ↓
@@ -110,6 +114,8 @@ DecodedImage
 固定 BGRA 视频帧
     ↓
 定时重复推送
+    ↓
+TransportController.pushLocalVideoFrame()
     ↓
 StreamController.pushLocalVideoFrame()
     ↓
@@ -147,7 +153,7 @@ RtcManager.pushExternalVideoFrame()
 
 ### 2.3 RTC 与预览
 
-`XmaxRealtimeImageManager` 按以下顺序创建图片流：
+`ImageController` 按以下顺序创建图片流：
 
 1. 准备图片并获得最终视频格式。
 2. 配置 RTC 编码尺寸和帧率。
@@ -160,7 +166,7 @@ RtcManager.pushExternalVideoFrame()
 
 相关实现：
 
-- `Sources/XmaxSDK/Core/Realtime/XmaxRealtimeImageManager.swift`
+- `Sources/XmaxSDK/Media/Image/ImageController.swift`
 - `Sources/XmaxSDK/Media/Image/ImageSourceController.swift`
 - `Sources/XmaxSDK/Foundation/Media/Image/ImageManager.swift`
 
@@ -169,7 +175,7 @@ RtcManager.pushExternalVideoFrame()
 ```text
 createLocalVideoStream(fileURL:, videoFormat:)
     ↓
-XmaxRealtimeVideoManager
+VideoController
     ↓
 MediaSourceController.prepare()
     ├── MediaFileMetadataManager
@@ -179,6 +185,8 @@ MediaSourceController.prepare()
 共享 MediaTimeline
     ├── VideoFileFrameDecoder → NV12
     └── AudioFileFrameDecoder → PCM16
+    ↓
+TransportController
     ↓
 StreamController
     ↓
@@ -234,7 +242,7 @@ RtcManager
 4. 带上媒体文件的旋转信息。
 5. 按目标 fps 采样。
 6. 落后超过一个目标帧间隔的帧直接丢弃。
-7. 将帧推给 `StreamController.pushLocalVideoFrame()`。
+7. 通过 `TransportController` 将帧交给内部 `StreamController`。
 8. 到达文件末尾后，根据共享时间线创建下一轮 decoder。
 
 最终 RTC 收到的视频帧为：
@@ -261,13 +269,13 @@ BufferVideoFrame
 4. 使用和视频相同的 `MediaTimeline`。
 5. 同时送往：
    - `AudioManager`：本地播放。
-   - `StreamController`：RTC 外部音频。
+   - `TransportController`：RTC 外部音频传输入口。
 
-尚未连接房间时，RTC 音频推帧会被 `StreamController` 忽略，但本地音频仍然播放。连接并发布本地音频后，PCM 帧才真正推给 RTC。
+尚未连接房间时，RTC 音频推帧会被传输层忽略，但本地音频仍然播放。连接并发布本地音频后，PCM 帧才真正推给 RTC。
 
 ### 3.6 RTC 视频和音频初始化
 
-`XmaxRealtimeVideoManager` 按以下顺序创建视频流：
+`VideoController` 按以下顺序创建视频流：
 
 1. 准备媒体文件。
 2. 如果有音轨，申请麦克风权限。
@@ -286,7 +294,7 @@ BufferVideoFrame
 
 相关实现：
 
-- `Sources/XmaxSDK/Core/Realtime/XmaxRealtimeVideoManager.swift`
+- `Sources/XmaxSDK/Media/Video/VideoController.swift`
 - `Sources/XmaxSDK/Media/MediaSourceController.swift`
 - `Sources/XmaxSDK/Media/MediaTimeline.swift`
 - `Sources/XmaxSDK/Media/Video/VideoSourceController.swift`
@@ -307,7 +315,7 @@ let remoteStream = try await realtime.connect(
 连接时，`XmaxRealtimeManager` 会查询：
 
 ```swift
-await mediaManager.hasAudio
+await mediaController.hasAudio
 ```
 
 发布规则：
@@ -352,7 +360,7 @@ try await realtime.startGeneration(
 视频来源会调用：
 
 ```swift
-mediaManager.restartForGeneration()
+mediaController.restartForGeneration()
 ```
 
 这会：

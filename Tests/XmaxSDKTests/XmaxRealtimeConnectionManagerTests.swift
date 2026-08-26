@@ -297,13 +297,15 @@ private extension XmaxRealtimeConnectionManagerTests {
         let remoteVideoController = RemoteVideoController(
             rtcManager: rtcManager
         )
+        let transportController = TransportController(
+            rtcManager: rtcManager
+        )
         return Components(
             manager: XmaxRealtimeConnectionManager(
                 rtcManager: rtcManager,
                 sessionService: sessionService,
-                roomController: RoomController(rtcManager: rtcManager),
                 remoteVideoController: remoteVideoController,
-                streamController: StreamController(rtcManager: rtcManager)
+                transportController: transportController
             ),
             remoteVideoController: remoteVideoController
         )

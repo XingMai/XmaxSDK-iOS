@@ -7,8 +7,7 @@ typealias RealtimeGenerationStartedHandler = @Sendable () async throws -> Void
 actor XmaxRealtimeGenerationManager {
 
     // 业务层组件
-    private let roomController: any RoomControlling
-    private let streamController: any StreamControlling
+    private let transportController: any TransportControlling
 
     // 生成配置
     private let taskIDGenerator: @Sendable () -> String
@@ -20,13 +19,11 @@ actor XmaxRealtimeGenerationManager {
     private var conditionVersion = 0
 
     init(
-        roomController: any RoomControlling,
-        streamController: any StreamControlling,
+        transportController: any TransportControlling,
         taskIDGenerator: @escaping @Sendable () -> String =
             XmaxRealtimeGenerationManager.createTaskID
     ) {
-        self.roomController = roomController
-        self.streamController = streamController
+        self.transportController = transportController
         self.taskIDGenerator = taskIDGenerator
     }
 
@@ -45,17 +42,14 @@ actor XmaxRealtimeGenerationManager {
         }
 
         let taskID = taskIDGenerator()
-        let confirmation = try streamController.beginGeneration(
-            taskID: taskID
+        let confirmation = try await transportController.beginGeneration(
+            taskID: taskID,
+            videoFormat: videoFormat,
+            context: resolvedContext
         )
         conditionVersion = 0
 
         do {
-            try await roomController.startGeneration(
-                taskID: taskID,
-                videoFormat: videoFormat,
-                context: resolvedContext
-            )
             try await onGenerationStarted()
             try await withTaskCancellationHandler {
                 try await confirmation.value
@@ -82,7 +76,7 @@ actor XmaxRealtimeGenerationManager {
         }
 
         conditionVersion += 1
-        try await roomController.changeGenerationCondition(
+        try await transportController.updateGeneration(
             taskID: taskID,
             conditionVersion: conditionVersion,
             videoFormat: videoFormat,
@@ -92,10 +86,7 @@ actor XmaxRealtimeGenerationManager {
     }
 
     func stop(taskID: String) async {
-        let stoppedTaskID = await streamController.stopGeneration(
-            taskID: taskID
-        )
-        await roomController.stopGeneration(taskID: stoppedTaskID)
+        await transportController.stopGeneration(taskID: taskID)
     }
 
     func reset(taskID: String = "") async {

@@ -1,15 +1,15 @@
 import Foundation
 
 /// 统一协调本地媒体所有权以及 RTC Engine 生命周期。
-actor XmaxRealtimeMediaManager {
+actor MediaController: MediaControlling {
 
     // 基础层组件
     private let rtcManager: any RtcManaging
 
     // 本地媒体组件
-    private let cameraManager: XmaxRealtimeCameraManager
-    private let imageManager: XmaxRealtimeImageManager?
-    private let videoManager: XmaxRealtimeVideoManager?
+    private let cameraController: CameraController
+    private let imageController: ImageController?
+    private let videoController: VideoController?
 
     // 本地媒体资源
     private var activeSource: ActiveLocalMediaSource?
@@ -21,33 +21,36 @@ actor XmaxRealtimeMediaManager {
     @MainActor
     init(
         rtcManager: any RtcManaging,
-        streamController: any StreamControlling,
+        transportController: any TransportControlling,
         mediaErrorListener: @escaping MediaSourceErrorListener
     ) {
         self.rtcManager = rtcManager
-        cameraManager = XmaxRealtimeCameraManager(rtcManager: rtcManager)
-        imageManager = XmaxRealtimeImageManager(
+        cameraController = CameraController(
             rtcManager: rtcManager,
-            streamController: streamController,
+            transportController: transportController
+        )
+        imageController = ImageController(
+            rtcManager: rtcManager,
+            transportController: transportController,
             errorListener: mediaErrorListener
         )
-        videoManager = XmaxRealtimeVideoManager(
+        videoController = VideoController(
             rtcManager: rtcManager,
-            streamController: streamController,
+            transportController: transportController,
             errorListener: mediaErrorListener
         )
     }
 
     init(
         rtcManager: any RtcManaging,
-        cameraManager: XmaxRealtimeCameraManager,
-        imageManager: XmaxRealtimeImageManager? = nil,
-        videoManager: XmaxRealtimeVideoManager? = nil
+        cameraController: CameraController,
+        imageController: ImageController? = nil,
+        videoController: VideoController? = nil
     ) {
         self.rtcManager = rtcManager
-        self.cameraManager = cameraManager
-        self.imageManager = imageManager
-        self.videoManager = videoManager
+        self.cameraController = cameraController
+        self.imageController = imageController
+        self.videoController = videoController
     }
 
     /// 当前活动的本地视频轨道；没有媒体来源时返回空值。
@@ -68,7 +71,7 @@ actor XmaxRealtimeMediaManager {
         guard activeSource?.kind == .video else {
             return false
         }
-        return videoManager?.hasAudio ?? false
+        return videoController?.hasAudio ?? false
     }
 
     /// 创建相机媒体来源并取得本地媒体所有权。
@@ -77,7 +80,7 @@ actor XmaxRealtimeMediaManager {
         position: CameraPosition
     ) async throws -> RealtimeMediaStream {
         try await createSource(kind: .camera) {
-            try await self.cameraManager.createLocalCameraStream(
+            try await self.cameraController.createLocalCameraStream(
                 videoFormat: videoFormat,
                 position: position
             )
@@ -89,9 +92,9 @@ actor XmaxRealtimeMediaManager {
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let imageManager = try requiredImageManager()
+        let imageController = try requiredImageController()
         return try await createSource(kind: .image) {
-            try await imageManager.createLocalImageStream(
+            try await imageController.createLocalImageStream(
                 imageData: imageData,
                 videoFormat: videoFormat
             )
@@ -103,9 +106,9 @@ actor XmaxRealtimeMediaManager {
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let imageManager = try requiredImageManager()
+        let imageController = try requiredImageController()
         return try await createSource(kind: .image) {
-            try await imageManager.createLocalImageStream(
+            try await imageController.createLocalImageStream(
                 decodedImage: decodedImage,
                 videoFormat: videoFormat
             )
@@ -117,9 +120,9 @@ actor XmaxRealtimeMediaManager {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let imageManager = try requiredImageManager()
+        let imageController = try requiredImageController()
         return try await createSource(kind: .image) {
-            try await imageManager.createLocalImageStream(
+            try await imageController.createLocalImageStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
@@ -131,9 +134,9 @@ actor XmaxRealtimeMediaManager {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let videoManager = try requiredVideoManager()
+        let videoController = try requiredVideoController()
         return try await createSource(kind: .video) {
-            try await videoManager.createLocalVideoStream(
+            try await videoController.createLocalVideoStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
@@ -147,13 +150,13 @@ actor XmaxRealtimeMediaManager {
     ) async throws -> RealtimeMediaStream {
         try await replaceSource(with: .camera) { previousKind in
             if previousKind == .camera {
-                return try await self.cameraManager
+                return try await self.cameraController
                     .replaceLocalCameraStream(
                         videoFormat: videoFormat,
                         position: position
                     )
             }
-            return try await self.cameraManager.createLocalCameraStream(
+            return try await self.cameraController.createLocalCameraStream(
                 videoFormat: videoFormat,
                 position: position
             )
@@ -165,9 +168,9 @@ actor XmaxRealtimeMediaManager {
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let imageManager = try requiredImageManager()
+        let imageController = try requiredImageController()
         return try await replaceSource(with: .image) { _ in
-            try await imageManager.createLocalImageStream(
+            try await imageController.createLocalImageStream(
                 imageData: imageData,
                 videoFormat: videoFormat
             )
@@ -179,9 +182,9 @@ actor XmaxRealtimeMediaManager {
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let imageManager = try requiredImageManager()
+        let imageController = try requiredImageController()
         return try await replaceSource(with: .image) { _ in
-            try await imageManager.createLocalImageStream(
+            try await imageController.createLocalImageStream(
                 decodedImage: decodedImage,
                 videoFormat: videoFormat
             )
@@ -193,9 +196,9 @@ actor XmaxRealtimeMediaManager {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let imageManager = try requiredImageManager()
+        let imageController = try requiredImageController()
         return try await replaceSource(with: .image) { _ in
-            try await imageManager.createLocalImageStream(
+            try await imageController.createLocalImageStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
@@ -207,9 +210,9 @@ actor XmaxRealtimeMediaManager {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let videoManager = try requiredVideoManager()
+        let videoController = try requiredVideoController()
         return try await replaceSource(with: .video) { _ in
-            try await videoManager.createLocalVideoStream(
+            try await videoController.createLocalVideoStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
@@ -236,7 +239,7 @@ actor XmaxRealtimeMediaManager {
         guard activeSource?.kind == .video else {
             return
         }
-        try await requiredVideoManager().restartForGeneration()
+        try await requiredVideoController().restartForGeneration()
     }
 
     /// 在当前相机来源空闲时切换前置或后置摄像头。
@@ -248,7 +251,7 @@ actor XmaxRealtimeMediaManager {
             )
         }
         try ensureNoOperationInProgress()
-        return try await cameraManager.switchCamera()
+        return try await cameraController.switchCamera()
     }
 
     /// 判断媒体流是否由当前活动来源创建并持有。
@@ -260,7 +263,7 @@ actor XmaxRealtimeMediaManager {
     }
 }
 
-private extension XmaxRealtimeMediaManager {
+private extension MediaController {
     enum LocalMediaKind: Sendable {
         case camera
         case image
@@ -424,22 +427,22 @@ private extension XmaxRealtimeMediaManager {
     func stopSource(kind: LocalMediaKind) async {
         switch kind {
         case .camera:
-            await cameraManager.stopLocalCameraStream()
+            await cameraController.stopLocalCameraStream()
         case .image:
-            await imageManager?.stopLocalImageStream()
+            await imageController?.stopLocalImageStream()
         case .video:
-            await videoManager?.stopLocalVideoStream()
+            await videoController?.stopLocalVideoStream()
         }
     }
 
     func currentTrack(for kind: LocalMediaKind) -> RealtimeVideoTrack? {
         switch kind {
         case .camera:
-            cameraManager.currentTrack
+            cameraController.currentTrack
         case .image:
-            imageManager?.currentTrack
+            imageController?.currentTrack
         case .video:
-            videoManager?.currentTrack
+            videoController?.currentTrack
         }
     }
 
@@ -456,24 +459,24 @@ private extension XmaxRealtimeMediaManager {
         activeSource.kind = kind
     }
 
-    func requiredImageManager() throws -> XmaxRealtimeImageManager {
-        guard let imageManager else {
+    func requiredImageController() throws -> ImageController {
+        guard let imageController else {
             throw XmaxError(
                 code: .internalError,
                 message: "Local image media is unavailable"
             )
         }
-        return imageManager
+        return imageController
     }
 
-    func requiredVideoManager() throws -> XmaxRealtimeVideoManager {
-        guard let videoManager else {
+    func requiredVideoController() throws -> VideoController {
+        guard let videoController else {
             throw XmaxError(
                 code: .internalError,
                 message: "Local video media is unavailable"
             )
         }
-        return videoManager
+        return videoController
     }
 
     func makeMediaOperation(

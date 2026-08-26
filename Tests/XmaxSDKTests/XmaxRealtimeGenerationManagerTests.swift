@@ -290,10 +290,15 @@ private extension XmaxRealtimeGenerationManagerTests {
             roomID: "room-id",
             botName: "bot-user"
         )
+        let transportController = TransportController(
+            roomController: roomController,
+            streamController: streamController,
+            encodingController: EncodingController(rtcManager: rtcManager),
+            qualityController: QualityController(rtcManager: rtcManager)
+        )
         return Components(
             manager: XmaxRealtimeGenerationManager(
-                roomController: roomController,
-                streamController: streamController,
+                transportController: transportController,
                 taskIDGenerator: { "task-fixed" }
             ),
             roomController: roomController,

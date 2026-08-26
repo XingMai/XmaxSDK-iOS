@@ -116,3 +116,28 @@ iOS：
 Harmony：
 
 - [ ] 无需照搬 iOS 类型名；检查同层级能力是否使用平台一致的命名规则。
+
+## SYNC-005 业务层统一 Controller 边界
+
+状态：iOS 已完成 Transport 与 Media 边界收口和真机目标编译。
+
+iOS 规范：
+
+- 具有多个协作组件和统一状态的业务层，通过与层同名的 Controller 向 Core 暴露能力。
+- Core 只依赖业务层的 `*Controlling` 协议，不直接持有层内子 Controller。
+- `TransportController` 内部协调 Room、Stream、Encoding 和 Quality。
+- `MediaController` 内部协调 Camera、Image、Video 以及本地媒体所有权。
+- 业务层子组件保留具体职责，不单独向 Core 暴露。
+
+iOS：
+
+- [x] 新增 `TransportControlling` 和 `TransportController`。
+- [x] Core 不再直接依赖 Room、Stream、Encoding 和 Quality Controller。
+- [x] 将媒体统一入口及相机、图片、视频组件从 Core 下沉至 Media。
+- [x] 新增 `MediaControlling`，Core 仅通过 `MediaController` 使用媒体层。
+- [x] 真机 SDK 测试目标编译通过。
+
+Harmony：
+
+- [ ] 检查 Core 是否直接持有 Transport 或 Media 层的内部组件。
+- [ ] 评估是否需要用同层统一入口收口房间、流、编码、质量和媒体来源管理。

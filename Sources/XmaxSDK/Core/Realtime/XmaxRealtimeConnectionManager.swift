@@ -16,9 +16,8 @@ actor XmaxRealtimeConnectionManager {
     private let sessionService: any RealtimeSessionServicing
 
     // 业务层组件
-    private let roomController: any RoomControlling
     private let remoteVideoController: any RemoteVideoControlling
-    private let streamController: any StreamControlling
+    private let transportController: any TransportControlling
 
     // 连接资源
     private var activeRemoteTrack: RealtimeVideoTrack?
@@ -27,15 +26,13 @@ actor XmaxRealtimeConnectionManager {
     init(
         rtcManager: any RtcManaging,
         sessionService: any RealtimeSessionServicing,
-        roomController: any RoomControlling,
         remoteVideoController: any RemoteVideoControlling,
-        streamController: any StreamControlling
+        transportController: any TransportControlling
     ) {
         self.rtcManager = rtcManager
         self.sessionService = sessionService
-        self.roomController = roomController
         self.remoteVideoController = remoteVideoController
-        self.streamController = streamController
+        self.transportController = transportController
     }
 
     var currentSessionID: String {
@@ -68,20 +65,12 @@ actor XmaxRealtimeConnectionManager {
                 )
             }
 
-            try await roomController.join(
+            try await transportController.connect(
                 connection: connection,
+                includeLocalAudio: includeLocalAudio,
                 ensureActive: {
                     try Self.ensureCurrent(isCurrent)
                 }
-            )
-            try Self.ensureCurrent(isCurrent)
-
-            try streamController.configureRoom(
-                roomID: connection.roomID,
-                botName: connection.botName
-            )
-            try streamController.publishLocalStream(
-                includeAudio: includeLocalAudio
             )
             try Self.ensureCurrent(isCurrent)
 
@@ -131,8 +120,7 @@ actor XmaxRealtimeConnectionManager {
 
         sessionService.stopHeartbeat()
         await resetRemoteRendering(track: remoteTrack)
-        await streamController.resetRoom()
-        await roomController.leave()
+        await transportController.disconnect()
 
         let sessionID = session?.id ?? fallbackSessionID
         if let sessionID {
@@ -188,8 +176,7 @@ private extension XmaxRealtimeConnectionManager {
 
         sessionService.stopHeartbeat()
         await resetRemoteRendering(track: remoteTrack)
-        await streamController.resetRoom()
-        await roomController.leave()
+        await transportController.disconnect()
     }
 
     @MainActor

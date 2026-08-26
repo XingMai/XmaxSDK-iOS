@@ -3,7 +3,7 @@ import UIKit
 import XCTest
 @testable import XmaxSDK
 
-final class XmaxRealtimeCameraManagerTests: XCTestCase {
+final class CameraControllerTests: XCTestCase {
     func testCreateStartsInternalCaptureAndRegistersLocalTrack() async throws {
         let rtcManager = RtcManagingStub()
         let permissionManager = PermissionManagingStub()
@@ -238,19 +238,21 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
     }
 }
 
-private extension XmaxRealtimeCameraManagerTests {
+private extension CameraControllerTests {
     func makeManager(
         rtcManager: RtcManagingStub = RtcManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
         mediaService: MediaServicingStub = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
         )
-    ) -> XmaxRealtimeCameraManager {
-        XmaxRealtimeCameraManager(
+    ) -> CameraController {
+        CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
             mediaService: mediaService,
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: TransportController(
+                rtcManager: rtcManager
+            )
         )
     }
 }

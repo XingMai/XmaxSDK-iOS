@@ -2,7 +2,7 @@ import CoreGraphics
 import XCTest
 @testable import XmaxSDK
 
-final class XmaxRealtimeMediaManagerTests: XCTestCase {
+final class MediaControllerTests: XCTestCase {
     func testCreateInitializesRTCAndTakesLocalMediaOwnership() async throws {
         let rtcManager = RtcManagingStub()
         let manager = makeManager(rtcManager: rtcManager)
@@ -277,7 +277,7 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
     }
 }
 
-private extension XmaxRealtimeMediaManagerTests {
+private extension MediaControllerTests {
     func makeManager(
         rtcManager: RtcManagingStub = RtcManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
@@ -286,37 +286,36 @@ private extension XmaxRealtimeMediaManagerTests {
         ),
         imageSourceController: ImageSourceControllingStub? = nil,
         mediaSourceController: MediaSourceControllingStub? = nil
-    ) -> XmaxRealtimeMediaManager {
-        let cameraManager = XmaxRealtimeCameraManager(
+    ) -> MediaController {
+        let transportController = TransportController(
+            rtcManager: rtcManager
+        )
+        let cameraController = CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
             mediaService: mediaService,
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: transportController
         )
-        let imageManager = imageSourceController.map {
-            XmaxRealtimeImageManager(
+        let imageController = imageSourceController.map {
+            ImageController(
                 rtcManager: rtcManager,
                 imageSourceController: $0,
-                encodingController: EncodingController(
-                    rtcManager: rtcManager
-                )
+                transportController: transportController
             )
         }
-        let videoManager = mediaSourceController.map {
-            XmaxRealtimeVideoManager(
+        let videoController = mediaSourceController.map {
+            VideoController(
                 rtcManager: rtcManager,
                 permissionManager: permissionManager,
                 mediaSourceController: $0,
-                encodingController: EncodingController(
-                    rtcManager: rtcManager
-                )
+                transportController: transportController
             )
         }
-        return XmaxRealtimeMediaManager(
+        return MediaController(
             rtcManager: rtcManager,
-            cameraManager: cameraManager,
-            imageManager: imageManager,
-            videoManager: videoManager
+            cameraController: cameraController,
+            imageController: imageController,
+            videoController: videoController
         )
     }
 }

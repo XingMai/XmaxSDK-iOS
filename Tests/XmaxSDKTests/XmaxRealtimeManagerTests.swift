@@ -101,7 +101,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         await components.manager.disconnect()
         let disconnectedState = await components.manager.currentState
-        let stillOwnsLocalStream = await components.mediaManager.owns(
+        let stillOwnsLocalStream = await components.mediaController.owns(
             localStream
         )
 
@@ -373,7 +373,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 private extension XmaxRealtimeManagerTests {
     struct Components {
         let manager: XmaxRealtimeManager
-        let mediaManager: XmaxRealtimeMediaManager
+        let mediaController: MediaController
         let rtcManager: RtcManagingStub
         let sessionService: RealtimeSessionServicingStub
         let imageSource: ImageSourceControllingStub
@@ -390,45 +390,10 @@ private extension XmaxRealtimeManagerTests {
 
     func makeComponents() -> Components {
         let rtcManager = RtcManagingStub()
-        let cameraManager = XmaxRealtimeCameraManager(
-            rtcManager: rtcManager,
-            permissionManager: PermissionManagingStub(),
-            mediaService: MediaServicingStub(
-                resolvedSize: CGSize(width: 1_024, height: 768)
-            ),
-            encodingController: EncodingController(rtcManager: rtcManager)
-        )
-        let imageSource = ImageSourceControllingStub(
-            resolvedFormat: imageFormat
-        )
-        let imageManager = XmaxRealtimeImageManager(
-            rtcManager: rtcManager,
-            imageSourceController: imageSource,
-            encodingController: EncodingController(rtcManager: rtcManager)
-        )
-        let videoSource = MediaSourceControllingStub(
-            configuration: MediaSourceConfiguration(
-                videoFormat: imageFormat,
-                hasAudio: true
-            )
-        )
-        let videoManager = XmaxRealtimeVideoManager(
-            rtcManager: rtcManager,
-            permissionManager: PermissionManagingStub(),
-            mediaSourceController: videoSource,
-            encodingController: EncodingController(rtcManager: rtcManager)
-        )
-        let mediaManager = XmaxRealtimeMediaManager(
-            rtcManager: rtcManager,
-            cameraManager: cameraManager,
-            imageManager: imageManager,
-            videoManager: videoManager
-        )
-        let roomController = RoomController(rtcManager: rtcManager)
         let remoteVideoController = RemoteVideoController(
             rtcManager: rtcManager
         )
-        let streamController = StreamController(
+        let transportController = TransportController(
             rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 try remoteVideoController.setRemoteStream(stream)
@@ -437,6 +402,40 @@ private extension XmaxRealtimeManagerTests {
                 timeoutNanoseconds: 1_000_000_000,
                 confirmationDelayNanoseconds: 0
             )
+        )
+        let cameraController = CameraController(
+            rtcManager: rtcManager,
+            permissionManager: PermissionManagingStub(),
+            mediaService: MediaServicingStub(
+                resolvedSize: CGSize(width: 1_024, height: 768)
+            ),
+            transportController: transportController
+        )
+        let imageSource = ImageSourceControllingStub(
+            resolvedFormat: imageFormat
+        )
+        let imageController = ImageController(
+            rtcManager: rtcManager,
+            imageSourceController: imageSource,
+            transportController: transportController
+        )
+        let videoSource = MediaSourceControllingStub(
+            configuration: MediaSourceConfiguration(
+                videoFormat: imageFormat,
+                hasAudio: true
+            )
+        )
+        let videoController = VideoController(
+            rtcManager: rtcManager,
+            permissionManager: PermissionManagingStub(),
+            mediaSourceController: videoSource,
+            transportController: transportController
+        )
+        let mediaController = MediaController(
+            rtcManager: rtcManager,
+            cameraController: cameraController,
+            imageController: imageController,
+            videoController: videoController
         )
         let sessionService = RealtimeSessionServicingStub(
             session: RealtimeSession(
@@ -455,25 +454,20 @@ private extension XmaxRealtimeManagerTests {
         let connectionManager = XmaxRealtimeConnectionManager(
             rtcManager: rtcManager,
             sessionService: sessionService,
-            roomController: roomController,
             remoteVideoController: remoteVideoController,
-            streamController: streamController
+            transportController: transportController
         )
         return Components(
             manager: XmaxRealtimeManager(
                 options: RealtimeConfiguration(model: .x2_0),
-                qualityController: QualityController(
-                    rtcManager: rtcManager
-                ),
-                streamController: streamController,
-                mediaManager: mediaManager,
+                transportController: transportController,
+                mediaController: mediaController,
                 connectionManager: connectionManager,
                 generationManager: XmaxRealtimeGenerationManager(
-                    roomController: roomController,
-                    streamController: streamController
+                    transportController: transportController
                 )
             ),
-            mediaManager: mediaManager,
+            mediaController: mediaController,
             rtcManager: rtcManager,
             sessionService: sessionService,
             imageSource: imageSource,

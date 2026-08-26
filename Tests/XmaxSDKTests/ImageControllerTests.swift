@@ -3,7 +3,7 @@ import UIKit
 import XCTest
 @testable import XmaxSDK
 
-final class XmaxRealtimeImageManagerTests: XCTestCase {
+final class ImageControllerTests: XCTestCase {
     func testCreateAcceptsEncodedImageData() async throws {
         let sourceController = ImageSourceControllingStub(
             resolvedFormat: imageFormat
@@ -137,7 +137,7 @@ final class XmaxRealtimeImageManagerTests: XCTestCase {
     }
 }
 
-private extension XmaxRealtimeImageManagerTests {
+private extension ImageControllerTests {
     var imageFormat: RealtimeVideoFormat {
         RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
     }
@@ -145,11 +145,13 @@ private extension XmaxRealtimeImageManagerTests {
     func makeManager(
         rtcManager: RtcManagingStub = RtcManagingStub(),
         sourceController: ImageSourceControllingStub
-    ) -> XmaxRealtimeImageManager {
-        XmaxRealtimeImageManager(
+    ) -> ImageController {
+        ImageController(
             rtcManager: rtcManager,
             imageSourceController: sourceController,
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: TransportController(
+                rtcManager: rtcManager
+            )
         )
     }
 }

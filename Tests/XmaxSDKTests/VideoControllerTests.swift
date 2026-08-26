@@ -3,7 +3,7 @@ import XCTest
 @testable import XmaxSDK
 
 @MainActor
-final class XmaxRealtimeVideoManagerTests: XCTestCase {
+final class VideoControllerTests: XCTestCase {
     func testCreateWithAudioStartsExternalAudioAndPreview() async throws {
         let rtcManager = RtcManagingStub()
         let permissionManager = PermissionManagingStub()
@@ -88,7 +88,7 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
     }
 }
 
-private extension XmaxRealtimeVideoManagerTests {
+private extension VideoControllerTests {
     var videoFormat: RealtimeVideoFormat {
         RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
     }
@@ -98,12 +98,14 @@ private extension XmaxRealtimeVideoManagerTests {
         permissionManager: PermissionManagingStub =
             PermissionManagingStub(),
         mediaSourceController: MediaSourceControllingStub
-    ) -> XmaxRealtimeVideoManager {
-        XmaxRealtimeVideoManager(
+    ) -> VideoController {
+        VideoController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
             mediaSourceController: mediaSourceController,
-            encodingController: EncodingController(rtcManager: rtcManager)
+            transportController: TransportController(
+                rtcManager: rtcManager
+            )
         )
     }
 }
