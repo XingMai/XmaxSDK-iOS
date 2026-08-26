@@ -9,6 +9,7 @@ actor MediaController: MediaControlling {
     // 本地媒体组件
     private let cameraController: CameraController
     private let imageController: ImageController?
+    private let interactionController: any InteractionControlling
     private let videoController: VideoController?
 
     // 本地媒体资源
@@ -23,6 +24,7 @@ actor MediaController: MediaControlling {
         rtcManager: any RtcManaging,
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
+        interactionController: any InteractionControlling,
         mediaErrorListener: @escaping MediaSourceErrorListener
     ) {
         self.rtcManager = rtcManager
@@ -34,6 +36,7 @@ actor MediaController: MediaControlling {
             frameListener: videoFrameListener,
             errorListener: mediaErrorListener
         )
+        self.interactionController = interactionController
         videoController = VideoController(
             rtcManager: rtcManager,
             videoFrameListener: videoFrameListener,
@@ -46,11 +49,14 @@ actor MediaController: MediaControlling {
         rtcManager: any RtcManaging,
         cameraController: CameraController,
         imageController: ImageController? = nil,
+        interactionController: any InteractionControlling =
+            InteractionController(),
         videoController: VideoController? = nil
     ) {
         self.rtcManager = rtcManager
         self.cameraController = cameraController
         self.imageController = imageController
+        self.interactionController = interactionController
         self.videoController = videoController
     }
 
@@ -80,6 +86,27 @@ actor MediaController: MediaControlling {
         _ listener: RealtimeCameraPreviewReadyListener?
     ) {
         cameraController.setPreviewReadyListener(listener)
+    }
+
+    /// 启动指定生成任务的轨迹交互。
+    func startInteraction(
+        taskID: String,
+        videoFormat: RealtimeVideoFormat
+    ) async {
+        await interactionController.startInteraction(
+            taskID: taskID,
+            videoFormat: videoFormat
+        )
+    }
+
+    /// 停止当前轨迹交互并丢弃等待发送的采样帧。
+    func stopInteraction() async {
+        await interactionController.stopInteraction()
+    }
+
+    /// 提交一帧渲染视口中的交互点。
+    func submitInteraction(_ frame: InteractionFrame) async {
+        await interactionController.submitInteraction(frame)
     }
 
     /// 创建相机媒体来源并取得本地媒体所有权。

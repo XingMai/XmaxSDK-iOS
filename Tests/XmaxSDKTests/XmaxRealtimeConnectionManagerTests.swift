@@ -56,6 +56,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             VideoRenderRegistry.binding(for: track)?.libraryName,
             "test"
         )
+        XCTAssertNotNil(TrajectoryRegistry.binding(for: track))
 
         _ = await components.manager.disconnect()
     }
@@ -120,6 +121,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         XCTAssertEqual(disconnectedSessionID, "session-id")
         XCTAssertEqual(currentSessionID, "")
         XCTAssertNil(VideoRenderRegistry.binding(for: track))
+        XCTAssertNil(TrajectoryRegistry.binding(for: track))
         XCTAssertEqual(
             sessionService.calls,
             [
@@ -304,6 +306,7 @@ private extension XmaxRealtimeConnectionManagerTests {
             manager: XmaxRealtimeConnectionManager(
                 rtcManager: rtcManager,
                 sessionService: sessionService,
+                interactionController: InteractionController(),
                 remoteVideoController: remoteVideoController,
                 transportController: transportController
             ),

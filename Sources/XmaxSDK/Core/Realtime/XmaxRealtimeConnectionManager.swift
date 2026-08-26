@@ -16,6 +16,7 @@ actor XmaxRealtimeConnectionManager {
     private let sessionService: any RealtimeSessionServicing
 
     // 业务层组件
+    private let interactionController: any InteractionControlling
     private let remoteVideoController: any RemoteVideoControlling
     private let transportController: any TransportControlling
 
@@ -26,11 +27,13 @@ actor XmaxRealtimeConnectionManager {
     init(
         rtcManager: any RtcManaging,
         sessionService: any RealtimeSessionServicing,
+        interactionController: any InteractionControlling,
         remoteVideoController: any RemoteVideoControlling,
         transportController: any TransportControlling
     ) {
         self.rtcManager = rtcManager
         self.sessionService = sessionService
+        self.interactionController = interactionController
         self.remoteVideoController = remoteVideoController
         self.transportController = transportController
     }
@@ -39,8 +42,15 @@ actor XmaxRealtimeConnectionManager {
         activeSession?.id ?? ""
     }
 
-    func updateRemoteVideoFormat(_ videoFormat: RealtimeVideoFormat) {
-        activeRemoteTrack?.updateVideoFormat(videoFormat)
+    func updateRemoteVideoFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async {
+        guard let activeRemoteTrack else { return }
+        activeRemoteTrack.updateVideoFormat(videoFormat)
+        await MainActor.run {
+            TrajectoryRegistry.binding(for: activeRemoteTrack)?
+                .update(videoFormat: videoFormat)
+        }
     }
 
     func connect(
@@ -167,6 +177,15 @@ private extension XmaxRealtimeConnectionManager {
                 }
             )
         )
+        if let videoFormat = track.videoFormat {
+            TrajectoryRegistry.register(
+                track,
+                binding: TrajectoryBinding(
+                    interactionController: interactionController,
+                    videoFormat: videoFormat
+                )
+            )
+        }
     }
 
     func rollbackConnection() async {
@@ -183,6 +202,7 @@ private extension XmaxRealtimeConnectionManager {
     func resetRemoteRendering(track: RealtimeVideoTrack?) {
         if let track {
             VideoRenderRegistry.unregister(track)
+            TrajectoryRegistry.unregister(track)
         }
         do {
             try remoteVideoController.reset()

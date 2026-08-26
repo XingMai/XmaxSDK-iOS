@@ -516,6 +516,7 @@ private extension XmaxRealtimeManagerTests {
         let connectionManager = XmaxRealtimeConnectionManager(
             rtcManager: rtcManager,
             sessionService: sessionService,
+            interactionController: mediaController,
             remoteVideoController: remoteVideoController,
             transportController: transportController
         )
@@ -526,6 +527,7 @@ private extension XmaxRealtimeManagerTests {
                 mediaController: mediaController,
                 connectionManager: connectionManager,
                 generationManager: XmaxRealtimeGenerationManager(
+                    interactionController: mediaController,
                     transportController: transportController
                 )
             ),

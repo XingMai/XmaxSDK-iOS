@@ -1,7 +1,7 @@
 import Foundation
 
 /// 定义媒体层向 Core 暴露的统一能力。
-protocol MediaControlling: Actor {
+protocol MediaControlling: Actor, InteractionControlling {
 
     /// 当前活动的本地视频轨道。
     var currentTrack: RealtimeVideoTrack? { get }

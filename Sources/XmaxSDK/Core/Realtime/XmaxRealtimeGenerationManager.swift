@@ -3,10 +3,11 @@ import Foundation
 typealias RealtimeGenerationValidity = @Sendable () throws -> Void
 typealias RealtimeGenerationStartedHandler = @Sendable () async throws -> Void
 
-/// 协调生成信令、远端结果确认和条件更新。
+/// 协调生成信令、远端结果确认、条件更新和轨迹交互。
 actor XmaxRealtimeGenerationManager {
 
     // 业务层组件
+    private let interactionController: any InteractionControlling
     private let transportController: any TransportControlling
 
     // 生成配置
@@ -16,10 +17,12 @@ actor XmaxRealtimeGenerationManager {
     private var currentContext: RealtimeContext?
 
     init(
+        interactionController: any InteractionControlling,
         transportController: any TransportControlling,
         taskIDGenerator: @escaping @Sendable () -> String =
             XmaxRealtimeGenerationManager.createTaskID
     ) {
+        self.interactionController = interactionController
         self.transportController = transportController
         self.taskIDGenerator = taskIDGenerator
     }
@@ -53,6 +56,10 @@ actor XmaxRealtimeGenerationManager {
             }
             try ensureCurrent()
 
+            await interactionController.startInteraction(
+                taskID: taskID,
+                videoFormat: videoFormat
+            )
             currentContext = resolvedContext
             return taskID
         } catch {
@@ -66,6 +73,10 @@ actor XmaxRealtimeGenerationManager {
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext?
     ) async throws {
+        await interactionController.startInteraction(
+            taskID: taskID,
+            videoFormat: videoFormat
+        )
         guard let context else {
             return
         }
@@ -79,6 +90,7 @@ actor XmaxRealtimeGenerationManager {
     }
 
     func stop(taskID: String) async {
+        await interactionController.stopInteraction()
         await transportController.stopGeneration(taskID: taskID)
     }
 

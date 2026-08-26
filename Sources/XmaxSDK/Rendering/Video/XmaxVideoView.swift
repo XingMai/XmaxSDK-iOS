@@ -26,8 +26,38 @@ public final class XmaxVideoView: UIView {
         }
     }
 
+    /// 是否允许在远端视频上绘制并发送轨迹交互。
+    ///
+    /// 交互默认开启，但只有生成任务启动后才会向服务端发送轨迹。
+    public var isInteractionEnabled = true {
+        didSet {
+            guard oldValue != isInteractionEnabled else { return }
+            trajectoryOverlayView.setRequestedInteractionEnabled(
+                isInteractionEnabled
+            )
+        }
+    }
+
+    /// 自定义轨迹视觉效果；设置为 `nil` 时恢复 SDK 内置效果。
+    ///
+    /// 自定义渲染器只负责视觉表现，不会改变轨迹采样、坐标映射或发送。
+    public var trajectoryRenderer:
+        (any TrajectoryEffectRendering)? {
+        get { customTrajectoryRenderer }
+        set {
+            customTrajectoryRenderer = newValue
+            trajectoryOverlayView.setRenderer(
+                newValue ?? DefaultTrajectoryEffectRenderer()
+            )
+        }
+    }
+
     // 渲染状态
     private weak var attachedTrack: RealtimeVideoTrack?
+    private weak var attachedTrajectoryTrack: RealtimeVideoTrack?
+    private var attachedTrajectoryBinding: TrajectoryBinding?
+    private var customTrajectoryRenderer:
+        (any TrajectoryEffectRendering)?
 
     // 图片预览
     private lazy var imageView: UIImageView = {
@@ -36,6 +66,20 @@ public final class XmaxVideoView: UIView {
         imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         imageView.isHidden = true
         return imageView
+    }()
+
+    // 轨迹交互
+    private lazy var trajectoryOverlayView: TrajectoryOverlayView = {
+        let overlayView = TrajectoryOverlayView(
+            renderer: DefaultTrajectoryEffectRenderer()
+        )
+        overlayView.frame = bounds
+        overlayView.autoresizingMask = [
+            .flexibleWidth,
+            .flexibleHeight,
+        ]
+        overlayView.setRequestedInteractionEnabled(isInteractionEnabled)
+        return overlayView
     }()
 
     /// 创建视频渲染容器。
@@ -70,10 +114,16 @@ public final class XmaxVideoView: UIView {
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         if window == nil {
-            detach(track: attachedTrack)
+            detachCurrentTrack()
         } else {
             attachCurrentTrackIfNeeded()
         }
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        trajectoryOverlayView.frame = bounds
+        bringSubviewToFront(trajectoryOverlayView)
     }
 }
 
@@ -82,6 +132,7 @@ extension XmaxVideoView {
         backgroundColor = .black
         clipsToBounds = true
         addSubview(imageView)
+        addSubview(trajectoryOverlayView)
     }
 
     func displayImageFrame(
@@ -93,6 +144,7 @@ extension XmaxVideoView {
             .scaleAspectFit : .scaleAspectFill
         imageView.isHidden = false
         bringSubviewToFront(imageView)
+        bringSubviewToFront(trajectoryOverlayView)
     }
 
     func clearImageFrame() {
@@ -101,42 +153,68 @@ extension XmaxVideoView {
     }
 
     func attachCurrentTrackIfNeeded() {
-        guard window != nil,
-              let track,
-              let binding = VideoRenderRegistry.binding(for: track) else {
+        guard window != nil, let track else {
             return
         }
 
-        do {
-            try binding.attach(
-                to: self,
+        if let binding = VideoRenderRegistry.binding(for: track) {
+            do {
+                try binding.attach(
+                    to: self,
+                    contentMode: videoContentMode
+                )
+                attachedTrack = track
+            } catch {
+                attachedTrack = nil
+                Self.logRenderingFailure(
+                    operation: "绑定视频渲染视图",
+                    error: error
+                )
+            }
+        }
+
+        if let trajectoryBinding = TrajectoryRegistry.binding(for: track) {
+            trajectoryBinding.attach(
+                to: trajectoryOverlayView,
                 contentMode: videoContentMode
             )
-            attachedTrack = track
-        } catch {
-            attachedTrack = nil
-            Self.logRenderingFailure(
-                operation: "绑定视频渲染视图",
-                error: error
-            )
+            attachedTrajectoryTrack = track
+            attachedTrajectoryBinding = trajectoryBinding
         }
+        bringSubviewToFront(trajectoryOverlayView)
     }
 
     func detach(track: RealtimeVideoTrack?) {
-        guard let track,
-              attachedTrack === track else {
-            return
+        guard let track else { return }
+
+        if attachedTrack === track {
+            do {
+                try VideoRenderRegistry.binding(for: track)?.detach(from: self)
+            } catch {
+                Self.logRenderingFailure(
+                    operation: "解除视频渲染视图",
+                    error: error
+                )
+            }
+            attachedTrack = nil
         }
 
-        do {
-            try VideoRenderRegistry.binding(for: track)?.detach(from: self)
-        } catch {
-            Self.logRenderingFailure(
-                operation: "解除视频渲染视图",
-                error: error
+        if attachedTrajectoryTrack === track {
+            attachedTrajectoryBinding?.detach(
+                from: trajectoryOverlayView
             )
+            attachedTrajectoryTrack = nil
+            attachedTrajectoryBinding = nil
         }
-        attachedTrack = nil
+    }
+
+    func detachCurrentTrack() {
+        let renderTrack = attachedTrack
+        let trajectoryTrack = attachedTrajectoryTrack
+        detach(track: renderTrack)
+        if trajectoryTrack !== renderTrack {
+            detach(track: trajectoryTrack)
+        }
     }
 
     static func logRenderingFailure(

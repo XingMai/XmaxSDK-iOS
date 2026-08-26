@@ -44,6 +44,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             }
         )
         let mediaErrorRelay = RealtimeMediaErrorRelay()
+        let interactionController = InteractionController {
+            taskID,
+            points in
+            try await transportController.sendTracks(
+                taskID: taskID,
+                points: points
+            )
+        }
         let mediaController = MediaController(
             rtcManager: rtcManager,
             videoFrameListener: { frame in
@@ -52,6 +60,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             audioFrameListener: { frame in
                 try transportController.pushLocalAudioFrame(frame)
             },
+            interactionController: interactionController,
             mediaErrorListener: { error in
                 mediaErrorRelay.report(error)
             }
@@ -59,10 +68,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let connectionManager = XmaxRealtimeConnectionManager(
             rtcManager: rtcManager,
             sessionService: RealtimeSessionService(apiService: apiService),
+            interactionController: mediaController,
             remoteVideoController: remoteVideoController,
             transportController: transportController
         )
         let generationManager = XmaxRealtimeGenerationManager(
+            interactionController: mediaController,
             transportController: transportController
         )
 

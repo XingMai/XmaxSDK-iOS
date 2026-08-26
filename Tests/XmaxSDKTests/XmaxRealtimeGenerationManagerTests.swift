@@ -142,6 +142,54 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         await components.roomController.leave()
     }
 
+    func testGenerationEnablesTracksAndStopDisablesThem() async throws {
+        let components = try await makeComponents()
+        let startTask = Task {
+            try await components.manager.start(
+                videoFormat: videoFormat,
+                context: RealtimeContext(prompt: "prompt"),
+                ensureCurrent: {},
+                onGenerationStarted: {}
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitSeiMessage(
+            stream: remoteStream,
+            message: "task-fixed"
+        )
+        let taskID = try await startTask.value
+        let frame = InteractionFrame(
+            points: [CGPoint(x: 180, y: 320)],
+            viewportSize: CGSize(width: 360, height: 640),
+            contentMode: .fit
+        )
+
+        await components.interactionController.submitInteraction(frame)
+        await waitForEvent("tracks", rtcManager: components.rtcManager)
+
+        let tracksEvent = try XCTUnwrap(
+            decodedEvents(components.rtcManager).last {
+                $0["event"] as? String == "tracks"
+            }
+        )
+        XCTAssertEqual(tracksEvent["uid"] as? String, taskID)
+        XCTAssertEqual(
+            tracksEvent["tracks"] as? [[Double]],
+            [[360, 640]]
+        )
+
+        await components.manager.stop(taskID: taskID)
+        await components.interactionController.submitInteraction(frame)
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(
+            decodedEvents(components.rtcManager).filter {
+                $0["event"] as? String == "tracks"
+            }.count,
+            1
+        )
+        await components.roomController.leave()
+    }
+
     func testFirstGenerationRequiresContext() async throws {
         let components = try await makeComponents()
 
@@ -244,6 +292,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
 private extension XmaxRealtimeGenerationManagerTests {
     struct Components {
         let manager: XmaxRealtimeGenerationManager
+        let interactionController: InteractionController
         let roomController: RoomController
         let rtcManager: RtcManagingStub
         let remoteStreams: RemoteStreamRecorder
@@ -291,11 +340,21 @@ private extension XmaxRealtimeGenerationManagerTests {
             encodingController: EncodingController(rtcManager: rtcManager),
             qualityController: QualityController(rtcManager: rtcManager)
         )
+        let interactionController = InteractionController {
+            taskID,
+            points in
+            try await transportController.sendTracks(
+                taskID: taskID,
+                points: points
+            )
+        }
         return Components(
             manager: XmaxRealtimeGenerationManager(
+                interactionController: interactionController,
                 transportController: transportController,
                 taskIDGenerator: { "task-fixed" }
             ),
+            interactionController: interactionController,
             roomController: roomController,
             rtcManager: rtcManager,
             remoteStreams: remoteStreams
