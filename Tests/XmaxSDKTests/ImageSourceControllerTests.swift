@@ -16,14 +16,14 @@ final class ImageSourceControllerTests: XCTestCase {
             errorListener: { _ in }
         )
 
-        let format = try await controller.prepare(
+        let prepared = try await controller.prepare(
             imageData: imageData,
             videoFormat: nil
         )
         controller.stop()
 
         XCTAssertEqual(
-            format,
+            prepared.videoFormat,
             RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
         )
         XCTAssertEqual(
@@ -52,7 +52,7 @@ final class ImageSourceControllerTests: XCTestCase {
             errorListener: { _ in }
         )
 
-        let format = try await controller.prepare(
+        let prepared = try await controller.prepare(
             fileURL: fileURL,
             videoFormat: nil
         )
@@ -60,7 +60,7 @@ final class ImageSourceControllerTests: XCTestCase {
         controller.stop()
 
         XCTAssertEqual(
-            format,
+            prepared.videoFormat,
             RealtimeVideoFormat(width: 896, height: 672, fps: 24)
         )
         XCTAssertEqual(
@@ -92,7 +92,7 @@ final class ImageSourceControllerTests: XCTestCase {
             errorListener: { _ in }
         )
 
-        let format = try await controller.prepare(
+        let prepared = try await controller.prepare(
             fileURL: fileURL,
             videoFormat: RealtimeVideoFormat(
                 width: 720,
@@ -107,7 +107,7 @@ final class ImageSourceControllerTests: XCTestCase {
             [CGSize(width: 720, height: 1_280)]
         )
         XCTAssertEqual(
-            format,
+            prepared.videoFormat,
             RealtimeVideoFormat(width: 832, height: 1_472, fps: 30)
         )
     }
@@ -180,13 +180,13 @@ private final class ImageFrameRecorder: @unchecked Sendable {
 
     // 并发状态
     private let lock = NSLock()
-    private var storedFrames: [any VideoFrame] = []
+    private var storedFrames: [VideoFrame] = []
 
-    var frames: [any VideoFrame] {
+    var frames: [VideoFrame] {
         lock.withLock { storedFrames }
     }
 
-    func append(_ frame: any VideoFrame) {
+    func append(_ frame: VideoFrame) {
         lock.withLock {
             storedFrames.append(frame)
         }
@@ -212,19 +212,27 @@ private final class DecodedImageStub:
         lock.withLock { storedFrameSizes }
     }
 
-    func makeVideoFrameData(
+    func makeVideoFrame(
         width: Int,
         height: Int
-    ) throws -> ImageVideoFrameData {
+    ) throws -> VideoFrame {
         lock.withLock {
             storedFrameSizes.append(CGSize(width: width, height: height))
         }
-        return ImageVideoFrameData(
-            data: Data(repeating: 0, count: width * height * 4),
-            width: width,
-            height: height,
-            bytesPerRow: width * 4,
-            pixelFormat: .bgra
+        return try VideoFrame(
+            format: VideoFormat(
+                width: width,
+                height: height,
+                pixelFormat: .bgra
+            ),
+            timestampUs: 0,
+            planes: [
+                VideoFramePlane(
+                    data: Data(repeating: 0, count: width * height * 4),
+                    stride: width * 4
+                )
+            ],
+            bufferReuseID: UUID()
         )
     }
 }

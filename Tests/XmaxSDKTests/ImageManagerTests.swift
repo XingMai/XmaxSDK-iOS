@@ -31,24 +31,24 @@ final class ImageManagerTests: XCTestCase {
         )
     }
 
-    func testDecodeReadsImageSizeAndCreatesBGRAFrameData() throws {
+    func testDecodeReadsImageSizeAndCreatesBGRAFrame() throws {
         let sourceData = try encode(
             makeImage(width: 4, height: 2),
             type: .png
         )
 
         let decodedImage = try ImageManager().decode(sourceData)
-        let frameData = try decodedImage.makeVideoFrameData(
+        let frame = try decodedImage.makeVideoFrame(
             width: 2,
             height: 2
         )
 
         XCTAssertEqual(decodedImage.size, CGSize(width: 4, height: 2))
-        XCTAssertEqual(frameData.width, 2)
-        XCTAssertEqual(frameData.height, 2)
-        XCTAssertEqual(frameData.bytesPerRow, 8)
-        XCTAssertEqual(frameData.pixelFormat, .bgra)
-        XCTAssertEqual(frameData.data.count, 16)
+        XCTAssertEqual(frame.format.width, 2)
+        XCTAssertEqual(frame.format.height, 2)
+        XCTAssertEqual(frame.format.pixelFormat, .bgra)
+        XCTAssertEqual(frame.planes.first?.stride, 8)
+        XCTAssertEqual(frame.planes.first?.data.count, 16)
     }
 
     func testVideoFramePreservesTopToBottomImageOrientation() throws {
@@ -56,17 +56,17 @@ final class ImageManagerTests: XCTestCase {
             image: try makeTwoRowImage()
         )
 
-        let frameData = try decodedImage.makeVideoFrameData(
+        let frame = try decodedImage.makeVideoFrame(
             width: 2,
             height: 2
         )
 
         XCTAssertEqual(
-            Data(frameData.data.prefix(4)),
+            Data(try XCTUnwrap(frame.planes.first).data.prefix(4)),
             Data([0, 0, 255, 255])
         )
         XCTAssertEqual(
-            Data(frameData.data.suffix(4)),
+            Data(try XCTUnwrap(frame.planes.first).data.suffix(4)),
             Data([255, 0, 0, 255])
         )
     }
@@ -98,7 +98,7 @@ final class ImageManagerTests: XCTestCase {
         )
 
         XCTAssertThrowsError(
-            try decodedImage.makeVideoFrameData(width: 0, height: 2)
+            try decodedImage.makeVideoFrame(width: 0, height: 2)
         ) { error in
             XCTAssertEqual(
                 error as? XmaxError,

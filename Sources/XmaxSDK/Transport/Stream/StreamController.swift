@@ -133,7 +133,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    func pushLocalVideoFrame(_ frame: any VideoFrame) throws {
+    func pushLocalVideoFrame(_ frame: VideoFrame) throws {
         let seiData = stateLock.withLock { state.generationTask?.seiData }
         do {
             try rtcManager.pushExternalVideoFrame(frame, seiData: seiData)

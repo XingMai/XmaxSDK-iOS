@@ -84,7 +84,7 @@ final class TransportController: TransportControlling, @unchecked Sendable {
         try streamController.setLocalAudioEnabled(enabled)
     }
 
-    func pushLocalVideoFrame(_ frame: any VideoFrame) throws {
+    func pushLocalVideoFrame(_ frame: VideoFrame) throws {
         try streamController.pushLocalVideoFrame(frame)
     }
 

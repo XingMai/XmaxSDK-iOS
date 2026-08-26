@@ -9,7 +9,7 @@ final class VideoRenderBinding {
 
     // 渲染操作
     private let attachHandler: (UIView, VideoContentMode) throws -> Void
-    private let detachHandler: () throws -> Void
+    private let detachHandler: (UIView) throws -> Void
 
     // 运行状态
     private weak var attachedView: UIView?
@@ -17,7 +17,7 @@ final class VideoRenderBinding {
     init(
         libraryName: String,
         attachHandler: @escaping (UIView, VideoContentMode) throws -> Void,
-        detachHandler: @escaping () throws -> Void
+        detachHandler: @escaping (UIView) throws -> Void
     ) {
         self.libraryName = libraryName
         self.attachHandler = attachHandler
@@ -29,7 +29,7 @@ final class VideoRenderBinding {
         contentMode: VideoContentMode
     ) throws {
         if let attachedView, attachedView !== view {
-            try detachHandler()
+            try detachHandler(attachedView)
             self.attachedView = nil
         }
 
@@ -45,10 +45,33 @@ final class VideoRenderBinding {
     }
 
     func detach() throws {
-        guard attachedView != nil else {
+        guard let attachedView else {
             return
         }
-        try detachHandler()
-        attachedView = nil
+        try detachHandler(attachedView)
+        self.attachedView = nil
+    }
+}
+
+extension VideoRenderBinding {
+    convenience init(imageFrame: VideoFrame) {
+        self.init(
+            libraryName: "UIKit",
+            attachHandler: { view, contentMode in
+                guard let videoView = view as? XmaxVideoView else {
+                    throw XmaxError(
+                        code: .invalidConfiguration,
+                        message: "Image tracks require an XmaxVideoView"
+                    )
+                }
+                try videoView.displayImageFrame(
+                    imageFrame,
+                    contentMode: contentMode
+                )
+            },
+            detachHandler: { view in
+                (view as? XmaxVideoView)?.clearImageFrame()
+            }
+        )
     }
 }

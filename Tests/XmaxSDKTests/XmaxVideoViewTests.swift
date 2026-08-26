@@ -90,6 +90,45 @@ final class XmaxVideoViewTests: XCTestCase {
             [.bindLocalVideo(.fill), .unbindLocalVideo]
         )
     }
+
+    func testImageTrackUsesUIImageViewRendering() throws {
+        let track = RealtimeVideoTrack(id: "image-track")
+        VideoRenderRegistry.register(
+            track,
+            binding: VideoRenderBinding(
+                imageFrame: try VideoFrame(
+                    format: VideoFormat(
+                        width: 1,
+                        height: 1,
+                        pixelFormat: .bgra
+                    ),
+                    timestampUs: 0,
+                    planes: [
+                        VideoFramePlane(
+                            data: Data([0, 0, 0, 255]),
+                            stride: 4
+                        )
+                    ]
+                )
+            )
+        )
+        defer { VideoRenderRegistry.unregister(track) }
+        let view = XmaxVideoView(track: track)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+
+        window.addSubview(view)
+
+        let imageView = try XCTUnwrap(
+            view.subviews.compactMap { $0 as? UIImageView }.first
+        )
+        XCTAssertFalse(imageView.isHidden)
+        XCTAssertNotNil(imageView.image)
+
+        view.track = nil
+
+        XCTAssertTrue(imageView.isHidden)
+        XCTAssertNil(imageView.image)
+    }
 }
 
 private extension XmaxVideoViewTests {
@@ -107,7 +146,7 @@ private extension XmaxVideoViewTests {
                         contentMode: contentMode
                     )
                 },
-                detachHandler: {
+                detachHandler: { _ in
                     try rtcManager.unbindLocalVideo()
                 }
             )

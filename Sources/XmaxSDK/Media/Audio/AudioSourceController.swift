@@ -4,7 +4,7 @@ import Foundation
 final class AudioSourceController: AudioSourceControlling, @unchecked Sendable {
 
     // 音频帧监听器
-    private let frameListener: AudioSourceFrameListener
+    private let frameListener: MediaAudioFrameListener
     private let errorListener: AudioSourceErrorListener
 
     // 并发控制
@@ -22,7 +22,7 @@ final class AudioSourceController: AudioSourceControlling, @unchecked Sendable {
     private var loopIndex: Int64 = 0
 
     init(
-        frameListener: @escaping AudioSourceFrameListener,
+        frameListener: @escaping MediaAudioFrameListener,
         errorListener: @escaping AudioSourceErrorListener
     ) {
         self.frameListener = frameListener
@@ -130,36 +130,33 @@ private extension AudioSourceController {
         generationID: UUID,
         loopIndex: Int64
     ) async throws -> AudioFileFrameDecoder {
-        let listener = AudioDecoderListener(
-            frameHandler: { [weak self] frame in
-                self?.handleFrame(
-                    frame,
-                    generationID: generationID,
-                    loopIndex: loopIndex
-                )
-            },
-            endHandler: { [weak self] in
-                self?.handleEndOfStream(
-                    generationID: generationID,
-                    loopIndex: loopIndex
-                )
-            },
-            errorHandler: { [weak self] message in
-                self?.handleError(
-                    message,
-                    generationID: generationID,
-                    loopIndex: loopIndex
-                )
-            }
-        )
-        return try await AudioFileFrameDecoder(
+        try await AudioFileFrameDecoder(
             fileURL: fileURL,
             playbackAnchorUs: try timeline.playbackAnchorUs(
                 forLoop: loopIndex
             ),
             mediaStartUs: 0,
             cycleDurationUs: timeline.cycleDurationUs,
-            listener: listener
+            onFrame: { [weak self] frame in
+                self?.handleFrame(
+                    frame,
+                    generationID: generationID,
+                    loopIndex: loopIndex
+                )
+            },
+            onEndOfStream: { [weak self] in
+                self?.handleEndOfStream(
+                    generationID: generationID,
+                    loopIndex: loopIndex
+                )
+            },
+            onError: { [weak self] message in
+                self?.handleError(
+                    message,
+                    generationID: generationID,
+                    loopIndex: loopIndex
+                )
+            }
         )
     }
 
@@ -266,37 +263,5 @@ private extension AudioSourceController {
             return
         }
         errorListener(XmaxError.from(error))
-    }
-}
-
-private final class AudioDecoderListener:
-    AudioFileFrameDecoderListener,
-    @unchecked Sendable {
-
-    // 事件监听
-    private let frameHandler: @Sendable (AudioFrame) -> Void
-    private let endHandler: @Sendable () -> Void
-    private let errorHandler: @Sendable (String) -> Void
-
-    init(
-        frameHandler: @escaping @Sendable (AudioFrame) -> Void,
-        endHandler: @escaping @Sendable () -> Void,
-        errorHandler: @escaping @Sendable (String) -> Void
-    ) {
-        self.frameHandler = frameHandler
-        self.endHandler = endHandler
-        self.errorHandler = errorHandler
-    }
-
-    func onFrame(_ frame: AudioFrame) {
-        frameHandler(frame)
-    }
-
-    func onEndOfStream() {
-        endHandler()
-    }
-
-    func onError(message: String) {
-        errorHandler(message)
     }
 }

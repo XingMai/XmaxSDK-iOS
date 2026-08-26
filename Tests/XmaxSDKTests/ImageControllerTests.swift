@@ -50,21 +50,14 @@ final class ImageControllerTests: XCTestCase {
         )
         XCTAssertEqual(
             rtcManager.calls,
-            [
-                .configureVideoEncoding(VideoEncodingConfiguration(
-                    width: imageFormat.width,
-                    height: imageFormat.height,
-                    frameRate: imageFormat.fps
-                )),
-                .useExternalVideoSource
-            ]
+            [.useExternalVideoSource]
         )
 
         let track = try XCTUnwrap(stream.videoTrack)
         let libraryName = await MainActor.run {
             VideoRenderRegistry.binding(for: track)?.libraryName
         }
-        XCTAssertEqual(libraryName, "test")
+        XCTAssertEqual(libraryName, "UIKit")
     }
 
     func testStopClearsSourceTrackAndPreviewBinding() async throws {
@@ -85,7 +78,7 @@ final class ImageControllerTests: XCTestCase {
             let binding = try XCTUnwrap(
                 VideoRenderRegistry.binding(for: track)
             )
-            try binding.attach(to: UIView(), contentMode: .fill)
+            try binding.attach(to: XmaxVideoView(), contentMode: .fill)
         }
 
         await manager.stopLocalImageStream()
@@ -96,10 +89,8 @@ final class ImageControllerTests: XCTestCase {
             VideoRenderRegistry.binding(for: track) != nil
         }
         XCTAssertFalse(hasBinding)
-        XCTAssertEqual(
-            Array(rtcManager.calls.suffix(2)),
-            [.bindLocalVideo(.fill), .unbindLocalVideo]
-        )
+        XCTAssertFalse(rtcManager.calls.contains(.bindLocalVideo(.fill)))
+        XCTAssertFalse(rtcManager.calls.contains(.unbindLocalVideo))
     }
 
     func testCreateRollsBackPreparedSourceWhenStartFails() async {
@@ -148,10 +139,7 @@ private extension ImageControllerTests {
     ) -> ImageController {
         ImageController(
             rtcManager: rtcManager,
-            imageSourceController: sourceController,
-            transportController: TransportController(
-                rtcManager: rtcManager
-            )
+            imageSourceController: sourceController
         )
     }
 }

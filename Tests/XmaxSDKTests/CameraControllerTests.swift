@@ -41,11 +41,6 @@ final class CameraControllerTests: XCTestCase {
         XCTAssertEqual(
             rtcManager.calls,
             [
-                .configureVideoEncoding(VideoEncodingConfiguration(
-                    width: 896,
-                    height: 672,
-                    frameRate: 30
-                )),
                 .switchCamera(.front),
                 .startVideoCapture(width: 896, height: 672, frameRate: 30)
             ]
@@ -117,11 +112,6 @@ final class CameraControllerTests: XCTestCase {
             XCTAssertEqual(
                 rtcManager.calls,
                 [
-                    .configureVideoEncoding(VideoEncodingConfiguration(
-                        width: 1_024,
-                        height: 768,
-                        frameRate: 30
-                    )),
                     .switchCamera(.front),
                     .startVideoCapture(
                         width: 1_024,
@@ -168,14 +158,9 @@ final class CameraControllerTests: XCTestCase {
         )
         XCTAssertEqual(replacedStream.videoTrack?.position, .back)
         XCTAssertEqual(
-            Array(rtcManager.calls.suffix(4)),
+            Array(rtcManager.calls.suffix(3)),
             [
                 .stopVideoCapture,
-                .configureVideoEncoding(VideoEncodingConfiguration(
-                    width: 1_024,
-                    height: 768,
-                    frameRate: 30
-                )),
                 .switchCamera(.back),
                 .startVideoCapture(width: 1_024, height: 768, frameRate: 30)
             ]
@@ -249,10 +234,7 @@ private extension CameraControllerTests {
         CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaService: mediaService,
-            transportController: TransportController(
-                rtcManager: rtcManager
-            )
+            mediaService: mediaService
         )
     }
 }

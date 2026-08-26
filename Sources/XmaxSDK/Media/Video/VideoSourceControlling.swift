@@ -1,6 +1,5 @@
 import Foundation
 
-typealias VideoSourceFrameListener = @Sendable (any VideoFrame) throws -> Void
 typealias VideoSourceErrorListener = @Sendable (XmaxError) -> Void
 
 /// 定义本地视频文件循环解码和帧率采样能力。

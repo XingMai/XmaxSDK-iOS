@@ -14,7 +14,7 @@ protocol StreamControlling: Sendable {
     func setLocalAudioEnabled(_ enabled: Bool) throws
 
     /// 推送本地外部视频帧，并附带当前任务标识。
-    func pushLocalVideoFrame(_ frame: any VideoFrame) throws
+    func pushLocalVideoFrame(_ frame: VideoFrame) throws
 
     /// 在本地音频已经发布时推送外部音频帧。
     func pushLocalAudioFrame(_ frame: AudioFrame) throws

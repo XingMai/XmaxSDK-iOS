@@ -7,11 +7,11 @@ protocol DecodedImage: Sendable {
     /// 图片解码后的实际像素尺寸。
     var size: CGSize { get }
 
-    /// 居中裁剪并转换为可供外部视频源重复使用的像素数据。
-    func makeVideoFrameData(
+    /// 居中裁剪并转换为可供外部视频源重复使用的视频帧。
+    func makeVideoFrame(
         width: Int,
         height: Int
-    ) throws -> ImageVideoFrameData
+    ) throws -> VideoFrame
 }
 
 /// 持有已经应用方向信息的 Core Graphics 图片并生成视频帧。
@@ -28,10 +28,10 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         size = CGSize(width: image.width, height: image.height)
     }
 
-    func makeVideoFrameData(
+    func makeVideoFrame(
         width: Int,
         height: Int
-    ) throws -> ImageVideoFrameData {
+    ) throws -> VideoFrame {
         guard width > 0, height > 0 else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -97,12 +97,20 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
             throw Self.processingError("Failed to create image frame data")
         }
 
-        return ImageVideoFrameData(
-            data: data,
-            width: width,
-            height: height,
-            bytesPerRow: bytesPerRow,
-            pixelFormat: .bgra
+        return try VideoFrame(
+            format: VideoFormat(
+                width: width,
+                height: height,
+                pixelFormat: .bgra
+            ),
+            timestampUs: 0,
+            planes: [
+                VideoFramePlane(
+                    data: data,
+                    stride: bytesPerRow
+                )
+            ],
+            bufferReuseID: UUID()
         )
     }
 

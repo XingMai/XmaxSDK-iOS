@@ -4,25 +4,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class VideoFileFrameDecoderTests: XCTestCase {
-    func testDecodedFrameUsesNV12Contract() throws {
-        let data = Data(repeating: 1, count: 24)
-
-        let frame = try VideoFileDecodedFrame(
-            data: data,
-            width: 4,
-            height: 4,
-            stride: 4,
-            timestampUs: 12_000
-        )
-
-        XCTAssertEqual(frame.data, data)
-        XCTAssertEqual(frame.width, 4)
-        XCTAssertEqual(frame.height, 4)
-        XCTAssertEqual(frame.stride, 4)
-        XCTAssertEqual(frame.timestampUs, 12_000)
-        XCTAssertEqual(frame.pixelFormat, .nv12)
-    }
-
     func testConverterCompactsPaddedNV12Planes() throws {
         let pixelBuffer = try makeNV12PixelBuffer(width: 4, height: 4)
         try fillNV12PixelBuffer(pixelBuffer)
@@ -32,13 +13,16 @@ final class VideoFileFrameDecoderTests: XCTestCase {
             timestampUs: 42_000
         )
 
-        XCTAssertEqual(frame.width, 4)
-        XCTAssertEqual(frame.height, 4)
-        XCTAssertEqual(frame.stride, 4)
+        XCTAssertEqual(frame.format.width, 4)
+        XCTAssertEqual(frame.format.height, 4)
+        XCTAssertEqual(frame.format.pixelFormat, .nv12)
         XCTAssertEqual(frame.timestampUs, 42_000)
-        XCTAssertEqual(frame.data.count, 24)
+        XCTAssertEqual(frame.planes.map(\.stride), [4, 4])
+        XCTAssertEqual(frame.planes.map(\.byteLength), [16, 8])
+        let data = try XCTUnwrap(frame.planes.first).data
+        XCTAssertEqual(data.count, 24)
         XCTAssertEqual(
-            frame.data,
+            data,
             Data([
                 1, 1, 1, 1,
                 2, 2, 2, 2,
@@ -51,12 +35,12 @@ final class VideoFileFrameDecoderTests: XCTestCase {
     }
 
     func testDecoderRejectsMissingFile() async {
-        let listener = VideoFileFrameDecoderListenerSpy()
-
         do {
             _ = try await VideoFileFrameDecoder(
                 fileURL: URL(fileURLWithPath: "/missing/video.mov"),
-                listener: listener
+                onFrame: { _ in },
+                onEndOfStream: {},
+                onError: { _ in }
             )
             XCTFail("Expected decoder creation to fail")
         } catch {
@@ -133,12 +117,4 @@ final class VideoFileFrameDecoderTests: XCTestCase {
             )
         }
     }
-}
-
-private final class VideoFileFrameDecoderListenerSpy: VideoFileFrameDecoderListener, @unchecked Sendable {
-    func onFrame(_ frame: VideoFileDecodedFrame) {}
-
-    func onEndOfStream() {}
-
-    func onError(message: String) {}
 }

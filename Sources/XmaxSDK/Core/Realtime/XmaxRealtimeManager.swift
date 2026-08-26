@@ -46,7 +46,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let mediaErrorRelay = RealtimeMediaErrorRelay()
         let mediaController = MediaController(
             rtcManager: rtcManager,
-            transportController: transportController,
+            videoFrameListener: { frame in
+                try transportController.pushLocalVideoFrame(frame)
+            },
+            audioFrameListener: { frame in
+                try transportController.pushLocalAudioFrame(frame)
+            },
             mediaErrorListener: { error in
                 mediaErrorRelay.report(error)
             }
@@ -166,6 +171,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 position: position
             )
             if hasConnection {
+                if let videoFormat = stream.videoTrack?.videoFormat {
+                    try transportController.setVideoEncoderConfig(videoFormat)
+                }
                 await synchronizeConnectionAfterCameraUpdate(stream)
             }
             return stream
@@ -370,6 +378,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         do {
             try ensureOperation(version)
+            try transportController.setVideoEncoderConfig(videoFormat)
             let remoteStream = try await connectionManager.connect(
                 model: options.model,
                 videoFormat: videoFormat,

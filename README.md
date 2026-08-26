@@ -24,6 +24,8 @@ Sources/XmaxSDK
 
 业务层通过与层同名的 Controller 向 Core 暴露能力。Core 只依赖
 `MediaControlling` 和 `TransportControlling`，不直接调用业务层内部组件。
+Media 只产生中性音视频帧，Core 在组装阶段将帧监听器连接到 Transport；
+Media 与 Transport 之间没有直接依赖。
 
 ## CocoaPods 本地开发
 

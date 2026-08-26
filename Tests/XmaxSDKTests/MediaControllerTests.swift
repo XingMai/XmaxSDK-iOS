@@ -29,11 +29,6 @@ final class MediaControllerTests: XCTestCase {
             rtcManager.calls,
             [
                 .initialize,
-                .configureVideoEncoding(VideoEncodingConfiguration(
-                    width: 1_024,
-                    height: 768,
-                    frameRate: 30
-                )),
                 .switchCamera(.front),
                 .startVideoCapture(width: 1_024, height: 768, frameRate: 30)
             ]
@@ -291,28 +286,22 @@ private extension MediaControllerTests {
         imageSourceController: ImageSourceControllingStub? = nil,
         mediaSourceController: MediaSourceControllingStub? = nil
     ) -> MediaController {
-        let transportController = TransportController(
-            rtcManager: rtcManager
-        )
         let cameraController = CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaService: mediaService,
-            transportController: transportController
+            mediaService: mediaService
         )
         let imageController = imageSourceController.map {
             ImageController(
                 rtcManager: rtcManager,
-                imageSourceController: $0,
-                transportController: transportController
+                imageSourceController: $0
             )
         }
         let videoController = mediaSourceController.map {
             VideoController(
                 rtcManager: rtcManager,
                 permissionManager: permissionManager,
-                mediaSourceController: $0,
-                transportController: transportController
+                mediaSourceController: $0
             )
         }
         return MediaController(

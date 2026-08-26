@@ -301,7 +301,7 @@ final class StreamControllerTests: XCTestCase {
             height: 2,
             pixelFormat: .nv12
         )
-        let frame = try BufferVideoFrame(
+        let frame = try VideoFrame(
             format: format,
             timestampUs: 0,
             planes: [

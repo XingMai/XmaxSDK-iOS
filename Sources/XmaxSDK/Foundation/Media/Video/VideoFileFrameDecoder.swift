@@ -3,22 +3,9 @@ import CoreMedia
 import CoreVideo
 import Foundation
 
-/// 文件视频连续解码事件。
-protocol VideoFileFrameDecoderListener: AnyObject, Sendable {
-
-    /// 收到一帧 NV12 视频。
-    func onFrame(_ frame: VideoFileDecodedFrame)
-
-    /// 文件视频已输出到流末尾。
-    func onEndOfStream()
-
-    /// 文件视频读取或解码失败。
-    func onError(message: String)
-}
-
 /// 使用系统视频解码器按媒体时间戳连续输出 NV12 帧。
 ///
-/// 解码结果由媒体层转换为统一视频帧，并交由后续业务链路处理。
+/// 解码结果直接转换为统一视频帧，并交由后续业务链路处理。
 final class VideoFileFrameDecoder: @unchecked Sendable {
 
     // 并发控制
@@ -33,9 +20,11 @@ final class VideoFileFrameDecoder: @unchecked Sendable {
 
     init(
         fileURL: URL,
-        listener: any VideoFileFrameDecoderListener,
         playbackAnchorUs: Int64? = nil,
-        mediaStartUs: Int64 = 0
+        mediaStartUs: Int64 = 0,
+        onFrame: @escaping @Sendable (VideoFrame) -> Void,
+        onEndOfStream: @escaping @Sendable () -> Void,
+        onError: @escaping @Sendable (String) -> Void
     ) async throws {
         let resolvedPlaybackAnchorUs = playbackAnchorUs
             ?? Self.currentTimestampUs()
@@ -49,7 +38,9 @@ final class VideoFileFrameDecoder: @unchecked Sendable {
             fileURL: fileURL,
             playbackAnchorUs: resolvedPlaybackAnchorUs,
             mediaStartUs: mediaStartUs,
-            listener: listener
+            onFrame: onFrame,
+            onEndOfStream: onEndOfStream,
+            onError: onError
         )
         self.operation = operation
         task = Task.detached(priority: .userInitiated) {
@@ -97,7 +88,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
     private let mediaStartUs: Int64
 
     // 事件监听
-    private let listener: any VideoFileFrameDecoderListener
+    private let onFrame: @Sendable (VideoFrame) -> Void
+    private let onEndOfStream: @Sendable () -> Void
+    private let onError: @Sendable (String) -> Void
 
     // 运行状态
     private var isReleased = false
@@ -108,20 +101,26 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
         output: AVAssetReaderTrackOutput,
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
-        listener: any VideoFileFrameDecoderListener
+        onFrame: @escaping @Sendable (VideoFrame) -> Void,
+        onEndOfStream: @escaping @Sendable () -> Void,
+        onError: @escaping @Sendable (String) -> Void
     ) {
         self.reader = reader
         self.output = output
         self.playbackAnchorUs = playbackAnchorUs
         self.mediaStartUs = mediaStartUs
-        self.listener = listener
+        self.onFrame = onFrame
+        self.onEndOfStream = onEndOfStream
+        self.onError = onError
     }
 
     static func make(
         fileURL: URL,
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
-        listener: any VideoFileFrameDecoderListener
+        onFrame: @escaping @Sendable (VideoFrame) -> Void,
+        onEndOfStream: @escaping @Sendable () -> Void,
+        onError: @escaping @Sendable (String) -> Void
     ) async throws -> VideoFileDecodeOperation {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             throw mediaError("Video file does not exist")
@@ -166,7 +165,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
             output: output,
             playbackAnchorUs: playbackAnchorUs,
             mediaStartUs: mediaStartUs,
-            listener: listener
+            onFrame: onFrame,
+            onEndOfStream: onEndOfStream,
+            onError: onError
         )
     }
 
@@ -209,7 +210,7 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
                 guard isActive, !Task.isCancelled else {
                     return
                 }
-                listener.onFrame(frame)
+                onFrame(frame)
             } catch {
                 reader.cancelReading()
                 reportError((error as NSError).localizedDescription)
@@ -282,7 +283,7 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
             return true
         }
         if shouldReport {
-            listener.onEndOfStream()
+            onEndOfStream()
         }
     }
 
@@ -296,7 +297,7 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
             return true
         }
         if shouldReport {
-            listener.onError(message: message)
+            onError(message)
         }
     }
 

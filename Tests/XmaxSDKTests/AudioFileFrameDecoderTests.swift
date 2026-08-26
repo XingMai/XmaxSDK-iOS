@@ -82,15 +82,15 @@ final class AudioFileFrameDecoderTests: XCTestCase {
     }
 
     func testDecoderRejectsMissingFile() async {
-        let listener = AudioFileFrameDecoderListenerSpy()
-
         do {
             _ = try await AudioFileFrameDecoder(
                 fileURL: URL(fileURLWithPath: "/missing/audio.wav"),
                 playbackAnchorUs: 1,
                 mediaStartUs: 0,
                 cycleDurationUs: 10_000,
-                listener: listener
+                onFrame: { _ in },
+                onEndOfStream: {},
+                onError: { _ in }
             )
             XCTFail("Expected decoder creation to fail")
         } catch {
@@ -107,7 +107,7 @@ final class AudioFileFrameDecoderTests: XCTestCase {
 
         let frameExpectation = expectation(description: "audio frame")
         let terminalExpectation = expectation(description: "end of stream")
-        let listener = AudioFileFrameDecoderListenerSpy(
+        let recorder = AudioFileFrameDecoderRecorder(
             frameExpectation: frameExpectation,
             terminalExpectation: terminalExpectation
         )
@@ -118,7 +118,9 @@ final class AudioFileFrameDecoderTests: XCTestCase {
             playbackAnchorUs: playbackAnchorUs,
             mediaStartUs: 0,
             cycleDurationUs: 10_000,
-            listener: listener
+            onFrame: { recorder.onFrame($0) },
+            onEndOfStream: { recorder.onEndOfStream() },
+            onError: { recorder.onError(message: $0) }
         )
         defer {
             decoder.release()
@@ -130,10 +132,10 @@ final class AudioFileFrameDecoderTests: XCTestCase {
             enforceOrder: true
         )
 
-        XCTAssertNil(listener.errorMessage)
-        XCTAssertEqual(listener.frames.count, 1)
-        XCTAssertEqual(listener.frames[0].data, sourceData)
-        XCTAssertEqual(listener.frames[0].timestampUs, playbackAnchorUs)
+        XCTAssertNil(recorder.errorMessage)
+        XCTAssertEqual(recorder.frames.count, 1)
+        XCTAssertEqual(recorder.frames[0].data, sourceData)
+        XCTAssertEqual(recorder.frames[0].timestampUs, playbackAnchorUs)
     }
 
     func testDecoderResamplesAndDownmixesToAudioFrameFormat() async throws {
@@ -149,7 +151,7 @@ final class AudioFileFrameDecoderTests: XCTestCase {
 
         let frameExpectation = expectation(description: "audio frame")
         let terminalExpectation = expectation(description: "end of stream")
-        let listener = AudioFileFrameDecoderListenerSpy(
+        let recorder = AudioFileFrameDecoderRecorder(
             frameExpectation: frameExpectation,
             terminalExpectation: terminalExpectation
         )
@@ -159,7 +161,9 @@ final class AudioFileFrameDecoderTests: XCTestCase {
                 + 500_000,
             mediaStartUs: 0,
             cycleDurationUs: 10_000,
-            listener: listener
+            onFrame: { recorder.onFrame($0) },
+            onEndOfStream: { recorder.onEndOfStream() },
+            onError: { recorder.onError(message: $0) }
         )
         defer {
             decoder.release()
@@ -171,10 +175,10 @@ final class AudioFileFrameDecoderTests: XCTestCase {
             enforceOrder: true
         )
 
-        XCTAssertNil(listener.errorMessage)
-        XCTAssertEqual(listener.frames.count, 1)
-        XCTAssertEqual(listener.frames[0].data.count, 960)
-        XCTAssertEqual(listener.frames[0].data, Data(repeating: 0, count: 960))
+        XCTAssertNil(recorder.errorMessage)
+        XCTAssertEqual(recorder.frames.count, 1)
+        XCTAssertEqual(recorder.frames[0].data.count, 960)
+        XCTAssertEqual(recorder.frames[0].data, Data(repeating: 0, count: 960))
     }
 
     private func makePCM16WAV(
@@ -207,7 +211,7 @@ final class AudioFileFrameDecoderTests: XCTestCase {
     }
 }
 
-private final class AudioFileFrameDecoderListenerSpy: AudioFileFrameDecoderListener, @unchecked Sendable {
+private final class AudioFileFrameDecoderRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private let frameExpectation: XCTestExpectation?
     private let terminalExpectation: XCTestExpectation?

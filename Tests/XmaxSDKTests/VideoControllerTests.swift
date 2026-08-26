@@ -102,10 +102,7 @@ private extension VideoControllerTests {
         VideoController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaSourceController: mediaSourceController,
-            transportController: TransportController(
-                rtcManager: rtcManager
-            )
+            mediaSourceController: mediaSourceController
         )
     }
 }

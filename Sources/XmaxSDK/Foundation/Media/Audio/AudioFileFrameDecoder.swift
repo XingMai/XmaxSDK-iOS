@@ -2,19 +2,6 @@
 import CoreMedia
 import Foundation
 
-/// 文件音频连续解码事件。
-protocol AudioFileFrameDecoderListener: AnyObject, Sendable {
-
-    /// 收到一帧 48 kHz 单声道 PCM16 音频。
-    func onFrame(_ frame: AudioFrame)
-
-    /// 文件音频已输出到本次循环末尾。
-    func onEndOfStream()
-
-    /// 文件音频读取或解码失败。
-    func onError(message: String)
-}
-
 /// 使用系统音频解码器连续输出 48 kHz 单声道 PCM16 帧。
 final class AudioFileFrameDecoder: @unchecked Sendable {
 
@@ -33,7 +20,9 @@ final class AudioFileFrameDecoder: @unchecked Sendable {
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
         cycleDurationUs: Int64,
-        listener: any AudioFileFrameDecoderListener
+        onFrame: @escaping @Sendable (AudioFrame) -> Void,
+        onEndOfStream: @escaping @Sendable () -> Void,
+        onError: @escaping @Sendable (String) -> Void
     ) async throws {
         guard fileURL.isFileURL,
               playbackAnchorUs > 0,
@@ -47,7 +36,9 @@ final class AudioFileFrameDecoder: @unchecked Sendable {
             playbackAnchorUs: playbackAnchorUs,
             mediaStartUs: mediaStartUs,
             cycleDurationUs: cycleDurationUs,
-            listener: listener
+            onFrame: onFrame,
+            onEndOfStream: onEndOfStream,
+            onError: onError
         )
         self.operation = operation
         task = Task.detached(priority: .userInitiated) {
@@ -99,7 +90,9 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
     private let mediaStartUs: Int64
 
     // 事件监听
-    private let listener: any AudioFileFrameDecoderListener
+    private let onFrame: @Sendable (AudioFrame) -> Void
+    private let onEndOfStream: @Sendable () -> Void
+    private let onError: @Sendable (String) -> Void
 
     // 解码资源
     private let packetizer: AudioPCMFramePacketizer
@@ -114,13 +107,17 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
         cycleDurationUs: Int64,
-        listener: any AudioFileFrameDecoderListener
+        onFrame: @escaping @Sendable (AudioFrame) -> Void,
+        onEndOfStream: @escaping @Sendable () -> Void,
+        onError: @escaping @Sendable (String) -> Void
     ) {
         self.reader = reader
         self.output = output
         self.playbackAnchorUs = playbackAnchorUs
         self.mediaStartUs = mediaStartUs
-        self.listener = listener
+        self.onFrame = onFrame
+        self.onEndOfStream = onEndOfStream
+        self.onError = onError
         packetizer = AudioPCMFramePacketizer(
             mediaStartUs: mediaStartUs,
             cycleDurationUs: cycleDurationUs
@@ -132,7 +129,9 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
         cycleDurationUs: Int64,
-        listener: any AudioFileFrameDecoderListener
+        onFrame: @escaping @Sendable (AudioFrame) -> Void,
+        onEndOfStream: @escaping @Sendable () -> Void,
+        onError: @escaping @Sendable (String) -> Void
     ) async throws -> AudioFileDecodeOperation {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             throw mediaError("Audio file does not exist")
@@ -183,7 +182,9 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
             playbackAnchorUs: playbackAnchorUs,
             mediaStartUs: mediaStartUs,
             cycleDurationUs: cycleDurationUs,
-            listener: listener
+            onFrame: onFrame,
+            onEndOfStream: onEndOfStream,
+            onError: onError
         )
     }
 
@@ -284,7 +285,7 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
                 continue
             }
 
-            listener.onFrame(AudioFrame(
+            onFrame(AudioFrame(
                 data: frame.data,
                 timestampUs: playbackTimestampUs
             ))
@@ -302,7 +303,7 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
             return true
         }
         if shouldReport {
-            listener.onEndOfStream()
+            onEndOfStream()
         }
     }
 
@@ -316,7 +317,7 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
             return true
         }
         if shouldReport {
-            listener.onError(message: message)
+            onError(message)
         }
     }
 

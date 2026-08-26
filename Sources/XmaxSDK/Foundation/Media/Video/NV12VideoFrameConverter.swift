@@ -6,7 +6,7 @@ enum NV12VideoFrameConverter {
     static func convert(
         pixelBuffer: CVPixelBuffer,
         timestampUs: Int64
-    ) throws -> VideoFileDecodedFrame {
+    ) throws -> VideoFrame {
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
         let isNV12 = pixelFormat
             == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -78,12 +78,26 @@ enum NV12VideoFrameConverter {
             )
         }
 
-        return try VideoFileDecodedFrame(
-            data: data,
-            width: width,
-            height: height,
-            stride: width,
-            timestampUs: timestampUs
+        return try VideoFrame(
+            format: VideoFormat(
+                width: width,
+                height: height,
+                pixelFormat: .nv12
+            ),
+            timestampUs: timestampUs,
+            planes: [
+                VideoFramePlane(
+                    data: data,
+                    stride: width,
+                    byteLength: lumaLength
+                ),
+                VideoFramePlane(
+                    data: data,
+                    stride: width,
+                    byteOffset: lumaLength,
+                    byteLength: lumaLength / 2
+                )
+            ]
         )
     }
 

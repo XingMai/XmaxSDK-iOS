@@ -198,7 +198,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     ) throws {}
 
     func pushExternalVideoFrame(
-        _ frame: any VideoFrame,
+        _ frame: VideoFrame,
         seiData: Data?
     ) throws {
         lock.withLock {

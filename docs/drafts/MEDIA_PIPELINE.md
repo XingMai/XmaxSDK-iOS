@@ -4,32 +4,33 @@
 >
 > 基线提交：`cc35183 feat: add image and video media pipelines`
 
-当前图片和文件视频都被抽象为“本地外部视频源”，最终通过同一套 `TransportController → StreamController → RtcManager → VolcEngineRTC` 链路推送。
+当前图片和文件视频都被抽象为“本地外部视频源”。Media 层只产生中性
+音视频帧，Core 组装根把帧监听器连接到
+`TransportController → StreamController → RtcManager → VolcEngineRTC`
+传输链路；Media 与 Transport 之间没有直接依赖。
 
 ```text
 XmaxRealtimeManaging 公开 API
         │
         ▼
 XmaxRealtimeManager
-连接、替换、生成生命周期
+连接、替换、生成生命周期以及业务层组装
         │
-        ▼
-MediaController
-保证相机 / 图片 / 视频只存在一个活动来源
+        ├── MediaController
+        │   保证相机 / 图片 / 视频只存在一个活动来源
+        │       ├── 图片：ImageController
+        │       │          └── ImageSourceController
+        │       │                 └── ImageManager.decode()
+        │       │                        └── DecodedImage → BGRA 帧
+        │       └── 视频：VideoController
+        │                  └── MediaSourceController
+        │                         ├── VideoSourceController → NV12 帧
+        │                         └── AudioSourceController → PCM 音频帧
         │
-        ├── 图片：ImageController
-        │          └── ImageSourceController
-        │                 └── ImageManager.decode()
-        │                        └── DecodedImage → BGRA 帧
-        │
-        └── 视频：VideoController
-                   └── MediaSourceController
-                          ├── VideoSourceController → NV12 帧
-                          └── AudioSourceController → PCM 音频帧
-        │
-        ▼
-TransportController
-统一传输层入口
+        └── TransportController
+            统一传输层入口
+                    ▲
+                    └── Core 注入的中性音视频帧监听器
         │
         ▼
 StreamController
@@ -37,8 +38,11 @@ StreamController
         ▼
 RtcManager → 火山 RTC
         ├── 外部视频推帧
-        ├── 外部音频推帧
-        └── XmaxVideoView 本地预览
+        └── 外部音频推帧
+
+VideoRenderRegistry → XmaxVideoView
+        ├── 图片轨道：UIImageView
+        └── 摄像头、视频和远端轨道：RTC Canvas
 ```
 
 ## 1. 统一入口和资源所有权
@@ -66,7 +70,7 @@ let stream = try await realtime.createLocalVideoStream(
 )
 ```
 
-也可以显式指定输出编码格式：
+也可以显式指定目标视频格式：
 
 ```swift
 let format = RealtimeVideoFormat(
@@ -115,6 +119,8 @@ DecodedImage
     ↓
 定时重复推送
     ↓
+Core 注入的 MediaVideoFrameListener
+    ↓
 TransportController.pushLocalVideoFrame()
     ↓
 StreamController.pushLocalVideoFrame()
@@ -156,13 +162,17 @@ RtcManager.pushExternalVideoFrame()
 `ImageController` 按以下顺序创建图片流：
 
 1. 准备图片并获得最终视频格式。
-2. 配置 RTC 编码尺寸和帧率。
-3. 调用 `useExternalVideoSource()`。
-4. 创建 `RealtimeVideoTrack(id: "video0")`。
-5. 注册本地预览绑定。
-6. 开始持续推送图片帧。
+2. 调用 `useExternalVideoSource()`。
+3. 创建 `RealtimeVideoTrack(id: "video0")`。
+4. 使用同一份 BGRA 帧数据注册 `UIImageView` 本地预览绑定。
+5. 开始持续产生图片帧。
 
-图片没有 SDK 管理的音频，因此连接时只发布视频。
+图片帧通过 Core 在组装阶段注入的 `MediaVideoFrameListener` 交给 Transport。
+`ImageController` 和 `MediaController` 都不依赖 `TransportControlling`。
+
+`XmaxVideoView` 根据轨道绑定自动选择图片或 RTC 渲染，接入方不需要判断
+媒体来源。图片预览不会重复解码，也不会占用 RTC 本地 Canvas。图片没有 SDK
+管理的音频，因此连接时只发布视频。
 
 相关实现：
 
@@ -248,13 +258,17 @@ RtcManager
 最终 RTC 收到的视频帧为：
 
 ```text
-BufferVideoFrame
+VideoFrame
 ├── pixelFormat: NV12
 ├── plane 0: Y
 ├── plane 1: UV
 ├── timestampUs
 └── rotation
 ```
+
+图片和文件视频在解码后都直接使用同一个 `VideoFrame`：图片是单平面 BGRA，
+文件视频是双平面 NV12。链路中不再存在图片专用帧、文件视频专用帧或
+`VideoFrame` 协议/默认实现这一类只做字段搬运的中间抽象。
 
 ### 3.5 音频解码与推帧
 
@@ -279,12 +293,11 @@ BufferVideoFrame
 
 1. 准备媒体文件。
 2. 如果有音轨，申请麦克风权限。
-3. 配置视频编码。
-4. 启用 RTC 外部视频源。
-5. 如果有音轨，启用 RTC 外部音频源。
-6. 注册本地预览。
-7. 同时启动音视频 decoder。
-8. 创建本地 `RealtimeMediaStream`。
+3. 启用 RTC 外部视频源。
+4. 如果有音轨，启用 RTC 外部音频源。
+5. 注册本地预览。
+6. 同时启动音视频 decoder。
+7. 创建本地 `RealtimeMediaStream`。
 
 视频没有音轨时，不会：
 
@@ -317,6 +330,15 @@ let remoteStream = try await realtime.connect(
 ```swift
 await mediaController.hasAudio
 ```
+
+随后由 Core 使用本地 Track 的最终 `videoFormat` 调用：
+
+```swift
+transportController.setVideoEncoderConfig(videoFormat)
+```
+
+编码配置属于连接和发布准备，不由相机、图片或视频 Controller 执行。已连接
+状态下更新相机采集格式时，Core 会同步更新 Transport 编码配置。
 
 发布规则：
 

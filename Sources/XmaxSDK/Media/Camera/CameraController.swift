@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// 协调相机权限、RTC 内部采集、编码和本地预览资源。
+/// 协调相机权限、RTC 内部采集和本地预览资源。
 final class CameraController: @unchecked Sendable {
 
     // 轨道标识
@@ -14,9 +14,6 @@ final class CameraController: @unchecked Sendable {
     // 服务层组件
     private let mediaService: any MediaServicing
 
-    // 业务层组件
-    private let transportController: any TransportControlling
-
     // 并发控制
     private let stateLock = NSLock()
 
@@ -25,27 +22,23 @@ final class CameraController: @unchecked Sendable {
 
     @MainActor
     convenience init(
-        rtcManager: any RtcManaging,
-        transportController: any TransportControlling
+        rtcManager: any RtcManaging
     ) {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
-            mediaService: MediaService(),
-            transportController: transportController
+            mediaService: MediaService()
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
-        mediaService: any MediaServicing,
-        transportController: any TransportControlling
+        mediaService: any MediaServicing
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaService = mediaService
-        self.transportController = transportController
     }
 
     /// 当前活动的本地相机视频轨道；尚未创建时返回空值。
@@ -87,7 +80,6 @@ final class CameraController: @unchecked Sendable {
         do {
             let resolvedFormat = try resolveVideoFormat(videoFormat)
             try rtcManager.stopVideoCapture()
-            try transportController.setVideoEncoderConfig(resolvedFormat)
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
@@ -176,7 +168,6 @@ private extension CameraController {
 
         do {
             try await permissionManager.ensureCameraPermission()
-            try transportController.setVideoEncoderConfig(resolvedFormat)
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
@@ -195,7 +186,7 @@ private extension CameraController {
                                 contentMode: contentMode
                             )
                         },
-                        detachHandler: {
+                        detachHandler: { _ in
                             try self.rtcManager.unbindLocalVideo()
                         }
                     )

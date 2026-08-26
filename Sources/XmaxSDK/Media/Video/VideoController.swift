@@ -1,6 +1,6 @@
 import Foundation
 
-/// 协调本地视频文件解码、音视频循环、编码和 RTC 预览资源。
+/// 协调本地视频文件解码、音视频循环和 RTC 预览资源。
 final class VideoController: @unchecked Sendable {
 
     // 轨道标识
@@ -12,7 +12,6 @@ final class VideoController: @unchecked Sendable {
 
     // 业务层组件
     private let mediaSourceController: any MediaSourceControlling
-    private let transportController: any TransportControlling
 
     // 并发控制
     private let stateLock = NSLock()
@@ -23,7 +22,8 @@ final class VideoController: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
-        transportController: any TransportControlling,
+        videoFrameListener: @escaping MediaVideoFrameListener,
+        audioFrameListener: @escaping MediaAudioFrameListener,
         errorListener: @escaping MediaSourceErrorListener
     ) {
         let audioManager = AudioManager()
@@ -32,15 +32,13 @@ final class VideoController: @unchecked Sendable {
             audioManager: audioManager,
             mediaService: MediaService(),
             videoSourceController: VideoSourceController(
-                frameListener: { frame in
-                    try transportController.pushLocalVideoFrame(frame)
-                },
+                frameListener: videoFrameListener,
                 errorListener: errorListener
             ),
             audioSourceController: AudioSourceController(
                 frameListener: { frame in
                     audioManager.write(frame: frame)
-                    try transportController.pushLocalAudioFrame(frame)
+                    try audioFrameListener(frame)
                 },
                 errorListener: errorListener
             )
@@ -48,21 +46,18 @@ final class VideoController: @unchecked Sendable {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
-            mediaSourceController: mediaSourceController,
-            transportController: transportController
+            mediaSourceController: mediaSourceController
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
-        mediaSourceController: any MediaSourceControlling,
-        transportController: any TransportControlling
+        mediaSourceController: any MediaSourceControlling
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaSourceController = mediaSourceController
-        self.transportController = transportController
     }
 
     /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
@@ -163,9 +158,6 @@ private extension VideoController {
             if configuration.hasAudio {
                 try await permissionManager.ensureMicrophonePermission()
             }
-            try transportController.setVideoEncoderConfig(
-                configuration.videoFormat
-            )
             try rtcManager.useExternalVideoSource()
             if configuration.hasAudio {
                 try rtcManager.startExternalAudioSource()
@@ -222,7 +214,7 @@ private extension VideoController {
                         contentMode: contentMode
                     )
                 },
-                detachHandler: {
+                detachHandler: { _ in
                     try self.rtcManager.unbindLocalVideo()
                 }
             )

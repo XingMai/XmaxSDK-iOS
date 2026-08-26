@@ -19,16 +19,34 @@ final class ImageSourceControllingStub:
     private let prepareError: (any Error)?
     private let startError: (any Error)?
 
+    // 图片帧资源
+    private let previewFrame: VideoFrame
+
     // 并发状态
     private let lock = NSLock()
     private var storedCalls: [ImageSourceControllingCall] = []
 
     init(
         resolvedFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame? = nil,
         prepareError: (any Error)? = nil,
         startError: (any Error)? = nil
     ) {
         self.resolvedFormat = resolvedFormat
+        self.previewFrame = try! previewFrame ?? VideoFrame(
+            format: VideoFormat(
+                width: 1,
+                height: 1,
+                pixelFormat: .bgra
+            ),
+            timestampUs: 0,
+            planes: [
+                VideoFramePlane(
+                    data: Data([0, 0, 0, 255]),
+                    stride: 4
+                )
+            ]
+        )
         self.prepareError = prepareError
         self.startError = startError
     }
@@ -40,20 +58,26 @@ final class ImageSourceControllingStub:
     func prepare(
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeVideoFormat {
+    ) async throws -> (
+        videoFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame
+    ) {
         try lock.withLock {
             storedCalls.append(.prepareData(imageData, videoFormat))
             if let prepareError {
                 throw prepareError
             }
-            return resolvedFormat
+            return (resolvedFormat, previewFrame)
         }
     }
 
     func prepare(
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeVideoFormat {
+    ) async throws -> (
+        videoFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame
+    ) {
         try lock.withLock {
             storedCalls.append(
                 .prepareDecoded(decodedImage.size, videoFormat)
@@ -61,20 +85,23 @@ final class ImageSourceControllingStub:
             if let prepareError {
                 throw prepareError
             }
-            return resolvedFormat
+            return (resolvedFormat, previewFrame)
         }
     }
 
     func prepare(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeVideoFormat {
+    ) async throws -> (
+        videoFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame
+    ) {
         try lock.withLock {
             storedCalls.append(.prepare(fileURL, videoFormat))
             if let prepareError {
                 throw prepareError
             }
-            return resolvedFormat
+            return (resolvedFormat, previewFrame)
         }
     }
 

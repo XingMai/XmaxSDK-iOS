@@ -15,10 +15,10 @@ protocol MediaControlling: Actor {
     /// 创建并持有本地相机媒体流，同时启动采集和本地预览。
     ///
     /// - Parameters:
-    ///   - videoFormat: 相机采集与 RTC 编码使用的视频格式。
+    ///   - videoFormat: 相机采集使用的目标视频格式。
     ///   - position: 首次启用的摄像头位置。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 相机权限、RTC 初始化、编码配置或采集启动失败时抛出错误；
+    /// - Throws: 相机权限、RTC 初始化或采集启动失败时抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
@@ -28,10 +28,10 @@ protocol MediaControlling: Actor {
     /// 使用新的采集参数更新当前相机媒体流。
     ///
     /// - Parameters:
-    ///   - videoFormat: 更新后相机采集与 RTC 编码使用的视频格式。
+    ///   - videoFormat: 更新后相机采集使用的目标视频格式。
     ///   - position: 更新后启用的摄像头位置。
     /// - Returns: 包含更新后本地相机视频轨道的媒体流。
-    /// - Throws: 当前活动来源不是相机、存在并发媒体操作，或相机与 RTC
+    /// - Throws: 当前活动来源不是相机、存在并发媒体操作，或相机采集
     ///   配置失败时抛出错误。
     func replaceLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
@@ -53,10 +53,10 @@ protocol MediaControlling: Actor {
     ///
     /// - Parameters:
     ///   - imageData: PNG、JPEG 等受支持格式的编码图片数据。
-    ///   - videoFormat: 目标 RTC 视频格式；传入空值时根据图片尺寸和
+    ///   - videoFormat: 目标本地视频格式；传入空值时根据图片尺寸和
     ///     默认帧率确定。
     /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
-    /// - Throws: 图片数据无效、媒体准备或 RTC 配置失败时抛出错误；
+    /// - Throws: 图片数据无效、媒体准备或外部视频源启动失败时抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalImageStream(
         imageData: Data,
@@ -67,10 +67,10 @@ protocol MediaControlling: Actor {
     ///
     /// - Parameters:
     ///   - decodedImage: 已经完成方向规范化和像素解码的图片。
-    ///   - videoFormat: 目标 RTC 视频格式；传入空值时根据图片尺寸和
+    ///   - videoFormat: 目标本地视频格式；传入空值时根据图片尺寸和
     ///     默认帧率确定。
     /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
-    /// - Throws: 图片像素处理、媒体准备或 RTC 配置失败时抛出错误；
+    /// - Throws: 图片像素处理、媒体准备或外部视频源启动失败时抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalImageStream(
         decodedImage: any DecodedImage,
@@ -81,10 +81,11 @@ protocol MediaControlling: Actor {
     ///
     /// - Parameters:
     ///   - fileURL: 可读取的本地图片文件地址。
-    ///   - videoFormat: 目标 RTC 视频格式；传入空值时根据图片尺寸和
+    ///   - videoFormat: 目标本地视频格式；传入空值时根据图片尺寸和
     ///     默认帧率确定。
     /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
-    /// - Throws: 文件读取、图片解码、媒体准备或 RTC 配置失败时抛出错误；
+    /// - Throws: 文件读取、图片解码、媒体准备或外部视频源启动失败时
+    ///   抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalImageStream(
         fileURL: URL,
@@ -99,10 +100,11 @@ protocol MediaControlling: Actor {
     ///
     /// - Parameters:
     ///   - fileURL: 可读取的本地视频文件地址。
-    ///   - videoFormat: 目标 RTC 视频格式；传入空值时根据视频尺寸和
+    ///   - videoFormat: 目标本地视频格式；传入空值时根据视频尺寸和
     ///     默认帧率确定。
     /// - Returns: 包含循环输出文件视频帧的本地媒体流。
-    /// - Throws: 文件读取、音视频准备、权限或 RTC 配置失败时抛出错误；
+    /// - Throws: 文件读取、音视频准备、权限或外部媒体源启动失败时
+    ///   抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalVideoStream(
         fileURL: URL,

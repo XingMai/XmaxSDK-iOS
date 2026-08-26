@@ -160,6 +160,8 @@ Harmony：
 - [x] Transport 层统一入口使用 `setVideoEncoderConfig()`；Foundation 层保留 `RtcManaging.configureVideoEncoding()`。
 - [x] Harmony HAR 构建通过。
 
+> Media 与 Transport 的直接依赖已在后续审视中废止，见 SYNC-008。
+
 ## SYNC-006 图片与视频来源 API 收敛
 
 状态：已对齐；iOS 测试目标与 Harmony SDK、XLab 均已编译通过。
@@ -187,3 +189,95 @@ Harmony：
 - [x] 删除图片和视频 replace 公共入口及 Core、Media 实现。
 - [x] XLab 改为 disconnect、stop、create、connect 的显式切换编排。
 - [x] Harmony HAR 与 XLab HAP 构建通过。
+
+## SYNC-007 图片轨道本地预览
+
+状态：iOS 已完成；Harmony 待同步。
+
+统一目标：
+
+- 接入方只需要把 `RealtimeVideoTrack` 交给统一视频视图，不判断来源类型。
+- 图片轨道直接使用平台图片组件渲染处理后的静态帧。
+- 摄像头、视频文件和远端轨道继续使用 RTC 渲染。
+- 图片预览复用送入 RTC 的处理后像素，不重复解码图片。
+
+iOS：
+
+- [x] `ImageSourceController` 保留处理后的 BGRA 图片帧。
+- [x] 图片轨道注册 UIKit 渲染绑定，由 `XmaxVideoView` 内部使用
+  `UIImageView` 显示。
+- [x] 视频、摄像头和远端轨道继续使用 RTC Canvas。
+- [x] SDK 单元测试 Scheme 真机目标编译通过。
+
+Harmony：
+
+- [ ] 图片轨道注册 PixelMap 预览，由统一视频组件内部使用 Image 渲染。
+- [ ] 视频、摄像头和远端轨道继续使用 RTC Surface。
+- [ ] 完成 HAR 与 XLab HAP 编译验证。
+
+## SYNC-008 Media 与 Transport 分层解耦
+
+状态：iOS 已完成并通过 SDK 真机目标构建；Harmony 待同步。
+
+统一目标：
+
+- Media 层只负责媒体采集、解码、帧生产、本地 Track 和预览生命周期。
+- Transport 层只负责编码配置、房间发布、SEI 和 RTC 帧传输。
+- Media 层不依赖 `TransportControlling`，也不定义 `push`、`publish` 或
+  `send` 等传输语义。
+- Media 通过中性音视频帧监听器输出帧，由 Core 组装根连接到 Transport。
+- 视频编码配置在连接前由 Core 使用本地 Track 的最终格式设置；已连接相机
+  更新格式时由 Core 同步更新。
+
+iOS：
+
+- [x] 从 `MediaController`、`CameraController`、`ImageController` 和
+  `VideoController` 移除 `TransportControlling` 依赖。
+- [x] 增加内部 `MediaVideoFrameListener` 和 `MediaAudioFrameListener`，只
+  表达 Media 产生中性帧的事件。
+- [x] 在 `XmaxRealtimeManager` 组装阶段把帧监听器连接到 Transport。
+- [x] 将编码配置从媒体来源创建迁移到 `connect()`，并覆盖已连接相机更新。
+- [x] SDK 单元测试 Scheme 真机目标构建通过。
+
+Harmony：
+
+- [ ] 从 Media 统一入口及相机、图片、视频、交互子组件移除 Transport
+  依赖。
+- [ ] 通过中性音视频帧回调或事件把 Media 输出连接到 Transport。
+- [ ] 将编码配置迁移到 Core 的连接与已连接相机更新生命周期。
+- [ ] 完成 HAR 与 XLab HAP 编译验证。
+
+## SYNC-009 媒体帧模型收敛
+
+状态：iOS 已完成并通过 SDK 真机目标构建；Harmony 待审视和同步。
+
+统一目标：
+
+- Media 内部只流转统一的 `VideoFrame` 和 `AudioFrame`，不按图片、视频文件
+  或 RTC 来源重复定义字段相同的帧模型。
+- `VideoFrame` 是具体值类型，不保留只有单一实现的协议与默认实现组合。
+- 图片解码后直接生成单平面 BGRA `VideoFrame`；视频文件解码后直接生成
+  双平面 NV12 `VideoFrame`。
+- 文件解码器使用帧、结束和错误闭包回调，不额外定义只被一个适配器实现的
+  Listener 协议。
+- Media 对 Core 只保留视频帧和音频帧两个语义回调，不按来源重复定义
+  Listener 别名。
+
+iOS：
+
+- [x] 将 `VideoFrame` 从协议收敛为具体 `struct`。
+- [x] 删除 `BufferVideoFrame`、`ImageVideoFrameData` 和
+  `VideoFileDecodedFrame`。
+- [x] 图片准备一次性返回最终 `RealtimeVideoFormat` 和预览 `VideoFrame`，
+  不通过额外可选属性传递预览帧状态。
+- [x] 删除音视频文件 Decoder Listener 协议和 Source 层转发适配器。
+- [x] 只保留 `MediaVideoFrameListener` 与 `MediaAudioFrameListener`。
+- [x] SDK 单元测试 Scheme 真机目标构建通过。
+
+Harmony：
+
+- [ ] 盘点图片、视频文件和 RTC 链路中的帧类型，删除字段重复的来源专用模型。
+- [ ] 若视频帧接口只有一个实现，收敛为具体值类型。
+- [ ] 删除只负责把 Decoder 事件转发给 Source 的 Listener/Adapter 层。
+- [ ] Media 对 Core 只暴露统一视频帧和音频帧事件。
+- [ ] 完成 HAR 与 XLab HAP 编译验证。

@@ -15,7 +15,7 @@ final class RtcVideoFrame {
     private let planeStrides: UnsafeMutablePointer<Int32>
 
     init(
-        frame: any VideoFrame,
+        frame: VideoFrame,
         seiData: Data?
     ) throws {
         let expectedPlaneCount = Self.expectedPlaneCount(
@@ -88,7 +88,7 @@ final class RtcVideoFrame {
 
     /// 在复用同一像素缓冲区时更新逐帧变化的 RTC 元数据。
     func updateMetadata(
-        from frame: any VideoFrame,
+        from frame: VideoFrame,
         seiData: Data?
     ) {
         value.timestamp = CMTime(
@@ -127,7 +127,7 @@ final class RtcVideoFrameCache {
     private var cachedFrame: CachedFrame?
 
     func frame(
-        for frame: any VideoFrame,
+        for frame: VideoFrame,
         seiData: Data?
     ) throws -> RtcVideoFrame {
         guard let bufferReuseID = frame.bufferReuseID else {
@@ -175,7 +175,7 @@ enum RtcVideoConverter {
 
     /// 创建由调用方同步推送的火山 RTC 视频帧。
     static func convertFrame(
-        _ frame: any VideoFrame,
+        _ frame: VideoFrame,
         seiData: Data? = nil
     ) throws -> RtcVideoFrame {
         try RtcVideoFrame(frame: frame, seiData: seiData)

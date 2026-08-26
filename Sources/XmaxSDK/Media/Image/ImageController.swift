@@ -1,6 +1,6 @@
 import Foundation
 
-/// 协调本地图片解码、循环帧输出、编码和预览资源。
+/// 协调本地图片解码、循环帧输出和预览资源。
 final class ImageController: @unchecked Sendable {
 
     // 轨道标识
@@ -11,7 +11,6 @@ final class ImageController: @unchecked Sendable {
 
     // 业务层组件
     private let imageSourceController: any ImageSourceControlling
-    private let transportController: any TransportControlling
 
     // 并发控制
     private let stateLock = NSLock()
@@ -22,7 +21,7 @@ final class ImageController: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
-        transportController: any TransportControlling,
+        frameListener: @escaping MediaVideoFrameListener,
         errorListener: @escaping ImageSourceErrorListener
     ) {
         let imageManager = ImageManager()
@@ -31,23 +30,18 @@ final class ImageController: @unchecked Sendable {
             imageSourceController: ImageSourceController(
                 imageManager: imageManager,
                 mediaService: MediaService(),
-                frameListener: { frame in
-                    try transportController.pushLocalVideoFrame(frame)
-                },
+                frameListener: frameListener,
                 errorListener: errorListener
-            ),
-            transportController: transportController
+            )
         )
     }
 
     init(
         rtcManager: any RtcManaging,
-        imageSourceController: any ImageSourceControlling,
-        transportController: any TransportControlling
+        imageSourceController: any ImageSourceControlling
     ) {
         self.rtcManager = rtcManager
         self.imageSourceController = imageSourceController
-        self.transportController = transportController
     }
 
     /// 当前活动的本地图片视频轨道；尚未创建时返回空值。
@@ -123,15 +117,15 @@ final class ImageController: @unchecked Sendable {
 
         if let track {
             await MainActor.run {
-                VideoRenderRegistry.unregister(track)
                 do {
-                    try rtcManager.unbindLocalVideo()
+                    try VideoRenderRegistry.binding(for: track)?.detach()
                 } catch {
                     Self.logCleanupFailure(
-                        operation: "解除 RTC 本地预览绑定",
+                        operation: "解除本地图片预览绑定",
                         error: error
                     )
                 }
+                VideoRenderRegistry.unregister(track)
             }
         }
     }
@@ -151,33 +145,38 @@ private extension ImageController {
         var track: RealtimeVideoTrack?
 
         do {
-            let resolvedFormat: RealtimeVideoFormat
+            let preparedSource: (
+                videoFormat: RealtimeVideoFormat,
+                previewFrame: VideoFrame
+            )
             switch input {
             case .data(let imageData):
-                resolvedFormat = try await imageSourceController.prepare(
+                preparedSource = try await imageSourceController.prepare(
                     imageData: imageData,
                     videoFormat: videoFormat
                 )
             case .decoded(let decodedImage):
-                resolvedFormat = try await imageSourceController.prepare(
+                preparedSource = try await imageSourceController.prepare(
                     decodedImage: decodedImage,
                     videoFormat: videoFormat
                 )
             case .file(let fileURL):
-                resolvedFormat = try await imageSourceController.prepare(
+                preparedSource = try await imageSourceController.prepare(
                     fileURL: fileURL,
                     videoFormat: videoFormat
                 )
             }
             let localTrack = RealtimeVideoTrack(
                 id: Self.localVideoTrackID,
-                videoFormat: resolvedFormat
+                videoFormat: preparedSource.videoFormat
             )
             track = localTrack
 
-            try transportController.setVideoEncoderConfig(resolvedFormat)
             try rtcManager.useExternalVideoSource()
-            await registerPreview(for: localTrack)
+            await registerPreview(
+                for: localTrack,
+                frame: preparedSource.previewFrame
+            )
             try imageSourceController.start()
             stateLock.withLock {
                 activeTrack = localTrack
@@ -199,21 +198,13 @@ private extension ImageController {
     }
 
     @MainActor
-    func registerPreview(for track: RealtimeVideoTrack) {
+    func registerPreview(
+        for track: RealtimeVideoTrack,
+        frame: VideoFrame
+    ) {
         VideoRenderRegistry.register(
             track,
-            binding: VideoRenderBinding(
-                libraryName: rtcManager.renderLibraryName,
-                attachHandler: { view, contentMode in
-                    try self.rtcManager.bindLocalVideo(
-                        to: view,
-                        contentMode: contentMode
-                    )
-                },
-                detachHandler: {
-                    try self.rtcManager.unbindLocalVideo()
-                }
-            )
+            binding: VideoRenderBinding(imageFrame: frame)
         )
     }
 

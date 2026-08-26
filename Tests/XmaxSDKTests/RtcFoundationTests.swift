@@ -143,7 +143,7 @@ final class RtcFoundationTests: XCTestCase {
             height: 2,
             pixelFormat: .nv12
         )
-        let frame = try BufferVideoFrame(
+        let frame = try VideoFrame(
             format: format,
             timestampUs: 12_345,
             planes: [
@@ -197,7 +197,7 @@ final class RtcFoundationTests: XCTestCase {
             height: 2,
             pixelFormat: .i420
         )
-        let frame = try BufferVideoFrame(
+        let frame = try VideoFrame(
             format: format,
             timestampUs: 0,
             planes: [
@@ -231,13 +231,13 @@ final class RtcFoundationTests: XCTestCase {
         )
         let bufferReuseID = UUID()
         let cache = RtcVideoFrameCache()
-        let firstFrame = try BufferVideoFrame(
+        let firstFrame = try VideoFrame(
             format: format,
             timestampUs: 1_000,
             planes: [plane],
             bufferReuseID: bufferReuseID
         )
-        let secondFrame = try BufferVideoFrame(
+        let secondFrame = try VideoFrame(
             format: format,
             timestampUs: 2_000,
             planes: [plane],

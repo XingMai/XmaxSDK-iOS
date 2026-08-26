@@ -14,7 +14,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     private let mediaService: any MediaServicing
 
     // 图片帧监听器
-    private let frameListener: ImageSourceFrameListener
+    private let frameListener: MediaVideoFrameListener
     private let errorListener: ImageSourceErrorListener
 
     // 并发控制
@@ -30,7 +30,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     init(
         imageManager: any ImageManaging,
         mediaService: any MediaServicing,
-        frameListener: @escaping ImageSourceFrameListener,
+        frameListener: @escaping MediaVideoFrameListener,
         errorListener: @escaping ImageSourceErrorListener
     ) {
         self.imageManager = imageManager
@@ -42,7 +42,10 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     func prepare(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeVideoFormat {
+    ) async throws -> (
+        videoFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame
+    ) {
         guard fileURL.isFileURL, !fileURL.path.isEmpty else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -64,7 +67,10 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     func prepare(
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeVideoFormat {
+    ) async throws -> (
+        videoFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame
+    ) {
         guard !imageData.isEmpty else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -85,7 +91,10 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     func prepare(
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
-    ) async throws -> RealtimeVideoFormat {
+    ) async throws -> (
+        videoFormat: RealtimeVideoFormat,
+        previewFrame: VideoFrame
+    ) {
         guard stateLock.withLock({ preparedFrame == nil }) else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -100,28 +109,17 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
                 sourceHeight: Int(decodedImage.size.height),
                 requestedFormat: videoFormat
             )
-            let frameData = try decodedImage.makeVideoFrameData(
+            let frame = try decodedImage.makeVideoFrame(
                 width: resolvedFormat.width,
                 height: resolvedFormat.height
             )
-            let frameFormat = try VideoFormat(
-                width: frameData.width,
-                height: frameData.height,
-                pixelFormat: frameData.pixelFormat
-            )
-            let framePlane = try VideoFramePlane(
-                data: frameData.data,
-                stride: frameData.bytesPerRow
-            )
             stateLock.withLock {
                 preparedFrame = PreparedFrame(
-                    bufferReuseID: UUID(),
-                    format: frameFormat,
-                    plane: framePlane,
+                    frame: frame,
                     videoFormat: resolvedFormat
                 )
             }
-            return resolvedFormat
+            return (resolvedFormat, frame)
         } catch {
             throw XmaxError.from(error)
         }
@@ -202,9 +200,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
 
 private extension ImageSourceController {
     struct PreparedFrame {
-        let bufferReuseID: UUID
-        let format: VideoFormat
-        let plane: VideoFramePlane
+        let frame: VideoFrame
         let videoFormat: RealtimeVideoFormat
     }
 
@@ -221,14 +217,7 @@ private extension ImageSourceController {
                 UInt64(Int64.max)
             )
         )
-        try frameListener(
-            try BufferVideoFrame(
-                format: frame.format,
-                timestampUs: timestampUs,
-                planes: [frame.plane],
-                bufferReuseID: frame.bufferReuseID
-            )
-        )
+        try frameListener(try frame.frame.updating(timestampUs: timestampUs))
     }
 
     func resolveVideoFormat(

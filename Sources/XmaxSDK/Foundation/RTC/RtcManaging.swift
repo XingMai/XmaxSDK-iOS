@@ -43,7 +43,7 @@ protocol RtcManaging: Sendable {
 
     /// 推送一帧外部视频数据及其可选 SEI。
     func pushExternalVideoFrame(
-        _ frame: any VideoFrame,
+        _ frame: VideoFrame,
         seiData: Data?
     ) throws
 

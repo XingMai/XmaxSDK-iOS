@@ -1,6 +1,5 @@
 import Foundation
 
-typealias AudioSourceFrameListener = @Sendable (AudioFrame) throws -> Void
 typealias AudioSourceErrorListener = @Sendable (XmaxError) -> Void
 
 /// 定义本地媒体音频循环解码能力。

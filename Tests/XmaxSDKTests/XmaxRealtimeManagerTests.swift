@@ -98,6 +98,17 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(remoteStream.id, StreamID.remote.rawValue)
         XCTAssertEqual(connectedState.connectionState, .connected)
         XCTAssertEqual(connectedState.sessionID, "session-id")
+        XCTAssertTrue(
+            components.rtcManager.calls.contains(
+                .configureVideoEncoding(
+                    VideoEncodingConfiguration(
+                        width: videoFormat.width,
+                        height: videoFormat.height,
+                        frameRate: videoFormat.fps
+                    )
+                )
+            )
+        )
 
         await components.manager.disconnect()
         let disconnectedState = await components.manager.currentState
@@ -112,6 +123,50 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         try await components.manager.stopLocalCameraStream()
         XCTAssertEqual(components.rtcManager.calls.last, .destroy)
+    }
+
+    func testConnectedCameraReplacementUpdatesEncoderConfig() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+
+        _ = try await components.manager.replaceLocalCameraStream(
+            videoFormat: RealtimeVideoFormat(
+                width: 1_280,
+                height: 720,
+                fps: 30
+            ),
+            position: .back
+        )
+
+        let configurations = components.rtcManager.calls.compactMap {
+            call -> VideoEncodingConfiguration? in
+            guard case .configureVideoEncoding(let configuration) = call else {
+                return nil
+            }
+            return configuration
+        }
+        XCTAssertEqual(
+            configurations,
+            [
+                VideoEncodingConfiguration(
+                    width: videoFormat.width,
+                    height: videoFormat.height,
+                    frameRate: videoFormat.fps
+                ),
+                VideoEncodingConfiguration(
+                    width: videoFormat.width,
+                    height: videoFormat.height,
+                    frameRate: 30
+                )
+            ]
+        )
+
+        await components.manager.disconnect()
+        try await components.manager.stopLocalCameraStream()
     }
 
     func testGenerationLifecycleTransitionsAndUpdatesCondition() async throws {
@@ -376,16 +431,14 @@ private extension XmaxRealtimeManagerTests {
             permissionManager: PermissionManagingStub(),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 1_024, height: 768)
-            ),
-            transportController: transportController
+            )
         )
         let imageSource = ImageSourceControllingStub(
             resolvedFormat: imageFormat
         )
         let imageController = ImageController(
             rtcManager: rtcManager,
-            imageSourceController: imageSource,
-            transportController: transportController
+            imageSourceController: imageSource
         )
         let videoSource = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
@@ -396,8 +449,7 @@ private extension XmaxRealtimeManagerTests {
         let videoController = VideoController(
             rtcManager: rtcManager,
             permissionManager: PermissionManagingStub(),
-            mediaSourceController: videoSource,
-            transportController: transportController
+            mediaSourceController: videoSource
         )
         let mediaController = MediaController(
             rtcManager: rtcManager,

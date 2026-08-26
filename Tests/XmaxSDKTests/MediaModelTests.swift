@@ -72,7 +72,7 @@ final class MediaModelTests: XCTestCase {
         }
     }
 
-    func testBufferVideoFrameStoresNeutralFrameData() throws {
+    func testVideoFrameStoresNeutralFrameData() throws {
         let format = try VideoFormat(
             width: 2,
             height: 2,
@@ -82,7 +82,7 @@ final class MediaModelTests: XCTestCase {
             data: Data(repeating: 255, count: 16),
             stride: 8
         )
-        let frame = try BufferVideoFrame(
+        let frame = try VideoFrame(
             format: format,
             timestampUs: 33_333,
             planes: [plane],
@@ -96,7 +96,7 @@ final class MediaModelTests: XCTestCase {
         XCTAssertEqual(frame.planes, [plane])
     }
 
-    func testBufferVideoFrameRejectsNegativeTimestampAndEmptyPlanes() throws {
+    func testVideoFrameRejectsNegativeTimestampAndEmptyPlanes() throws {
         let format = try VideoFormat(
             width: 1,
             height: 1,
@@ -108,14 +108,14 @@ final class MediaModelTests: XCTestCase {
         )
 
         XCTAssertThrowsError(
-            try BufferVideoFrame(
+            try VideoFrame(
                 format: format,
                 timestampUs: -1,
                 planes: [plane]
             )
         )
         XCTAssertThrowsError(
-            try BufferVideoFrame(
+            try VideoFrame(
                 format: format,
                 timestampUs: 0,
                 planes: []

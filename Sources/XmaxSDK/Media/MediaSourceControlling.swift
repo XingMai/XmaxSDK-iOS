@@ -1,9 +1,5 @@
 import Foundation
 
-typealias MediaSourceVideoFrameListener =
-    @Sendable (any VideoFrame) throws -> Void
-typealias MediaSourceAudioFrameListener =
-    @Sendable (AudioFrame) throws -> Void
 typealias MediaSourceErrorListener = @Sendable (XmaxError) -> Void
 
 /// 定义本地视频文件准备、循环播放和重新起播能力。

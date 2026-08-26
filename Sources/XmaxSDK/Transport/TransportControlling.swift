@@ -55,7 +55,7 @@ protocol TransportControlling: Sendable {
     ///
     /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
     /// - Throws: RTC 外部视频帧推送失败时抛出错误。
-    func pushLocalVideoFrame(_ frame: any VideoFrame) throws
+    func pushLocalVideoFrame(_ frame: VideoFrame) throws
 
     /// 推送本地外部音频帧。
     ///

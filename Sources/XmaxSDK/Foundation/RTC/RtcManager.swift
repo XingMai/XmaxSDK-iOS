@@ -228,7 +228,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     }
 
     func pushExternalVideoFrame(
-        _ frame: any VideoFrame,
+        _ frame: VideoFrame,
         seiData: Data?
     ) throws {
         try withEngine { engine in

@@ -7,7 +7,7 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
     private static let samplingTolerance = 0.75
 
     // 视频帧监听器
-    private let frameListener: VideoSourceFrameListener
+    private let frameListener: MediaVideoFrameListener
     private let errorListener: VideoSourceErrorListener
 
     // 并发控制
@@ -26,7 +26,7 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
     private var lastOutputTimestampUs: Int64?
 
     init(
-        frameListener: @escaping VideoSourceFrameListener,
+        frameListener: @escaping MediaVideoFrameListener,
         errorListener: @escaping VideoSourceErrorListener
     ) {
         self.frameListener = frameListener
@@ -156,21 +156,25 @@ private extension VideoSourceController {
         generationID: UUID,
         loopIndex: Int64
     ) async throws -> VideoFileFrameDecoder {
-        let listener = VideoDecoderListener(
-            frameHandler: { [weak self] frame in
+        try await VideoFileFrameDecoder(
+            fileURL: configuration.fileURL,
+            playbackAnchorUs: try timeline.playbackAnchorUs(
+                forLoop: loopIndex
+            ),
+            onFrame: { [weak self] frame in
                 self?.handleFrame(
                     frame,
                     generationID: generationID,
                     loopIndex: loopIndex
                 )
             },
-            endHandler: { [weak self] in
+            onEndOfStream: { [weak self] in
                 self?.handleEndOfStream(
                     generationID: generationID,
                     loopIndex: loopIndex
                 )
             },
-            errorHandler: { [weak self] message in
+            onError: { [weak self] message in
                 self?.handleError(
                     message,
                     generationID: generationID,
@@ -178,17 +182,10 @@ private extension VideoSourceController {
                 )
             }
         )
-        return try await VideoFileFrameDecoder(
-            fileURL: configuration.fileURL,
-            listener: listener,
-            playbackAnchorUs: try timeline.playbackAnchorUs(
-                forLoop: loopIndex
-            )
-        )
     }
 
     func handleFrame(
-        _ decodedFrame: VideoFileDecodedFrame,
+        _ decodedFrame: VideoFrame,
         generationID: UUID,
         loopIndex: Int64
     ) {
@@ -221,28 +218,8 @@ private extension VideoSourceController {
         }
 
         do {
-            let lumaLength = decodedFrame.width * decodedFrame.height
-            let format = try VideoFormat(
-                width: decodedFrame.width,
-                height: decodedFrame.height,
-                pixelFormat: decodedFrame.pixelFormat
-            )
-            let frame = try BufferVideoFrame(
-                format: format,
+            let frame = try decodedFrame.updating(
                 timestampUs: decodedFrame.timestampUs,
-                planes: [
-                    try VideoFramePlane(
-                        data: decodedFrame.data,
-                        stride: decodedFrame.width,
-                        byteLength: lumaLength
-                    ),
-                    try VideoFramePlane(
-                        data: decodedFrame.data,
-                        stride: decodedFrame.width,
-                        byteOffset: lumaLength,
-                        byteLength: lumaLength / 2
-                    )
-                ],
                 rotation: state.rotation
             )
             try frameListener(frame)
@@ -337,37 +314,5 @@ private extension VideoSourceController {
             return
         }
         errorListener(XmaxError.from(error))
-    }
-}
-
-private final class VideoDecoderListener:
-    VideoFileFrameDecoderListener,
-    @unchecked Sendable {
-
-    // 事件监听
-    private let frameHandler: @Sendable (VideoFileDecodedFrame) -> Void
-    private let endHandler: @Sendable () -> Void
-    private let errorHandler: @Sendable (String) -> Void
-
-    init(
-        frameHandler: @escaping @Sendable (VideoFileDecodedFrame) -> Void,
-        endHandler: @escaping @Sendable () -> Void,
-        errorHandler: @escaping @Sendable (String) -> Void
-    ) {
-        self.frameHandler = frameHandler
-        self.endHandler = endHandler
-        self.errorHandler = errorHandler
-    }
-
-    func onFrame(_ frame: VideoFileDecodedFrame) {
-        frameHandler(frame)
-    }
-
-    func onEndOfStream() {
-        endHandler()
-    }
-
-    func onError(message: String) {
-        errorHandler(message)
     }
 }

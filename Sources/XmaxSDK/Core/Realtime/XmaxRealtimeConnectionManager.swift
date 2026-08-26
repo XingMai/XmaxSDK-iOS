@@ -162,7 +162,7 @@ private extension XmaxRealtimeConnectionManager {
                         contentMode: contentMode
                     )
                 },
-                detachHandler: {
+                detachHandler: { _ in
                     try remoteVideoController.detach()
                 }
             )

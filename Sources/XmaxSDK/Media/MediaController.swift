@@ -21,22 +21,23 @@ actor MediaController: MediaControlling {
     @MainActor
     init(
         rtcManager: any RtcManaging,
-        transportController: any TransportControlling,
+        videoFrameListener: @escaping MediaVideoFrameListener,
+        audioFrameListener: @escaping MediaAudioFrameListener,
         mediaErrorListener: @escaping MediaSourceErrorListener
     ) {
         self.rtcManager = rtcManager
         cameraController = CameraController(
-            rtcManager: rtcManager,
-            transportController: transportController
+            rtcManager: rtcManager
         )
         imageController = ImageController(
             rtcManager: rtcManager,
-            transportController: transportController,
+            frameListener: videoFrameListener,
             errorListener: mediaErrorListener
         )
         videoController = VideoController(
             rtcManager: rtcManager,
-            transportController: transportController,
+            videoFrameListener: videoFrameListener,
+            audioFrameListener: audioFrameListener,
             errorListener: mediaErrorListener
         )
     }
