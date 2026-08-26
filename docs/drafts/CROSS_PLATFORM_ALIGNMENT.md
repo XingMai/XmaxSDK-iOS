@@ -68,7 +68,7 @@ Harmony：
 
 ## SYNC-003 图片处理职责收敛
 
-状态：已确认，iOS 已完成代码调整和真机目标编译，待运行验证。
+状态：已确认；iOS 已完成代码调整和真机目标编译，Harmony 已完成 Media Service 职责收敛。
 
 统一行为：
 
@@ -90,9 +90,11 @@ iOS：
 
 Harmony：
 
-- [ ] 检查 Service 层是否包含图片选择、通用缩放或编码能力。
-- [ ] 将模型尺寸规则与底层图片像素处理分离。
+- [x] `MediaServicing` 只保留 `resolveModelInputSize()`，继续通过 `XmaxClient.createMediaService()` 对外提供模型尺寸规则。
+- [x] 删除 Service 层的图片选择、通用缩放、JPEG 编码能力和 `ProcessedImage`。
+- [x] 将模型尺寸规则与底层图片像素处理分离。
 - [ ] 评估是否需要将已解码图片抽象统一为 `DecodedImage` 对应模型。
+- [x] Harmony HAR 构建通过。
 
 ## SYNC-004 iOS Manager 命名规范
 
