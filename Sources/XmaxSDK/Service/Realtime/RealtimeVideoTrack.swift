@@ -52,3 +52,6 @@ private extension RealtimeVideoTrack {
         var position: CameraPosition?
     }
 }
+
+/// 摄像头首帧已经可以用于预览时触发的监听器。
+public typealias RealtimeCameraPreviewReadyListener = @MainActor @Sendable () -> Void

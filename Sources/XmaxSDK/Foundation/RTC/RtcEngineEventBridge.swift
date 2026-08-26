@@ -3,6 +3,9 @@ import Foundation
 
 /// 将火山 RTC Engine 回调转发给中性的 RTC 基础层。
 final class RtcEngineEventBridge: NSObject, ByteRTCEngineDelegate {
+    typealias FirstLocalVideoFrameHandler = @Sendable (
+        ByteRTCEngine
+    ) -> Void
     typealias SeiHandler = @Sendable (
         ByteRTCEngine,
         String,
@@ -21,18 +24,29 @@ final class RtcEngineEventBridge: NSObject, ByteRTCEngineDelegate {
     ) -> Void
 
     // 事件回调
+    private let onFirstLocalVideoFrame: FirstLocalVideoFrameHandler
     private let onSei: SeiHandler
     private let onSystemStats: SystemStatsHandler
     private let onPerformanceAlarm: PerformanceAlarmHandler
 
     init(
+        onFirstLocalVideoFrame: @escaping FirstLocalVideoFrameHandler,
         onSei: @escaping SeiHandler,
         onSystemStats: @escaping SystemStatsHandler,
         onPerformanceAlarm: @escaping PerformanceAlarmHandler
     ) {
+        self.onFirstLocalVideoFrame = onFirstLocalVideoFrame
         self.onSei = onSei
         self.onSystemStats = onSystemStats
         self.onPerformanceAlarm = onPerformanceAlarm
+    }
+
+    func rtcEngine(
+        _ engine: ByteRTCEngine,
+        onFirstLocalVideoFrameCaptured videoSource: ByteRTCVideoSource?,
+        withFrameInfo frameInfo: ByteRTCVideoFrameInfo
+    ) {
+        onFirstLocalVideoFrame(engine)
     }
 
     func rtcEngine(

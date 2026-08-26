@@ -1,5 +1,7 @@
 import UIKit
 
+typealias RtcCameraPreviewReadyListener = @MainActor @Sendable () -> Void
+
 /// 定义 RTC 引擎、房间、媒体传输和渲染绑定能力。
 protocol RtcManaging: Sendable {
 
@@ -107,6 +109,11 @@ protocol RtcManaging: Sendable {
 
     /// 设置 RTC 事件监听器，传入空值时清除监听器。
     func setEventListener(_ listener: (any RtcEventListener)?)
+
+    /// 设置 RTC 摄像头预览就绪监听器，传入空值时清除监听器。
+    func setCameraPreviewReadyListener(
+        _ listener: RtcCameraPreviewReadyListener?
+    )
 
     /// 设置 RTC 质量事件监听器，传入空值时清除监听器。
     func setQualityListener(_ listener: (any RtcQualityListener)?)

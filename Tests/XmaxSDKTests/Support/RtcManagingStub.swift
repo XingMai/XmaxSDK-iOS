@@ -60,6 +60,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private var storedCalls: [RtcManagingCall] = []
     private weak var storedEventListener: (any RtcEventListener)?
     private weak var storedQualityListener: (any RtcQualityListener)?
+    private var storedCameraPreviewReadyListener:
+        RtcCameraPreviewReadyListener?
 
     init(
         initializationError: (any Error)? = nil,
@@ -316,6 +318,14 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
+    func setCameraPreviewReadyListener(
+        _ listener: RtcCameraPreviewReadyListener?
+    ) {
+        lock.withLock {
+            storedCameraPreviewReadyListener = listener
+        }
+    }
+
     func setQualityListener(_ listener: (any RtcQualityListener)?) {
         lock.withLock {
             storedQualityListener = listener
@@ -324,6 +334,12 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
 }
 
 extension RtcManagingStub {
+    @MainActor
+    func emitCameraPreviewReady() {
+        let listener = lock.withLock { storedCameraPreviewReadyListener }
+        listener?()
+    }
+
     @MainActor
     func emitRemoteVideoPublished(
         userID: String,

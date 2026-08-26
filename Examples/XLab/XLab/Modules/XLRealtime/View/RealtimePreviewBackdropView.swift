@@ -26,6 +26,7 @@ final class RealtimePreviewBackdropView: UIView {
         let view = XmaxVideoView()
         view.videoContentMode = videoContentMode
         view.backgroundColor = .feed(rgb: 0x101010)
+        view.alpha = 0
         view.isHidden = true
         return view
     }()
@@ -69,16 +70,31 @@ final class RealtimePreviewBackdropView: UIView {
     }
 
     func prepareRealtime(_ track: RealtimeVideoTrack?) {
+        remoteVideoView.layer.removeAllAnimations()
+        remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
         remoteVideoView.track = track
     }
 
     func showRealtime() {
         guard remoteVideoView.track != nil else { return }
+        guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
+            return
+        }
+        remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.isHidden = false
+        UIView.animate(
+            withDuration: 0.3,
+            delay: 0,
+            options: [.beginFromCurrentState, .curveEaseInOut]
+        ) {
+            self.remoteVideoView.alpha = 1
+        }
     }
 
     private func clearRealtime() {
+        remoteVideoView.layer.removeAllAnimations()
+        remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
         remoteVideoView.track = nil
     }

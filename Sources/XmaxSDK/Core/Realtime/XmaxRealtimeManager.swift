@@ -107,6 +107,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         errorListener = listener
     }
 
+    func setCameraPreviewReadyListener(
+        _ listener: RealtimeCameraPreviewReadyListener?
+    ) async {
+        await mediaController.setCameraPreviewReadyListener(listener)
+    }
+
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {

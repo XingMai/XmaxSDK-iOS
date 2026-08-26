@@ -75,6 +75,13 @@ actor MediaController: MediaControlling {
         return videoController?.hasAudio ?? false
     }
 
+    /// 设置摄像头预览就绪监听器。
+    func setCameraPreviewReadyListener(
+        _ listener: RealtimeCameraPreviewReadyListener?
+    ) {
+        cameraController.setPreviewReadyListener(listener)
+    }
+
     /// 创建相机媒体来源并取得本地媒体所有权。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,

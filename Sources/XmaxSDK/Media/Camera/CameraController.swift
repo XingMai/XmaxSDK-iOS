@@ -46,6 +46,13 @@ final class CameraController: @unchecked Sendable {
         stateLock.withLock { activeTrack }
     }
 
+    /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
+    func setPreviewReadyListener(
+        _ listener: RealtimeCameraPreviewReadyListener?
+    ) {
+        rtcManager.setCameraPreviewReadyListener(listener)
+    }
+
     /// 创建并启动本地相机流。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,

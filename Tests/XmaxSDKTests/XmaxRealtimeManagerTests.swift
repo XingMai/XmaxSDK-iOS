@@ -334,6 +334,20 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
+    func testCameraPreviewReadyListenerReceivesRtcEvent() async {
+        let components = makeComponents()
+        var callbackCount = 0
+        await components.manager.setCameraPreviewReadyListener {
+            callbackCount += 1
+        }
+
+        components.rtcManager.emitCameraPreviewReady()
+        await components.manager.setCameraPreviewReadyListener(nil)
+        components.rtcManager.emitCameraPreviewReady()
+
+        XCTAssertEqual(callbackCount, 1)
+    }
+
     func testConnectRejectsStreamOwnedByAnotherManager() async throws {
         let components = makeComponents()
         var receivedError: XmaxError?

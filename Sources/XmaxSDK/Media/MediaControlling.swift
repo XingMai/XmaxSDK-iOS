@@ -12,6 +12,11 @@ protocol MediaControlling: Actor {
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool { get }
 
+    /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
+    func setCameraPreviewReadyListener(
+        _ listener: RealtimeCameraPreviewReadyListener?
+    )
+
     /// 创建并持有本地相机媒体流，同时启动采集和本地预览。
     ///
     /// - Parameters:

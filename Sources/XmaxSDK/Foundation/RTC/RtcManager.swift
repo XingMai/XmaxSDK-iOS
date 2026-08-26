@@ -27,10 +27,15 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     // 事件监听
     private weak var eventListener: (any RtcEventListener)?
     private weak var qualityListener: (any RtcQualityListener)?
+    private var cameraPreviewReadyListener: RtcCameraPreviewReadyListener?
 
     // 运行状态
     private var initialization: Initialization?
     private var localVideoMirrorType = ByteRTCMirrorType.none
+    private var isCameraVideoSourceActive = false
+    private var hasCapturedFirstLocalVideoFrame = false
+    private var hasBoundLocalVideoCanvas = false
+    private var hasReportedCameraPreviewReady = false
 
     init(engineManager: RtcEngineManager = .shared) {
         self.engineManager = engineManager
@@ -86,8 +91,13 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 engineLease = nil
                 engineBridge = nil
                 initialization = nil
+                cameraPreviewReadyListener = nil
                 remoteStreamIDs.removeAll()
                 videoFrameCache.removeAll()
+                isCameraVideoSourceActive = false
+                hasCapturedFirstLocalVideoFrame = false
+                hasBoundLocalVideoCanvas = false
+                hasReportedCameraPreviewReady = false
                 return resources
             }
         }
@@ -126,28 +136,38 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             height: height,
             frameRate: frameRate
         )
-        try withEngine { engine in
-            try checkResult(
-                engine.setVideoSourceType(.internal),
-                operation: "setVideoSourceType"
-            )
+        resetCameraPreviewReadiness(cameraSourceActive: false)
+        do {
+            try withEngine { engine in
+                try checkResult(
+                    engine.setVideoSourceType(.internal),
+                    operation: "setVideoSourceType"
+                )
 
-            let configuration = ByteRTCVideoCaptureConfig()
-            configuration.preference = .mannal
-            configuration.videoSize = CGSize(width: width, height: height)
-            configuration.frameRate = frameRate
-            try checkResult(
-                engine.setVideoCaptureConfig(configuration),
-                operation: "setVideoCaptureConfig"
-            )
-            try checkResult(
-                engine.startVideoCapture(),
-                operation: "startVideoCapture"
-            )
+                let configuration = ByteRTCVideoCaptureConfig()
+                configuration.preference = .mannal
+                configuration.videoSize = CGSize(width: width, height: height)
+                configuration.frameRate = frameRate
+                try checkResult(
+                    engine.setVideoCaptureConfig(configuration),
+                    operation: "setVideoCaptureConfig"
+                )
+                resetCameraPreviewReadiness(cameraSourceActive: true)
+                try checkResult(
+                    engine.startVideoCapture(),
+                    operation: "startVideoCapture"
+                )
+            }
+        } catch {
+            resetCameraPreviewReadiness(cameraSourceActive: false)
+            throw error
         }
     }
 
     func stopVideoCapture() throws {
+        defer {
+            resetCameraPreviewReadiness(cameraSourceActive: false)
+        }
         try withOptionalEngine { engine in
             try checkResult(
                 engine.stopVideoCapture(),
@@ -174,6 +194,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     }
 
     func useExternalVideoSource() throws {
+        resetCameraPreviewReadiness(cameraSourceActive: false)
         try withEngine { engine in
             videoFrameCache.removeAll()
             try checkResult(
@@ -385,10 +406,14 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 operation: "setLocalVideoMirrorType"
             )
         }
+        markLocalVideoCanvasBound()
     }
 
     @MainActor
     func unbindLocalVideo() throws {
+        defer {
+            markLocalVideoCanvasUnbound()
+        }
         try withOptionalEngine { engine in
             try checkResult(
                 engine.setLocalVideoCanvas(withCanvas: nil),
@@ -460,6 +485,14 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     func setEventListener(_ listener: (any RtcEventListener)?) {
         stateLock.withLock {
             eventListener = listener
+        }
+    }
+
+    func setCameraPreviewReadyListener(
+        _ listener: RtcCameraPreviewReadyListener?
+    ) {
+        stateLock.withLock {
+            cameraPreviewReadyListener = listener
         }
     }
 
@@ -571,6 +604,9 @@ private extension RtcManager {
 
     func makeEngineBridge() -> RtcEngineEventBridge {
         RtcEngineEventBridge(
+            onFirstLocalVideoFrame: { [weak self] engine in
+                self?.handleFirstLocalVideoFrame(engine: engine)
+            },
             onSei: { [weak self] engine, streamID, info, message in
                 self?.handleSei(
                     engine: engine,
@@ -824,6 +860,68 @@ private extension RtcManager {
                 published: published
             )
         }
+    }
+
+    func handleFirstLocalVideoFrame(engine: ByteRTCEngine) {
+        guard stateLock.withLock({ engineLease?.engine === engine }) else {
+            return
+        }
+        markFirstLocalVideoFrameCaptured()
+    }
+
+    func resetCameraPreviewReadiness(cameraSourceActive: Bool) {
+        stateLock.withLock {
+            isCameraVideoSourceActive = cameraSourceActive
+            hasCapturedFirstLocalVideoFrame = false
+            hasReportedCameraPreviewReady = false
+        }
+    }
+
+    func markFirstLocalVideoFrameCaptured() {
+        let shouldNotify = stateLock.withLock {
+            hasCapturedFirstLocalVideoFrame = true
+            return markCameraPreviewReadyReportedIfNeeded()
+        }
+        notifyCameraPreviewReady(ifNeeded: shouldNotify)
+    }
+
+    func markLocalVideoCanvasBound() {
+        let shouldNotify = stateLock.withLock {
+            hasBoundLocalVideoCanvas = true
+            return markCameraPreviewReadyReportedIfNeeded()
+        }
+        notifyCameraPreviewReady(ifNeeded: shouldNotify)
+    }
+
+    func markLocalVideoCanvasUnbound() {
+        stateLock.withLock {
+            hasBoundLocalVideoCanvas = false
+        }
+    }
+
+    func markCameraPreviewReadyReportedIfNeeded() -> Bool {
+        guard isCameraVideoSourceActive,
+              hasCapturedFirstLocalVideoFrame,
+              hasBoundLocalVideoCanvas,
+              !hasReportedCameraPreviewReady,
+              cameraPreviewReadyListener != nil else {
+            return false
+        }
+        hasReportedCameraPreviewReady = true
+        return true
+    }
+
+    func notifyCameraPreviewReady(ifNeeded shouldNotify: Bool) {
+        guard shouldNotify else { return }
+        Task { @MainActor [weak self] in
+            self?.deliverCameraPreviewReady()
+        }
+    }
+
+    @MainActor
+    func deliverCameraPreviewReady() {
+        let listener = stateLock.withLock { cameraPreviewReadyListener }
+        listener?()
     }
 
     func handleSei(

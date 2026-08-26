@@ -26,6 +26,8 @@
 		F11000000000000000000008 /* RealtimeReferenceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000008 /* RealtimeReferenceListView.swift */; };
 		F11000000000000000000009 /* RealtimeLocalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000009 /* RealtimeLocalInput.swift */; };
 		F1100000000000000000000A /* RealtimeReferenceCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000A /* RealtimeReferenceCatalog.swift */; };
+		F1100000000000000000000B /* RealtimeMediaPickerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000B /* RealtimeMediaPickerButton.swift */; };
+		F1100000000000000000000C /* RealtimeLocalMediaPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000C /* RealtimeLocalMediaPicker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +54,8 @@
 		F21000000000000000000008 /* RealtimeReferenceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceListView.swift; sourceTree = "<group>"; };
 		F21000000000000000000009 /* RealtimeLocalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeLocalInput.swift; sourceTree = "<group>"; };
 		F2100000000000000000000A /* RealtimeReferenceCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceCatalog.swift; sourceTree = "<group>"; };
+		F2100000000000000000000B /* RealtimeMediaPickerButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeMediaPickerButton.swift; sourceTree = "<group>"; };
+		F2100000000000000000000C /* RealtimeLocalMediaPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeLocalMediaPicker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,6 +133,7 @@
 			children = (
 				F20000000000000000000001 /* RealtimeViewController.swift */,
 				C00000000000000000000006 /* Model */,
+				C00000000000000000000007 /* Service */,
 				C00000000000000000000005 /* View */,
 			);
 			path = XLRealtime;
@@ -155,6 +160,7 @@
 			isa = PBXGroup;
 			children = (
 				F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */,
+				F2100000000000000000000B /* RealtimeMediaPickerButton.swift */,
 				F21000000000000000000002 /* RealtimeControlPanelView.swift */,
 				F21000000000000000000003 /* RealtimeLoadingOverlay.swift */,
 				F21000000000000000000004 /* RealtimePreviewBackdropView.swift */,
@@ -173,6 +179,14 @@
 				F2100000000000000000000A /* RealtimeReferenceCatalog.swift */,
 			);
 			path = Model;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000007 /* Service */ = {
+			isa = PBXGroup;
+			children = (
+				F2100000000000000000000C /* RealtimeLocalMediaPicker.swift */,
+			);
+			path = Service;
 			sourceTree = "<group>";
 		};
 		C30000000000000000000001 /* Components */ = {
@@ -321,6 +335,8 @@
 				F11000000000000000000008 /* RealtimeReferenceListView.swift in Sources */,
 				F11000000000000000000009 /* RealtimeLocalInput.swift in Sources */,
 				F1100000000000000000000A /* RealtimeReferenceCatalog.swift in Sources */,
+				F1100000000000000000000B /* RealtimeMediaPickerButton.swift in Sources */,
+				F1100000000000000000000C /* RealtimeLocalMediaPicker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

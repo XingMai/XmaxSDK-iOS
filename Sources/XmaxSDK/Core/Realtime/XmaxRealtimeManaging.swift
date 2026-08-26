@@ -18,6 +18,11 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 设置实时错误监听器，传入空值时清除监听器。
     func setErrorListener(_ listener: RealtimeErrorListener?) async
 
+    /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
+    func setCameraPreviewReadyListener(
+        _ listener: RealtimeCameraPreviewReadyListener?
+    ) async
+
     /// 设置网络质量监听器，传入空值时清除监听器。
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
