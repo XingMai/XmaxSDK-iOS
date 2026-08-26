@@ -5,10 +5,10 @@ import XCTest
 @MainActor
 final class XmaxRealtimeConnectionManagerTests: XCTestCase {
     func testConnectCreatesSessionJoinsRoomAndPublishesLocalMedia() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let sessionService = RealtimeSessionServicingStub(session: session)
         let components = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: sessionService
         )
         let format = RealtimeVideoFormat(
@@ -31,7 +31,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         let currentSessionID = await components.manager.currentSessionID
         XCTAssertEqual(currentSessionID, "session-id")
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .joinRoom(
                     RoomJoinConfiguration(
@@ -61,9 +61,9 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
     }
 
     func testRemoteTrackBindingRendersSelectedRtcStream() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let components = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: RealtimeSessionServicingStub(session: session)
         )
         let stream = try await components.manager.connect(
@@ -89,20 +89,20 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         try components.remoteVideoController.setRemoteStream(remoteStream)
 
         XCTAssertEqual(
-            rtcProvider.calls.last,
+            rtcManager.calls.last,
             .bindRemoteVideo(remoteStream, .fit)
         )
         _ = await components.manager.disconnect()
         XCTAssertTrue(
-            rtcProvider.calls.contains(.unbindRemoteVideo(remoteStream))
+            rtcManager.calls.contains(.unbindRemoteVideo(remoteStream))
         )
     }
 
     func testDisconnectStopsHeartbeatAndReleasesConnectionResources() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let sessionService = RealtimeSessionServicingStub(session: session)
         let components = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: sessionService
         )
         let stream = try await components.manager.connect(
@@ -130,7 +130,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             ]
         )
         XCTAssertEqual(
-            Array(rtcProvider.calls.suffix(3)),
+            Array(rtcManager.calls.suffix(3)),
             [.unpublishLocalAudio, .unpublishLocalVideo, .leaveRoom]
         )
     }
@@ -140,12 +140,12 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             code: .rtcError,
             message: "publish failed"
         )
-        let rtcProvider = RtcProvidingStub(
+        let rtcManager = RtcManagingStub(
             publishLocalVideoError: expectedError
         )
         let sessionService = RealtimeSessionServicingStub(session: session)
         let components = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: sessionService
         )
 
@@ -171,7 +171,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             ]
         )
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .joinRoom(
                     RoomJoinConfiguration(
@@ -187,10 +187,10 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
     }
 
     func testCancelledConnectionClosesLateSessionWithoutJoiningRoom() async {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let sessionService = RealtimeSessionServicingStub(session: session)
         let components = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: sessionService
         )
 
@@ -213,7 +213,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             )
         }
 
-        XCTAssertTrue(rtcProvider.calls.isEmpty)
+        XCTAssertTrue(rtcManager.calls.isEmpty)
         XCTAssertEqual(
             sessionService.calls,
             [
@@ -291,19 +291,19 @@ private extension XmaxRealtimeConnectionManagerTests {
     }
 
     func makeManager(
-        rtcProvider: RtcProvidingStub = RtcProvidingStub(),
+        rtcManager: RtcManagingStub = RtcManagingStub(),
         sessionService: RealtimeSessionServicingStub
     ) -> Components {
         let remoteVideoController = RemoteVideoController(
-            rtcProvider: rtcProvider
+            rtcManager: rtcManager
         )
         return Components(
             manager: XmaxRealtimeConnectionManager(
-                rtcProvider: rtcProvider,
+                rtcManager: rtcManager,
                 sessionService: sessionService,
-                roomController: RoomController(rtcProvider: rtcProvider),
+                roomController: RoomController(rtcManager: rtcManager),
                 remoteVideoController: remoteVideoController,
-                streamController: StreamController(rtcProvider: rtcProvider)
+                streamController: StreamController(rtcManager: rtcManager)
             ),
             remoteVideoController: remoteVideoController
         )

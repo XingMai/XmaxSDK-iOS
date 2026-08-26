@@ -1,7 +1,7 @@
 import Foundation
 
 /// 使用平台音频播放器播放本地 PCM 音频帧。
-final class AudioProvider: AudioProviding, @unchecked Sendable {
+final class AudioManager: AudioManaging, @unchecked Sendable {
     typealias PlaybackFactory = @Sendable () throws -> any AudioPlaybackControlling
 
     // 依赖

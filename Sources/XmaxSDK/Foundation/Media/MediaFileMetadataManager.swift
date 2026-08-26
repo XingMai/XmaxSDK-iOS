@@ -3,7 +3,7 @@ import CoreGraphics
 import Foundation
 
 /// 使用 AVFoundation 读取本地媒体文件元数据。
-final class MediaFileMetadataProvider: MediaFileMetadataProviding, Sendable {
+final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
 
     func readMetadata(fileURL: URL) async throws -> MediaFileMetadata {
         guard fileURL.isFileURL,
@@ -60,7 +60,7 @@ final class MediaFileMetadataProvider: MediaFileMetadataProviding, Sendable {
     }
 }
 
-private extension MediaFileMetadataProvider {
+private extension MediaFileMetadataManager {
     static func rotation(
         from transform: CGAffineTransform
     ) -> VideoRotation {

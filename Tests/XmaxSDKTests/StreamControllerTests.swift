@@ -3,8 +3,8 @@ import XCTest
 
 final class StreamControllerTests: XCTestCase {
     func testPublishLocalCameraStreamRequiresConfiguredRoom() {
-        let rtcProvider = RtcProvidingStub()
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
 
         XCTAssertThrowsError(
             try controller.publishLocalStream(includeAudio: false)
@@ -18,12 +18,12 @@ final class StreamControllerTests: XCTestCase {
                 )
             )
         }
-        XCTAssertTrue(rtcProvider.calls.isEmpty)
+        XCTAssertTrue(rtcManager.calls.isEmpty)
     }
 
     func testPublishLocalCameraStreamPublishesVideoOnlyOnce() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(
             roomID: " room-id ",
             botName: nil
@@ -32,7 +32,7 @@ final class StreamControllerTests: XCTestCase {
         try controller.publishLocalStream(includeAudio: false)
         try controller.publishLocalStream(includeAudio: false)
 
-        XCTAssertEqual(rtcProvider.calls, [.publishLocalVideo])
+        XCTAssertEqual(rtcManager.calls, [.publishLocalVideo])
     }
 
     func testAudioPublicationFailureRollsBackNewVideoPublication() throws {
@@ -40,10 +40,10 @@ final class StreamControllerTests: XCTestCase {
             code: .rtcError,
             message: "Failed to publish local audio"
         )
-        let rtcProvider = RtcProvidingStub(
+        let rtcManager = RtcManagingStub(
             publishLocalAudioError: expectedError
         )
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(roomID: "room-id", botName: nil)
 
         XCTAssertThrowsError(
@@ -52,7 +52,7 @@ final class StreamControllerTests: XCTestCase {
             XCTAssertEqual(error as? XmaxError, expectedError)
         }
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .publishLocalVideo,
                 .publishLocalAudio,
@@ -62,8 +62,8 @@ final class StreamControllerTests: XCTestCase {
     }
 
     func testSetLocalAudioEnabledUpdatesOnlyChangedState() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(roomID: "room-id", botName: nil)
         try controller.publishLocalStream(includeAudio: false)
 
@@ -73,7 +73,7 @@ final class StreamControllerTests: XCTestCase {
         try controller.setLocalAudioEnabled(false)
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .publishLocalVideo,
                 .publishLocalAudio,
@@ -84,36 +84,36 @@ final class StreamControllerTests: XCTestCase {
 
     @MainActor
     func testRemoteVideoEventsSubscribeOnlyConfiguredBot() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(
             roomID: "room-id",
             botName: " bot-user "
         )
 
-        rtcProvider.emitRemoteVideoPublished(
+        rtcManager.emitRemoteVideoPublished(
             userID: "another-user",
             published: true
         )
-        rtcProvider.emitRemoteVideoPublished(
+        rtcManager.emitRemoteVideoPublished(
             userID: "bot-user",
             published: true
         )
-        rtcProvider.emitRemoteVideoPublished(
+        rtcManager.emitRemoteVideoPublished(
             userID: "bot-user",
             published: true
         )
-        rtcProvider.emitRemoteVideoPublished(
+        rtcManager.emitRemoteVideoPublished(
             userID: "bot-user",
             published: false
         )
-        rtcProvider.emitRemoteVideoPublished(
+        rtcManager.emitRemoteVideoPublished(
             userID: "bot-user",
             published: true
         )
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .subscribeRemoteVideo(
                     userID: "bot-user",
@@ -129,14 +129,14 @@ final class StreamControllerTests: XCTestCase {
 
     @MainActor
     func testResetRoomClearsSubscriptionsAndLocalPublications() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(
             roomID: "room-id",
             botName: "bot-user"
         )
         try controller.publishLocalStream(includeAudio: true)
-        rtcProvider.emitRemoteVideoPublished(
+        rtcManager.emitRemoteVideoPublished(
             userID: "bot-user",
             published: true
         )
@@ -145,7 +145,7 @@ final class StreamControllerTests: XCTestCase {
         controller.resetRoom()
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .publishLocalVideo,
                 .publishLocalAudio,
@@ -172,7 +172,7 @@ final class StreamControllerTests: XCTestCase {
     }
 
     func testConfigureRoomRejectsReplacementWhilePublishing() throws {
-        let controller = StreamController(rtcProvider: RtcProvidingStub())
+        let controller = StreamController(rtcManager: RtcManagingStub())
         try controller.configureRoom(roomID: "first-room", botName: nil)
         try controller.publishLocalStream(includeAudio: false)
 
@@ -195,10 +195,10 @@ final class StreamControllerTests: XCTestCase {
 
     @MainActor
     func testGenerationConfirmationMatchesTaskRoomAndBot() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         var receivedStreams: [RemoteStream?] = []
         let controller = StreamController(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 receivedStreams.append(stream)
             },
@@ -217,18 +217,18 @@ final class StreamControllerTests: XCTestCase {
             userID: "bot-user"
         )
 
-        rtcProvider.emitSeiMessage(
+        rtcManager.emitSeiMessage(
             stream: RemoteStream(
                 roomID: "another-room",
                 userID: "bot-user"
             ),
             message: "task-id"
         )
-        rtcProvider.emitSeiMessage(
+        rtcManager.emitSeiMessage(
             stream: matchingStream,
             message: "another-task"
         )
-        rtcProvider.emitSeiMessage(
+        rtcManager.emitSeiMessage(
             stream: matchingStream,
             message: " task-id "
         )
@@ -242,7 +242,7 @@ final class StreamControllerTests: XCTestCase {
     @MainActor
     func testGenerationConfirmationTimesOut() async throws {
         let controller = StreamController(
-            rtcProvider: RtcProvidingStub(),
+            rtcManager: RtcManagingStub(),
             generationTiming: StreamGenerationTiming(
                 timeoutNanoseconds: 0,
                 confirmationDelayNanoseconds: 0
@@ -270,7 +270,7 @@ final class StreamControllerTests: XCTestCase {
     func testStoppingGenerationCancelsWaitAndClearsRemoteStream() async throws {
         var receivedStreams: [RemoteStream?] = []
         let controller = StreamController(
-            rtcProvider: RtcProvidingStub(),
+            rtcManager: RtcManagingStub(),
             remoteStreamListener: { stream in
                 receivedStreams.append(stream)
             }
@@ -292,8 +292,8 @@ final class StreamControllerTests: XCTestCase {
 
     @MainActor
     func testExternalVideoFrameCarriesCurrentTaskIDAsSei() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = StreamController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(roomID: "room-id", botName: nil)
         let confirmation = try controller.beginGeneration(taskID: "task-id")
         let format = try VideoFormat(
@@ -319,7 +319,7 @@ final class StreamControllerTests: XCTestCase {
         try controller.pushLocalVideoFrame(frame)
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [.pushExternalVideoFrame(seiData: Data("task-id".utf8))]
         )
         _ = controller.stopGeneration(taskID: "task-id")

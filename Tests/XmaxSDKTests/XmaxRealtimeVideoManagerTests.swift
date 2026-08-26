@@ -5,8 +5,8 @@ import XCTest
 @MainActor
 final class XmaxRealtimeVideoManagerTests: XCTestCase {
     func testCreateWithAudioStartsExternalAudioAndPreview() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let permissionProvider = PermissionProvidingStub()
+        let rtcManager = RtcManagingStub()
+        let permissionManager = PermissionManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: videoFormat,
@@ -14,8 +14,8 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
             )
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: permissionProvider,
+            rtcManager: rtcManager,
+            permissionManager: permissionManager,
             mediaSourceController: source
         )
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
@@ -27,18 +27,18 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
 
         XCTAssertEqual(stream.videoTrack?.videoFormat, videoFormat)
         XCTAssertTrue(manager.hasAudio)
-        XCTAssertEqual(permissionProvider.microphoneRequestCount, 1)
+        XCTAssertEqual(permissionManager.microphoneRequestCount, 1)
         XCTAssertEqual(
             source.calls,
             [.prepare(fileURL, nil), .start]
         )
-        XCTAssertTrue(rtcProvider.calls.contains(.useExternalVideoSource))
-        XCTAssertTrue(rtcProvider.calls.contains(.startExternalAudioSource))
+        XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
+        XCTAssertTrue(rtcManager.calls.contains(.startExternalAudioSource))
     }
 
     func testCreateWithoutAudioDoesNotStartExternalAudio() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let permissionProvider = PermissionProvidingStub()
+        let rtcManager = RtcManagingStub()
+        let permissionManager = PermissionManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: videoFormat,
@@ -46,8 +46,8 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
             )
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: permissionProvider,
+            rtcManager: rtcManager,
+            permissionManager: permissionManager,
             mediaSourceController: source
         )
 
@@ -57,12 +57,12 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
         )
 
         XCTAssertFalse(manager.hasAudio)
-        XCTAssertEqual(permissionProvider.microphoneRequestCount, 0)
-        XCTAssertFalse(rtcProvider.calls.contains(.startExternalAudioSource))
+        XCTAssertEqual(permissionManager.microphoneRequestCount, 0)
+        XCTAssertFalse(rtcManager.calls.contains(.startExternalAudioSource))
     }
 
     func testRestartAndStopForwardLifecycleAndReleaseAudio() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: videoFormat,
@@ -70,7 +70,7 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
             )
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             mediaSourceController: source
         )
         _ = try await manager.createLocalVideoStream(
@@ -82,8 +82,8 @@ final class XmaxRealtimeVideoManagerTests: XCTestCase {
         await manager.stopLocalVideoStream()
 
         XCTAssertEqual(Array(source.calls.suffix(2)), [.restart, .stop])
-        XCTAssertTrue(rtcProvider.calls.contains(.stopExternalAudioSource))
-        XCTAssertTrue(rtcProvider.calls.contains(.unbindLocalVideo))
+        XCTAssertTrue(rtcManager.calls.contains(.stopExternalAudioSource))
+        XCTAssertTrue(rtcManager.calls.contains(.unbindLocalVideo))
         XCTAssertNil(manager.currentTrack)
     }
 }
@@ -94,16 +94,16 @@ private extension XmaxRealtimeVideoManagerTests {
     }
 
     func makeManager(
-        rtcProvider: RtcProvidingStub,
-        permissionProvider: PermissionProvidingStub =
-            PermissionProvidingStub(),
+        rtcManager: RtcManagingStub,
+        permissionManager: PermissionManagingStub =
+            PermissionManagingStub(),
         mediaSourceController: MediaSourceControllingStub
     ) -> XmaxRealtimeVideoManager {
         XmaxRealtimeVideoManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: permissionProvider,
+            rtcManager: rtcManager,
+            permissionManager: permissionManager,
             mediaSourceController: mediaSourceController,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
     }
 }

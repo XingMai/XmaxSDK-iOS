@@ -3,14 +3,14 @@ import UIKit
 @preconcurrency import VolcEngineRTC
 
 /// 提供基于火山引擎的 RTC 基础能力。
-final class RtcProvider: RtcProviding, @unchecked Sendable {
+final class RtcManager: RtcManaging, @unchecked Sendable {
 
     // RTC 配置
     /// RTC 进房回调的最长等待时间。
     static let joinTimeoutNanoseconds: UInt64 = 15_000_000_000
 
     // 依赖
-    private let engineProvider: RtcEngineProvider
+    private let engineManager: RtcEngineManager
 
     // 并发控制
     private let stateLock = NSLock()
@@ -31,8 +31,8 @@ final class RtcProvider: RtcProviding, @unchecked Sendable {
     private var initialization: Initialization?
     private var localVideoMirrorType = ByteRTCMirrorType.none
 
-    init(engineProvider: RtcEngineProvider = .shared) {
-        self.engineProvider = engineProvider
+    init(engineManager: RtcEngineManager = .shared) {
+        self.engineManager = engineManager
     }
 
     func initialize() async throws {
@@ -47,7 +47,7 @@ final class RtcProvider: RtcProviding, @unchecked Sendable {
             let initialization = Initialization(
                 id: UUID(),
                 task: Task {
-                    try await engineProvider.acquire()
+                    try await engineManager.acquire()
                 }
             )
             self.initialization = initialization
@@ -92,7 +92,7 @@ final class RtcProvider: RtcProviding, @unchecked Sendable {
 
         resources.initialization?.task.cancel()
         if let lease = resources.lease {
-            await engineProvider.release(lease)
+            await engineManager.release(lease)
         }
     }
 
@@ -467,7 +467,7 @@ final class RtcProvider: RtcProviding, @unchecked Sendable {
     }
 }
 
-private extension RtcProvider {
+private extension RtcManager {
 
     /// 保存一次共享初始化任务。
     struct Initialization {
@@ -552,7 +552,7 @@ private extension RtcProvider {
 
         if outcome == .cancelled {
             Task {
-                await engineProvider.release(lease)
+                await engineManager.release(lease)
             }
             throw Self.cancelledError(operation: "RTC initialization")
         }

@@ -9,25 +9,25 @@ final class StorageService: StorageServicing, Sendable {
     private let apiService: any ApiServicing
 
     // 基础层组件
-    private let storageProvider: any StorageProviding
+    private let storageManager: any StorageManaging
 
     // 标识生成
-    private let dateProvider: @Sendable () -> Date
-    private let identifierProvider: @Sendable () -> String
+    private let dateGenerator: @Sendable () -> Date
+    private let identifierGenerator: @Sendable () -> String
 
     /// 创建存储 Service。
     init(
         apiService: any ApiServicing,
-        storageProvider: any StorageProviding,
-        dateProvider: @escaping @Sendable () -> Date = { Date() },
-        identifierProvider: @escaping @Sendable () -> String = {
+        storageManager: any StorageManaging,
+        dateGenerator: @escaping @Sendable () -> Date = { Date() },
+        identifierGenerator: @escaping @Sendable () -> String = {
             UUID().uuidString.lowercased()
         }
     ) {
         self.apiService = apiService
-        self.storageProvider = storageProvider
-        self.dateProvider = dateProvider
-        self.identifierProvider = identifierProvider
+        self.storageManager = storageManager
+        self.dateGenerator = dateGenerator
+        self.identifierGenerator = identifierGenerator
     }
 
     func uploadImage(
@@ -135,7 +135,7 @@ final class StorageService: StorageServicing, Sendable {
             remoteURL: remoteURL,
             destinationURL: destinationURL
         )
-        return try await storageProvider.download(
+        return try await storageManager.download(
             remoteURL: remoteURL,
             destinationURL: destinationURL,
             progress: progress
@@ -151,7 +151,7 @@ final class StorageService: StorageServicing, Sendable {
             remoteURL: remoteURL,
             destinationURL: destinationURL
         )
-        return try await storageProvider.download(
+        return try await storageManager.download(
             remoteURL: remoteURL,
             destinationURL: destinationURL,
             progress: progress
@@ -285,7 +285,7 @@ private extension StorageService {
                 prefix: temporary.prefix,
                 fileName: safeName
             )
-            let stored = try await storageProvider.upload(
+            let stored = try await storageManager.upload(
                 source: source,
                 objectKey: objectKey,
                 contentType: contentType.trimmingCharacters(
@@ -537,9 +537,9 @@ private extension StorageService {
 
     func makeObjectKey(prefix: String, fileName: String) -> String {
         let milliseconds = Int64(
-            dateProvider().timeIntervalSince1970 * 1_000
+            dateGenerator().timeIntervalSince1970 * 1_000
         )
-        let identifier = identifierProvider().lowercased()
+        let identifier = identifierGenerator().lowercased()
         return "\(prefix)\(milliseconds)_\(identifier)_\(fileName)"
     }
 

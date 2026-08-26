@@ -10,7 +10,7 @@ typealias RealtimeConnectionHeartbeatFailureHandler = @Sendable (
 actor XmaxRealtimeConnectionManager {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
     // 服务层组件
     private let sessionService: any RealtimeSessionServicing
@@ -25,13 +25,13 @@ actor XmaxRealtimeConnectionManager {
     private var activeSession: RealtimeSession?
 
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         sessionService: any RealtimeSessionServicing,
         roomController: any RoomControlling,
         remoteVideoController: any RemoteVideoControlling,
         streamController: any StreamControlling
     ) {
-        self.rtcProvider = rtcProvider
+        self.rtcManager = rtcManager
         self.sessionService = sessionService
         self.roomController = roomController
         self.remoteVideoController = remoteVideoController
@@ -167,7 +167,7 @@ private extension XmaxRealtimeConnectionManager {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcProvider.renderLibraryName,
+                libraryName: rtcManager.renderLibraryName,
                 attachHandler: { view, contentMode in
                     try remoteVideoController.attach(
                         to: view,

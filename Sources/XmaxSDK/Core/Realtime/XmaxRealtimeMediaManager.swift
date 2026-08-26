@@ -4,7 +4,7 @@ import Foundation
 actor XmaxRealtimeMediaManager {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
     // 本地媒体组件
     private let cameraManager: XmaxRealtimeCameraManager
@@ -20,31 +20,31 @@ actor XmaxRealtimeMediaManager {
 
     @MainActor
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         streamController: any StreamControlling,
         mediaErrorListener: @escaping MediaSourceErrorListener
     ) {
-        self.rtcProvider = rtcProvider
-        cameraManager = XmaxRealtimeCameraManager(rtcProvider: rtcProvider)
+        self.rtcManager = rtcManager
+        cameraManager = XmaxRealtimeCameraManager(rtcManager: rtcManager)
         imageManager = XmaxRealtimeImageManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             streamController: streamController,
             errorListener: mediaErrorListener
         )
         videoManager = XmaxRealtimeVideoManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             streamController: streamController,
             errorListener: mediaErrorListener
         )
     }
 
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         cameraManager: XmaxRealtimeCameraManager,
         imageManager: XmaxRealtimeImageManager? = nil,
         videoManager: XmaxRealtimeVideoManager? = nil
     ) {
-        self.rtcProvider = rtcProvider
+        self.rtcManager = rtcManager
         self.cameraManager = cameraManager
         self.imageManager = imageManager
         self.videoManager = videoManager
@@ -305,7 +305,7 @@ private extension XmaxRealtimeMediaManager {
         let sourceID = UUID()
         activeSource = ActiveLocalMediaSource(id: sourceID, kind: kind)
         let operation = makeMediaOperation(sourceID: sourceID) {
-            try await self.rtcProvider.initialize()
+            try await self.rtcManager.initialize()
             return try await body()
         }
         mediaOperation = operation
@@ -319,7 +319,7 @@ private extension XmaxRealtimeMediaManager {
             clearMediaOperation(id: operation.id)
             if activeSource?.id == sourceID,
                stopOperation?.sourceID != sourceID {
-                await rtcProvider.destroy()
+                await rtcManager.destroy()
                 activeSource = nil
             }
             throw XmaxError.from(error)
@@ -413,7 +413,7 @@ private extension XmaxRealtimeMediaManager {
 
         if let activeSource, activeSource.id == sourceID {
             await stopSource(kind: activeSource.kind)
-            await rtcProvider.destroy()
+            await rtcManager.destroy()
             self.activeSource = nil
         }
         if stopOperation?.id == operationID {

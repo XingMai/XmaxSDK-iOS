@@ -3,8 +3,8 @@ import XCTest
 
 final class RoomControllerTests: XCTestCase {
     func testJoinForwardsConnectionAndLeaveReleasesRoom() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
 
         try await controller.join(
             connection: connection,
@@ -14,7 +14,7 @@ final class RoomControllerTests: XCTestCase {
         await controller.leave()
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .joinRoom(
                     RoomJoinConfiguration(
@@ -29,8 +29,8 @@ final class RoomControllerTests: XCTestCase {
     }
 
     func testJoinRejectsAnotherRoomUntilLeave() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
         try await controller.join(
             connection: connection,
             ensureActive: {}
@@ -61,8 +61,8 @@ final class RoomControllerTests: XCTestCase {
             code: .rtcError,
             message: "join failed"
         )
-        let rtcProvider = RtcProvidingStub(joinRoomError: expectedError)
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub(joinRoomError: expectedError)
+        let controller = RoomController(rtcManager: rtcManager)
 
         do {
             try await controller.join(
@@ -75,7 +75,7 @@ final class RoomControllerTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .joinRoom(
                     RoomJoinConfiguration(
@@ -95,8 +95,8 @@ final class RoomControllerTests: XCTestCase {
             message: "connection replaced"
         )
         let counter = LockedInvocationCounter()
-        let rtcProvider = RtcProvidingStub()
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
 
         do {
             try await controller.join(
@@ -113,12 +113,12 @@ final class RoomControllerTests: XCTestCase {
         }
 
         XCTAssertEqual(counter.value, 2)
-        XCTAssertEqual(rtcProvider.calls.last, .leaveRoom)
+        XCTAssertEqual(rtcManager.calls.last, .leaveRoom)
     }
 
     func testGenerationSignalsUseJoinedUserAndRoomProtocol() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
         try await controller.join(
             connection: connection,
             ensureActive: {}
@@ -146,7 +146,7 @@ final class RoomControllerTests: XCTestCase {
         )
         await controller.stopGeneration(taskID: "task-id")
 
-        let events = try rtcProvider.controllerMessages.map(decode)
+        let events = try rtcManager.controllerMessages.map(decode)
         XCTAssertEqual(
             events.compactMap { $0["event"] as? String },
             ["start", "change_condition", "tracks", "stop"]
@@ -158,8 +158,8 @@ final class RoomControllerTests: XCTestCase {
     }
 
     func testGenerationSignalRequiresJoinedRoom() async {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
 
         do {
             try await controller.startGeneration(
@@ -181,12 +181,12 @@ final class RoomControllerTests: XCTestCase {
                 )
             )
         }
-        XCTAssertTrue(rtcProvider.controllerMessages.isEmpty)
+        XCTAssertTrue(rtcManager.controllerMessages.isEmpty)
     }
 
     func testEmptyOptionalSignalsAreIgnored() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
         try await controller.join(
             connection: connection,
             ensureActive: {}
@@ -195,7 +195,7 @@ final class RoomControllerTests: XCTestCase {
         await controller.stopGeneration(taskID: "")
         try await controller.sendTracks(taskID: "task-id", points: [])
 
-        XCTAssertTrue(rtcProvider.controllerMessages.isEmpty)
+        XCTAssertTrue(rtcManager.controllerMessages.isEmpty)
         await controller.leave()
     }
 }
@@ -237,7 +237,7 @@ private final class LockedInvocationCounter: @unchecked Sendable {
     }
 }
 
-private extension RtcProvidingStub {
+private extension RtcManagingStub {
     var controllerMessages: [String] {
         calls.compactMap { call in
             guard case .sendRoomMessage(let message) = call else {

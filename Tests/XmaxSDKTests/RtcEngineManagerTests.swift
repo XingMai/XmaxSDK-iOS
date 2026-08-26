@@ -3,48 +3,48 @@ import Foundation
 import XCTest
 @testable import XmaxSDK
 
-final class RtcEngineProviderTests: XCTestCase {
+final class RtcEngineManagerTests: XCTestCase {
     func testAcquireCreatesAndReleaseDestroysEngine() async throws {
         let lifecycle = RtcEngineLifecycleRecorder()
-        let provider = makeProvider(lifecycle: lifecycle)
+        let manager = makeManager(lifecycle: lifecycle)
 
-        let lease = try await provider.acquire()
+        let lease = try await manager.acquire()
 
         XCTAssertEqual(lifecycle.createdAppIDs, ["test-app-id"])
         XCTAssertEqual(lifecycle.destroyCount, 0)
 
-        await provider.release(lease)
+        await manager.release(lease)
 
         XCTAssertEqual(lifecycle.destroyCount, 1)
     }
 
     func testSecondAcquireWaitsUntilFirstLeaseIsReleased() async throws {
         let lifecycle = RtcEngineLifecycleRecorder()
-        let provider = makeProvider(lifecycle: lifecycle)
-        let firstLease = try await provider.acquire()
+        let manager = makeManager(lifecycle: lifecycle)
+        let firstLease = try await manager.acquire()
         let secondTask = Task {
-            try await provider.acquire()
+            try await manager.acquire()
         }
 
         await Task.yield()
         XCTAssertEqual(lifecycle.createdAppIDs.count, 1)
 
-        await provider.release(firstLease)
+        await manager.release(firstLease)
         let secondLease = try await secondTask.value
 
         XCTAssertEqual(lifecycle.createdAppIDs.count, 2)
         XCTAssertEqual(lifecycle.destroyCount, 1)
 
-        await provider.release(secondLease)
+        await manager.release(secondLease)
         XCTAssertEqual(lifecycle.destroyCount, 2)
     }
 
     func testCancelledWaiterDoesNotAcquireEngine() async throws {
         let lifecycle = RtcEngineLifecycleRecorder()
-        let provider = makeProvider(lifecycle: lifecycle)
-        let firstLease = try await provider.acquire()
+        let manager = makeManager(lifecycle: lifecycle)
+        let firstLease = try await manager.acquire()
         let waitingTask = Task {
-            try await provider.acquire()
+            try await manager.acquire()
         }
 
         await Task.yield()
@@ -58,39 +58,39 @@ final class RtcEngineProviderTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
 
-        await provider.release(firstLease)
+        await manager.release(firstLease)
 
         XCTAssertEqual(lifecycle.createdAppIDs.count, 1)
         XCTAssertEqual(lifecycle.destroyCount, 1)
     }
 
-    func testReleaseIgnoresLeaseOwnedByAnotherProvider() async throws {
+    func testReleaseIgnoresLeaseOwnedByAnotherManager() async throws {
         let firstLifecycle = RtcEngineLifecycleRecorder()
         let secondLifecycle = RtcEngineLifecycleRecorder()
-        let firstProvider = makeProvider(lifecycle: firstLifecycle)
-        let secondProvider = makeProvider(lifecycle: secondLifecycle)
-        let firstLease = try await firstProvider.acquire()
-        let secondLease = try await secondProvider.acquire()
+        let firstManager = makeManager(lifecycle: firstLifecycle)
+        let secondManager = makeManager(lifecycle: secondLifecycle)
+        let firstLease = try await firstManager.acquire()
+        let secondLease = try await secondManager.acquire()
 
-        await firstProvider.release(secondLease)
+        await firstManager.release(secondLease)
         XCTAssertEqual(firstLifecycle.destroyCount, 0)
 
-        await firstProvider.release(firstLease)
-        await secondProvider.release(secondLease)
+        await firstManager.release(firstLease)
+        await secondManager.release(secondLease)
         XCTAssertEqual(firstLifecycle.destroyCount, 1)
         XCTAssertEqual(secondLifecycle.destroyCount, 1)
     }
 
     func testAcquireRejectsEmptyAppID() async {
         let lifecycle = RtcEngineLifecycleRecorder()
-        let provider = RtcEngineProvider(
+        let manager = RtcEngineManager(
             appID: " \n ",
             makeEngine: lifecycle.create,
             destroyEngine: lifecycle.destroy
         )
 
         do {
-            _ = try await provider.acquire()
+            _ = try await manager.acquire()
             XCTFail("Expected RTC App ID validation to fail")
         } catch {
             XCTAssertEqual(
@@ -108,10 +108,10 @@ final class RtcEngineProviderTests: XCTestCase {
 
     func testAcquireMapsEngineCreationFailure() async {
         let lifecycle = RtcEngineLifecycleRecorder(shouldFailCreation: true)
-        let provider = makeProvider(lifecycle: lifecycle)
+        let manager = makeManager(lifecycle: lifecycle)
 
         do {
-            _ = try await provider.acquire()
+            _ = try await manager.acquire()
             XCTFail("Expected RTC Engine creation to fail")
         } catch {
             XCTAssertEqual(
@@ -127,10 +127,10 @@ final class RtcEngineProviderTests: XCTestCase {
         XCTAssertEqual(lifecycle.destroyCount, 0)
     }
 
-    private func makeProvider(
+    private func makeManager(
         lifecycle: RtcEngineLifecycleRecorder
-    ) -> RtcEngineProvider {
-        RtcEngineProvider(
+    ) -> RtcEngineManager {
+        RtcEngineManager(
             appID: " test-app-id ",
             makeEngine: lifecycle.create,
             destroyEngine: lifecycle.destroy

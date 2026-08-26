@@ -6,7 +6,7 @@ import UIKit
 import XCTest
 @testable import XmaxSDK
 
-final class ImageProviderTests: XCTestCase {
+final class ImageManagerTests: XCTestCase {
     func testCenterCropRectCropsWideImageHorizontally() {
         XCTAssertEqual(
             CoreGraphicsDecodedImage.centerCropRect(
@@ -37,7 +37,7 @@ final class ImageProviderTests: XCTestCase {
             type: .png
         )
 
-        let decodedImage = try ImageProvider().decode(sourceData)
+        let decodedImage = try ImageManager().decode(sourceData)
         let frameData = try decodedImage.makeVideoFrameData(
             width: 2,
             height: 2
@@ -55,13 +55,13 @@ final class ImageProviderTests: XCTestCase {
     func testDecodeAcceptsUIKitImageDirectly() throws {
         let image = UIImage(cgImage: try makeImage(width: 4, height: 2))
 
-        let decodedImage = try ImageProvider().decode(image)
+        let decodedImage = try ImageManager().decode(image)
 
         XCTAssertEqual(decodedImage.size, CGSize(width: 4, height: 2))
     }
 
     func testDecodeRejectsEmptyData() {
-        XCTAssertThrowsError(try ImageProvider().decode(Data())) { error in
+        XCTAssertThrowsError(try ImageManager().decode(Data())) { error in
             XCTAssertEqual(
                 error as? XmaxError,
                 XmaxError(
@@ -92,7 +92,7 @@ final class ImageProviderTests: XCTestCase {
     }
 }
 
-private extension ImageProviderTests {
+private extension ImageManagerTests {
     func makeImage(width: Int, height: Int) throws -> CGImage {
         let context = try XCTUnwrap(CGContext(
             data: nil,

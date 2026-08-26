@@ -2,39 +2,39 @@ import Foundation
 import XCTest
 @testable import XmaxSDK
 
-final class PermissionProviderTests: XCTestCase {
+final class PermissionManagerTests: XCTestCase {
     func testAuthorizedPermissionReturnsWithoutRequestingAccess() async throws {
         let recorder = PermissionRequestRecorder(result: true)
-        let provider = PermissionProvider(authorizationClient: .init(
+        let manager = PermissionManager(authorizationClient: .init(
             authorizationStatus: { _ in .authorized },
             requestAccess: recorder.requestAccess
         ))
 
-        try await provider.ensureCameraPermission()
+        try await manager.ensureCameraPermission()
 
         XCTAssertEqual(recorder.permissions, [])
     }
 
     func testNotDeterminedPermissionRequestsAndAcceptsGrant() async throws {
         let recorder = PermissionRequestRecorder(result: true)
-        let provider = PermissionProvider(authorizationClient: .init(
+        let manager = PermissionManager(authorizationClient: .init(
             authorizationStatus: { _ in .notDetermined },
             requestAccess: recorder.requestAccess
         ))
 
-        try await provider.ensureMicrophonePermission()
+        try await manager.ensureMicrophonePermission()
 
         XCTAssertEqual(recorder.permissions, [.microphone])
     }
 
     func testDeniedCameraPermissionMapsToCameraError() async {
-        let provider = PermissionProvider(authorizationClient: .init(
+        let manager = PermissionManager(authorizationClient: .init(
             authorizationStatus: { _ in .denied },
             requestAccess: { _ in true }
         ))
 
         do {
-            try await provider.ensureCameraPermission()
+            try await manager.ensureCameraPermission()
             XCTFail("Expected camera permission to be denied")
         } catch {
             XCTAssertEqual(
@@ -48,13 +48,13 @@ final class PermissionProviderTests: XCTestCase {
     }
 
     func testRestrictedMicrophonePermissionMapsToMicrophoneError() async {
-        let provider = PermissionProvider(authorizationClient: .init(
+        let manager = PermissionManager(authorizationClient: .init(
             authorizationStatus: { _ in .restricted },
             requestAccess: { _ in true }
         ))
 
         do {
-            try await provider.ensureMicrophonePermission()
+            try await manager.ensureMicrophonePermission()
             XCTFail("Expected microphone permission to be denied")
         } catch {
             XCTAssertEqual(
@@ -69,13 +69,13 @@ final class PermissionProviderTests: XCTestCase {
 
     func testRejectedPermissionRequestMapsToPermissionError() async {
         let recorder = PermissionRequestRecorder(result: false)
-        let provider = PermissionProvider(authorizationClient: .init(
+        let manager = PermissionManager(authorizationClient: .init(
             authorizationStatus: { _ in .notDetermined },
             requestAccess: recorder.requestAccess
         ))
 
         do {
-            try await provider.ensureCameraPermission()
+            try await manager.ensureCameraPermission()
             XCTFail("Expected permission request to be rejected")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .cameraPermissionDenied)

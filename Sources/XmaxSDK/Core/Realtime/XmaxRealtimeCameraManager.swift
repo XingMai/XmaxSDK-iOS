@@ -8,8 +8,8 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
     private static let localVideoTrackID = "video0"
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
-    private let permissionProvider: any PermissionProviding
+    private let rtcManager: any RtcManaging
+    private let permissionManager: any PermissionManaging
 
     // 服务层组件
     private let mediaService: any MediaServicing
@@ -24,23 +24,23 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
     private var activeTrack: RealtimeVideoTrack?
 
     @MainActor
-    convenience init(rtcProvider: any RtcProviding) {
+    convenience init(rtcManager: any RtcManaging) {
         self.init(
-            rtcProvider: rtcProvider,
-            permissionProvider: PermissionProvider(),
+            rtcManager: rtcManager,
+            permissionManager: PermissionManager(),
             mediaService: MediaService(),
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
     }
 
     init(
-        rtcProvider: any RtcProviding,
-        permissionProvider: any PermissionProviding,
+        rtcManager: any RtcManaging,
+        permissionManager: any PermissionManaging,
         mediaService: any MediaServicing,
         encodingController: any EncodingControlling
     ) {
-        self.rtcProvider = rtcProvider
-        self.permissionProvider = permissionProvider
+        self.rtcManager = rtcManager
+        self.permissionManager = permissionManager
         self.mediaService = mediaService
         self.encodingController = encodingController
     }
@@ -83,10 +83,10 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
 
         do {
             let resolvedFormat = try resolveVideoFormat(videoFormat)
-            try rtcProvider.stopVideoCapture()
+            try rtcManager.stopVideoCapture()
             try encodingController.configure(resolvedFormat)
-            try rtcProvider.switchCamera(to: position)
-            try rtcProvider.startVideoCapture(
+            try rtcManager.switchCamera(to: position)
+            try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
                 height: resolvedFormat.height,
                 frameRate: resolvedFormat.fps
@@ -114,7 +114,7 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
             await MainActor.run {
                 VideoRenderRegistry.unregister(track)
                 do {
-                    try rtcProvider.unbindLocalVideo()
+                    try rtcManager.unbindLocalVideo()
                 } catch {
                     Self.logCleanupFailure(
                         operation: "解除 RTC 本地预览绑定",
@@ -125,7 +125,7 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
         }
 
         do {
-            try rtcProvider.stopVideoCapture()
+            try rtcManager.stopVideoCapture()
         } catch {
             Self.logCleanupFailure(
                 operation: "停止 RTC 相机采集",
@@ -147,7 +147,7 @@ final class XmaxRealtimeCameraManager: @unchecked Sendable {
 
         let nextPosition: CameraPosition = position == .front ? .back : .front
         do {
-            try rtcProvider.switchCamera(to: nextPosition)
+            try rtcManager.switchCamera(to: nextPosition)
             track.updatePosition(nextPosition)
             return RealtimeMediaStream(
                 id: StreamID.local.rawValue,
@@ -172,10 +172,10 @@ private extension XmaxRealtimeCameraManager {
         )
 
         do {
-            try await permissionProvider.ensureCameraPermission()
+            try await permissionManager.ensureCameraPermission()
             try encodingController.configure(resolvedFormat)
-            try rtcProvider.switchCamera(to: position)
-            try rtcProvider.startVideoCapture(
+            try rtcManager.switchCamera(to: position)
+            try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
                 height: resolvedFormat.height,
                 frameRate: resolvedFormat.fps
@@ -185,15 +185,15 @@ private extension XmaxRealtimeCameraManager {
                 VideoRenderRegistry.register(
                     track,
                     binding: VideoRenderBinding(
-                        libraryName: rtcProvider.renderLibraryName,
+                        libraryName: rtcManager.renderLibraryName,
                         attachHandler: { view, contentMode in
-                            try self.rtcProvider.bindLocalVideo(
+                            try self.rtcManager.bindLocalVideo(
                                 to: view,
                                 contentMode: contentMode
                             )
                         },
                         detachHandler: {
-                            try self.rtcProvider.unbindLocalVideo()
+                            try self.rtcManager.unbindLocalVideo()
                         }
                     )
                 )
@@ -211,7 +211,7 @@ private extension XmaxRealtimeCameraManager {
                 VideoRenderRegistry.unregister(track)
             }
             do {
-                try rtcProvider.stopVideoCapture()
+                try rtcManager.stopVideoCapture()
             } catch {
                 Self.logCleanupFailure(
                     operation: "回滚 RTC 相机采集",

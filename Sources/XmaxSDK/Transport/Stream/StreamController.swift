@@ -9,7 +9,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     @unchecked Sendable {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
     // 事件监听
     private let remoteStreamListener: RemoteStreamListener
@@ -25,14 +25,14 @@ final class StreamController: StreamControlling, RtcEventListener,
     private var state = State()
 
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         remoteStreamListener: @escaping RemoteStreamListener = { _ in },
         generationTiming: StreamGenerationTiming = .live
     ) {
-        self.rtcProvider = rtcProvider
+        self.rtcManager = rtcManager
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
-        rtcProvider.setEventListener(self)
+        rtcManager.setEventListener(self)
     }
 
     func configureRoom(
@@ -81,7 +81,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             var publishedVideoInOperation = false
             do {
                 if !currentState.localVideoPublished {
-                    try rtcProvider.publishLocalVideo()
+                    try rtcManager.publishLocalVideo()
                     stateLock.withLock {
                         state.localVideoPublished = true
                     }
@@ -89,7 +89,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 }
 
                 if includeAudio && !currentState.localAudioPublished {
-                    try rtcProvider.publishLocalAudio()
+                    try rtcManager.publishLocalAudio()
                     stateLock.withLock {
                         state.localAudioPublished = true
                     }
@@ -120,9 +120,9 @@ final class StreamController: StreamControlling, RtcEventListener,
 
             do {
                 if enabled {
-                    try rtcProvider.publishLocalAudio()
+                    try rtcManager.publishLocalAudio()
                 } else {
-                    try rtcProvider.unpublishLocalAudio()
+                    try rtcManager.unpublishLocalAudio()
                 }
                 stateLock.withLock {
                     state.localAudioPublished = enabled
@@ -136,7 +136,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     func pushLocalVideoFrame(_ frame: any VideoFrame) throws {
         let seiData = stateLock.withLock { state.generationTask?.seiData }
         do {
-            try rtcProvider.pushExternalVideoFrame(frame, seiData: seiData)
+            try rtcManager.pushExternalVideoFrame(frame, seiData: seiData)
         } catch {
             throw XmaxError.from(error)
         }
@@ -147,7 +147,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             return
         }
         do {
-            try rtcProvider.pushExternalAudioFrame(frame)
+            try rtcManager.pushExternalAudioFrame(frame)
         } catch {
             throw XmaxError.from(error)
         }
@@ -280,7 +280,7 @@ final class StreamController: StreamControlling, RtcEventListener,
 
             for userID in previousState.subscribedRemoteUserIDs.sorted() {
                 performCleanup("取消订阅 RTC 远端视频") {
-                    try rtcProvider.subscribeRemoteVideo(
+                    try rtcManager.subscribeRemoteVideo(
                         userID: userID,
                         subscribe: false
                     )
@@ -288,12 +288,12 @@ final class StreamController: StreamControlling, RtcEventListener,
             }
             if previousState.localAudioPublished {
                 performCleanup("取消发布 RTC 本地音频") {
-                    try rtcProvider.unpublishLocalAudio()
+                    try rtcManager.unpublishLocalAudio()
                 }
             }
             if previousState.localVideoPublished {
                 performCleanup("取消发布 RTC 本地视频") {
-                    try rtcProvider.unpublishLocalVideo()
+                    try rtcManager.unpublishLocalVideo()
                 }
             }
         }
@@ -444,7 +444,7 @@ private extension StreamController {
         }
 
         do {
-            try rtcProvider.subscribeRemoteVideo(
+            try rtcManager.subscribeRemoteVideo(
                 userID: userID,
                 subscribe: true
             )
@@ -526,7 +526,7 @@ private extension StreamController {
 
     func rollbackLocalVideoPublication() {
         do {
-            try rtcProvider.unpublishLocalVideo()
+            try rtcManager.unpublishLocalVideo()
             stateLock.withLock {
                 state.localVideoPublished = false
             }

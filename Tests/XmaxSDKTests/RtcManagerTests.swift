@@ -3,30 +3,30 @@ import Foundation
 import XCTest
 @testable import XmaxSDK
 
-final class RtcProviderTests: XCTestCase {
+final class RtcManagerTests: XCTestCase {
     func testInitializeIsIdempotentAndDestroyReleasesEngine() async throws {
-        let lifecycle = RtcProviderEngineLifecycleRecorder()
-        let engineProvider = RtcEngineProvider(
+        let lifecycle = RtcManagerEngineLifecycleRecorder()
+        let engineManager = RtcEngineManager(
             appID: "test-app-id",
             makeEngine: lifecycle.create,
             destroyEngine: lifecycle.destroy
         )
-        let provider = RtcProvider(engineProvider: engineProvider)
+        let manager = RtcManager(engineManager: engineManager)
 
-        try await provider.initialize()
-        try await provider.initialize()
+        try await manager.initialize()
+        try await manager.initialize()
 
         XCTAssertEqual(lifecycle.creationCount, 1)
         XCTAssertEqual(lifecycle.destroyCount, 0)
 
-        await provider.destroy()
+        await manager.destroy()
 
         XCTAssertEqual(lifecycle.destroyCount, 1)
     }
 
     func testMediaOperationRequiresInitializedEngine() {
-        let provider = RtcProvider(
-            engineProvider: RtcEngineProvider(
+        let manager = RtcManager(
+            engineManager: RtcEngineManager(
                 appID: "test-app-id",
                 makeEngine: { _ in ByteRTCEngine() },
                 destroyEngine: {}
@@ -34,7 +34,7 @@ final class RtcProviderTests: XCTestCase {
         )
 
         XCTAssertThrowsError(
-            try provider.configureVideoEncoding(
+            try manager.configureVideoEncoding(
                 VideoEncodingConfiguration(
                     width: 720,
                     height: 1280,
@@ -53,10 +53,10 @@ final class RtcProviderTests: XCTestCase {
     }
 
     func testVideoCaptureRejectsInvalidFormatBeforeEngineAccess() {
-        let provider = RtcProvider()
+        let manager = RtcManager()
 
         XCTAssertThrowsError(
-            try provider.startVideoCapture(
+            try manager.startVideoCapture(
                 width: 0,
                 height: 1280,
                 frameRate: 24
@@ -73,10 +73,10 @@ final class RtcProviderTests: XCTestCase {
     }
 
     func testJoinAllowsEmptyTokenButRequiresRoomAndUserIDs() async {
-        let provider = RtcProvider()
+        let manager = RtcManager()
 
         do {
-            try await provider.joinRoom(
+            try await manager.joinRoom(
                 configuration: RoomJoinConfiguration(
                     roomID: "",
                     userID: "user",
@@ -89,7 +89,7 @@ final class RtcProviderTests: XCTestCase {
         }
 
         do {
-            try await provider.joinRoom(
+            try await manager.joinRoom(
                 configuration: RoomJoinConfiguration(
                     roomID: "room",
                     userID: "",
@@ -102,7 +102,7 @@ final class RtcProviderTests: XCTestCase {
         }
 
         do {
-            try await provider.joinRoom(
+            try await manager.joinRoom(
                 configuration: RoomJoinConfiguration(
                     roomID: "room",
                     userID: "user",
@@ -122,11 +122,11 @@ final class RtcProviderTests: XCTestCase {
     }
 
     func testRenderLibraryNameMatchesIntegratedPod() {
-        XCTAssertEqual(RtcProvider().renderLibraryName, "VolcEngineRTC")
+        XCTAssertEqual(RtcManager().renderLibraryName, "VolcEngineRTC")
     }
 }
 
-private final class RtcProviderEngineLifecycleRecorder: @unchecked Sendable {
+private final class RtcManagerEngineLifecycleRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var creations = 0
     private var destructions = 0

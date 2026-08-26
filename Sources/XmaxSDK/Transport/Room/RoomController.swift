@@ -4,7 +4,7 @@ import Foundation
 actor RoomController: RoomControlling {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
     // 传输层组件
     private let heartbeat: RoomHeartbeat
@@ -13,16 +13,16 @@ actor RoomController: RoomControlling {
     private var state = State.idle
     private var leaveOperation: LeaveOperation?
 
-    init(rtcProvider: any RtcProviding) {
-        self.rtcProvider = rtcProvider
-        heartbeat = RoomHeartbeat(rtcProvider: rtcProvider)
+    init(rtcManager: any RtcManaging) {
+        self.rtcManager = rtcManager
+        heartbeat = RoomHeartbeat(rtcManager: rtcManager)
     }
 
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         heartbeat: RoomHeartbeat
     ) {
-        self.rtcProvider = rtcProvider
+        self.rtcManager = rtcManager
         self.heartbeat = heartbeat
     }
 
@@ -47,7 +47,7 @@ actor RoomController: RoomControlling {
         heartbeat.stop()
 
         do {
-            try await rtcProvider.joinRoom(
+            try await rtcManager.joinRoom(
                 configuration: RoomJoinConfiguration(
                     roomID: connection.roomID,
                     userID: connection.userID,
@@ -72,7 +72,7 @@ actor RoomController: RoomControlling {
                leaveOperation == nil {
                 state = .leaving
                 heartbeat.stop()
-                await rtcProvider.leaveRoom()
+                await rtcManager.leaveRoom()
                 if case .leaving = state {
                     state = .idle
                 }
@@ -198,7 +198,7 @@ private extension RoomController {
     func performLeave(operationID: UUID) async {
         state = .idle
         heartbeat.stop()
-        await rtcProvider.leaveRoom()
+        await rtcManager.leaveRoom()
 
         if leaveOperation?.id == operationID {
             leaveOperation = nil
@@ -206,7 +206,7 @@ private extension RoomController {
     }
 
     func send(_ message: String) throws {
-        try rtcProvider.sendRoomMessage(message)
+        try rtcManager.sendRoomMessage(message)
         XmaxLogger.debug(
             formatSignalLog(message),
             category: "Room"

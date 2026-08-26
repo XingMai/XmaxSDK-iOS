@@ -7,8 +7,8 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
     private static let localVideoTrackID = "video0"
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
-    private let permissionProvider: any PermissionProviding
+    private let rtcManager: any RtcManaging
+    private let permissionManager: any PermissionManaging
 
     // 业务层组件
     private let mediaSourceController: any MediaSourceControlling
@@ -22,14 +22,14 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
 
     @MainActor
     convenience init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         streamController: any StreamControlling,
         errorListener: @escaping MediaSourceErrorListener
     ) {
-        let audioProvider = AudioProvider()
+        let audioManager = AudioManager()
         let mediaSourceController = MediaSourceController(
-            metadataProvider: MediaFileMetadataProvider(),
-            audioProvider: audioProvider,
+            metadataManager: MediaFileMetadataManager(),
+            audioManager: audioManager,
             mediaService: MediaService(),
             videoSourceController: VideoSourceController(
                 frameListener: { frame in
@@ -39,28 +39,28 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
             ),
             audioSourceController: AudioSourceController(
                 frameListener: { frame in
-                    audioProvider.write(frame: frame)
+                    audioManager.write(frame: frame)
                     try streamController.pushLocalAudioFrame(frame)
                 },
                 errorListener: errorListener
             )
         )
         self.init(
-            rtcProvider: rtcProvider,
-            permissionProvider: PermissionProvider(),
+            rtcManager: rtcManager,
+            permissionManager: PermissionManager(),
             mediaSourceController: mediaSourceController,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
     }
 
     init(
-        rtcProvider: any RtcProviding,
-        permissionProvider: any PermissionProviding,
+        rtcManager: any RtcManaging,
+        permissionManager: any PermissionManaging,
         mediaSourceController: any MediaSourceControlling,
         encodingController: any EncodingControlling
     ) {
-        self.rtcProvider = rtcProvider
-        self.permissionProvider = permissionProvider
+        self.rtcManager = rtcManager
+        self.permissionManager = permissionManager
         self.mediaSourceController = mediaSourceController
         self.encodingController = encodingController
     }
@@ -117,7 +117,7 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
 
         if state.1 {
             do {
-                try rtcProvider.stopExternalAudioSource()
+                try rtcManager.stopExternalAudioSource()
             } catch {
                 Self.logCleanupFailure(
                     operation: "停止 RTC 外部音频源",
@@ -129,7 +129,7 @@ final class XmaxRealtimeVideoManager: @unchecked Sendable {
             await MainActor.run {
                 VideoRenderRegistry.unregister(track)
                 do {
-                    try rtcProvider.unbindLocalVideo()
+                    try rtcManager.unbindLocalVideo()
                 } catch {
                     Self.logCleanupFailure(
                         operation: "解除 RTC 本地预览绑定",
@@ -161,12 +161,12 @@ private extension XmaxRealtimeVideoManager {
             track = localTrack
 
             if configuration.hasAudio {
-                try await permissionProvider.ensureMicrophonePermission()
+                try await permissionManager.ensureMicrophonePermission()
             }
             try encodingController.configure(configuration.videoFormat)
-            try rtcProvider.useExternalVideoSource()
+            try rtcManager.useExternalVideoSource()
             if configuration.hasAudio {
-                try rtcProvider.startExternalAudioSource()
+                try rtcManager.startExternalAudioSource()
                 externalAudioStarted = true
             }
             await registerPreview(for: localTrack)
@@ -183,7 +183,7 @@ private extension XmaxRealtimeVideoManager {
             await mediaSourceController.stop()
             if externalAudioStarted {
                 do {
-                    try rtcProvider.stopExternalAudioSource()
+                    try rtcManager.stopExternalAudioSource()
                 } catch {
                     Self.logCleanupFailure(
                         operation: "回滚 RTC 外部音频源",
@@ -195,7 +195,7 @@ private extension XmaxRealtimeVideoManager {
                 await MainActor.run {
                     VideoRenderRegistry.unregister(track)
                     do {
-                        try rtcProvider.unbindLocalVideo()
+                        try rtcManager.unbindLocalVideo()
                     } catch {
                         Self.logCleanupFailure(
                             operation: "回滚 RTC 本地预览绑定",
@@ -213,15 +213,15 @@ private extension XmaxRealtimeVideoManager {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcProvider.renderLibraryName,
+                libraryName: rtcManager.renderLibraryName,
                 attachHandler: { view, contentMode in
-                    try self.rtcProvider.bindLocalVideo(
+                    try self.rtcManager.bindLocalVideo(
                         to: view,
                         contentMode: contentMode
                     )
                 },
                 detachHandler: {
-                    try self.rtcProvider.unbindLocalVideo()
+                    try self.rtcManager.unbindLocalVideo()
                 }
             )
         )

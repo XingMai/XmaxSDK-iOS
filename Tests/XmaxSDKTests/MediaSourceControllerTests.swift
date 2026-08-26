@@ -43,7 +43,7 @@ final class MediaSourceControllerTests: XCTestCase {
         try await components.controller.restart()
         await components.controller.stop()
 
-        XCTAssertEqual(components.audioProvider.calls, [
+        XCTAssertEqual(components.audioManager.calls, [
             .start,
             .flush,
             .stop
@@ -70,7 +70,7 @@ final class MediaSourceControllerTests: XCTestCase {
 
         try await components.controller.start()
 
-        XCTAssertTrue(components.audioProvider.calls.isEmpty)
+        XCTAssertTrue(components.audioManager.calls.isEmpty)
         XCTAssertTrue(components.audioSource.startedTimelines.isEmpty)
         XCTAssertEqual(components.videoSource.startedTimelines.count, 1)
     }
@@ -80,7 +80,7 @@ private extension MediaSourceControllerTests {
     struct Components {
         let controller: MediaSourceController
         let mediaService: MediaServicingStub
-        let audioProvider: AudioProvidingStub
+        let audioManager: AudioManagingStub
         let videoSource: VideoSourceControllingStub
         let audioSource: AudioSourceControllingStub
     }
@@ -90,7 +90,7 @@ private extension MediaSourceControllerTests {
     }
 
     func makeComponents(hasAudio: Bool) -> Components {
-        let metadataProvider = MediaFileMetadataProvidingStub(
+        let metadataManager = MediaFileMetadataManagingStub(
             metadata: MediaFileMetadata(
                 width: 1_920,
                 height: 1_080,
@@ -102,12 +102,12 @@ private extension MediaSourceControllerTests {
         let mediaService = MediaServicingStub(
             resolvedSize: CGSize(width: 832, height: 1_472)
         )
-        let audioProvider = AudioProvidingStub()
+        let audioManager = AudioManagingStub()
         let videoSource = VideoSourceControllingStub()
         let audioSource = AudioSourceControllingStub()
         let controller = MediaSourceController(
-            metadataProvider: metadataProvider,
-            audioProvider: audioProvider,
+            metadataManager: metadataManager,
+            audioManager: audioManager,
             mediaService: mediaService,
             videoSourceController: videoSource,
             audioSourceController: audioSource
@@ -115,15 +115,15 @@ private extension MediaSourceControllerTests {
         return Components(
             controller: controller,
             mediaService: mediaService,
-            audioProvider: audioProvider,
+            audioManager: audioManager,
             videoSource: videoSource,
             audioSource: audioSource
         )
     }
 }
 
-private final class MediaFileMetadataProvidingStub:
-    MediaFileMetadataProviding,
+private final class MediaFileMetadataManagingStub:
+    MediaFileMetadataManaging,
     Sendable {
 
     // 测试配置
@@ -138,19 +138,19 @@ private final class MediaFileMetadataProvidingStub:
     }
 }
 
-private enum AudioProvidingCall: Equatable {
+private enum AudioManagingCall: Equatable {
     case start
     case flush
     case stop
 }
 
-private final class AudioProvidingStub: AudioProviding, @unchecked Sendable {
+private final class AudioManagingStub: AudioManaging, @unchecked Sendable {
 
     // 并发状态
     private let lock = NSLock()
-    private var storedCalls: [AudioProvidingCall] = []
+    private var storedCalls: [AudioManagingCall] = []
 
-    var calls: [AudioProvidingCall] {
+    var calls: [AudioManagingCall] {
         lock.withLock { storedCalls }
     }
 

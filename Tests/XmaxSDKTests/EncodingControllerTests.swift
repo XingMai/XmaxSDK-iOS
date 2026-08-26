@@ -3,15 +3,15 @@ import XCTest
 
 final class EncodingControllerTests: XCTestCase {
     func testConfigureValidatesAndAppliesAdaptiveEncodingDefaults() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = EncodingController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = EncodingController(rtcManager: rtcManager)
 
         try controller.configure(
             RealtimeVideoFormat(width: 1_024, height: 768, fps: 30)
         )
 
         XCTAssertEqual(
-            rtcProvider.encodingConfigurations,
+            rtcManager.encodingConfigurations,
             [
                 VideoEncodingConfiguration(
                     width: 1_024,
@@ -23,8 +23,8 @@ final class EncodingControllerTests: XCTestCase {
     }
 
     func testConfigureRejectsInvalidFormatBeforeCallingRTC() {
-        let rtcProvider = RtcProvidingStub()
-        let controller = EncodingController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = EncodingController(rtcManager: rtcManager)
 
         XCTAssertThrowsError(
             try controller.configure(
@@ -40,7 +40,7 @@ final class EncodingControllerTests: XCTestCase {
                 )
             )
         }
-        XCTAssertTrue(rtcProvider.encodingConfigurations.isEmpty)
+        XCTAssertTrue(rtcManager.encodingConfigurations.isEmpty)
     }
 
     func testConfigurePreservesRTCError() {
@@ -49,7 +49,7 @@ final class EncodingControllerTests: XCTestCase {
             message: "Failed to configure RTC encoding"
         )
         let controller = EncodingController(
-            rtcProvider: RtcProvidingStub(encodingError: expectedError)
+            rtcManager: RtcManagingStub(encodingError: expectedError)
         )
 
         XCTAssertThrowsError(

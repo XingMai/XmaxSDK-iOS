@@ -1,7 +1,7 @@
 #if canImport(UIKit)
 import UIKit
 
-extension ImageProvider {
+extension ImageManager {
     /// 将 UIKit 图片直接规范为已解码图片，不经过 PNG/JPEG 中转。
     func decode(_ image: UIImage) throws -> any DecodedImage {
         if image.imageOrientation == .up,

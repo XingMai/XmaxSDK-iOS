@@ -2,7 +2,7 @@ import Foundation
 import ImageIO
 
 /// 使用 ImageIO 提供 SDK 内部图片解码能力。
-final class ImageProvider: ImageProviding, Sendable {
+final class ImageManager: ImageManaging, Sendable {
     func decode(_ data: Data) throws -> any DecodedImage {
         guard !data.isEmpty,
               let source = CGImageSourceCreateWithData(data as CFData, nil) else {

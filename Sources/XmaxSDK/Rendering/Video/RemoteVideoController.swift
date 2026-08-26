@@ -5,28 +5,28 @@ import UIKit
 final class RemoteVideoController: RemoteVideoControlling {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
     // 渲染资源
     private var remoteStream: RemoteStream?
     private weak var remoteView: UIView?
     private var remoteContentMode = VideoContentMode.fill
 
-    init(rtcProvider: any RtcProviding) {
-        self.rtcProvider = rtcProvider
+    init(rtcManager: any RtcManaging) {
+        self.rtcManager = rtcManager
     }
 
     func setRemoteStream(_ stream: RemoteStream?) throws {
         let previousStream = remoteStream
         if let previousStream, previousStream != stream {
-            try rtcProvider.unbindRemoteVideo(previousStream)
+            try rtcManager.unbindRemoteVideo(previousStream)
         }
 
         remoteStream = stream
         guard let stream, let remoteView else {
             return
         }
-        try rtcProvider.bindRemoteVideo(
+        try rtcManager.bindRemoteVideo(
             stream,
             to: remoteView,
             contentMode: remoteContentMode
@@ -40,7 +40,7 @@ final class RemoteVideoController: RemoteVideoControlling {
         if let remoteView,
            remoteView !== view,
            let remoteStream {
-            try rtcProvider.unbindRemoteVideo(remoteStream)
+            try rtcManager.unbindRemoteVideo(remoteStream)
         }
 
         remoteView = view
@@ -48,7 +48,7 @@ final class RemoteVideoController: RemoteVideoControlling {
         guard let remoteStream else {
             return
         }
-        try rtcProvider.bindRemoteVideo(
+        try rtcManager.bindRemoteVideo(
             remoteStream,
             to: view,
             contentMode: contentMode
@@ -61,7 +61,7 @@ final class RemoteVideoController: RemoteVideoControlling {
         }
         remoteView = nil
         if let remoteStream {
-            try rtcProvider.unbindRemoteVideo(remoteStream)
+            try rtcManager.unbindRemoteVideo(remoteStream)
         }
     }
 
@@ -72,7 +72,7 @@ final class RemoteVideoController: RemoteVideoControlling {
         remoteContentMode = .fill
 
         if let stream {
-            try rtcProvider.unbindRemoteVideo(stream)
+            try rtcManager.unbindRemoteVideo(stream)
         }
     }
 }

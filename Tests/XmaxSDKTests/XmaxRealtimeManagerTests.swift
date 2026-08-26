@@ -17,8 +17,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(manager.options.model, .x2_0)
         XCTAssertTrue(stream.videoTrack === switchedStream.videoTrack)
         XCTAssertEqual(switchedStream.videoTrack?.position, .back)
-        XCTAssertEqual(components.rtcProvider.calls.first, .initialize)
-        XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
+        XCTAssertEqual(components.rtcManager.calls.first, .initialize)
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
     func testPublicInterfaceForwardsImageLifecycle() async throws {
@@ -33,8 +33,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
         XCTAssertNil(stream.videoTrack?.position)
-        XCTAssertEqual(components.rtcProvider.calls.first, .initialize)
-        XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
+        XCTAssertEqual(components.rtcManager.calls.first, .initialize)
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
     func testPublicInterfaceAcceptsEncodedImageData() async throws {
@@ -108,10 +108,10 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(disconnectedState.connectionState, .disconnected)
         XCTAssertEqual(disconnectedState.sessionID, "session-id")
         XCTAssertTrue(stillOwnsLocalStream)
-        XCTAssertFalse(components.rtcProvider.calls.contains(.destroy))
+        XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
 
         try await components.manager.stopLocalCameraStream()
-        XCTAssertEqual(components.rtcProvider.calls.last, .destroy)
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
     func testReplaceConnectedCameraWithImagePreservesConnection() async throws {
@@ -135,7 +135,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(state.connectionState, .connected)
         XCTAssertEqual(imageStream.videoTrack?.videoFormat, imageFormat)
         XCTAssertEqual(remoteStream.videoTrack?.videoFormat, imageFormat)
-        XCTAssertFalse(components.rtcProvider.calls.contains(.leaveRoom))
+        XCTAssertFalse(components.rtcManager.calls.contains(.leaveRoom))
         XCTAssertFalse(
             components.sessionService.calls.contains(
                 .closeSession("session-id")
@@ -159,14 +159,14 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 context: RealtimeContext(prompt: "first")
             )
         }
-        await waitForEvent("start", rtcProvider: components.rtcProvider)
+        await waitForEvent("start", rtcManager: components.rtcManager)
         let startEvent = try XCTUnwrap(
-            decodedEvents(components.rtcProvider).first {
+            decodedEvents(components.rtcManager).first {
                 $0["event"] as? String == "start"
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcProvider.emitSeiMessage(
+        components.rtcManager.emitSeiMessage(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
@@ -183,7 +183,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             context: RealtimeContext(prompt: "second")
         )
         let changeEvent = try XCTUnwrap(
-            decodedEvents(components.rtcProvider).last {
+            decodedEvents(components.rtcManager).last {
                 $0["event"] as? String == "change_condition"
             }
         )
@@ -212,15 +212,15 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 context: RealtimeContext(prompt: "video")
             )
         }
-        await waitForEvent("start", rtcProvider: components.rtcProvider)
+        await waitForEvent("start", rtcManager: components.rtcManager)
         await waitForVideoRestart(components.videoSource)
         let startEvent = try XCTUnwrap(
-            decodedEvents(components.rtcProvider).first {
+            decodedEvents(components.rtcManager).first {
                 $0["event"] as? String == "start"
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcProvider.emitSeiMessage(
+        components.rtcManager.emitSeiMessage(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
@@ -230,7 +230,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await startTask.value
 
         XCTAssertTrue(components.videoSource.calls.contains(.restart))
-        XCTAssertTrue(components.rtcProvider.calls.contains(.publishLocalAudio))
+        XCTAssertTrue(components.rtcManager.calls.contains(.publishLocalAudio))
 
         await components.manager.stopGeneration()
         await components.manager.disconnect()
@@ -256,7 +256,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             1
         )
         XCTAssertEqual(
-            components.rtcProvider.calls.filter { $0 == .leaveRoom }.count,
+            components.rtcManager.calls.filter { $0 == .leaveRoom }.count,
             1
         )
         try await components.manager.stopLocalCameraStream()
@@ -286,7 +286,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let state = await components.manager.currentState
         XCTAssertEqual(state.connectionState, .error)
         XCTAssertEqual(receivedErrors, [expectedError])
-        XCTAssertFalse(components.rtcProvider.calls.contains(.destroy))
+        XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
         try await components.manager.stopLocalCameraStream()
     }
 
@@ -350,11 +350,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             receivedAlarm = alarm
         }
 
-        components.rtcProvider.emitNetworkQuality(
+        components.rtcManager.emitNetworkQuality(
             uplink: .good,
             downlink: .poor
         )
-        components.rtcProvider.emitPerformanceAlarm(
+        components.rtcManager.emitPerformanceAlarm(
             limited: true,
             suggestedWidth: 540,
             suggestedHeight: 960,
@@ -374,7 +374,7 @@ private extension XmaxRealtimeManagerTests {
     struct Components {
         let manager: XmaxRealtimeManager
         let mediaManager: XmaxRealtimeMediaManager
-        let rtcProvider: RtcProvidingStub
+        let rtcManager: RtcManagingStub
         let sessionService: RealtimeSessionServicingStub
         let imageSource: ImageSourceControllingStub
         let videoSource: MediaSourceControllingStub
@@ -389,22 +389,22 @@ private extension XmaxRealtimeManagerTests {
     }
 
     func makeComponents() -> Components {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let cameraManager = XmaxRealtimeCameraManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: PermissionProvidingStub(),
+            rtcManager: rtcManager,
+            permissionManager: PermissionManagingStub(),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 1_024, height: 768)
             ),
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
         let imageSource = ImageSourceControllingStub(
             resolvedFormat: imageFormat
         )
         let imageManager = XmaxRealtimeImageManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             imageSourceController: imageSource,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
         let videoSource = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
@@ -413,23 +413,23 @@ private extension XmaxRealtimeManagerTests {
             )
         )
         let videoManager = XmaxRealtimeVideoManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: PermissionProvidingStub(),
+            rtcManager: rtcManager,
+            permissionManager: PermissionManagingStub(),
             mediaSourceController: videoSource,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
         let mediaManager = XmaxRealtimeMediaManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             cameraManager: cameraManager,
             imageManager: imageManager,
             videoManager: videoManager
         )
-        let roomController = RoomController(rtcProvider: rtcProvider)
+        let roomController = RoomController(rtcManager: rtcManager)
         let remoteVideoController = RemoteVideoController(
-            rtcProvider: rtcProvider
+            rtcManager: rtcManager
         )
         let streamController = StreamController(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 try remoteVideoController.setRemoteStream(stream)
             },
@@ -453,7 +453,7 @@ private extension XmaxRealtimeManagerTests {
             )
         )
         let connectionManager = XmaxRealtimeConnectionManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: sessionService,
             roomController: roomController,
             remoteVideoController: remoteVideoController,
@@ -463,7 +463,7 @@ private extension XmaxRealtimeManagerTests {
             manager: XmaxRealtimeManager(
                 options: RealtimeConfiguration(model: .x2_0),
                 qualityController: QualityController(
-                    rtcProvider: rtcProvider
+                    rtcManager: rtcManager
                 ),
                 streamController: streamController,
                 mediaManager: mediaManager,
@@ -474,7 +474,7 @@ private extension XmaxRealtimeManagerTests {
                 )
             ),
             mediaManager: mediaManager,
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: sessionService,
             imageSource: imageSource,
             videoSource: videoSource
@@ -483,10 +483,10 @@ private extension XmaxRealtimeManagerTests {
 
     func waitForEvent(
         _ event: String,
-        rtcProvider: RtcProvidingStub
+        rtcManager: RtcManagingStub
     ) async {
         for _ in 0..<1_000 {
-            if decodedEvents(rtcProvider).contains(where: {
+            if decodedEvents(rtcManager).contains(where: {
                 $0["event"] as? String == event
             }) {
                 return
@@ -509,9 +509,9 @@ private extension XmaxRealtimeManagerTests {
     }
 
     func decodedEvents(
-        _ rtcProvider: RtcProvidingStub
+        _ rtcManager: RtcManagingStub
     ) -> [[String: Any]] {
-        rtcProvider.managerMessages.compactMap { message in
+        rtcManager.managerMessages.compactMap { message in
             guard let data = message.data(using: .utf8) else {
                 return nil
             }
@@ -521,7 +521,7 @@ private extension XmaxRealtimeManagerTests {
     }
 }
 
-private extension RtcProvidingStub {
+private extension RtcManagingStub {
     var managerMessages: [String] {
         calls.compactMap { call in
             guard case .sendRoomMessage(let message) = call else {

@@ -14,7 +14,7 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         self.init(
             storageService: StorageService(
                 apiService: apiService,
-                storageProvider: StorageProvider()
+                storageManager: StorageManager()
             )
         )
     }

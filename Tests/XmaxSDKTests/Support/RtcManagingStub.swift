@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 @testable import XmaxSDK
 
-enum RtcProvidingCall: Equatable {
+enum RtcManagingCall: Equatable {
     case initialize
     case destroy
     case configureVideoEncoding(VideoEncodingConfiguration)
@@ -28,7 +28,7 @@ enum RtcProvidingCall: Equatable {
     case unbindRemoteVideo(RemoteStream)
 }
 
-final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
+final class RtcManagingStub: RtcManaging, @unchecked Sendable {
 
     typealias JoinRoomHandler = @Sendable (
         RoomJoinConfiguration
@@ -57,7 +57,7 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
 
     // 并发状态
     private let lock = NSLock()
-    private var storedCalls: [RtcProvidingCall] = []
+    private var storedCalls: [RtcManagingCall] = []
     private weak var storedEventListener: (any RtcEventListener)?
     private weak var storedQualityListener: (any RtcQualityListener)?
 
@@ -101,7 +101,7 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
         self.unbindRemoteVideoError = unbindRemoteVideoError
     }
 
-    var calls: [RtcProvidingCall] {
+    var calls: [RtcManagingCall] {
         lock.withLock { storedCalls }
     }
 
@@ -323,7 +323,7 @@ final class RtcProvidingStub: RtcProviding, @unchecked Sendable {
     }
 }
 
-extension RtcProvidingStub {
+extension RtcManagingStub {
     @MainActor
     func emitRemoteVideoPublished(
         userID: String,
@@ -377,9 +377,9 @@ extension RtcProvidingStub {
     }
 }
 
-private extension RtcProvidingStub {
+private extension RtcManagingStub {
     func record(
-        _ call: RtcProvidingCall,
+        _ call: RtcManagingCall,
         error: (any Error)?
     ) throws {
         try lock.withLock {

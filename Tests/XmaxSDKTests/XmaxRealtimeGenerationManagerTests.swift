@@ -18,8 +18,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 }
             )
         }
-        await waitForEvent("start", rtcProvider: components.rtcProvider)
-        components.rtcProvider.emitSeiMessage(
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitSeiMessage(
             stream: remoteStream,
             message: "task-fixed"
         )
@@ -30,7 +30,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         XCTAssertEqual(restartCounter.value, 1)
         XCTAssertEqual(components.remoteStreams.values, [remoteStream])
         let startEvent = try XCTUnwrap(
-            decodedEvents(components.rtcProvider).first {
+            decodedEvents(components.rtcManager).first {
                 $0["event"] as? String == "start"
             }
         )
@@ -66,7 +66,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            decodedEvents(components.rtcProvider).compactMap {
+            decodedEvents(components.rtcManager).compactMap {
                 $0["event"] as? String
             },
             ["start", "stop"]
@@ -85,8 +85,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 onGenerationStarted: {}
             )
         }
-        await waitForEvent("start", rtcProvider: components.rtcProvider)
-        components.rtcProvider.emitSeiMessage(
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitSeiMessage(
             stream: remoteStream,
             message: "task-fixed"
         )
@@ -103,7 +103,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             context: RealtimeContext(prompt: "third")
         )
 
-        let changes = decodedEvents(components.rtcProvider).filter {
+        let changes = decodedEvents(components.rtcManager).filter {
             $0["event"] as? String == "change_condition"
         }
         XCTAssertEqual(
@@ -127,8 +127,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 onGenerationStarted: {}
             )
         }
-        await waitForEvent("start", rtcProvider: components.rtcProvider)
-        components.rtcProvider.emitSeiMessage(
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitSeiMessage(
             stream: remoteStream,
             message: "task-fixed"
         )
@@ -138,7 +138,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
 
         XCTAssertNil(components.remoteStreams.values.last ?? nil)
         let stopEvent = try XCTUnwrap(
-            decodedEvents(components.rtcProvider).last {
+            decodedEvents(components.rtcManager).last {
                 $0["event"] as? String == "stop"
             }
         )
@@ -167,7 +167,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 )
             )
         }
-        XCTAssertTrue(components.rtcProvider.generationMessages.isEmpty)
+        XCTAssertTrue(components.rtcManager.generationMessages.isEmpty)
         await components.roomController.leave()
     }
 
@@ -181,8 +181,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 onGenerationStarted: {}
             )
         }
-        await waitForEvent("start", rtcProvider: components.rtcProvider)
-        components.rtcProvider.emitSeiMessage(
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitSeiMessage(
             stream: remoteStream,
             message: "task-fixed"
         )
@@ -200,9 +200,9 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         await waitForEventCount(
             "start",
             count: 2,
-            rtcProvider: components.rtcProvider
+            rtcManager: components.rtcManager
         )
-        components.rtcProvider.emitSeiMessage(
+        components.rtcManager.emitSeiMessage(
             stream: remoteStream,
             message: "task-fixed"
         )
@@ -249,7 +249,7 @@ private extension XmaxRealtimeGenerationManagerTests {
     struct Components {
         let manager: XmaxRealtimeGenerationManager
         let roomController: RoomController
-        let rtcProvider: RtcProvidingStub
+        let rtcManager: RtcManagingStub
         let remoteStreams: RemoteStreamRecorder
     }
 
@@ -267,8 +267,8 @@ private extension XmaxRealtimeGenerationManagerTests {
             confirmationDelayNanoseconds: 0
         )
     ) async throws -> Components {
-        let rtcProvider = RtcProvidingStub()
-        let roomController = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let roomController = RoomController(rtcManager: rtcManager)
         try await roomController.join(
             connection: RealtimeSessionConnection(
                 roomID: "room-id",
@@ -280,7 +280,7 @@ private extension XmaxRealtimeGenerationManagerTests {
         )
         let remoteStreams = RemoteStreamRecorder()
         let streamController = StreamController(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 remoteStreams.append(stream)
             },
@@ -297,17 +297,17 @@ private extension XmaxRealtimeGenerationManagerTests {
                 taskIDGenerator: { "task-fixed" }
             ),
             roomController: roomController,
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             remoteStreams: remoteStreams
         )
     }
 
     func waitForEvent(
         _ event: String,
-        rtcProvider: RtcProvidingStub
+        rtcManager: RtcManagingStub
     ) async {
         for _ in 0..<1_000 {
-            if decodedEvents(rtcProvider).contains(where: {
+            if decodedEvents(rtcManager).contains(where: {
                 $0["event"] as? String == event
             }) {
                 return
@@ -320,10 +320,10 @@ private extension XmaxRealtimeGenerationManagerTests {
     func waitForEventCount(
         _ event: String,
         count: Int,
-        rtcProvider: RtcProvidingStub
+        rtcManager: RtcManagingStub
     ) async {
         for _ in 0..<1_000 {
-            let currentCount = decodedEvents(rtcProvider).filter {
+            let currentCount = decodedEvents(rtcManager).filter {
                 $0["event"] as? String == event
             }.count
             if currentCount >= count {
@@ -335,9 +335,9 @@ private extension XmaxRealtimeGenerationManagerTests {
     }
 
     func decodedEvents(
-        _ rtcProvider: RtcProvidingStub
+        _ rtcManager: RtcManagingStub
     ) -> [[String: Any]] {
-        rtcProvider.generationMessages.compactMap { message in
+        rtcManager.generationMessages.compactMap { message in
             guard let data = message.data(using: .utf8) else {
                 return nil
             }
@@ -381,7 +381,7 @@ private final class GenerationInvocationCounter: @unchecked Sendable {
     }
 }
 
-private extension RtcProvidingStub {
+private extension RtcManagingStub {
     var generationMessages: [String] {
         calls.compactMap { call in
             guard case .sendRoomMessage(let message) = call else {

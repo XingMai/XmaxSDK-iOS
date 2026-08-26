@@ -24,12 +24,12 @@ final class XmaxRealtimeImageManagerTests: XCTestCase {
     }
 
     func testCreateConfiguresExternalSourceAndRegistersTrack() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let sourceController = ImageSourceControllingStub(
             resolvedFormat: imageFormat
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sourceController: sourceController
         )
         let fileURL = URL(fileURLWithPath: "/tmp/reference.png")
@@ -49,7 +49,7 @@ final class XmaxRealtimeImageManagerTests: XCTestCase {
             [.prepare(fileURL, nil), .start]
         )
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .configureVideoEncoding(VideoEncodingConfiguration(
                     width: imageFormat.width,
@@ -68,12 +68,12 @@ final class XmaxRealtimeImageManagerTests: XCTestCase {
     }
 
     func testStopClearsSourceTrackAndPreviewBinding() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let sourceController = ImageSourceControllingStub(
             resolvedFormat: imageFormat
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sourceController: sourceController
         )
         let stream = try await manager.createLocalImageStream(
@@ -97,7 +97,7 @@ final class XmaxRealtimeImageManagerTests: XCTestCase {
         }
         XCTAssertFalse(hasBinding)
         XCTAssertEqual(
-            Array(rtcProvider.calls.suffix(2)),
+            Array(rtcManager.calls.suffix(2)),
             [.bindLocalVideo(.fill), .unbindLocalVideo]
         )
     }
@@ -143,13 +143,13 @@ private extension XmaxRealtimeImageManagerTests {
     }
 
     func makeManager(
-        rtcProvider: RtcProvidingStub = RtcProvidingStub(),
+        rtcManager: RtcManagingStub = RtcManagingStub(),
         sourceController: ImageSourceControllingStub
     ) -> XmaxRealtimeImageManager {
         XmaxRealtimeImageManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             imageSourceController: sourceController,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
     }
 }

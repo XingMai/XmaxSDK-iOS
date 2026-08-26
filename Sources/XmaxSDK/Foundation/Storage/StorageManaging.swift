@@ -1,7 +1,7 @@
 import Foundation
 
 /// 定义基础文件上传和下载能力。
-protocol StorageProviding: Sendable {
+protocol StorageManaging: Sendable {
 
     /// 使用临时存储配置上传二进制数据或本地文件。
     func upload(
@@ -20,7 +20,7 @@ protocol StorageProviding: Sendable {
     ) async throws -> DownloadedFile
 }
 
-extension StorageProviding {
+extension StorageManaging {
 
     /// 不监听进度地上传二进制数据或本地文件。
     func upload(

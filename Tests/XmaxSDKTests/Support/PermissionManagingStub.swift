@@ -1,7 +1,7 @@
 import Foundation
 @testable import XmaxSDK
 
-final class PermissionProvidingStub: PermissionProviding, @unchecked Sendable {
+final class PermissionManagingStub: PermissionManaging, @unchecked Sendable {
 
     // 测试配置
     private let cameraError: (any Error)?

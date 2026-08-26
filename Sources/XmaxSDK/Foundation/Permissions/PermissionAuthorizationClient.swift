@@ -14,7 +14,7 @@ enum MediaAuthorizationStatus: Sendable {
     case authorized
 }
 
-/// 隔离系统权限 API，便于 Provider 保持中性且可测试。
+/// 隔离系统权限 API，便于 Manager 保持中性且可测试。
 struct PermissionAuthorizationClient: Sendable {
 
     // 授权接口

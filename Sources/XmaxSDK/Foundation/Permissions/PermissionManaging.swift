@@ -1,5 +1,5 @@
 /// 定义 SDK 所需平台权限的检查与申请能力。
-protocol PermissionProviding: Sendable {
+protocol PermissionManaging: Sendable {
 
     /// 确保已获得相机访问权限。
     func ensureCameraPermission() async throws

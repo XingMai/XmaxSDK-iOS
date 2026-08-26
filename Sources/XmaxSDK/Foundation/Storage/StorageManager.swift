@@ -2,12 +2,12 @@ import Foundation
 @preconcurrency import QCloudCOSXML
 
 /// 封装第三方对象存储上传和 HTTP 文件下载能力。
-final class StorageProvider: StorageProviding, Sendable {
+final class StorageManager: StorageManaging, Sendable {
 
     // 平台资源
     private let session: URLSession
 
-    /// 创建存储 Provider。
+    /// 创建存储 Manager。
     ///
     /// - Parameter session: HTTP 下载使用的 URL Session。
     init(session: URLSession = .shared) {
@@ -418,7 +418,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
                     keys: ["Location", "location"],
                     headers: headers
                 )
-                let url = try StorageProvider.resolveObjectURL(
+                let url = try StorageManager.resolveObjectURL(
                     candidate: location,
                     configuration: configuration,
                     objectKey: objectKey

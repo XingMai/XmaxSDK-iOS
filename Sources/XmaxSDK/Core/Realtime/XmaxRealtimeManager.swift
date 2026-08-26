@@ -34,28 +34,28 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ) {
         self.options = options
 
-        let rtcProvider = RtcProvider()
-        let roomController = RoomController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManager()
+        let roomController = RoomController(rtcManager: rtcManager)
         let remoteVideoController = RemoteVideoController(
-            rtcProvider: rtcProvider
+            rtcManager: rtcManager
         )
         let streamController = StreamController(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 try remoteVideoController.setRemoteStream(stream)
             }
         )
-        let qualityController = QualityController(rtcProvider: rtcProvider)
+        let qualityController = QualityController(rtcManager: rtcManager)
         let mediaErrorRelay = RealtimeMediaErrorRelay()
         let mediaManager = XmaxRealtimeMediaManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             streamController: streamController,
             mediaErrorListener: { error in
                 mediaErrorRelay.report(error)
             }
         )
         let connectionManager = XmaxRealtimeConnectionManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sessionService: RealtimeSessionService(apiService: apiService),
             roomController: roomController,
             remoteVideoController: remoteVideoController,

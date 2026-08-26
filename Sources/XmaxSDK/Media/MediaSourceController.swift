@@ -8,8 +8,8 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     private static let defaultFrameRate = 24
 
     // 基础层组件
-    private let metadataProvider: any MediaFileMetadataProviding
-    private let audioProvider: any AudioProviding
+    private let metadataManager: any MediaFileMetadataManaging
+    private let audioManager: any AudioManaging
 
     // 服务层组件
     private let mediaService: any MediaServicing
@@ -28,14 +28,14 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     private var isRunning = false
 
     init(
-        metadataProvider: any MediaFileMetadataProviding,
-        audioProvider: any AudioProviding,
+        metadataManager: any MediaFileMetadataManaging,
+        audioManager: any AudioManaging,
         mediaService: any MediaServicing,
         videoSourceController: any VideoSourceControlling,
         audioSourceController: any AudioSourceControlling
     ) {
-        self.metadataProvider = metadataProvider
-        self.audioProvider = audioProvider
+        self.metadataManager = metadataManager
+        self.audioManager = audioManager
         self.mediaService = mediaService
         self.videoSourceController = videoSourceController
         self.audioSourceController = audioSourceController
@@ -58,7 +58,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
 
         do {
-            let metadata = try await metadataProvider.readMetadata(
+            let metadata = try await metadataManager.readMetadata(
                 fileURL: fileURL
             )
             let resolvedFormat = try resolveVideoFormat(
@@ -113,7 +113,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
         do {
             if preparedMedia.configuration.hasAudio {
-                try await audioProvider.flush()
+                try await audioManager.flush()
             }
             let timeline = try MediaTimeline(
                 durationUs: preparedMedia.metadata.durationUs
@@ -138,7 +138,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
         videoSourceController.stop()
         audioSourceController.stop()
-        await audioProvider.stop()
+        await audioManager.stop()
     }
 }
 
@@ -169,7 +169,7 @@ private extension MediaSourceController {
 
     func startSources(preparedMedia: PreparedMedia) async throws {
         if preparedMedia.configuration.hasAudio {
-            try await audioProvider.start()
+            try await audioManager.start()
         }
         let timeline = try MediaTimeline(
             durationUs: preparedMedia.metadata.durationUs
@@ -210,7 +210,7 @@ private extension MediaSourceController {
         }
         videoSourceController.stop()
         audioSourceController.stop()
-        await audioProvider.stop()
+        await audioManager.stop()
     }
 
     func resolveVideoFormat(

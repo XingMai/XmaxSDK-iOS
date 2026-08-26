@@ -16,12 +16,12 @@ final class RtcEngineLease: @unchecked Sendable {
 }
 
 /// 管理进程级火山 RTC Engine 的独占创建、排队租用和销毁。
-actor RtcEngineProvider {
+actor RtcEngineManager {
     typealias EngineFactory = @Sendable (String) -> ByteRTCEngine?
     typealias EngineDestructor = @Sendable () -> Void
 
     // 共享实例
-    static let shared = RtcEngineProvider()
+    static let shared = RtcEngineManager()
 
     // RTC 配置
     private static let defaultAppID = "69a177e226e9b90176a86b96"
@@ -38,9 +38,9 @@ actor RtcEngineProvider {
     private var requests: [Request] = []
 
     init(
-        appID: String = RtcEngineProvider.defaultAppID,
-        makeEngine: @escaping EngineFactory = RtcEngineProvider.createEngine,
-        destroyEngine: @escaping EngineDestructor = RtcEngineProvider.destroyEngine
+        appID: String = RtcEngineManager.defaultAppID,
+        makeEngine: @escaping EngineFactory = RtcEngineManager.createEngine,
+        destroyEngine: @escaping EngineDestructor = RtcEngineManager.destroyEngine
     ) {
         self.appID = appID
         self.makeEngine = makeEngine
@@ -178,7 +178,7 @@ actor RtcEngineProvider {
     }
 }
 
-private extension RtcEngineProvider {
+private extension RtcEngineManager {
 
     /// 保存一项等待 RTC Engine 独占权的请求。
     struct Request {

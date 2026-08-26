@@ -2,15 +2,15 @@
 final class EncodingController: EncodingControlling, Sendable {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
-    init(rtcProvider: any RtcProviding) {
-        self.rtcProvider = rtcProvider
+    init(rtcManager: any RtcManaging) {
+        self.rtcManager = rtcManager
     }
 
     func configure(_ videoFormat: RealtimeVideoFormat) throws {
         try videoFormat.validate()
-        try rtcProvider.configureVideoEncoding(
+        try rtcManager.configureVideoEncoding(
             VideoEncodingConfiguration(
                 width: videoFormat.width,
                 height: videoFormat.height,

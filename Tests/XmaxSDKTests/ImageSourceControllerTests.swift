@@ -8,7 +8,7 @@ final class ImageSourceControllerTests: XCTestCase {
         let imageData = Data("encoded-image".utf8)
         let decodedImage = DecodedImageStub(width: 400, height: 800)
         let controller = ImageSourceController(
-            imageProvider: ImageProvidingStub(decodedImage: decodedImage),
+            imageManager: ImageManagingStub(decodedImage: decodedImage),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 832, height: 1_472)
             ),
@@ -42,7 +42,7 @@ final class ImageSourceControllerTests: XCTestCase {
         )
         let recorder = ImageFrameRecorder()
         let controller = ImageSourceController(
-            imageProvider: ImageProvidingStub(decodedImage: decodedImage),
+            imageManager: ImageManagingStub(decodedImage: decodedImage),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 896, height: 672)
             ),
@@ -83,7 +83,7 @@ final class ImageSourceControllerTests: XCTestCase {
             resolvedSize: CGSize(width: 832, height: 1_472)
         )
         let controller = ImageSourceController(
-            imageProvider: ImageProvidingStub(
+            imageManager: ImageManagingStub(
                 decodedImage: DecodedImageStub(width: 400, height: 800)
             ),
             mediaService: mediaService,
@@ -113,7 +113,7 @@ final class ImageSourceControllerTests: XCTestCase {
 
     func testStartRejectsSourceThatHasNotBeenPrepared() {
         let controller = ImageSourceController(
-            imageProvider: ImageProvidingStub(
+            imageManager: ImageManagingStub(
                 decodedImage: DecodedImageStub(width: 1, height: 1)
             ),
             mediaService: MediaServicingStub(
@@ -137,7 +137,7 @@ final class ImageSourceControllerTests: XCTestCase {
 
     func testPrepareRejectsEmptyImageData() async {
         let controller = ImageSourceController(
-            imageProvider: ImageProvidingStub(
+            imageManager: ImageManagingStub(
                 decodedImage: DecodedImageStub(width: 1, height: 1)
             ),
             mediaService: MediaServicingStub(
@@ -228,7 +228,7 @@ private final class DecodedImageStub:
     }
 }
 
-private final class ImageProvidingStub: ImageProviding, Sendable {
+private final class ImageManagingStub: ImageManaging, Sendable {
 
     // 图片资源
     private let decodedImage: any DecodedImage

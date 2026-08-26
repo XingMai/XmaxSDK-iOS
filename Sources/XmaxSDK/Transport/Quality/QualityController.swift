@@ -11,8 +11,8 @@ final class QualityController: QualityControlling, RtcQualityListener,
     private var networkQualityListener: RealtimeNetworkQualityListener?
     private var performanceAlarmListener: RealtimePerformanceAlarmListener?
 
-    init(rtcProvider: any RtcProviding) {
-        rtcProvider.setQualityListener(self)
+    init(rtcManager: any RtcManaging) {
+        rtcManager.setQualityListener(self)
     }
 
     func setNetworkQualityListener(

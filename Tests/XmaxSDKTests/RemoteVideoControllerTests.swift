@@ -5,8 +5,8 @@ import XCTest
 @MainActor
 final class RemoteVideoControllerTests: XCTestCase {
     func testSettingStreamAfterAttachBindsRemoteVideo() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RemoteVideoController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RemoteVideoController(rtcManager: rtcManager)
         let view = UIView()
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
 
@@ -14,14 +14,14 @@ final class RemoteVideoControllerTests: XCTestCase {
         try controller.setRemoteStream(stream)
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [.bindRemoteVideo(stream, .fit)]
         )
     }
 
     func testReplacingStreamUnbindsPreviousAndBindsCurrent() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RemoteVideoController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RemoteVideoController(rtcManager: rtcManager)
         let firstStream = RemoteStream(
             roomID: "room-id",
             userID: "first-user"
@@ -37,7 +37,7 @@ final class RemoteVideoControllerTests: XCTestCase {
         try controller.setRemoteStream(secondStream)
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .bindRemoteVideo(firstStream, .fill),
                 .unbindRemoteVideo(firstStream),
@@ -47,8 +47,8 @@ final class RemoteVideoControllerTests: XCTestCase {
     }
 
     func testDetachPreservesStreamForLaterAttachment() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RemoteVideoController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RemoteVideoController(rtcManager: rtcManager)
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
         try controller.setRemoteStream(stream)
         try controller.attach(to: UIView(), contentMode: .fit)
@@ -57,7 +57,7 @@ final class RemoteVideoControllerTests: XCTestCase {
         try controller.attach(to: UIView(), contentMode: .fill)
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .bindRemoteVideo(stream, .fit),
                 .unbindRemoteVideo(stream),
@@ -67,8 +67,8 @@ final class RemoteVideoControllerTests: XCTestCase {
     }
 
     func testResetUnbindsAndClearsStreamAndView() throws {
-        let rtcProvider = RtcProvidingStub()
-        let controller = RemoteVideoController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = RemoteVideoController(rtcManager: rtcManager)
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
         try controller.setRemoteStream(stream)
         try controller.attach(to: UIView(), contentMode: .fit)
@@ -77,7 +77,7 @@ final class RemoteVideoControllerTests: XCTestCase {
         try controller.attach(to: UIView(), contentMode: .fill)
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .bindRemoteVideo(stream, .fit),
                 .unbindRemoteVideo(stream)

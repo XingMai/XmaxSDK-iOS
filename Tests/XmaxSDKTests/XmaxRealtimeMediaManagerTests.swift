@@ -4,8 +4,8 @@ import XCTest
 
 final class XmaxRealtimeMediaManagerTests: XCTestCase {
     func testCreateInitializesRTCAndTakesLocalMediaOwnership() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let manager = makeManager(rtcManager: rtcManager)
 
         let stream = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
@@ -26,7 +26,7 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
             RealtimeVideoFormat(width: 1_024, height: 768, fps: 30)
         )
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .initialize,
                 .configureVideoEncoding(VideoEncodingConfiguration(
@@ -45,10 +45,10 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
             code: .rtcError,
             message: "Failed to initialize RTC"
         )
-        let rtcProvider = RtcProvidingStub(
+        let rtcManager = RtcManagingStub(
             initializationError: expectedError
         )
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let manager = makeManager(rtcManager: rtcManager)
 
         do {
             _ = try await manager.createLocalCameraStream(
@@ -64,17 +64,17 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
             let currentTrack = await manager.currentTrack
             XCTAssertEqual(error as? XmaxError, expectedError)
             XCTAssertNil(currentTrack)
-            XCTAssertEqual(rtcProvider.calls, [.initialize, .destroy])
+            XCTAssertEqual(rtcManager.calls, [.initialize, .destroy])
         }
     }
 
     func testReplaceReusesRTCAndCurrentTrack() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let mediaService = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             mediaService: mediaService
         )
         let originalStream = try await manager.createLocalCameraStream(
@@ -98,15 +98,15 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
         XCTAssertTrue(originalStream.videoTrack === replacedStream.videoTrack)
         XCTAssertEqual(replacedStream.videoTrack?.position, .back)
         XCTAssertEqual(
-            rtcProvider.calls.filter { $0 == .initialize }.count,
+            rtcManager.calls.filter { $0 == .initialize }.count,
             1
         )
-        XCTAssertFalse(rtcProvider.calls.contains(.destroy))
+        XCTAssertFalse(rtcManager.calls.contains(.destroy))
     }
 
     func testStopReleasesCameraPreviewOwnershipAndRTC() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let manager = makeManager(rtcManager: rtcManager)
         let stream = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
                 width: 1_024,
@@ -123,14 +123,14 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
         XCTAssertNil(currentTrack)
         XCTAssertFalse(ownsStream)
         XCTAssertEqual(
-            Array(rtcProvider.calls.suffix(3)),
+            Array(rtcManager.calls.suffix(3)),
             [.unbindLocalVideo, .stopVideoCapture, .destroy]
         )
     }
 
     func testRepeatedStopDestroysRTCOnlyOnce() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let manager = makeManager(rtcManager: rtcManager)
         _ = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
                 width: 1_024,
@@ -145,11 +145,11 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
         _ = await (firstStop, secondStop)
 
         XCTAssertEqual(
-            rtcProvider.calls.filter { $0 == .destroy }.count,
+            rtcManager.calls.filter { $0 == .destroy }.count,
             1
         )
         XCTAssertEqual(
-            rtcProvider.calls.filter { $0 == .stopVideoCapture }.count,
+            rtcManager.calls.filter { $0 == .stopVideoCapture }.count,
             1
         )
     }
@@ -188,7 +188,7 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
     }
 
     func testReplaceCameraWithImageReusesRTCAndChangesOwnership() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let imageFormat = RealtimeVideoFormat(
             width: 832,
             height: 1_472,
@@ -198,7 +198,7 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
             resolvedFormat: imageFormat
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             imageSourceController: imageSourceController
         )
         let cameraStream = try await manager.createLocalCameraStream(
@@ -222,12 +222,12 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
         XCTAssertTrue(ownsImageStream)
         XCTAssertFalse(ownsCameraStream)
         XCTAssertEqual(
-            rtcProvider.calls.filter { $0 == .initialize }.count,
+            rtcManager.calls.filter { $0 == .initialize }.count,
             1
         )
-        XCTAssertFalse(rtcProvider.calls.contains(.destroy))
-        XCTAssertTrue(rtcProvider.calls.contains(.stopVideoCapture))
-        XCTAssertTrue(rtcProvider.calls.contains(.useExternalVideoSource))
+        XCTAssertFalse(rtcManager.calls.contains(.destroy))
+        XCTAssertTrue(rtcManager.calls.contains(.stopVideoCapture))
+        XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
 
         await manager.stopLocalCameraStream()
         let trackAfterWrongStop = await manager.currentTrack
@@ -236,13 +236,13 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
         let trackAfterImageStop = await manager.currentTrack
         XCTAssertNil(trackAfterImageStop)
         XCTAssertEqual(
-            rtcProvider.calls.filter { $0 == .destroy }.count,
+            rtcManager.calls.filter { $0 == .destroy }.count,
             1
         )
     }
 
     func testVideoSourceOwnsAudioLifecycleAndRestartsForGeneration() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: RealtimeVideoFormat(
@@ -254,7 +254,7 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
             )
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             mediaSourceController: source
         )
 
@@ -273,14 +273,14 @@ final class XmaxRealtimeMediaManagerTests: XCTestCase {
         await manager.stopLocalVideoStream()
         let hasAudioAfterStop = await manager.hasAudio
         XCTAssertFalse(hasAudioAfterStop)
-        XCTAssertEqual(rtcProvider.calls.last, .destroy)
+        XCTAssertEqual(rtcManager.calls.last, .destroy)
     }
 }
 
 private extension XmaxRealtimeMediaManagerTests {
     func makeManager(
-        rtcProvider: RtcProvidingStub = RtcProvidingStub(),
-        permissionProvider: PermissionProvidingStub = PermissionProvidingStub(),
+        rtcManager: RtcManagingStub = RtcManagingStub(),
+        permissionManager: PermissionManagingStub = PermissionManagingStub(),
         mediaService: MediaServicingStub = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
         ),
@@ -288,32 +288,32 @@ private extension XmaxRealtimeMediaManagerTests {
         mediaSourceController: MediaSourceControllingStub? = nil
     ) -> XmaxRealtimeMediaManager {
         let cameraManager = XmaxRealtimeCameraManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: permissionProvider,
+            rtcManager: rtcManager,
+            permissionManager: permissionManager,
             mediaService: mediaService,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
         let imageManager = imageSourceController.map {
             XmaxRealtimeImageManager(
-                rtcProvider: rtcProvider,
+                rtcManager: rtcManager,
                 imageSourceController: $0,
                 encodingController: EncodingController(
-                    rtcProvider: rtcProvider
+                    rtcManager: rtcManager
                 )
             )
         }
         let videoManager = mediaSourceController.map {
             XmaxRealtimeVideoManager(
-                rtcProvider: rtcProvider,
-                permissionProvider: permissionProvider,
+                rtcManager: rtcManager,
+                permissionManager: permissionManager,
                 mediaSourceController: $0,
                 encodingController: EncodingController(
-                    rtcProvider: rtcProvider
+                    rtcManager: rtcManager
                 )
             )
         }
         return XmaxRealtimeMediaManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             cameraManager: cameraManager,
             imageManager: imageManager,
             videoManager: videoManager

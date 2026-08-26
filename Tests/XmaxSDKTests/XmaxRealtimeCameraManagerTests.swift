@@ -5,14 +5,14 @@ import XCTest
 
 final class XmaxRealtimeCameraManagerTests: XCTestCase {
     func testCreateStartsInternalCaptureAndRegistersLocalTrack() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let permissionProvider = PermissionProvidingStub()
+        let rtcManager = RtcManagingStub()
+        let permissionManager = PermissionManagingStub()
         let mediaService = MediaServicingStub(
             resolvedSize: CGSize(width: 896, height: 672)
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: permissionProvider,
+            rtcManager: rtcManager,
+            permissionManager: permissionManager,
             mediaService: mediaService
         )
 
@@ -25,7 +25,7 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
             position: .front
         )
 
-        XCTAssertEqual(permissionProvider.cameraRequestCount, 1)
+        XCTAssertEqual(permissionManager.cameraRequestCount, 1)
         XCTAssertEqual(
             mediaService.requestedSizes,
             [CGSize(width: 640, height: 480)]
@@ -39,7 +39,7 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
         XCTAssertEqual(stream.videoTrack?.position, .front)
         XCTAssertTrue(stream.videoTrack === manager.currentTrack)
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .configureVideoEncoding(VideoEncodingConfiguration(
                     width: 896,
@@ -96,10 +96,10 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
             code: .rtcError,
             message: "Failed to start camera capture"
         )
-        let rtcProvider = RtcProvidingStub(
+        let rtcManager = RtcManagingStub(
             startVideoCaptureError: expectedError
         )
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let manager = makeManager(rtcManager: rtcManager)
 
         do {
             _ = try await manager.createLocalCameraStream(
@@ -115,7 +115,7 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
             XCTAssertEqual(error as? XmaxError, expectedError)
             XCTAssertNil(manager.currentTrack)
             XCTAssertEqual(
-                rtcProvider.calls,
+                rtcManager.calls,
                 [
                     .configureVideoEncoding(VideoEncodingConfiguration(
                         width: 1_024,
@@ -135,12 +135,12 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
     }
 
     func testReplacePreservesTrackAndAppliesNewCaptureFormat() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let mediaService = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
         )
         let manager = makeManager(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             mediaService: mediaService
         )
         let originalStream = try await manager.createLocalCameraStream(
@@ -168,7 +168,7 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
         )
         XCTAssertEqual(replacedStream.videoTrack?.position, .back)
         XCTAssertEqual(
-            Array(rtcProvider.calls.suffix(4)),
+            Array(rtcManager.calls.suffix(4)),
             [
                 .stopVideoCapture,
                 .configureVideoEncoding(VideoEncodingConfiguration(
@@ -183,8 +183,8 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
     }
 
     func testSwitchCameraUpdatesExistingTrack() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let manager = makeManager(rtcManager: rtcManager)
         let originalStream = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
                 width: 1_024,
@@ -198,12 +198,12 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
 
         XCTAssertTrue(originalStream.videoTrack === switchedStream.videoTrack)
         XCTAssertEqual(switchedStream.videoTrack?.position, .back)
-        XCTAssertEqual(rtcProvider.calls.last, .switchCamera(.back))
+        XCTAssertEqual(rtcManager.calls.last, .switchCamera(.back))
     }
 
     func testStopClearsTrackPreviewBindingAndCapture() async throws {
-        let rtcProvider = RtcProvidingStub()
-        let manager = makeManager(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let manager = makeManager(rtcManager: rtcManager)
         let stream = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
                 width: 1_024,
@@ -228,7 +228,7 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
         }
         XCTAssertFalse(hasBinding)
         XCTAssertEqual(
-            Array(rtcProvider.calls.suffix(3)),
+            Array(rtcManager.calls.suffix(3)),
             [
                 .bindLocalVideo(.fill),
                 .unbindLocalVideo,
@@ -240,17 +240,17 @@ final class XmaxRealtimeCameraManagerTests: XCTestCase {
 
 private extension XmaxRealtimeCameraManagerTests {
     func makeManager(
-        rtcProvider: RtcProvidingStub = RtcProvidingStub(),
-        permissionProvider: PermissionProvidingStub = PermissionProvidingStub(),
+        rtcManager: RtcManagingStub = RtcManagingStub(),
+        permissionManager: PermissionManagingStub = PermissionManagingStub(),
         mediaService: MediaServicingStub = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
         )
     ) -> XmaxRealtimeCameraManager {
         XmaxRealtimeCameraManager(
-            rtcProvider: rtcProvider,
-            permissionProvider: permissionProvider,
+            rtcManager: rtcManager,
+            permissionManager: permissionManager,
             mediaService: mediaService,
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
     }
 }

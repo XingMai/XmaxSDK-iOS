@@ -1,5 +1,5 @@
 /// 定义本地 PCM 音频播放能力。
-protocol AudioProviding: Sendable {
+protocol AudioManaging: Sendable {
 
     /// 创建并启动本地 PCM 音频播放器。
     func start() async throws

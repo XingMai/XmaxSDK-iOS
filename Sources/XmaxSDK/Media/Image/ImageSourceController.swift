@@ -8,7 +8,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     private static let defaultFrameRate = 24
 
     // 基础层组件
-    private let imageProvider: any ImageProviding
+    private let imageManager: any ImageManaging
 
     // 服务层组件
     private let mediaService: any MediaServicing
@@ -28,12 +28,12 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
     private var outputTask: Task<Void, Never>?
 
     init(
-        imageProvider: any ImageProviding,
+        imageManager: any ImageManaging,
         mediaService: any MediaServicing,
         frameListener: @escaping ImageSourceFrameListener,
         errorListener: @escaping ImageSourceErrorListener
     ) {
-        self.imageProvider = imageProvider
+        self.imageManager = imageManager
         self.mediaService = mediaService
         self.frameListener = frameListener
         self.errorListener = errorListener
@@ -74,7 +74,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
 
         do {
             return try await prepare(
-                decodedImage: imageProvider.decode(imageData),
+                decodedImage: imageManager.decode(imageData),
                 videoFormat: videoFormat
             )
         } catch {

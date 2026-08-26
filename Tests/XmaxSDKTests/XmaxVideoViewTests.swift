@@ -16,9 +16,9 @@ final class XmaxVideoViewTests: XCTestCase {
     }
 
     func testMovingIntoWindowBindsTrackWithContentMode() {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let track = RealtimeVideoTrack(id: "track")
-        register(track: track, rtcProvider: rtcProvider)
+        register(track: track, rtcManager: rtcManager)
         defer { VideoRenderRegistry.unregister(track) }
         let view = XmaxVideoView(
             track: track,
@@ -28,13 +28,13 @@ final class XmaxVideoViewTests: XCTestCase {
 
         window.addSubview(view)
 
-        XCTAssertEqual(rtcProvider.calls, [.bindLocalVideo(.fit)])
+        XCTAssertEqual(rtcManager.calls, [.bindLocalVideo(.fit)])
     }
 
     func testChangingContentModeRefreshesRTCBinding() {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let track = RealtimeVideoTrack(id: "track")
-        register(track: track, rtcProvider: rtcProvider)
+        register(track: track, rtcManager: rtcManager)
         defer { VideoRenderRegistry.unregister(track) }
         let view = XmaxVideoView(track: track)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
@@ -43,17 +43,17 @@ final class XmaxVideoViewTests: XCTestCase {
         view.videoContentMode = .fit
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [.bindLocalVideo(.fill), .bindLocalVideo(.fit)]
         )
     }
 
     func testChangingTrackDetachesPreviousBindingAndAttachesNextTrack() {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let firstTrack = RealtimeVideoTrack(id: "first")
         let secondTrack = RealtimeVideoTrack(id: "second")
-        register(track: firstTrack, rtcProvider: rtcProvider)
-        register(track: secondTrack, rtcProvider: rtcProvider)
+        register(track: firstTrack, rtcManager: rtcManager)
+        register(track: secondTrack, rtcManager: rtcManager)
         defer {
             VideoRenderRegistry.unregister(firstTrack)
             VideoRenderRegistry.unregister(secondTrack)
@@ -65,7 +65,7 @@ final class XmaxVideoViewTests: XCTestCase {
         view.track = secondTrack
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [
                 .bindLocalVideo(.fill),
                 .unbindLocalVideo,
@@ -75,9 +75,9 @@ final class XmaxVideoViewTests: XCTestCase {
     }
 
     func testMovingOutOfWindowDetachesCurrentTrack() {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let track = RealtimeVideoTrack(id: "track")
-        register(track: track, rtcProvider: rtcProvider)
+        register(track: track, rtcManager: rtcManager)
         defer { VideoRenderRegistry.unregister(track) }
         let view = XmaxVideoView(track: track)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
@@ -86,7 +86,7 @@ final class XmaxVideoViewTests: XCTestCase {
         view.removeFromSuperview()
 
         XCTAssertEqual(
-            rtcProvider.calls,
+            rtcManager.calls,
             [.bindLocalVideo(.fill), .unbindLocalVideo]
         )
     }
@@ -95,20 +95,20 @@ final class XmaxVideoViewTests: XCTestCase {
 private extension XmaxVideoViewTests {
     func register(
         track: RealtimeVideoTrack,
-        rtcProvider: RtcProvidingStub
+        rtcManager: RtcManagingStub
     ) {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcProvider.renderLibraryName,
+                libraryName: rtcManager.renderLibraryName,
                 attachHandler: { view, contentMode in
-                    try rtcProvider.bindLocalVideo(
+                    try rtcManager.bindLocalVideo(
                         to: view,
                         contentMode: contentMode
                     )
                 },
                 detachHandler: {
-                    try rtcProvider.unbindLocalVideo()
+                    try rtcManager.unbindLocalVideo()
                 }
             )
         )

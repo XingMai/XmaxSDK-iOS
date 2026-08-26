@@ -4,7 +4,7 @@
 >
 > 基线提交：`cc35183 feat: add image and video media pipelines`
 
-当前图片和文件视频都被抽象为“本地外部视频源”，最终通过同一套 `StreamController → RtcProvider → VolcEngineRTC` 链路推送。
+当前图片和文件视频都被抽象为“本地外部视频源”，最终通过同一套 `StreamController → RtcManager → VolcEngineRTC` 链路推送。
 
 ```text
 XmaxRealtimeManaging 公开 API
@@ -19,7 +19,7 @@ XmaxRealtimeMediaManager
         │
         ├── 图片：XmaxRealtimeImageManager
         │          └── ImageSourceController
-        │                 └── ImageProvider.decode()
+        │                 └── ImageManager.decode()
         │                        └── DecodedImage → BGRA 帧
         │
         └── 视频：XmaxRealtimeVideoManager
@@ -31,7 +31,7 @@ XmaxRealtimeMediaManager
 StreamController
         │
         ▼
-RtcProvider → 火山 RTC
+RtcManager → 火山 RTC
         ├── 外部视频推帧
         ├── 外部音频推帧
         └── XmaxVideoView 本地预览
@@ -103,7 +103,7 @@ XmaxRealtimeImageManager
     ↓
 ImageSourceController.prepare()
     ↓
-ImageProvider.decode()
+ImageManager.decode()
     ↓
 DecodedImage
     ↓
@@ -113,7 +113,7 @@ DecodedImage
     ↓
 StreamController.pushLocalVideoFrame()
     ↓
-RtcProvider.pushExternalVideoFrame()
+RtcManager.pushExternalVideoFrame()
 ```
 
 ### 2.1 图片读取与尺寸处理
@@ -121,7 +121,7 @@ RtcProvider.pushExternalVideoFrame()
 `ImageSourceController` 执行以下步骤：
 
 1. 将输入收敛为内部 `DecodedImage`：
-   - `imageData` 通过 `ImageProvider.decode()` 解码。
+   - `imageData` 通过 `ImageManager.decode()` 解码。
    - `fileURL` 读取为 `Data` 后解码。
    - `UIImage` 直接提取或规范化像素，不经过 PNG/JPEG 中转。
 2. 解码时应用图片方向，并保留实际像素尺寸。
@@ -162,7 +162,7 @@ RtcProvider.pushExternalVideoFrame()
 
 - `Sources/XmaxSDK/Core/Realtime/XmaxRealtimeImageManager.swift`
 - `Sources/XmaxSDK/Media/Image/ImageSourceController.swift`
-- `Sources/XmaxSDK/Foundation/Media/Image/ImageProvider.swift`
+- `Sources/XmaxSDK/Foundation/Media/Image/ImageManager.swift`
 
 ## 3. 视频链路
 
@@ -172,7 +172,7 @@ createLocalVideoStream(fileURL:, videoFormat:)
 XmaxRealtimeVideoManager
     ↓
 MediaSourceController.prepare()
-    ├── MediaFileMetadataProvider
+    ├── MediaFileMetadataManager
     ├── VideoSourceController.configure()
     └── AudioSourceController.configure()（有音轨时）
     ↓
@@ -182,12 +182,12 @@ MediaSourceController.prepare()
     ↓
 StreamController
     ↓
-RtcProvider
+RtcManager
 ```
 
 ### 3.1 读取视频元数据
 
-`MediaFileMetadataProvider` 使用 AVFoundation 读取：
+`MediaFileMetadataManager` 使用 AVFoundation 读取：
 
 - 视频原始宽高。
 - `preferredTransform` 对应的 0/90/180/270 度旋转。
@@ -260,7 +260,7 @@ BufferVideoFrame
 3. 切分成每帧 10ms，即 480 个采样点。
 4. 使用和视频相同的 `MediaTimeline`。
 5. 同时送往：
-   - `AudioProvider`：本地播放。
+   - `AudioManager`：本地播放。
    - `StreamController`：RTC 外部音频。
 
 尚未连接房间时，RTC 音频推帧会被 `StreamController` 忽略，但本地音频仍然播放。连接并发布本地音频后，PCM 帧才真正推给 RTC。

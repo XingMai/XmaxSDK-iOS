@@ -3,18 +3,18 @@ import Foundation
 import XCTest
 @testable import XmaxSDK
 
-final class AudioProviderTests: XCTestCase {
+final class AudioManagerTests: XCTestCase {
     func testStartIsIdempotentAndWriteForwardsPCMData() async throws {
         let controller = AudioPlaybackControllerStub()
-        let provider = AudioProvider(playbackFactory: { controller })
+        let manager = AudioManager(playbackFactory: { controller })
         let frame = AudioFrame(
             data: Data(repeating: 7, count: 960),
             timestampUs: 0
         )
 
-        try await provider.start()
-        try await provider.start()
-        provider.write(frame: frame)
+        try await manager.start()
+        try await manager.start()
+        manager.write(frame: frame)
 
         XCTAssertEqual(controller.startCount, 1)
         XCTAssertEqual(controller.enqueuedData, [frame.data])
@@ -22,9 +22,9 @@ final class AudioProviderTests: XCTestCase {
 
     func testWriteBeforeStartIsIgnored() {
         let controller = AudioPlaybackControllerStub()
-        let provider = AudioProvider(playbackFactory: { controller })
+        let manager = AudioManager(playbackFactory: { controller })
 
-        provider.write(frame: AudioFrame(
+        manager.write(frame: AudioFrame(
             data: Data(repeating: 0, count: 960),
             timestampUs: 0
         ))
@@ -34,13 +34,13 @@ final class AudioProviderTests: XCTestCase {
 
     func testFlushAndStopForwardLifecycleAndStopIsIdempotent() async throws {
         let controller = AudioPlaybackControllerStub()
-        let provider = AudioProvider(playbackFactory: { controller })
+        let manager = AudioManager(playbackFactory: { controller })
 
-        try await provider.start()
-        try await provider.flush()
-        await provider.stop()
-        await provider.stop()
-        provider.write(frame: AudioFrame(
+        try await manager.start()
+        try await manager.flush()
+        await manager.stop()
+        await manager.stop()
+        manager.write(frame: AudioFrame(
             data: Data(repeating: 0, count: 960),
             timestampUs: 0
         ))
@@ -51,16 +51,16 @@ final class AudioProviderTests: XCTestCase {
     }
 
     func testStartMapsPlatformFailureToMediaError() async {
-        let provider = AudioProvider(playbackFactory: {
+        let manager = AudioManager(playbackFactory: {
             throw NSError(
-                domain: "AudioProviderTests",
+                domain: "AudioManagerTests",
                 code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "audio unavailable"]
             )
         })
 
         do {
-            try await provider.start()
+            try await manager.start()
             XCTFail("Expected audio start to fail")
         } catch {
             XCTAssertEqual(

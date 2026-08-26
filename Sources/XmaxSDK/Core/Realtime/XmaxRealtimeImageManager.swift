@@ -7,7 +7,7 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
     private static let localVideoTrackID = "video0"
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
 
     // 业务层组件
     private let imageSourceController: any ImageSourceControlling
@@ -21,31 +21,31 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
 
     @MainActor
     convenience init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         streamController: any StreamControlling,
         errorListener: @escaping ImageSourceErrorListener
     ) {
-        let imageProvider = ImageProvider()
+        let imageManager = ImageManager()
         self.init(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             imageSourceController: ImageSourceController(
-                imageProvider: imageProvider,
+                imageManager: imageManager,
                 mediaService: MediaService(),
                 frameListener: { frame in
                     try streamController.pushLocalVideoFrame(frame)
                 },
                 errorListener: errorListener
             ),
-            encodingController: EncodingController(rtcProvider: rtcProvider)
+            encodingController: EncodingController(rtcManager: rtcManager)
         )
     }
 
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         imageSourceController: any ImageSourceControlling,
         encodingController: any EncodingControlling
     ) {
-        self.rtcProvider = rtcProvider
+        self.rtcManager = rtcManager
         self.imageSourceController = imageSourceController
         self.encodingController = encodingController
     }
@@ -125,7 +125,7 @@ final class XmaxRealtimeImageManager: @unchecked Sendable {
             await MainActor.run {
                 VideoRenderRegistry.unregister(track)
                 do {
-                    try rtcProvider.unbindLocalVideo()
+                    try rtcManager.unbindLocalVideo()
                 } catch {
                     Self.logCleanupFailure(
                         operation: "解除 RTC 本地预览绑定",
@@ -176,7 +176,7 @@ private extension XmaxRealtimeImageManager {
             track = localTrack
 
             try encodingController.configure(resolvedFormat)
-            try rtcProvider.useExternalVideoSource()
+            try rtcManager.useExternalVideoSource()
             await registerPreview(for: localTrack)
             try imageSourceController.start()
             stateLock.withLock {
@@ -203,15 +203,15 @@ private extension XmaxRealtimeImageManager {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcProvider.renderLibraryName,
+                libraryName: rtcManager.renderLibraryName,
                 attachHandler: { view, contentMode in
-                    try self.rtcProvider.bindLocalVideo(
+                    try self.rtcManager.bindLocalVideo(
                         to: view,
                         contentMode: contentMode
                     )
                 },
                 detachHandler: {
-                    try self.rtcProvider.unbindLocalVideo()
+                    try self.rtcManager.unbindLocalVideo()
                 }
             )
         )

@@ -83,7 +83,7 @@ iOS：
 - [x] 删除图片选择、通用缩放和 JPEG 压缩公开接口。
 - [x] 删除 `ProcessedImage`、`ImageProcessingMetadata` 和 `ImageProcessingResult`。
 - [x] 将 `ImageProcessingSession` 收敛为内部 `DecodedImage`。
-- [x] `ImageProvider` 只负责 `decode()`。
+- [x] `ImageManager` 只负责 `decode()`。
 - [x] Core Graphics 裁剪、缩放和 BGRA 转换统一由 `DecodedImage` 执行。
 - [x] 真机 SDK 测试目标编译通过。
 - [ ] 图片流端到端运行验证。
@@ -93,3 +93,26 @@ Harmony：
 - [ ] 检查 Service 层是否包含图片选择、通用缩放或编码能力。
 - [ ] 将模型尺寸规则与底层图片像素处理分离。
 - [ ] 评估是否需要将已解码图片抽象统一为 `DecodedImage` 对应模型。
+
+## SYNC-004 iOS Manager 命名规范
+
+状态：已确认，iOS 已完成代码调整和真机目标编译。
+
+iOS 规范：
+
+- Foundation 能力协议统一使用 `*Managing`。
+- Foundation 默认实现统一使用 `*Manager`。
+- Core 对外或业务编排 Manager 使用 `Xmax` 前缀，与 Foundation Manager 区分。
+- Foundation 组件不再使用 `*Providing` 或 `*Provider` 命名。
+- 成员变量与初始化参数同步使用 `*Manager` 语义，例如 `rtcManager` 和 `storageManager`。
+
+iOS：
+
+- [x] 重命名 Audio、Image、MediaFileMetadata、Permission、RTC 和 Storage 基础能力。
+- [x] 将进程级 RTC Engine 资源管理器重命名为 `RtcEngineManager`。
+- [x] 同步 Core、Service、Media、Transport、Rendering 和测试代码引用。
+- [x] 真机 SDK 测试目标编译通过。
+
+Harmony：
+
+- [ ] 无需照搬 iOS 类型名；检查同层级能力是否使用平台一致的命名规则。

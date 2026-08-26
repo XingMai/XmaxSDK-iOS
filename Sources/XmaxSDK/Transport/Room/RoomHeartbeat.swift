@@ -4,7 +4,7 @@ import Foundation
 final class RoomHeartbeat: @unchecked Sendable {
 
     // 基础层组件
-    private let rtcProvider: any RtcProviding
+    private let rtcManager: any RtcManaging
     private let sleeper: RoomHeartbeatSleeper
 
     // 并发控制
@@ -15,10 +15,10 @@ final class RoomHeartbeat: @unchecked Sendable {
     private var heartbeatTask: Task<Void, Never>?
 
     init(
-        rtcProvider: any RtcProviding,
+        rtcManager: any RtcManaging,
         sleeper: RoomHeartbeatSleeper = .live
     ) {
-        self.rtcProvider = rtcProvider
+        self.rtcManager = rtcManager
         self.sleeper = sleeper
     }
 
@@ -32,7 +32,7 @@ final class RoomHeartbeat: @unchecked Sendable {
             let version = cycle.advance()
             heartbeatTask?.cancel()
             let context = Context(
-                rtcProvider: rtcProvider,
+                rtcManager: rtcManager,
                 sleeper: sleeper,
                 cycle: cycle,
                 version: version,
@@ -55,7 +55,7 @@ final class RoomHeartbeat: @unchecked Sendable {
 
 private extension RoomHeartbeat {
     struct Context: Sendable {
-        let rtcProvider: any RtcProviding
+        let rtcManager: any RtcManaging
         let sleeper: RoomHeartbeatSleeper
         let cycle: RoomHeartbeatCycle
         let version: UInt64
@@ -70,7 +70,7 @@ private extension RoomHeartbeat {
                 guard context.cycle.isCurrent(context.version) else {
                     return
                 }
-                try context.rtcProvider.sendRoomMessage(
+                try context.rtcManager.sendRoomMessage(
                     RoomEvent.heartbeat(userID: context.userID)
                 )
             } catch is CancellationError {

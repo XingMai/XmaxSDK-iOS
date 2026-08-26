@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import XmaxSDK
 
-final class StorageProviderTests: XCTestCase {
+final class StorageManagerTests: XCTestCase {
     private let configuration = StorageConfiguration(
         bucket: "example-1250000000",
         region: "ap-shanghai",
@@ -15,7 +15,7 @@ final class StorageProviderTests: XCTestCase {
     )
 
     func testResolveObjectURLUsesUploadLocation() throws {
-        let url = try StorageProvider.resolveObjectURL(
+        let url = try StorageManager.resolveObjectURL(
             candidate: "//cdn.example.com/video/result.mp4",
             configuration: configuration,
             objectKey: "ignored.mp4"
@@ -25,7 +25,7 @@ final class StorageProviderTests: XCTestCase {
     }
 
     func testResolveObjectURLBuildsDefaultEndpointAndEncodesKey() throws {
-        let url = try StorageProvider.resolveObjectURL(
+        let url = try StorageManager.resolveObjectURL(
             candidate: nil,
             configuration: configuration,
             objectKey: "video/示例 文件.mp4"
@@ -46,7 +46,7 @@ final class StorageProviderTests: XCTestCase {
             credential: configuration.credential
         )
 
-        let url = try StorageProvider.resolveObjectURL(
+        let url = try StorageManager.resolveObjectURL(
             candidate: "",
             configuration: customConfiguration,
             objectKey: "images/input.png"
@@ -59,7 +59,7 @@ final class StorageProviderTests: XCTestCase {
     }
 
     func testResolveObjectURLEncodesReservedCharactersInObjectKey() throws {
-        let url = try StorageProvider.resolveObjectURL(
+        let url = try StorageManager.resolveObjectURL(
             candidate: nil,
             configuration: configuration,
             objectKey: "input/question?.png"
@@ -81,7 +81,7 @@ final class StorageProviderTests: XCTestCase {
         )
 
         do {
-            _ = try await StorageProvider().upload(
+            _ = try await StorageManager().upload(
                 source: .data(Data("value".utf8)),
                 objectKey: "input.txt",
                 contentType: "text/plain",
@@ -104,7 +104,7 @@ final class StorageProviderTests: XCTestCase {
         URLProtocolStub.setResponse(statusCode: 200, data: payload)
         let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.protocolClasses = [URLProtocolStub.self]
-        let provider = StorageProvider(
+        let manager = StorageManager(
             session: URLSession(configuration: sessionConfiguration)
         )
         let destinationURL = FileManager.default.temporaryDirectory
@@ -114,7 +114,7 @@ final class StorageProviderTests: XCTestCase {
             try? FileManager.default.removeItem(at: destinationURL)
         }
 
-        let result = try await provider.download(
+        let result = try await manager.download(
             remoteURL: URL(string: "https://example.com/file")!,
             destinationURL: destinationURL,
             progress: progress.record
@@ -130,14 +130,14 @@ final class StorageProviderTests: XCTestCase {
         URLProtocolStub.setResponse(statusCode: 403, data: Data())
         let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.protocolClasses = [URLProtocolStub.self]
-        let provider = StorageProvider(
+        let manager = StorageManager(
             session: URLSession(configuration: sessionConfiguration)
         )
         let destinationURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
 
         do {
-            _ = try await provider.download(
+            _ = try await manager.download(
                 remoteURL: URL(string: "https://example.com/file")!,
                 destinationURL: destinationURL,
                 progress: nil

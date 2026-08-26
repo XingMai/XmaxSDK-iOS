@@ -3,29 +3,29 @@ import XCTest
 
 final class RoomHeartbeatTests: XCTestCase {
     func testHeartbeatSendsCurrentUserAfterInterval() async throws {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let manualSleeper = ManualRoomHeartbeatSleeper()
         let heartbeat = RoomHeartbeat(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sleeper: manualSleeper.sleeper
         )
 
         heartbeat.start(userID: "user-id")
         await waitUntil { await manualSleeper.isWaiting }
         await manualSleeper.resume()
-        await waitUntil { rtcProvider.heartbeatMessages.count == 1 }
+        await waitUntil { rtcManager.heartbeatMessages.count == 1 }
         heartbeat.stop()
 
-        let event = try decode(rtcProvider.heartbeatMessages[0])
+        let event = try decode(rtcManager.heartbeatMessages[0])
         XCTAssertEqual(event["event"] as? String, "heartbeat")
         XCTAssertEqual(event["user_id"] as? String, "user-id")
     }
 
     func testStopPreventsWaitingHeartbeatFromSending() async {
-        let rtcProvider = RtcProvidingStub()
+        let rtcManager = RtcManagingStub()
         let manualSleeper = ManualRoomHeartbeatSleeper()
         let heartbeat = RoomHeartbeat(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sleeper: manualSleeper.sleeper
         )
 
@@ -34,11 +34,11 @@ final class RoomHeartbeatTests: XCTestCase {
         heartbeat.stop()
         await Task.yield()
 
-        XCTAssertTrue(rtcProvider.heartbeatMessages.isEmpty)
+        XCTAssertTrue(rtcManager.heartbeatMessages.isEmpty)
     }
 
     func testHeartbeatContinuesAfterSendFailure() async {
-        let rtcProvider = RtcProvidingStub(
+        let rtcManager = RtcManagingStub(
             sendRoomMessageError: XmaxError(
                 code: .rtcError,
                 message: "send failed"
@@ -46,20 +46,20 @@ final class RoomHeartbeatTests: XCTestCase {
         )
         let manualSleeper = ManualRoomHeartbeatSleeper()
         let heartbeat = RoomHeartbeat(
-            rtcProvider: rtcProvider,
+            rtcManager: rtcManager,
             sleeper: manualSleeper.sleeper
         )
 
         heartbeat.start(userID: "user-id")
         await waitUntil { await manualSleeper.isWaiting }
         await manualSleeper.resume()
-        await waitUntil { rtcProvider.heartbeatMessages.count == 1 }
+        await waitUntil { rtcManager.heartbeatMessages.count == 1 }
         await waitUntil { await manualSleeper.isWaiting }
         await manualSleeper.resume()
-        await waitUntil { rtcProvider.heartbeatMessages.count == 2 }
+        await waitUntil { rtcManager.heartbeatMessages.count == 2 }
         heartbeat.stop()
 
-        XCTAssertEqual(rtcProvider.heartbeatMessages.count, 2)
+        XCTAssertEqual(rtcManager.heartbeatMessages.count, 2)
     }
 }
 
@@ -140,7 +140,7 @@ private extension ManualRoomHeartbeatSleeper {
     }
 }
 
-private extension RtcProvidingStub {
+private extension RtcManagingStub {
     var heartbeatMessages: [String] {
         calls.compactMap { call in
             guard case .sendRoomMessage(let message) = call else {

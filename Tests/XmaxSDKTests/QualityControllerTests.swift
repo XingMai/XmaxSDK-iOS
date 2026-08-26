@@ -4,8 +4,8 @@ import XCTest
 @MainActor
 final class QualityControllerTests: XCTestCase {
     func testNetworkQualityMapsEveryRtcLevel() {
-        let rtcProvider = RtcProvidingStub()
-        let controller = QualityController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = QualityController(rtcManager: rtcManager)
         var receivedQualities: [RealtimeNetworkQuality] = []
         controller.setNetworkQualityListener { quality in
             receivedQualities.append(quality)
@@ -21,7 +21,7 @@ final class QualityControllerTests: XCTestCase {
             .down
         ]
         for level in levels {
-            rtcProvider.emitNetworkQuality(
+            rtcManager.emitNetworkQuality(
                 uplink: level,
                 downlink: level
             )
@@ -46,14 +46,14 @@ final class QualityControllerTests: XCTestCase {
     }
 
     func testPerformanceAlarmMapsLimitedStateAndSuggestedFormat() {
-        let rtcProvider = RtcProvidingStub()
-        let controller = QualityController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = QualityController(rtcManager: rtcManager)
         var receivedAlarm: RealtimePerformanceAlarm?
         controller.setPerformanceAlarmListener { alarm in
             receivedAlarm = alarm
         }
 
-        rtcProvider.emitPerformanceAlarm(
+        rtcManager.emitPerformanceAlarm(
             limited: true,
             suggestedWidth: 540,
             suggestedHeight: 960,
@@ -74,14 +74,14 @@ final class QualityControllerTests: XCTestCase {
     }
 
     func testPerformanceAlarmMapsRecoveryAndRejectsInvalidSuggestion() {
-        let rtcProvider = RtcProvidingStub()
-        let controller = QualityController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = QualityController(rtcManager: rtcManager)
         var receivedAlarm: RealtimePerformanceAlarm?
         controller.setPerformanceAlarmListener { alarm in
             receivedAlarm = alarm
         }
 
-        rtcProvider.emitPerformanceAlarm(
+        rtcManager.emitPerformanceAlarm(
             limited: false,
             suggestedWidth: 0,
             suggestedHeight: 960,
@@ -93,8 +93,8 @@ final class QualityControllerTests: XCTestCase {
     }
 
     func testClearedListenersIgnoreLaterEvents() {
-        let rtcProvider = RtcProvidingStub()
-        let controller = QualityController(rtcProvider: rtcProvider)
+        let rtcManager = RtcManagingStub()
+        let controller = QualityController(rtcManager: rtcManager)
         var networkCallbackCount = 0
         var performanceCallbackCount = 0
         controller.setNetworkQualityListener { _ in
@@ -106,11 +106,11 @@ final class QualityControllerTests: XCTestCase {
 
         controller.setNetworkQualityListener(nil)
         controller.setPerformanceAlarmListener(nil)
-        rtcProvider.emitNetworkQuality(
+        rtcManager.emitNetworkQuality(
             uplink: .good,
             downlink: .poor
         )
-        rtcProvider.emitPerformanceAlarm(
+        rtcManager.emitPerformanceAlarm(
             limited: true,
             suggestedWidth: 540,
             suggestedHeight: 960,

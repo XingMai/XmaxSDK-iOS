@@ -7,10 +7,10 @@ final class StorageServiceTests: XCTestCase {
         let apiService = StorageApiServiceStub(
             responses: [.success(Self.storageCredentialPayload())]
         )
-        let storageProvider = StorageProviderStub()
+        let storageManager = StorageManagerStub()
         let service = makeService(
             apiService: apiService,
-            storageProvider: storageProvider
+            storageManager: storageManager
         )
 
         let result = try await service.uploadImage(
@@ -23,7 +23,7 @@ final class StorageServiceTests: XCTestCase {
             apiService.requests,
             [StorageApiRequest(method: .get, path: "/cos/sts", body: nil)]
         )
-        let upload = try XCTUnwrap(storageProvider.uploads.first)
+        let upload = try XCTUnwrap(storageManager.uploads.first)
         XCTAssertEqual(upload.source, .data(Data("image-data".utf8)))
         XCTAssertEqual(
             upload.objectKey,
@@ -58,10 +58,10 @@ final class StorageServiceTests: XCTestCase {
                 )
             ]
         )
-        let storageProvider = StorageProviderStub()
+        let storageManager = StorageManagerStub()
         let service = makeService(
             apiService: apiService,
-            storageProvider: storageProvider
+            storageManager: storageManager
         )
 
         let result = try await service.uploadImageWithSafetyCheck(
@@ -94,7 +94,7 @@ final class StorageServiceTests: XCTestCase {
         )
         let service = makeService(
             apiService: apiService,
-            storageProvider: StorageProviderStub()
+            storageManager: StorageManagerStub()
         )
 
         do {
@@ -133,10 +133,10 @@ final class StorageServiceTests: XCTestCase {
                 )
             ]
         )
-        let storageProvider = StorageProviderStub()
+        let storageManager = StorageManagerStub()
         let service = makeService(
             apiService: apiService,
-            storageProvider: storageProvider
+            storageManager: storageManager
         )
 
         do {
@@ -154,7 +154,7 @@ final class StorageServiceTests: XCTestCase {
                     message: "Invalid storage credential payload"
                 )
             )
-            XCTAssertTrue(storageProvider.uploads.isEmpty)
+            XCTAssertTrue(storageManager.uploads.isEmpty)
         }
     }
 
@@ -167,25 +167,25 @@ final class StorageServiceTests: XCTestCase {
         let apiService = StorageApiServiceStub(
             responses: [.success(Self.storageCredentialPayload())]
         )
-        let storageProvider = StorageProviderStub()
+        let storageManager = StorageManagerStub()
         let service = makeService(
             apiService: apiService,
-            storageProvider: storageProvider
+            storageManager: storageManager
         )
 
         _ = try await service.uploadVideoFile(fileURL: fileURL)
 
-        let upload = try XCTUnwrap(storageProvider.uploads.first)
+        let upload = try XCTUnwrap(storageManager.uploads.first)
         XCTAssertEqual(upload.source, .file(fileURL))
         XCTAssertEqual(upload.contentType, "video/quicktime")
     }
 
     func testUploadValidatesInputBeforeRequestingCredential() async {
         let apiService = StorageApiServiceStub(responses: [])
-        let storageProvider = StorageProviderStub()
+        let storageManager = StorageManagerStub()
         let service = makeService(
             apiService: apiService,
-            storageProvider: storageProvider
+            storageManager: storageManager
         )
 
         do {
@@ -204,7 +204,7 @@ final class StorageServiceTests: XCTestCase {
                 )
             )
             XCTAssertTrue(apiService.requests.isEmpty)
-            XCTAssertTrue(storageProvider.uploads.isEmpty)
+            XCTAssertTrue(storageManager.uploads.isEmpty)
         }
     }
 
@@ -217,7 +217,7 @@ final class StorageServiceTests: XCTestCase {
         let apiService = StorageApiServiceStub(responses: [])
         let service = makeService(
             apiService: apiService,
-            storageProvider: StorageProviderStub()
+            storageManager: StorageManagerStub()
         )
 
         do {
@@ -237,10 +237,10 @@ final class StorageServiceTests: XCTestCase {
 
     func testDownloadDelegatesValidatedURLsAndProgress() async throws {
         let apiService = StorageApiServiceStub(responses: [])
-        let storageProvider = StorageProviderStub()
+        let storageManager = StorageManagerStub()
         let service = makeService(
             apiService: apiService,
-            storageProvider: storageProvider
+            storageManager: storageManager
         )
         let remoteURL = URL(string: "https://example.com/video.mp4")!
         let destinationURL = FileManager.default.temporaryDirectory
@@ -254,7 +254,7 @@ final class StorageServiceTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            storageProvider.downloads,
+            storageManager.downloads,
             [
                 StorageDownloadRecord(
                     remoteURL: remoteURL,
@@ -288,13 +288,13 @@ private extension StorageServiceTests {
 
     func makeService(
         apiService: StorageApiServiceStub,
-        storageProvider: StorageProviderStub
+        storageManager: StorageManagerStub
     ) -> StorageService {
         StorageService(
             apiService: apiService,
-            storageProvider: storageProvider,
-            dateProvider: { Date(timeIntervalSince1970: 1_700_000_000) },
-            identifierProvider: { "fixed-id" }
+            storageManager: storageManager,
+            dateGenerator: { Date(timeIntervalSince1970: 1_700_000_000) },
+            identifierGenerator: { "fixed-id" }
         )
     }
 }
@@ -356,7 +356,7 @@ private struct StorageDownloadRecord: Equatable, Sendable {
     let hasProgress: Bool
 }
 
-private final class StorageProviderStub: StorageProviding, @unchecked Sendable {
+private final class StorageManagerStub: StorageManaging, @unchecked Sendable {
 
     // 并发状态
     private let lock = NSLock()

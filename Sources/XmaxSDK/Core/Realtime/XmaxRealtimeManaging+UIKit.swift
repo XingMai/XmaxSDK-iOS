@@ -29,7 +29,7 @@ extension XmaxRealtimeManager {
         image: UIImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let decodedImage = try ImageProvider().decode(image)
+        let decodedImage = try ImageManager().decode(image)
         return try await createLocalImageStream(
             decodedImage: decodedImage,
             videoFormat: videoFormat
@@ -40,7 +40,7 @@ extension XmaxRealtimeManager {
         image: UIImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        let decodedImage = try ImageProvider().decode(image)
+        let decodedImage = try ImageManager().decode(image)
         return try await replaceLocalImageStream(
             decodedImage: decodedImage,
             videoFormat: videoFormat
