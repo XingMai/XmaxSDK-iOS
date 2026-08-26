@@ -1,16 +1,15 @@
-import AVFoundation
-import ImageIO
-import Kingfisher
+import PhotosUI
 import SnapKit
 import UIKit
+import UniformTypeIdentifiers
 import XmaxSDK
 
-enum RealtimeLocalInput: Sendable {
-    case image(URL)
-    case video(URL)
-}
+final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegate {
 
-final class RealtimeViewController: UIViewController {
+    private enum ReferencePickerDestination {
+        case category(String)
+        case prompt
+    }
 
     // 本地配置
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
@@ -23,18 +22,49 @@ final class RealtimeViewController: UIViewController {
 
     // 实时资源
     private let localInput: RealtimeLocalInput?
-    private lazy var realtimeManager = makeRealtimeManager()
+    private let realtimeManager: any XmaxRealtimeManaging
     private var localMediaStream: RealtimeMediaStream?
     private var remoteRealtimeStream: RealtimeMediaStream?
+    private var selectedReference: RealtimeReferenceCatalog.Item?
+    private var currentGenerationContext: RealtimeContext?
     private var isGenerationRequested = false
+
+    // 参考图状态
+    private var referencePickerDestination: ReferencePickerDestination?
+    private var promptReference: RealtimeReferenceCatalog.Item?
+    private var isPickingReference = false
+    private var referenceUploadRequestIDs: [String: UUID] = [:]
 
     // 异步任务
     private var localMediaOperationTask: Task<Void, Never>?
     private var generationOperationTask: Task<Void, Never>?
     private var stateListenerTask: Task<Void, Never>?
+    private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
     // 布局约束
     private var promptKeyboardBottomConstraint: Constraint?
+
+    // 交互手势
+    private lazy var keyboardDismissTapGesture: UITapGestureRecognizer = {
+        let gesture = UITapGestureRecognizer(
+            target: self,
+            action: #selector(dismissKeyboard)
+        )
+        gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        return gesture
+    }()
+
+    private lazy var keyboardDismissSwipeGesture: UISwipeGestureRecognizer = {
+        let gesture = UISwipeGestureRecognizer(
+            target: self,
+            action: #selector(dismissKeyboard)
+        )
+        gesture.direction = .down
+        gesture.cancelsTouchesInView = false
+        gesture.delegate = self
+        return gesture
+    }()
 
     // 界面组件
     private lazy var previewView = RealtimePreviewBackdropView(
@@ -47,12 +77,23 @@ final class RealtimeViewController: UIViewController {
             self?.showPromptKeyboard(text: text)
         }
         view.onReferenceSelectionChanged = { [weak self] reference in
+            self?.handleReferenceSelection(reference)
+        }
+        view.onAddReference = { [weak self] categoryID in
+            self?.presentReferencePhotoPicker(
+                destination: .category(categoryID)
+            )
+        }
+        view.onRetryReferenceUpload = { [weak self] reference in
+            self?.startReferenceUpload(reference)
+        }
+        view.onPromptReferenceAction = { [weak self] in
+            self?.handlePromptReferenceAction()
+        }
+        view.onDisableGeneration = { [weak self] in
             guard let self else { return }
-            if let reference {
-                startGeneration(with: reference)
-            } else {
-                disconnectGeneration()
-            }
+            selectedReference = nil
+            disconnectGeneration()
         }
         return view
     }()
@@ -64,8 +105,13 @@ final class RealtimeViewController: UIViewController {
             self?.controlPanelView.setPromptText(text)
         }
         view.onSubmit = { [weak self] text in
-            self?.controlPanelView.setPromptText(text)
-            self?.promptKeyboardView.endEditing()
+            guard let self else { return }
+            controlPanelView.setPromptText(text)
+            promptKeyboardView.endEditing()
+            submitPrompt(text)
+        }
+        view.onReferenceAction = { [weak self] in
+            self?.handlePromptReferenceAction()
         }
         return view
     }()
@@ -86,6 +132,7 @@ final class RealtimeViewController: UIViewController {
 
     init(localInput: RealtimeLocalInput? = nil) {
         self.localInput = localInput
+        realtimeManager = Self.makeRealtimeManager()
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -109,6 +156,7 @@ final class RealtimeViewController: UIViewController {
         configureTopControls()
         configureControlPanel()
         configurePromptKeyboard()
+        configureKeyboardDismissal()
         observeKeyboard()
         observeRealtimeState()
         startLocalMedia()
@@ -133,7 +181,6 @@ final class RealtimeViewController: UIViewController {
     private func configurePreview() {
         previewView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(previewView)
-        previewView.display(localInput)
 
         previewView.snp.makeConstraints { make in
             make.horizontalEdges.equalToSuperview()
@@ -199,6 +246,27 @@ final class RealtimeViewController: UIViewController {
         }
     }
 
+    private func configureKeyboardDismissal() {
+        view.addGestureRecognizer(keyboardDismissTapGesture)
+        view.addGestureRecognizer(keyboardDismissSwipeGesture)
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldReceive touch: UITouch
+    ) -> Bool {
+        var touchedView = touch.view
+        while let currentView = touchedView, currentView !== view {
+            if currentView === promptKeyboardView ||
+                currentView is UIControl ||
+                currentView is UIScrollView {
+                return false
+            }
+            touchedView = currentView.superview
+        }
+        return true
+    }
+
     private func observeKeyboard() {
         NotificationCenter.default.addObserver(
             self,
@@ -252,7 +320,7 @@ final class RealtimeViewController: UIViewController {
         promptKeyboardView.beginEditing(text: text)
     }
 
-    private func makeRealtimeManager() -> any XmaxRealtimeManaging {
+    private static func makeRealtimeManager() -> any XmaxRealtimeManaging {
         let apiKey = UserDefaults.standard.string(
             forKey: Self.apiKeyStorageKey
         ) ?? ""
@@ -262,6 +330,238 @@ final class RealtimeViewController: UIViewController {
         return client.createRealtimeManager(
             options: RealtimeConfiguration(model: .x2_0)
         )
+    }
+
+    private func presentReferencePhotoPicker(
+        destination: ReferencePickerDestination
+    ) {
+        guard !isPickingReference, presentedViewController == nil else {
+            return
+        }
+
+        isPickingReference = true
+        referencePickerDestination = destination
+        view.endEditing(true)
+
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        configuration.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    private func finishReferencePicking(
+        localURL: URL?,
+        error: (any Error)? = nil
+    ) {
+        let destination = referencePickerDestination
+        referencePickerDestination = nil
+        isPickingReference = false
+
+        if error != nil {
+            XLToast.show("读取照片失败，请重试", in: view)
+            return
+        }
+        guard let localURL, let destination else { return }
+
+        switch destination {
+        case let .category(categoryID):
+            let reference = RealtimeReferenceCatalog.Item(
+                categoryID: categoryID,
+                iconURL: localURL,
+                prompt: RealtimeReferenceCatalog.prompt(
+                    for: categoryID
+                )
+            )
+            controlPanelView.insertReference(reference)
+            startReferenceUpload(reference)
+        case .prompt:
+            if let promptReference {
+                cancelReferenceUpload(promptReference)
+            }
+            let reference = RealtimeReferenceCatalog.Item(
+                categoryID: "free",
+                iconURL: localURL,
+                prompt: ""
+            )
+            promptReference = reference
+            renderPromptReference()
+            startReferenceUpload(reference)
+        }
+    }
+
+    private func handleReferenceSelection(
+        _ reference: RealtimeReferenceCatalog.Item?
+    ) {
+        let previousReference = selectedReference
+        selectedReference = reference
+        guard let reference else {
+            if previousReference?.context == currentGenerationContext {
+                disconnectGeneration()
+            }
+            return
+        }
+
+        switch reference.uploadState {
+        case .ready:
+            guard let context = reference.context else { return }
+            startGeneration(
+                context: context,
+                selectedReferenceID: reference.id
+            )
+        case .uploading:
+            break
+        case .failed:
+            startReferenceUpload(reference)
+        }
+    }
+
+    private func handlePromptReferenceAction() {
+        guard let promptReference else {
+            presentReferencePhotoPicker(destination: .prompt)
+            return
+        }
+
+        switch promptReference.uploadState {
+        case .uploading:
+            return
+        case .failed:
+            startReferenceUpload(promptReference)
+        case .ready:
+            cancelReferenceUpload(promptReference)
+            self.promptReference = nil
+            renderPromptReference()
+        }
+    }
+
+    private func submitPrompt(_ text: String) {
+        let prompt = text.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let canUsePromptReference = promptReference == nil
+            || promptReference?.uploadState == .ready
+        guard !prompt.isEmpty, canUsePromptReference else {
+            return
+        }
+        selectedReference = nil
+        controlPanelView.clearReferenceSelection()
+        startGeneration(
+            context: RealtimeContext(
+                prompt: prompt,
+                referencePath: promptReference?.referencePath
+            ),
+            selectedReferenceID: nil
+        )
+    }
+
+    private func startReferenceUpload(
+        _ reference: RealtimeReferenceCatalog.Item
+    ) {
+        cancelReferenceUpload(reference)
+
+        reference.uploadState = .uploading
+        let requestID = UUID()
+        referenceUploadRequestIDs[reference.id] = requestID
+        renderReference(reference)
+
+        let apiKey = UserDefaults.standard.string(
+            forKey: Self.apiKeyStorageKey
+        ) ?? ""
+        let fileURL = reference.iconURL
+        referenceUploadTasks[reference.id] = Task { [weak self, reference] in
+            do {
+                let client = XmaxClient(
+                    configuration: XmaxConfiguration(apiKey: apiKey)
+                )
+                let storageManager = try client.createStorageManager()
+                let uploaded = try await storageManager.uploadImage(
+                    at: fileURL,
+                    contentType: nil,
+                    progress: nil
+                )
+                guard !Task.isCancelled else { return }
+                await MainActor.run { [weak self, reference] in
+                    self?.finishReferenceUpload(
+                        reference,
+                        requestID: requestID,
+                        result: .success(uploaded.url)
+                    )
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run { [weak self, reference] in
+                    self?.finishReferenceUpload(
+                        reference,
+                        requestID: requestID,
+                        result: .failure(error)
+                    )
+                }
+            }
+        }
+    }
+
+    private func finishReferenceUpload(
+        _ reference: RealtimeReferenceCatalog.Item,
+        requestID: UUID,
+        result: Result<URL, Error>
+    ) {
+        guard referenceUploadRequestIDs[reference.id] == requestID else {
+            return
+        }
+        referenceUploadRequestIDs[reference.id] = nil
+        referenceUploadTasks[reference.id] = nil
+
+        switch result {
+        case let .success(remoteURL):
+            reference.referencePath = remoteURL.absoluteString
+            reference.uploadState = .ready
+            renderReference(reference)
+
+            if reference === promptReference {
+                return
+            }
+            if controlPanelView.isReferenceSelected(reference.id),
+               let context = reference.context {
+                startGeneration(
+                    context: context,
+                    selectedReferenceID: reference.id
+                )
+            }
+        case .failure:
+            reference.uploadState = .failed
+            renderReference(reference)
+            XLToast.show(
+                "参考图上传失败，点击图片可重试",
+                in: view
+            )
+        }
+    }
+
+    private func cancelReferenceUpload(
+        _ reference: RealtimeReferenceCatalog.Item
+    ) {
+        referenceUploadTasks[reference.id]?.cancel()
+        referenceUploadTasks[reference.id] = nil
+        referenceUploadRequestIDs[reference.id] = nil
+    }
+
+    private func renderReference(
+        _ reference: RealtimeReferenceCatalog.Item
+    ) {
+        if reference === promptReference {
+            renderPromptReference()
+        } else {
+            controlPanelView.updateReference(reference)
+        }
+    }
+
+    private func renderPromptReference() {
+        controlPanelView.setPromptReference(promptReference)
+        promptKeyboardView.setReference(promptReference)
     }
 
     private func startLocalMedia() {
@@ -307,6 +607,9 @@ final class RealtimeViewController: UIViewController {
     }
 
     private func stopLocalMedia() {
+        referenceUploadTasks.values.forEach { $0.cancel() }
+        referenceUploadTasks.removeAll()
+        referenceUploadRequestIDs.removeAll()
         let pendingGenerationOperation = generationOperationTask
         pendingGenerationOperation?.cancel()
         generationOperationTask = nil
@@ -316,6 +619,8 @@ final class RealtimeViewController: UIViewController {
         localMediaOperationTask?.cancel()
         localMediaOperationTask = nil
         isGenerationRequested = false
+        selectedReference = nil
+        currentGenerationContext = nil
         localMediaStream = nil
         remoteRealtimeStream = nil
         switchCameraButton.isEnabled = false
@@ -351,16 +656,21 @@ final class RealtimeViewController: UIViewController {
     }
 
     private func startGeneration(
-        with reference: RealtimeReferenceCatalog.Item
+        context: RealtimeContext,
+        selectedReferenceID: String?
     ) {
         isGenerationRequested = true
+        currentGenerationContext = context
         loadingOverlay.startLoading()
         guard let localMediaStream else {
             isGenerationRequested = false
+            currentGenerationContext = nil
             loadingOverlay.hideLoading()
-            controlPanelView.clearReferenceSelection(
-                matching: reference.id
-            )
+            if let selectedReferenceID {
+                controlPanelView.clearReferenceSelection(
+                    matching: selectedReferenceID
+                )
+            }
             showGenerationError(
                 message: "本地媒体尚未准备好，请稍后重试。"
             )
@@ -394,7 +704,7 @@ final class RealtimeViewController: UIViewController {
 
                 try Task.checkCancellation()
                 try await realtimeManager.startGeneration(
-                    context: reference.context
+                    context: context
                 )
                 guard !Task.isCancelled else { return }
                 previewView.showRealtime(animated: true)
@@ -404,13 +714,18 @@ final class RealtimeViewController: UIViewController {
             } catch {
                 guard !Task.isCancelled else { return }
                 isGenerationRequested = false
+                if currentGenerationContext == context {
+                    currentGenerationContext = nil
+                }
                 loadingOverlay.hideLoading()
                 remoteRealtimeStream = nil
                 previewView.displayLocal(localMediaStream.videoTrack)
                 await realtimeManager.disconnect()
-                controlPanelView.clearReferenceSelection(
-                    matching: reference.id
-                )
+                if let selectedReferenceID {
+                    controlPanelView.clearReferenceSelection(
+                        matching: selectedReferenceID
+                    )
+                }
                 showGenerationError(error)
             }
         }
@@ -418,6 +733,7 @@ final class RealtimeViewController: UIViewController {
 
     private func disconnectGeneration() {
         isGenerationRequested = false
+        currentGenerationContext = nil
         loadingOverlay.hideLoading()
         remoteRealtimeStream = nil
         previewView.displayLocal(localMediaStream?.videoTrack)
@@ -425,6 +741,7 @@ final class RealtimeViewController: UIViewController {
         previousOperation?.cancel()
         generationOperationTask = Task { [realtimeManager] in
             await previousOperation?.value
+            await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
         }
     }
@@ -486,6 +803,10 @@ final class RealtimeViewController: UIViewController {
         promptKeyboardView.alpha = 0
     }
 
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
+
     @objc private func switchCamera(_ sender: UIControl) {
         guard localInput == nil,
               localMediaStream != nil else {
@@ -542,6 +863,88 @@ final class RealtimeViewController: UIViewController {
     }
 }
 
+extension RealtimeViewController: PHPickerViewControllerDelegate {
+    func picker(
+        _ picker: PHPickerViewController,
+        didFinishPicking results: [PHPickerResult]
+    ) {
+        picker.dismiss(animated: true)
+        guard let result = results.first else {
+            finishReferencePicking(localURL: nil)
+            return
+        }
+
+        let provider = result.itemProvider
+        let typeIdentifier = provider.registeredTypeIdentifiers.first {
+            UTType($0)?.conforms(to: .image) == true
+        } ?? UTType.image.identifier
+        let preferredExtension = UTType(typeIdentifier)?
+            .preferredFilenameExtension
+
+        provider.loadFileRepresentation(
+            forTypeIdentifier: typeIdentifier
+        ) { [weak self] sourceURL, error in
+            guard let self else { return }
+            guard let sourceURL else {
+                DispatchQueue.main.async {
+                    self.finishReferencePicking(
+                        localURL: nil,
+                        error: error ?? RealtimeReferenceImportError.missingFile
+                    )
+                }
+                return
+            }
+
+            do {
+                let localURL = try Self.copyReferenceToCache(
+                    sourceURL,
+                    preferredExtension: preferredExtension
+                )
+                DispatchQueue.main.async {
+                    self.finishReferencePicking(localURL: localURL)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.finishReferencePicking(
+                        localURL: nil,
+                        error: error
+                    )
+                }
+            }
+        }
+    }
+
+    private nonisolated static func copyReferenceToCache(
+        _ sourceURL: URL,
+        preferredExtension: String?
+    ) throws -> URL {
+        let fileManager = FileManager.default
+        let cacheRoot = try fileManager.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let directoryURL = cacheRoot.appendingPathComponent(
+            "RealtimeReferences",
+            isDirectory: true
+        )
+        try fileManager.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+
+        let fileExtension = sourceURL.pathExtension.isEmpty
+            ? preferredExtension ?? "jpg"
+            : sourceURL.pathExtension
+        let destinationURL = directoryURL
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(fileExtension)
+        try fileManager.copyItem(at: sourceURL, to: destinationURL)
+        return destinationURL
+    }
+}
+
 private enum RealtimeDemoError: LocalizedError {
     case connectionTransitioning
 
@@ -553,1299 +956,6 @@ private enum RealtimeDemoError: LocalizedError {
     }
 }
 
-private final class RealtimeLoadingOverlay: UIView {
-    private var isLoading = false
-    private var transitionVersion: UInt64 = 0
-
-    private lazy var loadingImageView: UIImageView = {
-        let imageView = UIImageView(image: RealtimeLoadingImageLoader.animatedImage())
-        imageView.contentMode = .scaleAspectFit
-        return imageView
-    }()
-
-    private lazy var fallbackIndicator: UIActivityIndicatorView = {
-        let indicator = UIActivityIndicatorView(style: .medium)
-        indicator.color = UIColor.white.withAlphaComponent(0.86)
-        indicator.hidesWhenStopped = true
-        return indicator
-    }()
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = UIColor.black.withAlphaComponent(0.72)
-        isHidden = true
-        alpha = 0
-        isUserInteractionEnabled = false
-
-        addSubview(loadingImageView)
-        addSubview(fallbackIndicator)
-        loadingImageView.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.width.equalTo(54)
-            make.height.equalTo(50)
-        }
-        fallbackIndicator.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func startLoading() {
-        guard !isLoading else { return }
-        isLoading = true
-        transitionVersion &+= 1
-        layer.removeAllAnimations()
-        isHidden = false
-
-        if loadingImageView.image == nil {
-            fallbackIndicator.startAnimating()
-        } else {
-            fallbackIndicator.stopAnimating()
-            loadingImageView.startAnimating()
-        }
-
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            options: [.beginFromCurrentState, .curveEaseInOut]
-        ) {
-            self.alpha = 1
-        }
-    }
-
-    func hideLoading() {
-        guard isLoading || !isHidden else { return }
-        isLoading = false
-        transitionVersion &+= 1
-        let version = transitionVersion
-        layer.removeAllAnimations()
-        loadingImageView.stopAnimating()
-        fallbackIndicator.stopAnimating()
-
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            options: [.beginFromCurrentState, .curveEaseInOut]
-        ) {
-            self.alpha = 0
-        } completion: { _ in
-            guard version == self.transitionVersion else { return }
-            self.isHidden = true
-        }
-    }
-}
-
-private enum RealtimeLoadingImageLoader {
-    static func animatedImage() -> UIImage? {
-        guard let data = NSDataAsset(name: "RealtimeLoading")?.data,
-              let source = CGImageSourceCreateWithData(
-                data as CFData,
-                nil
-              ) else {
-            return nil
-        }
-
-        let frameCount = CGImageSourceGetCount(source)
-        guard frameCount > 0 else { return nil }
-        var images: [UIImage] = []
-        var duration: TimeInterval = 0
-
-        for index in 0..<frameCount {
-            guard let image = CGImageSourceCreateImageAtIndex(
-                source,
-                index,
-                nil
-            ) else { continue }
-            images.append(UIImage(cgImage: image))
-            duration += frameDuration(source: source, index: index)
-        }
-
-        guard !images.isEmpty else { return nil }
-        return UIImage.animatedImage(
-            with: images,
-            duration: duration > 0 ? duration : 0.1 * Double(images.count)
-        )
-    }
-
-    private static func frameDuration(
-        source: CGImageSource,
-        index: Int
-    ) -> TimeInterval {
-        guard let properties = CGImageSourceCopyPropertiesAtIndex(
-            source,
-            index,
-            nil
-        ) as? [String: Any],
-        let gifProperties = properties[
-            kCGImagePropertyGIFDictionary as String
-        ] as? [String: Any] else {
-            return 0.1
-        }
-
-        return gifProperties[
-            kCGImagePropertyGIFUnclampedDelayTime as String
-        ] as? TimeInterval
-            ?? gifProperties[
-                kCGImagePropertyGIFDelayTime as String
-            ] as? TimeInterval
-            ?? 0.1
-    }
-}
-
-private final class RealtimePreviewBackdropView: UIView {
-    override class var layerClass: AnyClass {
-        CAGradientLayer.self
-    }
-
-    // 播放资源
-    private let videoContentMode: VideoContentMode
-    private var mediaPlayer: AVQueuePlayer?
-    private var mediaLooper: AVPlayerLooper?
-    private var remoteVisibilityVersion: UInt64 = 0
-
-    private var gradientLayer: CAGradientLayer {
-        layer as! CAGradientLayer
-    }
-
-    // 媒体视图
-    private lazy var localVideoView: XmaxVideoView = {
-        let view = XmaxVideoView()
-        view.videoContentMode = videoContentMode
-        view.isHidden = true
-        return view
-    }()
-
-    private lazy var remoteVideoView: XmaxVideoView = {
-        let view = XmaxVideoView()
-        view.videoContentMode = videoContentMode
-        view.backgroundColor = .feed(rgb: 0x101010)
-        view.alpha = 0
-        view.isHidden = true
-        return view
-    }()
-
-    private lazy var mediaImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
-        imageView.backgroundColor = .black
-        imageView.isHidden = true
-        return imageView
-    }()
-
-    private lazy var mediaPlayerLayer: AVPlayerLayer = {
-        let layer = AVPlayerLayer()
-        layer.videoGravity = .resizeAspect
-        return layer
-    }()
-
-    init(usesFileLayout: Bool) {
-        videoContentMode = usesFileLayout ? .fit : .fill
-        super.init(frame: .zero)
-        clipsToBounds = true
-        gradientLayer.colors = [
-            UIColor.feed(rgb: 0x171719).cgColor,
-            UIColor.feed(rgb: 0x0D0D0F).cgColor,
-            UIColor.feed(rgb: 0x050506).cgColor
-        ]
-        gradientLayer.locations = [0, 0.48, 1]
-        gradientLayer.startPoint = CGPoint(x: 0.25, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 0.75, y: 1)
-
-        layer.addSublayer(mediaPlayerLayer)
-
-        addSubview(localVideoView)
-
-        addSubview(mediaImageView)
-
-        addSubview(remoteVideoView)
-
-        localVideoView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        mediaImageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        remoteVideoView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        mediaPlayerLayer.frame = bounds
-    }
-
-    func display(_ input: RealtimeLocalInput?) {
-        stopVideo()
-        localVideoView.track = nil
-        localVideoView.isHidden = true
-        clearRealtime()
-        mediaImageView.image = nil
-        mediaImageView.isHidden = true
-
-        switch input {
-        case let .image(url):
-            mediaImageView.image = UIImage(contentsOfFile: url.path)
-            mediaImageView.isHidden = false
-        case let .video(url):
-            let player = AVQueuePlayer()
-            mediaLooper = AVPlayerLooper(
-                player: player,
-                templateItem: AVPlayerItem(url: url)
-            )
-            mediaPlayer = player
-            mediaPlayerLayer.player = player
-            player.isMuted = true
-            player.play()
-        case nil:
-            break
-        }
-    }
-
-    func displayLocal(_ track: RealtimeVideoTrack?) {
-        updateLocal(track)
-        clearRealtime()
-    }
-
-    func updateLocal(_ track: RealtimeVideoTrack?) {
-        stopVideo()
-        mediaImageView.image = nil
-        mediaImageView.isHidden = true
-        localVideoView.isHidden = false
-        localVideoView.track = track
-    }
-
-    func prepareRealtime(_ track: RealtimeVideoTrack?) {
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.alpha = 0
-        remoteVideoView.isHidden = true
-        remoteVideoView.track = track
-    }
-
-    func showRealtime(animated: Bool) {
-        guard remoteVideoView.track != nil else { return }
-        guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
-            return
-        }
-        remoteVisibilityVersion &+= 1
-        let version = remoteVisibilityVersion
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.isHidden = false
-
-        let changes = {
-            self.remoteVideoView.alpha = 1
-        }
-        guard animated, window != nil else {
-            changes()
-            return
-        }
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            options: [.beginFromCurrentState, .curveEaseInOut],
-            animations: changes
-        ) { _ in
-            guard version == self.remoteVisibilityVersion else { return }
-        }
-    }
-
-    private func clearRealtime() {
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.alpha = 0
-        remoteVideoView.isHidden = true
-        remoteVideoView.track = nil
-    }
-
-    private func stopVideo() {
-        mediaPlayer?.pause()
-        mediaPlayerLayer.player = nil
-        mediaLooper = nil
-        mediaPlayer = nil
-    }
-}
-
-private final class RealtimeCameraSwitchButton: UIControl {
-    private lazy var iconView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.image = UIImage(named: "realtime_camera_rotate")?
-            .withRenderingMode(.alwaysTemplate)
-        imageView.tintColor = .white
-        imageView.contentMode = .scaleAspectFit
-        configureShadow(for: imageView)
-        return imageView
-    }()
-
-    private lazy var titleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "翻转"
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 11, weight: .semibold)
-        label.textAlignment = .center
-        configureShadow(for: label)
-        return label
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-
-        addSubview(iconView)
-        addSubview(titleLabel)
-        accessibilityLabel = "翻转摄像头"
-        accessibilityTraits = .button
-
-        iconView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(10)
-            make.centerX.equalToSuperview()
-            make.size.equalTo(22)
-        }
-        titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(iconView.snp.bottom).offset(6)
-            make.centerX.equalToSuperview()
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func configureShadow(for view: UIView) {
-        view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOpacity = 0.5
-        view.layer.shadowRadius = 2
-        view.layer.shadowOffset = CGSize(width: 0, height: 1)
-    }
-}
-
-private struct RealtimeReferenceCatalog: Decodable {
-    struct Item: Decodable {
-        let id: String
-        let categoryID: String
-        let title: String
-        let iconURL: URL
-        let prompt: String
-        let referencePath: String
-
-        var context: RealtimeContext {
-            RealtimeContext(
-                prompt: prompt,
-                referencePath: referencePath
-            )
-        }
-    }
-
-    let items: [Item]
-
-    static func load() -> RealtimeReferenceCatalog {
-        guard
-            let data = NSDataAsset(name: "RealtimeReferenceCatalog")?.data,
-            let catalog = try? JSONDecoder().decode(
-                RealtimeReferenceCatalog.self,
-                from: data
-            )
-        else {
-            return RealtimeReferenceCatalog(items: [])
-        }
-        return catalog
-    }
-}
-
-private final class RealtimeControlPanelView: UIView {
-    private enum Layout {
-        static let topSpacing: CGFloat = 6
-        static let categoryHeight: CGFloat = 36
-        static let categoryLeadingSpacing: CGFloat = 11
-        static let categoryItemSpacing: CGFloat = 14
-        static let clearButtonLeadingSpacing: CGFloat = 14
-        static let clearButtonWidth: CGFloat = 28
-        static let rowSpacing: CGFloat = 4
-        static let referenceHeight: CGFloat = 50
-        static let promptInputHeight: CGFloat = 50
-        static let bottomSpacing: CGFloat = 10
-    }
-
-    private enum Content {
-        case references(categoryID: String)
-        case instruction
-        case prompt
-    }
-
-    private struct Category {
-        let id: String
-        let name: String
-        let content: Content
-    }
-
-    private let categories = [
-        Category(id: "charx", name: "换形象", content: .references(categoryID: "charx")),
-        Category(id: "clothx", name: "换装", content: .references(categoryID: "clothx")),
-        Category(id: "vibex", name: "换风格", content: .references(categoryID: "vibex")),
-        Category(id: "mox", name: "触控动图", content: .instruction),
-        Category(id: "dimx", name: "虚拟召唤", content: .references(categoryID: "dimx")),
-        Category(id: "free", name: "自由", content: .prompt)
-    ]
-    private let referencesByCategory = Dictionary(
-        grouping: RealtimeReferenceCatalog.load().items,
-        by: \.categoryID
-    )
-    private var categoryButtons: [UIButton] = []
-    private var selectedCategoryIndex = 0
-
-    var onBeginPromptEditing: ((String) -> Void)?
-    var onReferenceSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
-
-    private lazy var disabledActionButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setImage(
-            UIImage(
-                systemName: "nosign",
-                withConfiguration: UIImage.SymbolConfiguration(
-                    pointSize: 11,
-                    weight: .regular
-                )
-            ),
-            for: .normal
-        )
-        button.tintColor = .white
-        button.accessibilityLabel = "停止生成"
-        button.addTarget(self, action: #selector(disableGeneration), for: .touchUpInside)
-        return button
-    }()
-
-    private lazy var categoryScrollView: RealtimeCategoryScrollView = {
-        let scrollView = RealtimeCategoryScrollView()
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.alwaysBounceHorizontal = true
-        scrollView.delaysContentTouches = true
-        scrollView.canCancelContentTouches = true
-        scrollView.isDirectionalLockEnabled = true
-        scrollView.contentInsetAdjustmentBehavior = .never
-        return scrollView
-    }()
-
-    private lazy var categoryStackView: UIStackView = {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.alignment = .fill
-        stack.spacing = Layout.categoryItemSpacing
-        return stack
-    }()
-
-    private lazy var contentContainerView = UIView()
-
-    private lazy var referenceListView: RealtimeReferenceListView = {
-        let view = RealtimeReferenceListView()
-        view.onSelectionChanged = { [weak self] reference in
-            self?.onReferenceSelectionChanged?(reference)
-        }
-        return view
-    }()
-
-    private lazy var instructionButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setTitle("点击开始生成", for: .normal)
-        button.setTitleColor(.white.withAlphaComponent(0.85), for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
-        button.backgroundColor = .white.withAlphaComponent(0.14)
-        button.layer.cornerRadius = 20
-        button.layer.borderWidth = 1
-        button.layer.borderColor = UIColor.white.withAlphaComponent(0.19).cgColor
-        button.accessibilityLabel = "点击开始生成"
-        return button
-    }()
-
-    private lazy var promptInputView: RealtimePromptFieldView = {
-        let view = RealtimePromptFieldView()
-        view.onBeginEditing = { [weak self] text in
-            self?.onBeginPromptEditing?(text)
-        }
-        return view
-    }()
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .feed(rgb: 0x101010)
-        configureCategoryRow()
-        configureContentArea()
-        updateCategorySelection()
-        updateVisibleContent()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func configureCategoryRow() {
-        addSubview(disabledActionButton)
-
-        addSubview(categoryScrollView)
-
-        categoryScrollView.addSubview(categoryStackView)
-
-        for (index, category) in categories.enumerated() {
-            let button = UIButton(type: .custom)
-            button.tag = index
-            button.setTitle(category.name, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 13, weight: .regular)
-            button.addTarget(
-                self,
-                action: #selector(selectCategory(_:)),
-                for: .touchUpInside
-            )
-            button.accessibilityIdentifier = category.id
-            button.snp.makeConstraints { make in
-                let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
-                let textWidth = ceil(
-                    (category.name as NSString).size(
-                        withAttributes: [.font: font]
-                    ).width
-                )
-                make.width.equalTo(textWidth + 10)
-                make.height.equalTo(Layout.categoryHeight)
-            }
-            categoryStackView.addArrangedSubview(button)
-            categoryButtons.append(button)
-        }
-
-        disabledActionButton.snp.makeConstraints { make in
-            make.leading.equalToSuperview()
-                .offset(Layout.clearButtonLeadingSpacing)
-            make.centerY.equalTo(categoryScrollView)
-            make.width.equalTo(Layout.clearButtonWidth)
-            make.height.equalTo(Layout.categoryHeight)
-        }
-        categoryScrollView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(Layout.topSpacing)
-            make.leading.equalTo(disabledActionButton.snp.trailing)
-                .offset(Layout.categoryLeadingSpacing)
-            make.trailing.equalToSuperview()
-            make.height.equalTo(Layout.categoryHeight)
-        }
-        categoryStackView.snp.makeConstraints { make in
-            make.leading.equalTo(categoryScrollView.contentLayoutGuide)
-            make.trailing.equalTo(categoryScrollView.contentLayoutGuide)
-                .offset(-14)
-            make.verticalEdges.equalTo(categoryScrollView.contentLayoutGuide)
-            make.height.equalTo(categoryScrollView.frameLayoutGuide)
-        }
-    }
-
-    private func configureContentArea() {
-        addSubview(contentContainerView)
-
-        contentContainerView.addSubview(referenceListView)
-        contentContainerView.addSubview(instructionButton)
-
-        contentContainerView.addSubview(promptInputView)
-
-        contentContainerView.snp.makeConstraints { make in
-            make.top.equalTo(categoryScrollView.snp.bottom)
-                .offset(Layout.rowSpacing)
-            make.horizontalEdges.equalToSuperview()
-            make.height.equalTo(Layout.referenceHeight)
-            make.bottom.equalTo(safeAreaLayoutGuide)
-                .offset(-Layout.bottomSpacing)
-        }
-        referenceListView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        instructionButton.snp.makeConstraints { make in
-            make.horizontalEdges.equalToSuperview().inset(14)
-            make.centerY.equalToSuperview()
-            make.height.equalTo(Layout.referenceHeight)
-        }
-        promptInputView.snp.makeConstraints { make in
-            make.horizontalEdges.equalToSuperview().inset(14)
-            make.centerY.equalToSuperview()
-            make.height.equalTo(Layout.promptInputHeight)
-        }
-    }
-
-    @objc private func selectCategory(_ sender: UIButton) {
-        guard sender.tag != selectedCategoryIndex else { return }
-        selectedCategoryIndex = sender.tag
-        updateCategorySelection()
-        updateVisibleContent()
-
-        categoryScrollView.scrollRectToVisible(
-            sender.convert(
-                sender.bounds.insetBy(dx: -18, dy: 0),
-                to: categoryScrollView
-            ),
-            animated: true
-        )
-    }
-
-    private func updateCategorySelection() {
-        for (index, button) in categoryButtons.enumerated() {
-            let isSelected = index == selectedCategoryIndex
-            button.setTitleColor(
-                isSelected ? .white : .white.withAlphaComponent(0.48),
-                for: .normal
-            )
-            button.titleLabel?.font = .systemFont(
-                ofSize: 13,
-                weight: isSelected ? .semibold : .regular
-            )
-            button.accessibilityTraits =
-                isSelected ? [.button, .selected] : .button
-        }
-    }
-
-    private func updateVisibleContent() {
-        referenceListView.isHidden = true
-        instructionButton.isHidden = true
-        promptInputView.isHidden = true
-
-        switch categories[selectedCategoryIndex].content {
-        case let .references(categoryID):
-            referenceListView.isHidden = false
-            referenceListView.apply(
-                references: referencesByCategory[categoryID] ?? []
-            )
-        case .instruction:
-            instructionButton.isHidden = false
-        case .prompt:
-            promptInputView.isHidden = false
-        }
-    }
-
-    func setPromptText(_ text: String) {
-        promptInputView.setText(text)
-    }
-
-    func clearReferenceSelection(matching referenceID: String? = nil) {
-        referenceListView.clearSelection(matching: referenceID)
-    }
-
-    @objc private func disableGeneration() {
-        referenceListView.clearSelection()
-        onReferenceSelectionChanged?(nil)
-    }
-
-}
-
-private final class RealtimeCategoryScrollView: UIScrollView {
-    override func touchesShouldCancel(in view: UIView) -> Bool {
-        true
-    }
-}
-
-private final class RealtimeReferenceListView: UIView {
-    private enum Layout {
-        static let itemLength: CGFloat = 50
-        static let itemSpacing: CGFloat = 10
-        static let edgeFadeWidth: CGFloat = 32
-        static let selectionBorderWidth: CGFloat = 2
-        static let edgeFadeTransitionDuration: CFTimeInterval = 0.3
-    }
-
-    private let feedbackGenerator = UISelectionFeedbackGenerator()
-    private var references: [RealtimeReferenceCatalog.Item] = []
-    private var selectedReferenceID: String?
-    private var hasConfiguredEdgeFadeMask = false
-    private var isShowingLeftFade = false
-    private var isShowingRightFade = false
-
-    var onSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
-
-    private lazy var collectionView: UICollectionView = {
-        let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .horizontal
-        layout.itemSize = CGSize(
-            width: Layout.itemLength,
-            height: Layout.itemLength
-        )
-        layout.minimumLineSpacing = Layout.itemSpacing
-        layout.sectionInset = UIEdgeInsets(
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 14
-        )
-
-        let collectionView = UICollectionView(
-            frame: .zero,
-            collectionViewLayout: layout
-        )
-        collectionView.backgroundColor = .clear
-        collectionView.clipsToBounds = false
-        collectionView.showsHorizontalScrollIndicator = false
-        collectionView.alwaysBounceHorizontal = true
-        collectionView.alwaysBounceVertical = false
-        collectionView.contentInsetAdjustmentBehavior = .never
-        collectionView.delegate = self
-        collectionView.dataSource = self
-        collectionView.register(
-            RealtimeReferenceCell.self,
-            forCellWithReuseIdentifier: RealtimeReferenceCell.reuseIdentifier
-        )
-        return collectionView
-    }()
-
-    private lazy var addReferenceButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "realtime_add_reference"), for: .normal)
-        button.imageView?.contentMode = .scaleAspectFill
-        button.backgroundColor = .feed(rgb: 0x303032)
-        button.layer.cornerRadius = 10
-        button.layer.cornerCurve = .continuous
-        button.clipsToBounds = true
-        button.accessibilityLabel = "添加参考图"
-        return button
-    }()
-
-    private lazy var edgeFadeMaskLayer = CAGradientLayer()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-
-        addSubview(addReferenceButton)
-        addSubview(collectionView)
-
-        addReferenceButton.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(14)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(Layout.itemLength)
-        }
-        collectionView.snp.makeConstraints { make in
-            make.verticalEdges.trailing.equalToSuperview()
-            make.leading.equalTo(addReferenceButton.snp.trailing)
-                .offset(Layout.itemSpacing)
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        updateEdgeFadeMask()
-    }
-
-    func apply(references: [RealtimeReferenceCatalog.Item]) {
-        self.references = references
-        collectionView.reloadData()
-        collectionView.setContentOffset(.zero, animated: false)
-        collectionView.layoutIfNeeded()
-        updateEdgeFadeMask()
-    }
-
-    func clearSelection(matching referenceID: String? = nil) {
-        guard let selectedReferenceID,
-              referenceID == nil || referenceID == selectedReferenceID else {
-            return
-        }
-        self.selectedReferenceID = nil
-        guard let index = references.firstIndex(where: {
-            $0.id == selectedReferenceID
-        }) else { return }
-        collectionView.reloadItems(
-            at: [IndexPath(item: index, section: 0)]
-        )
-    }
-
-    private func updateEdgeFadeMask() {
-        let inset = collectionView.adjustedContentInset
-        let minimumOffsetX = -inset.left
-        let maximumOffsetX = max(
-            minimumOffsetX,
-            collectionView.contentSize.width
-                - collectionView.bounds.width
-                + inset.right
-        )
-        let threshold: CGFloat = 0.5
-        let showsLeftFade =
-            collectionView.contentOffset.x > minimumOffsetX + threshold
-        let showsRightFade =
-            collectionView.contentOffset.x < maximumOffsetX - threshold
-
-        let maskBounds = collectionView.bounds.insetBy(
-            dx: -Layout.selectionBorderWidth,
-            dy: -Layout.selectionBorderWidth
-        )
-        let width = maskBounds.width
-        guard width > 0 else { return }
-
-        let fadeLocation = NSNumber(
-            value: min(Layout.edgeFadeWidth, width / 2) / width
-        )
-        let trailingFadeLocation = NSNumber(
-            value: 1 - fadeLocation.doubleValue
-        )
-        let transparent = UIColor.clear.cgColor
-        let opaque = UIColor.black.cgColor
-        let colors = [
-            showsLeftFade ? transparent : opaque,
-            opaque,
-            opaque,
-            showsRightFade ? transparent : opaque
-        ]
-        let visibilityChanged =
-            showsLeftFade != isShowingLeftFade
-            || showsRightFade != isShowingRightFade
-        let shouldAnimate = hasConfiguredEdgeFadeMask && visibilityChanged
-        let currentColors =
-            edgeFadeMaskLayer.presentation()?.colors
-            ?? edgeFadeMaskLayer.colors
-
-        isShowingLeftFade = showsLeftFade
-        isShowingRightFade = showsRightFade
-        hasConfiguredEdgeFadeMask = true
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        edgeFadeMaskLayer.colors = colors
-        edgeFadeMaskLayer.locations = [
-            0,
-            fadeLocation,
-            trailingFadeLocation,
-            1
-        ]
-        edgeFadeMaskLayer.startPoint = CGPoint(x: 0, y: 0.5)
-        edgeFadeMaskLayer.endPoint = CGPoint(x: 1, y: 0.5)
-        edgeFadeMaskLayer.frame = maskBounds
-        collectionView.layer.mask = edgeFadeMaskLayer
-        CATransaction.commit()
-
-        guard shouldAnimate else { return }
-
-        let animation = CABasicAnimation(keyPath: "colors")
-        animation.fromValue = currentColors
-        animation.toValue = colors
-        animation.duration = Layout.edgeFadeTransitionDuration
-        animation.timingFunction = CAMediaTimingFunction(
-            name: .easeInEaseOut
-        )
-        edgeFadeMaskLayer.add(animation, forKey: "edgeFadeTransition")
-    }
-}
-
-extension RealtimeReferenceListView: UICollectionViewDataSource,
-    UICollectionViewDelegate {
-    func collectionView(
-        _ collectionView: UICollectionView,
-        numberOfItemsInSection section: Int
-    ) -> Int {
-        references.count
-    }
-
-    func collectionView(
-        _ collectionView: UICollectionView,
-        cellForItemAt indexPath: IndexPath
-    ) -> UICollectionViewCell {
-        guard
-            let cell = collectionView.dequeueReusableCell(
-                withReuseIdentifier: RealtimeReferenceCell.reuseIdentifier,
-                for: indexPath
-            ) as? RealtimeReferenceCell
-        else {
-            return UICollectionViewCell()
-        }
-
-        let reference = references[indexPath.item]
-        cell.configure(
-            reference: reference,
-            isSelected: reference.id == selectedReferenceID
-        )
-        return cell
-    }
-
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        updateEdgeFadeMask()
-    }
-
-    func collectionView(
-        _ collectionView: UICollectionView,
-        didSelectItemAt indexPath: IndexPath
-    ) {
-        let previousReferenceID = selectedReferenceID
-        let reference = references[indexPath.item]
-        let isCancellingSelection = previousReferenceID == reference.id
-        selectedReferenceID = isCancellingSelection ? nil : reference.id
-        feedbackGenerator.selectionChanged()
-
-        let changedIndexPaths = references.enumerated().compactMap {
-            index, item -> IndexPath? in
-            guard
-                item.id == previousReferenceID
-                || item.id == selectedReferenceID
-            else {
-                return nil
-            }
-            return IndexPath(item: index, section: 0)
-        }
-        collectionView.reloadItems(at: changedIndexPaths)
-        if isCancellingSelection {
-            onSelectionChanged?(nil)
-        } else {
-            collectionView.scrollToItem(
-                at: indexPath,
-                at: .centeredHorizontally,
-                animated: true
-            )
-            onSelectionChanged?(reference)
-        }
-    }
-}
-
-private final class RealtimeReferenceCell: UICollectionViewCell {
-    private enum Layout {
-        static let selectionBorderWidth: CGFloat = 2
-    }
-
-    static let reuseIdentifier = "RealtimeReferenceCell"
-
-    private lazy var selectionBorderView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.layer.borderWidth = Layout.selectionBorderWidth
-        view.layer.borderColor = UIColor.feed(rgb: 0xFF2E88).cgColor
-        view.layer.cornerRadius = 12
-        view.isHidden = true
-        view.isUserInteractionEnabled = false
-        return view
-    }()
-
-    private lazy var imageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFill
-        imageView.clipsToBounds = true
-        return imageView
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        clipsToBounds = false
-
-        contentView.backgroundColor = .feed(rgb: 0x303032)
-        contentView.layer.cornerRadius = 10
-        contentView.clipsToBounds = true
-        insertSubview(selectionBorderView, belowSubview: contentView)
-        contentView.addSubview(imageView)
-
-        selectionBorderView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-                .inset(-Layout.selectionBorderWidth)
-        }
-        imageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        imageView.kf.cancelDownloadTask()
-        imageView.image = nil
-        selectionBorderView.isHidden = true
-    }
-
-    func configure(
-        reference: RealtimeReferenceCatalog.Item,
-        isSelected: Bool
-    ) {
-        accessibilityLabel = reference.title
-        selectionBorderView.isHidden = !isSelected
-        accessibilityTraits = isSelected ? [.button, .selected] : .button
-        loadImage(from: reference.iconURL)
-    }
-
-    private func loadImage(from url: URL) {
-        let scale = max(traitCollection.displayScale, 1)
-        imageView.kf.setImage(
-            with: url,
-            options: [
-                .processor(
-                    DownsamplingImageProcessor(
-                        size: CGSize(width: 75, height: 75)
-                    )
-                ),
-                .scaleFactor(scale),
-                .transition(.fade(0.2)),
-                .cacheOriginalImage
-            ]
-        )
-    }
-
-}
-
-private final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
-    var onBeginEditing: ((String) -> Void)?
-
-    private lazy var textField: UITextField = {
-        let textField = UITextField()
-        textField.attributedPlaceholder = NSAttributedString(
-            string: "输入你想要的效果",
-            attributes: [
-                .foregroundColor: UIColor.white.withAlphaComponent(0.5),
-                .font: UIFont.systemFont(ofSize: 14)
-            ]
-        )
-        textField.textColor = .white
-        textField.font = .systemFont(ofSize: 14)
-        textField.returnKeyType = .send
-        textField.delegate = self
-        textField.addTarget(self, action: #selector(textDidChange), for: .editingChanged)
-        return textField
-    }()
-
-    private lazy var submitControl = RealtimePromptCircleView(
-        imageName: "realtime_prompt_submit",
-        imageSize: CGSize(width: 13, height: 14),
-        backgroundColor: .feed(rgb: 0xFF2E88)
-    )
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .feed(rgb: 0x272728)
-        layer.cornerRadius = 8
-        layer.cornerCurve = .continuous
-
-        let addControl = RealtimePromptCircleView(
-            imageName: "realtime_prompt_add",
-            imageSize: CGSize(width: 14, height: 14),
-            backgroundColor: .white.withAlphaComponent(0.12)
-        )
-
-        addSubview(textField)
-        addSubview(addControl)
-        addSubview(submitControl)
-        submitControl.alpha = 0.2
-
-        textField.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(11)
-            make.verticalEdges.equalToSuperview()
-            make.trailing.equalTo(addControl.snp.leading).offset(-10)
-        }
-        addControl.snp.makeConstraints { make in
-            make.centerY.equalToSuperview()
-            make.size.equalTo(32)
-        }
-        submitControl.snp.makeConstraints { make in
-            make.leading.equalTo(addControl.snp.trailing).offset(8)
-            make.trailing.equalToSuperview().offset(-8)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(32)
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    @objc private func textDidChange() {
-        let hasText = !(textField.text ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-        submitControl.alpha = hasText ? 1 : 0.2
-    }
-
-    func setText(_ text: String) {
-        textField.text = text
-        textDidChange()
-    }
-
-    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
-        onBeginEditing?(textField.text ?? "")
-        return false
-    }
-
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        textField.resignFirstResponder()
-        return true
-    }
-}
-
-private final class RealtimePromptKeyboardView: UIView, UITextViewDelegate {
-    static let preferredHeight: CGFloat = 138
-
-    var onTextChange: ((String) -> Void)?
-    var onSubmit: ((String) -> Void)?
-
-    private lazy var contentView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .feed(rgb: 0x252525)
-        view.layer.cornerRadius = 15
-        view.layer.cornerCurve = .continuous
-        return view
-    }()
-
-    private lazy var textView: UITextView = {
-        let textView = UITextView()
-        textView.backgroundColor = .clear
-        textView.textColor = .white
-        textView.font = .systemFont(ofSize: 14)
-        textView.keyboardAppearance = .dark
-        textView.textContainerInset = .zero
-        textView.textContainer.lineFragmentPadding = 0
-        textView.showsVerticalScrollIndicator = false
-        textView.delegate = self
-        return textView
-    }()
-
-    private lazy var placeholderLabel: UILabel = {
-        let label = UILabel()
-        label.text = "输入你想要的效果"
-        label.textColor = .white.withAlphaComponent(0.5)
-        label.font = .systemFont(ofSize: 14)
-        label.isUserInteractionEnabled = false
-        return label
-    }()
-
-    private lazy var addButton: UIButton = {
-        let button = UIButton(type: .custom)
-        configureButton(
-            button,
-            imageName: "realtime_prompt_add",
-            imageSize: CGSize(width: 12, height: 12),
-            backgroundColor: .white.withAlphaComponent(0.10)
-        )
-        button.accessibilityLabel = "添加自定义模式参考图"
-        return button
-    }()
-
-    private lazy var submitButton: UIButton = {
-        let button = UIButton(type: .custom)
-        configureButton(
-            button,
-            imageName: "realtime_prompt_submit",
-            imageSize: CGSize(width: 11, height: 12),
-            backgroundColor: .feed(rgb: 0xFF2E88)
-        )
-        button.accessibilityLabel = "提交自定义模式描述"
-        button.addTarget(self, action: #selector(submitPrompt), for: .touchUpInside)
-        return button
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .feed(rgb: 0x101010)
-
-        addSubview(contentView)
-        contentView.addSubview(textView)
-        contentView.addSubview(placeholderLabel)
-        contentView.addSubview(addButton)
-        contentView.addSubview(submitButton)
-
-        contentView.snp.makeConstraints { make in
-            make.horizontalEdges.equalToSuperview().inset(14)
-            make.verticalEdges.equalToSuperview().inset(14)
-        }
-        textView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(12)
-            make.horizontalEdges.equalToSuperview().inset(12)
-            make.bottom.equalTo(addButton.snp.top).offset(-8)
-        }
-        placeholderLabel.snp.makeConstraints { make in
-            make.top.leading.equalTo(textView)
-            make.trailing.lessThanOrEqualTo(textView)
-        }
-        submitButton.snp.makeConstraints { make in
-            make.trailing.bottom.equalToSuperview().inset(8)
-            make.size.equalTo(28)
-        }
-        addButton.snp.makeConstraints { make in
-            make.trailing.equalTo(submitButton.snp.leading).offset(-8)
-            make.centerY.equalTo(submitButton)
-            make.size.equalTo(28)
-        }
-        updateState()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func beginEditing(text: String) {
-        textView.text = text
-        updateState()
-        DispatchQueue.main.async { [weak self] in
-            self?.textView.becomeFirstResponder()
-        }
-    }
-
-    func endEditing() {
-        textView.resignFirstResponder()
-    }
-
-    func textViewDidChange(_ textView: UITextView) {
-        updateState()
-        onTextChange?(textView.text)
-    }
-
-    private func configureButton(
-        _ button: UIButton,
-        imageName: String,
-        imageSize: CGSize,
-        backgroundColor: UIColor
-    ) {
-        button.backgroundColor = backgroundColor
-        button.layer.cornerRadius = 14
-        button.clipsToBounds = true
-        button.tintColor = .white
-        button.setImage(
-            UIImage(named: imageName)?.withRenderingMode(.alwaysTemplate),
-            for: .normal
-        )
-        button.imageView?.contentMode = .scaleAspectFit
-        button.imageView?.snp.makeConstraints { make in
-            make.size.equalTo(imageSize)
-        }
-    }
-
-    private func normalizedPrompt() -> String {
-        textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func updateState() {
-        placeholderLabel.isHidden = !textView.text.isEmpty
-        let isEnabled = !normalizedPrompt().isEmpty
-        submitButton.isEnabled = isEnabled
-        submitButton.alpha = isEnabled ? 1 : 0.2
-    }
-
-    @objc private func submitPrompt() {
-        let prompt = normalizedPrompt()
-        guard !prompt.isEmpty else { return }
-        onSubmit?(prompt)
-    }
-}
-
-private final class RealtimePromptCircleView: UIView {
-    init(
-        imageName: String,
-        imageSize: CGSize,
-        backgroundColor: UIColor
-    ) {
-        super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
-        self.backgroundColor = backgroundColor
-        layer.cornerRadius = 16
-        clipsToBounds = true
-
-        let imageView = UIImageView(image: UIImage(named: imageName))
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.contentMode = .scaleAspectFit
-        addSubview(imageView)
-
-        imageView.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.size.equalTo(imageSize)
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+private enum RealtimeReferenceImportError: Error {
+    case missingFile
 }
