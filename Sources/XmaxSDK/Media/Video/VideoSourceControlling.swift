@@ -5,9 +5,11 @@ typealias VideoSourceErrorListener = @Sendable (XmaxError) -> Void
 /// 定义本地视频文件循环解码和帧率采样能力。
 protocol VideoSourceControlling: Sendable {
 
-    /// 配置视频文件、旋转方向和目标帧率。
+    /// 配置视频文件、最终显示尺寸、像素旋转方向和目标帧率。
     func configure(
         fileURL: URL,
+        outputWidth: Int,
+        outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int
     ) throws

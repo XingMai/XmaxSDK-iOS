@@ -181,6 +181,38 @@ final class AudioFileFrameDecoderTests: XCTestCase {
         XCTAssertEqual(recorder.frames[0].data, Data(repeating: 0, count: 960))
     }
 
+    func testDecoderReleaseIsIdempotentWhilePlaybackIsWaiting() async throws {
+        let fileURL = try makePCM16WAV(
+            pcmData: Data(repeating: 0, count: 960)
+        )
+        defer {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        let recorder = AudioFileFrameDecoderRecorder()
+        let decoder = try await AudioFileFrameDecoder(
+            fileURL: fileURL,
+            playbackAnchorUs: AudioFileFrameDecoder.currentTimestampUs()
+                + 5_000_000,
+            mediaStartUs: 0,
+            cycleDurationUs: 10_000,
+            onFrame: { recorder.onFrame($0) },
+            onEndOfStream: { recorder.onEndOfStream() },
+            onError: { recorder.onError(message: $0) }
+        )
+
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<20 {
+                group.addTask {
+                    decoder.release()
+                }
+            }
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertTrue(recorder.frames.isEmpty)
+        XCTAssertNil(recorder.errorMessage)
+    }
+
     private func makePCM16WAV(
         pcmData: Data,
         sampleRate: Int = AudioFrame.sampleRate,

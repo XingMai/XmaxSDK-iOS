@@ -214,6 +214,10 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     func startExternalAudioSource() throws {
         try withEngine { engine in
             try checkResult(
+                engine.setDefaultAudioRoute(.speakerphone),
+                operation: "setDefaultAudioRoute"
+            )
+            try checkResult(
                 engine.setAudioSourceType(.external),
                 operation: "setAudioSourceType"
             )

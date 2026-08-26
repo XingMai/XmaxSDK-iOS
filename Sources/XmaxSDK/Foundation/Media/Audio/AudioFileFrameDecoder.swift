@@ -198,6 +198,11 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
             ))
             return
         }
+        defer {
+            if reader.status == .reading {
+                reader.cancelReading()
+            }
+        }
 
         while isActive, !Task.isCancelled,
               let sampleBuffer = output.copyNextSampleBuffer() {
@@ -212,7 +217,6 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
                     return
                 }
             } catch {
-                reader.cancelReading()
                 reportError((error as NSError).localizedDescription)
                 return
             }
@@ -234,16 +238,12 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
     }
 
     func release() {
-        let shouldCancel = lock.withLock {
+        lock.withLock {
             guard !isReleased else {
-                return false
+                return
             }
 
             isReleased = true
-            return true
-        }
-        if shouldCancel {
-            reader.cancelReading()
         }
     }
 

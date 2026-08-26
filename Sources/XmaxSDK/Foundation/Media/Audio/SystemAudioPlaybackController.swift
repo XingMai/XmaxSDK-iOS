@@ -5,6 +5,7 @@ import Foundation
 final class SystemAudioPlaybackController: AudioPlaybackControlling, @unchecked Sendable {
 
     // 播放资源
+    private let audioSession = AVAudioSession.sharedInstance()
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let format: AVAudioFormat
@@ -33,17 +34,24 @@ final class SystemAudioPlaybackController: AudioPlaybackControlling, @unchecked 
             return
         }
 
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: format)
-
         do {
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .default,
+                options: [.defaultToSpeaker]
+            )
+            try audioSession.setActive(true)
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: format)
             try engine.start()
             player.play()
             isStarted = true
         } catch {
             player.stop()
             engine.stop()
-            engine.detach(player)
+            if engine.attachedNodes.contains(player) {
+                engine.detach(player)
+            }
             throw Self.playbackError((error as NSError).localizedDescription)
         }
     }

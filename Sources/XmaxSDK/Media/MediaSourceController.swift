@@ -67,6 +67,8 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
             )
             try videoSourceController.configure(
                 fileURL: fileURL,
+                outputWidth: resolvedFormat.width,
+                outputHeight: resolvedFormat.height,
                 rotation: metadata.rotation,
                 frameRate: resolvedFormat.fps
             )

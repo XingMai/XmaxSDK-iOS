@@ -330,10 +330,23 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            return try await mediaController.createLocalVideoStream(
+            let stream = try await mediaController.createLocalVideoStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
+            do {
+                guard let resolvedFormat = stream.videoTrack?.videoFormat else {
+                    throw XmaxError(
+                        code: .internalError,
+                        message: "Local video stream has no video format"
+                    )
+                }
+                try transportController.setVideoEncoderConfig(resolvedFormat)
+                return stream
+            } catch {
+                await mediaController.stopLocalVideoStream()
+                throw error
+            }
         } catch {
             throw await reportError(error)
         }

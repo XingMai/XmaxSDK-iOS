@@ -222,9 +222,11 @@ RtcManager
 - 指定格式：采用传入的宽高和 fps 作为候选格式。
 - 最终通过 `MediaService.resolveModelInputSize()` 对齐模型尺寸。
 
-这里的目标格式用于 RTC 编码配置。
+这里的目标格式同时用于实际视频帧处理、本地预览和 RTC 编码配置。
 
-视频解码帧仍然保持源文件的 NV12 分辨率和旋转信息，由 RTC 根据编码配置执行缩放和编码；图片则会在进入 RTC 前直接处理成最终尺寸。
+视频解码帧会在进入 RTC 前按照目标比例居中裁剪、缩放并物理旋转。最终 NV12
+的物理宽高就是目标显示宽高，旋转信息重置为 0。本地预览和 RTC 编码因此直接
+消费同一份已定向像素，不依赖 RTC 对旋转元数据采用一致的渲染策略。
 
 ### 3.3 建立共享音视频时间线
 
@@ -240,20 +242,33 @@ RtcManager
 
 视频和音频不会各自以“解码完成时间”开启下一轮，从而避免循环次数增加后逐渐漂移。
 
+停止或重新开始时，Source Controller 先使旧 generation 失效，再取消旧 decoder
+任务。decoder 的 `release()` 不直接跨线程操作 `AVAssetReader`；reader 的启动、
+逐帧读取与退出取消都由 decoder 自身执行链完成，避免快速重复生成和停止时
+`startReading()` 与 `cancelReading()` 并发。
+
 ### 3.4 视频解码与推帧
 
 `VideoSourceController` 执行以下步骤：
 
 1. 使用 `VideoFileFrameDecoder` 解码文件。
-2. 通过 AVFoundation 输出 NV12。
-3. 将 NV12 封装成两个平面：
+2. 通过 AVFoundation 输出源文件 NV12。
+3. 根据目标显示尺寸和源文件旋转信息确定裁剪、缩放的中间尺寸。
+4. 使用 Accelerate/vImage 按目标比例居中裁剪并高质量缩放 NV12：
+   - Y 平面使用 `vImageScale_Planar8`。
+   - UV 平面使用 `vImageScale_CbCr8`，保持色度分量配对。
+5. 将 Y 与 UV 平面物理旋转到最终显示方向：
+   - Y 平面使用 `vImageRotate90_Planar8`。
+   - UV 平面将 CbCr 作为 16 位像素使用 `vImageRotate90_Planar16U`，保持
+     CbCr 配对。
+6. 将最终显示尺寸 NV12 封装成两个平面：
    - Y 平面。
    - UV 平面。
-4. 带上媒体文件的旋转信息。
-5. 按目标 fps 采样。
-6. 落后超过一个目标帧间隔的帧直接丢弃。
-7. 通过 `TransportController` 将帧交给内部 `StreamController`。
-8. 到达文件末尾后，根据共享时间线创建下一轮 decoder。
+7. 将帧旋转信息重置为 0，避免本地预览和编码分别解释旋转元数据。
+8. 按目标 fps 采样。
+9. 落后超过一个目标帧间隔的帧直接丢弃。
+10. 通过 `TransportController` 将帧交给内部 `StreamController`。
+11. 到达文件末尾后，根据共享时间线创建下一轮 decoder。
 
 最终 RTC 收到的视频帧为：
 
@@ -263,7 +278,7 @@ VideoFrame
 ├── plane 0: Y
 ├── plane 1: UV
 ├── timestampUs
-└── rotation
+└── rotation: 0
 ```
 
 图片和文件视频在解码后都直接使用同一个 `VideoFrame`：图片是单平面 BGRA，
@@ -298,6 +313,11 @@ VideoFrame
 5. 注册本地预览。
 6. 同时启动音视频 decoder。
 7. 创建本地 `RealtimeMediaStream`。
+
+`XmaxRealtimeManager` 取得最终 `RealtimeVideoFormat` 后，会在把本地轨道返回给
+接入方之前设置 RTC 视频编码格式。因此接入方把轨道绑定到 `XmaxVideoView` 时，
+RTC 本地 Canvas 已使用与文件帧相同的显示宽高；建立实时连接时会再次校验并
+应用该格式。
 
 视频没有音轨时，不会：
 
@@ -414,10 +434,9 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 
 ## 7. 当前尚未完成的部分
 
-核心采集和 RTC 推送链路已经具备，但还有以下接入和体验工作：
-
-- XLab 需要把视频文件选择、创建和停止按钮接到公开 API。
-- 鸿蒙版“开始生成时冻结视频首帧、远端结果出现后解除冻结”的预览优化尚未实现。
+核心采集和 RTC 推送链路已经具备，XLab 已接入图片与视频文件选择和公开创建
+接口。目前尚未完成鸿蒙版“开始生成时冻结视频首帧、远端结果出现后解除冻结”
+的预览优化。
 
 因此当前状态是：图片与视频可以进入 RTC、预览、连接和生成生命周期；下一步可以接入 XLab 做真机端到端调试，并基于本稿继续优化 Pipeline。
 
@@ -427,6 +446,6 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 
 - [ ] 明确图片和视频的默认输出格式策略。
 - [ ] 明确显式 `videoFormat` 是严格输出值还是模型约束前的期望值。
-- [ ] 评估视频在 SDK 内预缩放与交给 RTC 缩放的性能和画质差异。
+- [ ] 真机评估视频 NV12 目标尺寸预处理的性能和画质。
 - [ ] 实现生成等待期间的视频首帧冻结。
 - [ ] 完成 XLab 图片与视频端到端调试入口。

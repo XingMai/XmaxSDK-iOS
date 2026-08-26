@@ -35,11 +35,17 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
 
     func configure(
         fileURL: URL,
+        outputWidth: Int,
+        outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int
     ) throws {
         guard fileURL.isFileURL,
               !fileURL.path.isEmpty,
+              outputWidth > 0,
+              outputHeight > 0,
+              outputWidth.isMultiple(of: 2),
+              outputHeight.isMultiple(of: 2),
               frameRate > 0 else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -56,6 +62,8 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
         stateLock.withLock {
             configuration = Configuration(
                 fileURL: fileURL,
+                outputWidth: outputWidth,
+                outputHeight: outputHeight,
                 rotation: rotation,
                 frameIntervalUs: max(1_000_000 / Int64(frameRate), 1)
             )
@@ -88,6 +96,8 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
 private extension VideoSourceController {
     struct Configuration: Sendable {
         let fileURL: URL
+        let outputWidth: Int
+        let outputHeight: Int
         let rotation: VideoRotation
         let frameIntervalUs: Int64
     }
@@ -158,6 +168,9 @@ private extension VideoSourceController {
     ) async throws -> VideoFileFrameDecoder {
         try await VideoFileFrameDecoder(
             fileURL: configuration.fileURL,
+            outputWidth: configuration.outputWidth,
+            outputHeight: configuration.outputHeight,
+            rotation: configuration.rotation,
             playbackAnchorUs: try timeline.playbackAnchorUs(
                 forLoop: loopIndex
             ),
@@ -189,17 +202,17 @@ private extension VideoSourceController {
         generationID: UUID,
         loopIndex: Int64
     ) {
-        let state = stateLock.withLock { () -> Configuration? in
+        let shouldOutput = stateLock.withLock { () -> Bool in
             guard self.generationID == generationID,
                   self.loopIndex == loopIndex,
                   let configuration else {
-                return nil
+                return false
             }
 
             let nowUs = VideoFileFrameDecoder.currentTimestampUs()
             guard nowUs - decodedFrame.timestampUs
                 <= configuration.frameIntervalUs else {
-                return nil
+                return false
             }
             let minimumOutputIntervalUs = Int64(
                 Double(configuration.frameIntervalUs)
@@ -208,21 +221,17 @@ private extension VideoSourceController {
             if let lastOutputTimestampUs,
                decodedFrame.timestampUs - lastOutputTimestampUs
                 < minimumOutputIntervalUs {
-                return nil
+                return false
             }
             self.lastOutputTimestampUs = decodedFrame.timestampUs
-            return configuration
+            return true
         }
-        guard let state else {
+        guard shouldOutput else {
             return
         }
 
         do {
-            let frame = try decodedFrame.updating(
-                timestampUs: decodedFrame.timestampUs,
-                rotation: state.rotation
-            )
-            try frameListener(frame)
+            try frameListener(decodedFrame)
         } catch {
             errorListener(XmaxError.from(error))
         }

@@ -26,7 +26,15 @@ final class MediaSourceControllerTests: XCTestCase {
         )
         XCTAssertEqual(
             components.videoSource.configurations,
-            [.init(fileURL: fileURL, rotation: .rotation90, frameRate: 24)]
+            [
+                .init(
+                    fileURL: fileURL,
+                    outputWidth: 832,
+                    outputHeight: 1_472,
+                    rotation: .rotation90,
+                    frameRate: 24
+                )
+            ]
         )
         XCTAssertEqual(components.audioSource.fileURLs, [fileURL])
         XCTAssertTrue(components.controller.hasAudio)
@@ -177,6 +185,8 @@ private final class AudioManagingStub: AudioManaging, @unchecked Sendable {
 
 private struct VideoSourceConfigurationCall: Equatable {
     let fileURL: URL
+    let outputWidth: Int
+    let outputHeight: Int
     let rotation: VideoRotation
     let frameRate: Int
 }
@@ -210,6 +220,8 @@ private final class VideoSourceControllingStub:
 
     func configure(
         fileURL: URL,
+        outputWidth: Int,
+        outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int
     ) throws {
@@ -217,6 +229,8 @@ private final class VideoSourceControllingStub:
             storedConfigurations.append(
                 VideoSourceConfigurationCall(
                     fileURL: fileURL,
+                    outputWidth: outputWidth,
+                    outputHeight: outputHeight,
                     rotation: rotation,
                     frameRate: frameRate
                 )

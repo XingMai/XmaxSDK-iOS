@@ -20,6 +20,9 @@ final class VideoFileFrameDecoder: @unchecked Sendable {
 
     init(
         fileURL: URL,
+        outputWidth: Int,
+        outputHeight: Int,
+        rotation: VideoRotation,
         playbackAnchorUs: Int64? = nil,
         mediaStartUs: Int64 = 0,
         onFrame: @escaping @Sendable (VideoFrame) -> Void,
@@ -29,6 +32,10 @@ final class VideoFileFrameDecoder: @unchecked Sendable {
         let resolvedPlaybackAnchorUs = playbackAnchorUs
             ?? Self.currentTimestampUs()
         guard fileURL.isFileURL,
+              outputWidth > 0,
+              outputHeight > 0,
+              outputWidth.isMultiple(of: 2),
+              outputHeight.isMultiple(of: 2),
               resolvedPlaybackAnchorUs > 0,
               mediaStartUs >= 0 else {
             throw Self.mediaError("Video file decoder arguments are invalid")
@@ -36,6 +43,9 @@ final class VideoFileFrameDecoder: @unchecked Sendable {
 
         let operation = try await VideoFileDecodeOperation.make(
             fileURL: fileURL,
+            outputWidth: outputWidth,
+            outputHeight: outputHeight,
+            rotation: rotation,
             playbackAnchorUs: resolvedPlaybackAnchorUs,
             mediaStartUs: mediaStartUs,
             onFrame: onFrame,
@@ -87,6 +97,11 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
     private let playbackAnchorUs: Int64
     private let mediaStartUs: Int64
 
+    // 输出配置
+    private let outputWidth: Int
+    private let outputHeight: Int
+    private let rotation: VideoRotation
+
     // 事件监听
     private let onFrame: @Sendable (VideoFrame) -> Void
     private let onEndOfStream: @Sendable () -> Void
@@ -99,6 +114,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
     private init(
         reader: AVAssetReader,
         output: AVAssetReaderTrackOutput,
+        outputWidth: Int,
+        outputHeight: Int,
+        rotation: VideoRotation,
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
         onFrame: @escaping @Sendable (VideoFrame) -> Void,
@@ -107,6 +125,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
     ) {
         self.reader = reader
         self.output = output
+        self.outputWidth = outputWidth
+        self.outputHeight = outputHeight
+        self.rotation = rotation
         self.playbackAnchorUs = playbackAnchorUs
         self.mediaStartUs = mediaStartUs
         self.onFrame = onFrame
@@ -116,6 +137,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
 
     static func make(
         fileURL: URL,
+        outputWidth: Int,
+        outputHeight: Int,
+        rotation: VideoRotation,
         playbackAnchorUs: Int64,
         mediaStartUs: Int64,
         onFrame: @escaping @Sendable (VideoFrame) -> Void,
@@ -163,6 +187,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
         return VideoFileDecodeOperation(
             reader: reader,
             output: output,
+            outputWidth: outputWidth,
+            outputHeight: outputHeight,
+            rotation: rotation,
             playbackAnchorUs: playbackAnchorUs,
             mediaStartUs: mediaStartUs,
             onFrame: onFrame,
@@ -181,13 +208,17 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
             ))
             return
         }
+        defer {
+            if reader.status == .reading {
+                reader.cancelReading()
+            }
+        }
 
         while isActive, !Task.isCancelled,
               let sampleBuffer = output.copyNextSampleBuffer() {
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(
                 sampleBuffer
             ) else {
-                reader.cancelReading()
                 reportError("Video decoder returned an invalid pixel buffer")
                 return
             }
@@ -205,6 +236,9 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
             do {
                 let frame = try NV12VideoFrameConverter.convert(
                     pixelBuffer: pixelBuffer,
+                    outputWidth: outputWidth,
+                    outputHeight: outputHeight,
+                    rotation: rotation,
                     timestampUs: playbackTimestampUs
                 )
                 guard isActive, !Task.isCancelled else {
@@ -212,7 +246,6 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
                 }
                 onFrame(frame)
             } catch {
-                reader.cancelReading()
                 reportError((error as NSError).localizedDescription)
                 return
             }
@@ -231,18 +264,12 @@ private final class VideoFileDecodeOperation: @unchecked Sendable {
     }
 
     func release() {
-        let shouldCancel = lock.withLock {
+        lock.withLock {
             guard !isReleased else {
-                return false
+                return
             }
 
             isReleased = true
-            return true
-        }
-        if shouldCancel {
-            DispatchQueue.global(qos: .userInitiated).async { [self] in
-                reader.cancelReading()
-            }
         }
     }
 

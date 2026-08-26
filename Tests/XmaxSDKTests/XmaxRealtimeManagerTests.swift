@@ -260,6 +260,35 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalVideoStream()
     }
 
+    func testFileVideoConfiguresEncoderBeforeConnecting() async throws {
+        let components = makeComponents()
+
+        _ = try await components.manager.createLocalVideoStream(
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
+            videoFormat: nil
+        )
+
+        let configurations = components.rtcManager.calls.compactMap {
+            call -> VideoEncodingConfiguration? in
+            guard case .configureVideoEncoding(let configuration) = call else {
+                return nil
+            }
+            return configuration
+        }
+        XCTAssertEqual(
+            configurations,
+            [
+                VideoEncodingConfiguration(
+                    width: imageFormat.width,
+                    height: imageFormat.height,
+                    frameRate: imageFormat.fps
+                )
+            ]
+        )
+
+        try await components.manager.stopLocalVideoStream()
+    }
+
     func testRepeatedDisconnectReusesSingleTermination() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
