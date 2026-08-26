@@ -175,7 +175,7 @@ private extension ImageController {
             )
             track = localTrack
 
-            try transportController.configureVideoEncoding(resolvedFormat)
+            try transportController.setVideoEncoderConfig(resolvedFormat)
             try rtcManager.useExternalVideoSource()
             await registerPreview(for: localTrack)
             try imageSourceController.start()

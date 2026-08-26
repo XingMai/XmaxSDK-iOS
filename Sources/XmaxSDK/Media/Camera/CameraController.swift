@@ -87,7 +87,7 @@ final class CameraController: @unchecked Sendable {
         do {
             let resolvedFormat = try resolveVideoFormat(videoFormat)
             try rtcManager.stopVideoCapture()
-            try transportController.configureVideoEncoding(resolvedFormat)
+            try transportController.setVideoEncoderConfig(resolvedFormat)
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
@@ -176,7 +176,7 @@ private extension CameraController {
 
         do {
             try await permissionManager.ensureCameraPermission()
-            try transportController.configureVideoEncoding(resolvedFormat)
+            try transportController.setVideoEncoderConfig(resolvedFormat)
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,

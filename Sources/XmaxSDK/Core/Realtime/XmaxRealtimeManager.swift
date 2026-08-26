@@ -8,9 +8,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // 业务层组件
     private let transportController: any TransportControlling
+    private let mediaController: any MediaControlling
 
     // 实时管理组件
-    private let mediaController: any MediaControlling
     private let connectionManager: XmaxRealtimeConnectionManager
     private let generationManager: XmaxRealtimeGenerationManager
 

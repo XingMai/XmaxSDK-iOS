@@ -38,7 +38,7 @@ final class TransportController: TransportControlling, @unchecked Sendable {
         self.qualityController = qualityController
     }
 
-    func configureVideoEncoding(
+    func setVideoEncoderConfig(
         _ videoFormat: RealtimeVideoFormat
     ) throws {
         try encodingController.configure(videoFormat)

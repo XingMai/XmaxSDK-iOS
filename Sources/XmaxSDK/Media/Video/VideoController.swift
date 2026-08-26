@@ -163,7 +163,7 @@ private extension VideoController {
             if configuration.hasAudio {
                 try await permissionManager.ensureMicrophonePermission()
             }
-            try transportController.configureVideoEncoding(
+            try transportController.setVideoEncoderConfig(
                 configuration.videoFormat
             )
             try rtcManager.useExternalVideoSource()

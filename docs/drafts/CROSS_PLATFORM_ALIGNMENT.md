@@ -115,7 +115,10 @@ iOS：
 
 Harmony：
 
-- [ ] 无需照搬 iOS 类型名；检查同层级能力是否使用平台一致的命名规则。
+- [ ] Foundation 能力协议从 `*Providing` 统一重命名为 `*Managing`。
+- [ ] Foundation 默认实现从 `*Provider` 统一重命名为 `*Manager`。
+- [ ] 将 `RtcProviding`、`RtcProvider` 分别重命名为 `RtcManaging`、`RtcManager`，并同步成员变量、构造参数和测试引用。
+- [ ] Core 对外或业务编排 Manager 保留 `Xmax` 前缀，与 Foundation Manager 区分。
 
 ## SYNC-005 业务层统一 Controller 边界
 
@@ -135,9 +138,13 @@ iOS：
 - [x] Core 不再直接依赖 Room、Stream、Encoding 和 Quality Controller。
 - [x] 将媒体统一入口及相机、图片、视频组件从 Core 下沉至 Media。
 - [x] 新增 `MediaControlling`，Core 仅通过 `MediaController` 使用媒体层。
+- [x] `MediaControlling` 和 `TransportControlling` 的方法使用规范化中文文档注释，明确参数、返回值、失败条件和生命周期语义。
+- [x] Transport 层统一入口使用 `setVideoEncoderConfig()` 设置视频编码器配置；Foundation 层的 RTC 适配方法仍保留 `configureVideoEncoding()`。
 - [x] 真机 SDK 测试目标编译通过。
 
 Harmony：
 
 - [ ] 检查 Core 是否直接持有 Transport 或 Media 层的内部组件。
 - [ ] 评估是否需要用同层统一入口收口房间、流、编码、质量和媒体来源管理。
+- [ ] 新增或调整业务层接口时沿用现有 JSDoc 规范，逐项说明 `@param`、`@returns`、失败条件和重要生命周期语义。
+- [ ] 如果新增 Transport 层统一入口，对 Core 暴露 `setVideoEncoderConfig()`；Foundation 层仍由 `RtcManaging.configureVideoEncoding()` 承担平台适配职责。
