@@ -96,7 +96,7 @@ Harmony：
 
 ## SYNC-004 iOS Manager 命名规范
 
-状态：已确认，iOS 已完成代码调整和真机目标编译。
+状态：已对齐；iOS 真机测试目标编译与 Harmony HAR 构建均已通过。
 
 iOS 规范：
 
@@ -115,21 +115,22 @@ iOS：
 
 Harmony：
 
-- [ ] Foundation 能力协议从 `*Providing` 统一重命名为 `*Managing`。
-- [ ] Foundation 默认实现从 `*Provider` 统一重命名为 `*Manager`。
-- [ ] 将 `RtcProviding`、`RtcProvider` 分别重命名为 `RtcManaging`、`RtcManager`，并同步成员变量、构造参数和测试引用。
-- [ ] Core 对外或业务编排 Manager 保留 `Xmax` 前缀，与 Foundation Manager 区分。
+- [x] Foundation 能力协议从 `*Providing` 统一重命名为 `*Managing`。
+- [x] Foundation 默认实现从 `*Provider` 统一重命名为 `*Manager`。
+- [x] 将 `RtcProviding`、`RtcProvider` 分别重命名为 `RtcManaging`、`RtcManager`，并同步成员变量和构造参数引用。
+- [x] Core 对外或业务编排 Manager 保留 `Xmax` 前缀，与 Foundation Manager 区分。
+- [x] Harmony HAR 构建通过。
 
 ## SYNC-005 业务层统一 Controller 边界
 
-状态：iOS 已完成 Transport 与 Media 边界收口和真机目标编译。
+状态：已对齐；iOS 与 Harmony 均已完成 Transport、Media 边界收口和编译验证。
 
 iOS 规范：
 
 - 具有多个协作组件和统一状态的业务层，通过与层同名的 Controller 向 Core 暴露能力。
 - Core 只依赖业务层的 `*Controlling` 协议，不直接持有层内子 Controller。
 - `TransportController` 内部协调 Room、Stream、Encoding 和 Quality。
-- `MediaController` 内部协调 Camera、Image、Video 以及本地媒体所有权。
+- `MediaController` 内部协调 Camera、Image、Video、平台已有的 Interaction 能力以及本地媒体所有权。
 - 业务层子组件保留具体职责，不单独向 Core 暴露。
 
 iOS：
@@ -144,7 +145,10 @@ iOS：
 
 Harmony：
 
-- [ ] 检查 Core 是否直接持有 Transport 或 Media 层的内部组件。
-- [ ] 评估是否需要用同层统一入口收口房间、流、编码、质量和媒体来源管理。
-- [ ] 新增或调整业务层接口时沿用现有 JSDoc 规范，逐项说明 `@param`、`@returns`、失败条件和重要生命周期语义。
-- [ ] 如果新增 Transport 层统一入口，对 Core 暴露 `setVideoEncoderConfig()`；Foundation 层仍由 `RtcManaging.configureVideoEncoding()` 承担平台适配职责。
+- [x] 新增 `TransportControlling` 和 `TransportController`，统一协调 Room、Stream、Encoding 和 Quality。
+- [x] 新增 `MediaControlling` 和 `MediaController`，统一协调 Camera、Image、Video、Interaction 和本地媒体所有权。
+- [x] Core 不再直接持有 Transport 或 Media 层的内部子 Controller。
+- [x] 相机、图片、视频和交互组件从 Core 下沉到 Media，并仅通过 `TransportControlling` 配置编码、推送媒体帧和发送交互轨迹。
+- [x] 业务层接口沿用 JSDoc 规范，逐项说明 `@param`、`@returns` 和重要生命周期语义。
+- [x] Transport 层统一入口使用 `setVideoEncoderConfig()`；Foundation 层保留 `RtcManaging.configureVideoEncoding()`。
+- [x] Harmony HAR 构建通过。
