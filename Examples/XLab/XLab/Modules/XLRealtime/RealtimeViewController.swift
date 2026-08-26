@@ -931,29 +931,17 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             guard let self, !Task.isCancelled else { return }
 
             do {
-                let state = await realtimeManager.currentState
-                switch state.connectionState {
-                case .idle, .disconnected, .error:
-                    let remoteStream = try await realtimeManager.connect(
-                        localStream: localMediaStream
-                    )
-                    guard !Task.isCancelled else {
-                        await realtimeManager.disconnect()
-                        return
-                    }
-                    remoteRealtimeStream = remoteStream
-                    previewView.prepareRealtime(remoteStream.videoTrack)
-                case .connected, .generating:
-                    break
-                case .connecting, .disconnecting:
-                    throw RealtimeDemoError.connectionTransitioning
-                }
-
-                try Task.checkCancellation()
-                try await realtimeManager.startGeneration(
+                let remoteStream = try await realtimeManager.startGeneration(
+                    localStream: localMediaStream,
                     context: context
                 )
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    await realtimeManager.stopGeneration()
+                    await realtimeManager.disconnect()
+                    return
+                }
+                remoteRealtimeStream = remoteStream
+                previewView.prepareRealtime(remoteStream.videoTrack)
                 previewView.showRealtime()
                 loadingOverlay.hideLoading()
             } catch is CancellationError {

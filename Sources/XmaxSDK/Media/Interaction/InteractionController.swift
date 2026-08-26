@@ -1,6 +1,6 @@
 import Foundation
 
-typealias InteractionSender = @Sendable (
+typealias InteractionListener = @Sendable (
     _ taskID: String,
     _ points: [RealtimePoint]
 ) async throws -> Void
@@ -12,8 +12,8 @@ actor InteractionController: InteractionControlling {
         let videoFormat: RealtimeVideoFormat
     }
 
-    // 交互发送器
-    private let sender: InteractionSender
+    // 交互事件监听
+    private let listener: InteractionListener
 
     // 交互资源
     private var activeInteraction: ActiveInteraction?
@@ -21,8 +21,8 @@ actor InteractionController: InteractionControlling {
     private var drainTask: Task<Void, Never>?
     private var drainGeneration = 0
 
-    init(sender: @escaping InteractionSender = { _, _ in }) {
-        self.sender = sender
+    init(listener: @escaping InteractionListener = { _, _ in }) {
+        self.listener = listener
     }
 
     deinit {
@@ -86,7 +86,7 @@ private extension InteractionController {
               let points = pendingPoints {
             pendingPoints = nil
             do {
-                try await sender(interaction.taskID, points)
+                try await listener(interaction.taskID, points)
             } catch is CancellationError {
                 break
             } catch {

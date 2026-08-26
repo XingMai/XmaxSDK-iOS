@@ -22,7 +22,7 @@ final class ImageController: @unchecked Sendable {
     convenience init(
         rtcManager: any RtcManaging,
         frameListener: @escaping MediaVideoFrameListener,
-        errorListener: @escaping ImageSourceErrorListener
+        errorListener: @escaping MediaSourceErrorListener
     ) {
         let imageManager = ImageManager()
         self.init(

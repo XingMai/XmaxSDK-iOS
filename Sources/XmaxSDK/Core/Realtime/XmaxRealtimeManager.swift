@@ -6,9 +6,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     // 公共配置
     nonisolated let options: RealtimeConfiguration
 
-    // 业务层组件
-    private let transportController: any TransportControlling
+    // 媒体层组件
     private let mediaController: any MediaControlling
+
+    // 传输层组件
+    private let transportController: any TransportControlling
 
     // 实时管理组件
     private let connectionManager: XmaxRealtimeConnectionManager
@@ -34,24 +36,15 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.options = options
 
         let rtcManager = RtcManager()
-        let remoteVideoController = RemoteVideoController(
+        let renderController = RenderController(
             rtcManager: rtcManager
         )
         let transportController = TransportController(
             rtcManager: rtcManager,
             remoteStreamListener: { stream in
-                try remoteVideoController.setRemoteStream(stream)
+                try renderController.setRemoteStream(stream)
             }
         )
-        let mediaErrorRelay = RealtimeMediaErrorRelay()
-        let interactionController = InteractionController {
-            taskID,
-            points in
-            try await transportController.sendTracks(
-                taskID: taskID,
-                points: points
-            )
-        }
         let mediaController = MediaController(
             rtcManager: rtcManager,
             videoFrameListener: { frame in
@@ -60,16 +53,17 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             audioFrameListener: { frame in
                 try transportController.pushLocalAudioFrame(frame)
             },
-            interactionController: interactionController,
-            mediaErrorListener: { error in
-                mediaErrorRelay.report(error)
+            interactionListener: { taskID, points in
+                try await transportController.sendTracks(
+                    taskID: taskID,
+                    points: points
+                )
             }
         )
         let connectionManager = XmaxRealtimeConnectionManager(
-            rtcManager: rtcManager,
             sessionService: RealtimeSessionService(apiService: apiService),
             interactionController: mediaController,
-            remoteVideoController: remoteVideoController,
+            renderController: renderController,
             transportController: transportController
         )
         let generationManager = XmaxRealtimeGenerationManager(
@@ -82,7 +76,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.connectionManager = connectionManager
         self.generationManager = generationManager
 
-        mediaErrorRelay.setListener { [weak self] error in
+        mediaController.setErrorListener { [weak self] error in
             Task {
                 _ = await self?.reportError(error)
             }
@@ -467,6 +461,59 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func startGeneration(context: RealtimeContext?) async throws {
+        try await performStartGeneration(
+            context: context,
+            preparedPreviewResume: nil
+        )
+    }
+
+    func startGeneration(
+        localStream: RealtimeMediaStream,
+        context: RealtimeContext?
+    ) async throws -> RealtimeMediaStream {
+        guard await mediaController.owns(localStream) else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "The local stream must be created and started " +
+                        "by this realtime manager"
+                )
+            )
+        }
+
+        if state.connectionState == .connected ||
+            state.connectionState == .generating {
+            guard let remoteStream =
+                    await connectionManager.currentRemoteStream else {
+                throw await reportError(
+                    XmaxError(
+                        code: .rtcError,
+                        message: "Realtime connection has no remote stream"
+                    )
+                )
+            }
+            try await startGeneration(context: context)
+            return remoteStream
+        }
+
+        let resumeVideoPreview = await mediaController.pauseVideoPreview()
+        do {
+            let remoteStream = try await connect(localStream: localStream)
+            try await performStartGeneration(
+                context: context,
+                preparedPreviewResume: resumeVideoPreview
+            )
+            return remoteStream
+        } catch {
+            await resumeVideoPreview()
+            throw error
+        }
+    }
+
+    private func performStartGeneration(
+        context: RealtimeContext?,
+        preparedPreviewResume: VideoPreviewResume?
+    ) async throws {
         let sessionID = await connectionManager.currentSessionID
         guard !sessionID.isEmpty,
               state.connectionState == .connected ||
@@ -495,6 +542,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         let version = operationVersion.current
+        let resumeVideoPreview: VideoPreviewResume
+        if let preparedPreviewResume {
+            resumeVideoPreview = preparedPreviewResume
+        } else {
+            resumeVideoPreview = await mediaController.pauseVideoPreview()
+        }
         do {
             let taskID = try await generationManager.start(
                 videoFormat: videoFormat,
@@ -518,6 +571,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     message: "Realtime connection was cancelled"
                 )
             }
+            await resumeVideoPreview()
             await emitState(
                 RealtimeState(
                     connectionState: .generating,
@@ -526,6 +580,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             )
         } catch {
+            await resumeVideoPreview()
             throw await reportError(error)
         }
     }
@@ -691,28 +746,5 @@ private final class RealtimeOperationVersion: @unchecked Sendable {
 
     func isCurrent(_ version: UInt64) -> Bool {
         lock.withLock { value == version }
-    }
-}
-
-/// 将同步媒体回调安全转发给实时 Manager 的异步错误监听器。
-private final class RealtimeMediaErrorRelay: @unchecked Sendable {
-
-    // 并发控制
-    private let lock = NSLock()
-
-    // 事件监听
-    private var listener: (@Sendable (XmaxError) -> Void)?
-
-    func setListener(
-        _ listener: @escaping @Sendable (XmaxError) -> Void
-    ) {
-        lock.withLock {
-            self.listener = listener
-        }
-    }
-
-    func report(_ error: XmaxError) {
-        let listener = lock.withLock { listener }
-        listener?(error)
     }
 }

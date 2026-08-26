@@ -1,8 +1,13 @@
+import CoreImage
+import CoreVideo
 import UIKit
 
 /// 显示本地或远端实时视频轨道的 UIKit 容器。
 @MainActor
 public final class XmaxVideoView: UIView {
+
+    // 图片转换资源
+    private static let imageContext = CIContext()
 
     // 公共配置
     /// 当前显示的视频轨道。
@@ -229,6 +234,10 @@ extension XmaxVideoView {
     }
 
     static func makeImage(_ frame: VideoFrame) throws -> UIImage {
+        if frame.format.pixelFormat == .nv12 {
+            return try makeNV12Image(frame)
+        }
+
         let width = frame.format.width
         let height = frame.format.height
         let (minimumBytesPerRow, rowByteCountOverflow) = width
@@ -275,6 +284,105 @@ extension XmaxVideoView {
             )
         }
         return UIImage(cgImage: image)
+    }
+
+    static func makeNV12Image(_ frame: VideoFrame) throws -> UIImage {
+        let width = frame.format.width
+        let height = frame.format.height
+        guard width > 0,
+              height > 0,
+              width.isMultiple(of: 2),
+              height.isMultiple(of: 2),
+              frame.planes.count == 2 else {
+            throw invalidImageFrameError
+        }
+
+        var pixelBuffer: CVPixelBuffer?
+        let attributes = [
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary
+        ] as CFDictionary
+        guard CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            attributes,
+            &pixelBuffer
+        ) == kCVReturnSuccess,
+              let pixelBuffer else {
+            throw invalidImageFrameError
+        }
+
+        guard CVPixelBufferLockBaseAddress(pixelBuffer, [])
+            == kCVReturnSuccess else {
+            throw invalidImageFrameError
+        }
+        defer {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+        }
+
+        try copyPlane(
+            frame.planes[0],
+            rowByteCount: width,
+            rowCount: height,
+            destination: CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0),
+            destinationStride: CVPixelBufferGetBytesPerRowOfPlane(
+                pixelBuffer,
+                0
+            )
+        )
+        try copyPlane(
+            frame.planes[1],
+            rowByteCount: width,
+            rowCount: height / 2,
+            destination: CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1),
+            destinationStride: CVPixelBufferGetBytesPerRowOfPlane(
+                pixelBuffer,
+                1
+            )
+        )
+
+        let image = CIImage(cvPixelBuffer: pixelBuffer)
+        guard let cgImage = imageContext.createCGImage(
+            image,
+            from: CGRect(x: 0, y: 0, width: width, height: height)
+        ) else {
+            throw invalidImageFrameError
+        }
+        return UIImage(cgImage: cgImage)
+    }
+
+    static func copyPlane(
+        _ plane: VideoFramePlane,
+        rowByteCount: Int,
+        rowCount: Int,
+        destination: UnsafeMutableRawPointer?,
+        destinationStride: Int
+    ) throws {
+        let (sourceLength, sourceLengthOverflow) = plane.stride
+            .multipliedReportingOverflow(by: rowCount)
+        guard let destination,
+              rowByteCount > 0,
+              rowCount > 0,
+              plane.stride >= rowByteCount,
+              destinationStride >= rowByteCount,
+              !sourceLengthOverflow,
+              plane.byteLength >= sourceLength,
+              plane.byteOffset <= plane.data.count - sourceLength else {
+            throw invalidImageFrameError
+        }
+
+        plane.data.withUnsafeBytes { bytes in
+            guard let source = bytes.baseAddress else { return }
+            let sourceStart = source.advanced(by: plane.byteOffset)
+            for row in 0..<rowCount {
+                memcpy(
+                    destination.advanced(by: row * destinationStride),
+                    sourceStart.advanced(by: row * plane.stride),
+                    rowByteCount
+                )
+            }
+        }
     }
 
     static var invalidImageFrameError: XmaxError {

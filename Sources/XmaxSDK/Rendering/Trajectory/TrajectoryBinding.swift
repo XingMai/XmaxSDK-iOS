@@ -2,17 +2,17 @@ import UIKit
 
 /// 将渲染层触摸输入转交给媒体交互层。
 final class TrajectoryBinding: @unchecked Sendable {
-    private let interactionController: any InteractionControlling
+    private let interactionListener: RenderInteractionListener
 
     @MainActor private weak var overlayView: TrajectoryOverlayView?
     @MainActor private var contentMode: VideoContentMode = .fill
     @MainActor private var videoSize: CGSize?
 
     init(
-        interactionController: any InteractionControlling,
+        interactionListener: @escaping RenderInteractionListener,
         videoFormat: RealtimeVideoFormat
     ) {
-        self.interactionController = interactionController
+        self.interactionListener = interactionListener
         videoSize = videoFormat.size
     }
 
@@ -64,9 +64,9 @@ final class TrajectoryBinding: @unchecked Sendable {
             viewportSize: viewportSize,
             contentMode: contentMode
         )
-        let interactionController = interactionController
+        let interactionListener = interactionListener
         Task {
-            await interactionController.submitInteraction(frame)
+            await interactionListener(frame)
         }
     }
 }

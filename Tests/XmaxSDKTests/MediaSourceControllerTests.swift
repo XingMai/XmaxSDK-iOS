@@ -48,7 +48,7 @@ final class MediaSourceControllerTests: XCTestCase {
         )
 
         try await components.controller.start()
-        try await components.controller.restart()
+        try await components.controller.restart(from: 750_000)
         await components.controller.stop()
 
         XCTAssertEqual(components.audioManager.calls, [
@@ -63,6 +63,10 @@ final class MediaSourceControllerTests: XCTestCase {
         XCTAssertEqual(
             components.videoSource.restartedTimelines,
             components.audioSource.restartedTimelines
+        )
+        XCTAssertEqual(
+            components.videoSource.restartedTimelines.first?.mediaStartUs,
+            750_000
         )
         XCTAssertEqual(components.videoSource.stopCount, 1)
         XCTAssertEqual(components.audioSource.stopCount, 1)

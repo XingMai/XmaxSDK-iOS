@@ -13,6 +13,8 @@ final class VideoRenderBinding {
 
     // 运行状态
     private weak var attachedView: UIView?
+    private var attachedContentMode = VideoContentMode.fill
+    private var previewFrame: VideoFrame?
 
     init(
         libraryName: String,
@@ -35,6 +37,14 @@ final class VideoRenderBinding {
 
         try attachHandler(view, contentMode)
         attachedView = view
+        attachedContentMode = contentMode
+        if let previewFrame {
+            try displayPreviewFrame(
+                previewFrame,
+                to: view,
+                contentMode: contentMode
+            )
+        }
     }
 
     func detach(from view: UIView) throws {
@@ -48,8 +58,41 @@ final class VideoRenderBinding {
         guard let attachedView else {
             return
         }
+        (attachedView as? XmaxVideoView)?.clearImageFrame()
         try detachHandler(attachedView)
         self.attachedView = nil
+    }
+
+    /// 设置或清除覆盖底层 RTC Canvas 的静态预览帧。
+    func setPreviewFrame(_ frame: VideoFrame?) throws {
+        previewFrame = frame
+        guard let attachedView else { return }
+        guard let frame else {
+            (attachedView as? XmaxVideoView)?.clearImageFrame()
+            return
+        }
+        try displayPreviewFrame(
+            frame,
+            to: attachedView,
+            contentMode: attachedContentMode
+        )
+    }
+
+    private func displayPreviewFrame(
+        _ frame: VideoFrame,
+        to view: UIView,
+        contentMode: VideoContentMode
+    ) throws {
+        guard let videoView = view as? XmaxVideoView else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Paused previews require an XmaxVideoView"
+            )
+        }
+        try videoView.displayImageFrame(
+            frame,
+            contentMode: contentMode
+        )
     }
 }
 

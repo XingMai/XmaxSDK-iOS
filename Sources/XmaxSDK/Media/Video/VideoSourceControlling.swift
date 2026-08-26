@@ -1,7 +1,5 @@
 import Foundation
 
-typealias VideoSourceErrorListener = @Sendable (XmaxError) -> Void
-
 /// 定义本地视频文件循环解码和帧率采样能力。
 protocol VideoSourceControlling: Sendable {
 

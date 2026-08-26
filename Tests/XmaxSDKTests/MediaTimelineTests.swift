@@ -32,5 +32,31 @@ final class MediaTimelineTests: XCTestCase {
         XCTAssertThrowsError(
             try timeline.playbackAnchorUs(forLoop: -1)
         )
+        XCTAssertThrowsError(
+            try MediaTimeline(
+                durationUs: 1_000_000,
+                mediaStartUs: 1_000_000,
+                currentTimestampUs: 1
+            )
+        )
+    }
+
+    func testFirstLoopStartsAtCheckpointAndFollowingLoopsStartAtBeginning()
+        throws {
+        let timeline = try MediaTimeline(
+            durationUs: 2_005_001,
+            mediaStartUs: 1_000_000,
+            currentTimestampUs: 5_000_000
+        )
+
+        XCTAssertEqual(timeline.mediaStartUs, 1_000_000)
+        XCTAssertEqual(timeline.cycleDurationUs, 2_010_000)
+        XCTAssertEqual(timeline.mediaStartUs(forLoop: 0), 1_000_000)
+        XCTAssertEqual(timeline.mediaStartUs(forLoop: 1), 0)
+        XCTAssertEqual(timeline.cycleDurationUs(forLoop: 0), 1_010_000)
+        XCTAssertEqual(timeline.cycleDurationUs(forLoop: 1), 2_010_000)
+        XCTAssertEqual(try timeline.playbackAnchorUs(forLoop: 0), 5_100_000)
+        XCTAssertEqual(try timeline.playbackAnchorUs(forLoop: 1), 6_110_000)
+        XCTAssertEqual(try timeline.playbackAnchorUs(forLoop: 2), 8_120_000)
     }
 }

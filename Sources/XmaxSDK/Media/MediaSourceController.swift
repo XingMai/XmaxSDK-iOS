@@ -102,7 +102,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
     }
 
-    func restart() async throws {
+    func restart(from mediaTimeUs: Int64) async throws {
         let preparedMedia = try stateLock.withLock { () -> PreparedMedia in
             guard isRunning, let preparedMedia else {
                 throw XmaxError(
@@ -114,11 +114,16 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
 
         do {
+            let resolvedMediaTimeUs = min(
+                max(mediaTimeUs, 0),
+                preparedMedia.metadata.durationUs - 1
+            )
             if preparedMedia.configuration.hasAudio {
                 try await audioManager.flush()
             }
             let timeline = try MediaTimeline(
-                durationUs: preparedMedia.metadata.durationUs
+                durationUs: preparedMedia.metadata.durationUs,
+                mediaStartUs: resolvedMediaTimeUs
             )
             async let videoRestart: Void = videoSourceController.restart(
                 timeline: timeline

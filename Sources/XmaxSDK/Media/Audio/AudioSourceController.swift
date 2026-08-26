@@ -5,7 +5,7 @@ final class AudioSourceController: AudioSourceControlling, @unchecked Sendable {
 
     // 音频帧监听器
     private let frameListener: MediaAudioFrameListener
-    private let errorListener: AudioSourceErrorListener
+    private let errorListener: MediaSourceErrorListener
 
     // 并发控制
     private let stateLock = NSLock()
@@ -23,7 +23,7 @@ final class AudioSourceController: AudioSourceControlling, @unchecked Sendable {
 
     init(
         frameListener: @escaping MediaAudioFrameListener,
-        errorListener: @escaping AudioSourceErrorListener
+        errorListener: @escaping MediaSourceErrorListener
     ) {
         self.frameListener = frameListener
         self.errorListener = errorListener
@@ -130,13 +130,14 @@ private extension AudioSourceController {
         generationID: UUID,
         loopIndex: Int64
     ) async throws -> AudioFileFrameDecoder {
-        try await AudioFileFrameDecoder(
+        let mediaStartUs = timeline.mediaStartUs(forLoop: loopIndex)
+        return try await AudioFileFrameDecoder(
             fileURL: fileURL,
             playbackAnchorUs: try timeline.playbackAnchorUs(
                 forLoop: loopIndex
             ),
-            mediaStartUs: 0,
-            cycleDurationUs: timeline.cycleDurationUs,
+            mediaStartUs: mediaStartUs,
+            cycleDurationUs: timeline.cycleDurationUs(forLoop: loopIndex),
             onFrame: { [weak self] frame in
                 self?.handleFrame(
                     frame,

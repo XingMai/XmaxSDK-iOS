@@ -7,8 +7,8 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
     private static let samplingTolerance = 0.75
 
     // 视频帧监听器
-    private let frameListener: MediaVideoFrameListener
-    private let errorListener: VideoSourceErrorListener
+    private let frameListener: @Sendable (VideoFrame, Int64) throws -> Void
+    private let errorListener: MediaSourceErrorListener
 
     // 并发控制
     private let stateLock = NSLock()
@@ -26,8 +26,8 @@ final class VideoSourceController: VideoSourceControlling, @unchecked Sendable {
     private var lastOutputTimestampUs: Int64?
 
     init(
-        frameListener: @escaping MediaVideoFrameListener,
-        errorListener: @escaping VideoSourceErrorListener
+        frameListener: @escaping @Sendable (VideoFrame, Int64) throws -> Void,
+        errorListener: @escaping MediaSourceErrorListener
     ) {
         self.frameListener = frameListener
         self.errorListener = errorListener
@@ -166,17 +166,22 @@ private extension VideoSourceController {
         generationID: UUID,
         loopIndex: Int64
     ) async throws -> VideoFileFrameDecoder {
-        try await VideoFileFrameDecoder(
+        let playbackAnchorUs = try timeline.playbackAnchorUs(
+            forLoop: loopIndex
+        )
+        let mediaStartUs = timeline.mediaStartUs(forLoop: loopIndex)
+        return try await VideoFileFrameDecoder(
             fileURL: configuration.fileURL,
             outputWidth: configuration.outputWidth,
             outputHeight: configuration.outputHeight,
             rotation: configuration.rotation,
-            playbackAnchorUs: try timeline.playbackAnchorUs(
-                forLoop: loopIndex
-            ),
+            playbackAnchorUs: playbackAnchorUs,
+            mediaStartUs: mediaStartUs,
             onFrame: { [weak self] frame in
                 self?.handleFrame(
                     frame,
+                    mediaStartUs: mediaStartUs,
+                    playbackAnchorUs: playbackAnchorUs,
                     generationID: generationID,
                     loopIndex: loopIndex
                 )
@@ -199,9 +204,13 @@ private extension VideoSourceController {
 
     func handleFrame(
         _ decodedFrame: VideoFrame,
+        mediaStartUs: Int64,
+        playbackAnchorUs: Int64,
         generationID: UUID,
         loopIndex: Int64
     ) {
+        let mediaTimeUs = mediaStartUs
+            + max(decodedFrame.timestampUs - playbackAnchorUs, 0)
         let shouldOutput = stateLock.withLock { () -> Bool in
             guard self.generationID == generationID,
                   self.loopIndex == loopIndex,
@@ -231,7 +240,7 @@ private extension VideoSourceController {
         }
 
         do {
-            try frameListener(decodedFrame)
+            try frameListener(decodedFrame, mediaTimeUs)
         } catch {
             errorListener(XmaxError.from(error))
         }

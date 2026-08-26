@@ -267,7 +267,7 @@ final class MediaControllerTests: XCTestCase {
         let ownsStream = await manager.owns(stream)
         XCTAssertTrue(hasAudio)
         XCTAssertTrue(ownsStream)
-        XCTAssertTrue(source.calls.contains(.restart))
+        XCTAssertTrue(source.calls.contains(.restart(0)))
 
         await manager.stopLocalVideoStream()
         let hasAudioAfterStop = await manager.hasAudio

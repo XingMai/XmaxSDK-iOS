@@ -1,7 +1,5 @@
 import Foundation
 
-typealias AudioSourceErrorListener = @Sendable (XmaxError) -> Void
-
 /// 定义本地媒体音频循环解码能力。
 protocol AudioSourceControlling: Sendable {
 

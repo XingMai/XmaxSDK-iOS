@@ -158,6 +158,26 @@ private final class AudioFileDecodeOperation: @unchecked Sendable {
                 "Failed to create audio reader: \((error as NSError).localizedDescription)"
             )
         }
+        if mediaStartUs > 0 {
+            let duration: CMTime
+            do {
+                duration = try await asset.load(.duration)
+            } catch {
+                throw mediaError(
+                    "Failed to read audio duration: " +
+                        (error as NSError).localizedDescription
+                )
+            }
+            let start = CMTime(
+                value: mediaStartUs,
+                timescale: 1_000_000
+            )
+            guard duration.isNumeric,
+                  CMTimeCompare(start, duration) < 0 else {
+                throw mediaError("Audio start time exceeds the file duration")
+            }
+            reader.timeRange = CMTimeRange(start: start, end: duration)
+        }
 
         let output = AVAssetReaderTrackOutput(
             track: audioTrack,

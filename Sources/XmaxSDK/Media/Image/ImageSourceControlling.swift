@@ -1,7 +1,5 @@
 import Foundation
 
-typealias ImageSourceErrorListener = @Sendable (XmaxError) -> Void
-
 /// 定义本地图片持续输出视频帧的能力。
 protocol ImageSourceControlling: Sendable {
 

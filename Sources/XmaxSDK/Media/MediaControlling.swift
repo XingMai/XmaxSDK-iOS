@@ -12,6 +12,11 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool { get }
 
+    /// 设置媒体错误监听器，传入空值时停止向上报告异步媒体错误。
+    nonisolated func setErrorListener(
+        _ listener: MediaSourceErrorListener?
+    )
+
     /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
     func setCameraPreviewReadyListener(
         _ listener: RealtimeCameraPreviewReadyListener?
@@ -120,7 +125,13 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前来源不是文件视频时忽略。
     func stopLocalVideoStream() async
 
-    /// 在新一轮生成开始时从起点重新播放当前文件媒体；
+    /// 将文件视频的本地显示和 RTC 帧输出暂停在最近输出的一帧。
+    ///
+    /// - Returns: 恢复本次预览暂停的异步操作；当前来源不是文件视频时
+    ///   返回空操作。
+    func pauseVideoPreview() async -> VideoPreviewResume
+
+    /// 在新一轮生成开始时从暂停预览对应的位置重新播放当前文件媒体；
     /// 当前来源不是文件视频时忽略。
     ///
     /// - Throws: 文件媒体时间线或音视频解码器重新启动失败时抛出错误。

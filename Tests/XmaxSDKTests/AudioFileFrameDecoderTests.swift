@@ -138,6 +138,49 @@ final class AudioFileFrameDecoderTests: XCTestCase {
         XCTAssertEqual(recorder.frames[0].timestampUs, playbackAnchorUs)
     }
 
+    func testDecoderStartsAtRequestedMediaCheckpoint() async throws {
+        let skippedData = Data(repeating: 1, count: 960)
+        let checkpointData = Data(repeating: 2, count: 960)
+        let fileURL = try makePCM16WAV(
+            pcmData: skippedData + checkpointData
+        )
+        defer {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        let frameExpectation = expectation(description: "audio frame")
+        let terminalExpectation = expectation(description: "end of stream")
+        let recorder = AudioFileFrameDecoderRecorder(
+            frameExpectation: frameExpectation,
+            terminalExpectation: terminalExpectation
+        )
+        let playbackAnchorUs = AudioFileFrameDecoder.currentTimestampUs()
+            + 500_000
+        let decoder = try await AudioFileFrameDecoder(
+            fileURL: fileURL,
+            playbackAnchorUs: playbackAnchorUs,
+            mediaStartUs: 10_000,
+            cycleDurationUs: 10_000,
+            onFrame: { recorder.onFrame($0) },
+            onEndOfStream: { recorder.onEndOfStream() },
+            onError: { recorder.onError(message: $0) }
+        )
+        defer {
+            decoder.release()
+        }
+
+        await fulfillment(
+            of: [frameExpectation, terminalExpectation],
+            timeout: 2,
+            enforceOrder: true
+        )
+
+        XCTAssertNil(recorder.errorMessage)
+        XCTAssertEqual(recorder.frames.count, 1)
+        XCTAssertEqual(recorder.frames[0].data, checkpointData)
+        XCTAssertEqual(recorder.frames[0].timestampUs, playbackAnchorUs)
+    }
+
     func testDecoderResamplesAndDownmixesToAudioFrameFormat() async throws {
         let sourceData = Data(repeating: 0, count: 441 * 2 * 2)
         let fileURL = try makePCM16WAV(

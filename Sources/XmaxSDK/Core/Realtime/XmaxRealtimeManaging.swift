@@ -95,6 +95,21 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 开始生成，生成中再次调用时更新当前条件。
     func startGeneration(context: RealtimeContext?) async throws
 
+    /// 使用当前本地流按需建立连接并开始生成。
+    ///
+    /// 文件视频会在建立连接前立即暂停本地预览并记录生成检查点；已经连接时
+    /// 直接复用当前连接。返回的远端流可交给统一视频视图显示生成结果。
+    ///
+    /// - Parameters:
+    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
+    ///   - context: 本次生成条件；首次生成不能为空。
+    /// - Returns: 当前 RTC 连接对应的远端媒体流。
+    /// - Throws: 本地流无效、连接失败或生成启动失败时抛出错误。
+    func startGeneration(
+        localStream: RealtimeMediaStream,
+        context: RealtimeContext?
+    ) async throws -> RealtimeMediaStream
+
     /// 停止当前生成任务并保留实时连接。
     func stopGeneration() async
 }
@@ -153,5 +168,15 @@ public extension XmaxRealtimeManaging {
     /// 使用缓存条件开始生成；首次生成仍需显式传入条件。
     func startGeneration() async throws {
         try await startGeneration(context: nil)
+    }
+
+    /// 使用当前本地流和缓存条件按需连接并开始生成。
+    func startGeneration(
+        localStream: RealtimeMediaStream
+    ) async throws -> RealtimeMediaStream {
+        try await startGeneration(
+            localStream: localStream,
+            context: nil
+        )
     }
 }

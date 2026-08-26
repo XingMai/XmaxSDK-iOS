@@ -9,15 +9,16 @@ typealias RealtimeConnectionHeartbeatFailureHandler = @Sendable (
 /// 协调服务端会话、RTC 房间、本地发布和远端媒体资源。
 actor XmaxRealtimeConnectionManager {
 
-    // 基础层组件
-    private let rtcManager: any RtcManaging
-
     // 服务层组件
     private let sessionService: any RealtimeSessionServicing
 
-    // 业务层组件
+    // 媒体层组件
     private let interactionController: any InteractionControlling
-    private let remoteVideoController: any RemoteVideoControlling
+
+    // 渲染层组件
+    private let renderController: any RenderControlling
+
+    // 传输层组件
     private let transportController: any TransportControlling
 
     // 连接资源
@@ -25,16 +26,14 @@ actor XmaxRealtimeConnectionManager {
     private var activeSession: RealtimeSession?
 
     init(
-        rtcManager: any RtcManaging,
         sessionService: any RealtimeSessionServicing,
         interactionController: any InteractionControlling,
-        remoteVideoController: any RemoteVideoControlling,
+        renderController: any RenderControlling,
         transportController: any TransportControlling
     ) {
-        self.rtcManager = rtcManager
         self.sessionService = sessionService
         self.interactionController = interactionController
-        self.remoteVideoController = remoteVideoController
+        self.renderController = renderController
         self.transportController = transportController
     }
 
@@ -42,15 +41,25 @@ actor XmaxRealtimeConnectionManager {
         activeSession?.id ?? ""
     }
 
+    var currentRemoteStream: RealtimeMediaStream? {
+        guard activeSession != nil, let activeRemoteTrack else {
+            return nil
+        }
+        return RealtimeMediaStream(
+            id: StreamID.remote.rawValue,
+            videoTrack: activeRemoteTrack
+        )
+    }
+
     func updateRemoteVideoFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async {
         guard let activeRemoteTrack else { return }
         activeRemoteTrack.updateVideoFormat(videoFormat)
-        await MainActor.run {
-            TrajectoryRegistry.binding(for: activeRemoteTrack)?
-                .update(videoFormat: videoFormat)
-        }
+        await renderController.updateRemoteVideoFormat(
+            videoFormat,
+            for: activeRemoteTrack
+        )
     }
 
     func connect(
@@ -159,33 +168,14 @@ private extension XmaxRealtimeConnectionManager {
         }
     }
 
-    @MainActor
-    func registerRemoteTrack(_ track: RealtimeVideoTrack) {
-        let remoteVideoController = remoteVideoController
-        VideoRenderRegistry.register(
+    func registerRemoteTrack(_ track: RealtimeVideoTrack) async {
+        let interactionController = interactionController
+        await renderController.registerRemoteTrack(
             track,
-            binding: VideoRenderBinding(
-                libraryName: rtcManager.renderLibraryName,
-                attachHandler: { view, contentMode in
-                    try remoteVideoController.attach(
-                        to: view,
-                        contentMode: contentMode
-                    )
-                },
-                detachHandler: { _ in
-                    try remoteVideoController.detach()
-                }
-            )
+            interactionListener: { frame in
+                await interactionController.submitInteraction(frame)
+            }
         )
-        if let videoFormat = track.videoFormat {
-            TrajectoryRegistry.register(
-                track,
-                binding: TrajectoryBinding(
-                    interactionController: interactionController,
-                    videoFormat: videoFormat
-                )
-            )
-        }
     }
 
     func rollbackConnection() async {
@@ -198,14 +188,9 @@ private extension XmaxRealtimeConnectionManager {
         await transportController.disconnect()
     }
 
-    @MainActor
-    func resetRemoteRendering(track: RealtimeVideoTrack?) {
-        if let track {
-            VideoRenderRegistry.unregister(track)
-            TrajectoryRegistry.unregister(track)
-        }
+    func resetRemoteRendering(track: RealtimeVideoTrack?) async {
         do {
-            try remoteVideoController.reset()
+            try await renderController.resetRemoteTrack(track)
         } catch {
             Self.logCleanupFailure(
                 operation: "重置远端视频渲染",

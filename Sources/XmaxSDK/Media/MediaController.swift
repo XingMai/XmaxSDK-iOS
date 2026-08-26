@@ -8,6 +8,7 @@ actor MediaController: MediaControlling {
 
     // 本地媒体组件
     private let cameraController: CameraController
+    private let errorHandler: MediaSourceErrorHandler
     private let imageController: ImageController?
     private let interactionController: any InteractionControlling
     private let videoController: VideoController?
@@ -24,9 +25,9 @@ actor MediaController: MediaControlling {
         rtcManager: any RtcManaging,
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
-        interactionController: any InteractionControlling,
-        mediaErrorListener: @escaping MediaSourceErrorListener
+        interactionListener: @escaping InteractionListener
     ) {
+        let errorHandler = MediaSourceErrorHandler()
         self.rtcManager = rtcManager
         cameraController = CameraController(
             rtcManager: rtcManager
@@ -34,29 +35,35 @@ actor MediaController: MediaControlling {
         imageController = ImageController(
             rtcManager: rtcManager,
             frameListener: videoFrameListener,
-            errorListener: mediaErrorListener
+            errorListener: { errorHandler.report($0) }
         )
-        self.interactionController = interactionController
+        self.errorHandler = errorHandler
+        interactionController = InteractionController(
+            listener: interactionListener
+        )
         videoController = VideoController(
             rtcManager: rtcManager,
             videoFrameListener: videoFrameListener,
             audioFrameListener: audioFrameListener,
-            errorListener: mediaErrorListener
+            errorListener: { errorHandler.report($0) }
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         cameraController: CameraController,
+        errorHandler: MediaSourceErrorHandler = MediaSourceErrorHandler(),
         imageController: ImageController? = nil,
-        interactionController: any InteractionControlling =
-            InteractionController(),
+        interactionListener: @escaping InteractionListener = { _, _ in },
         videoController: VideoController? = nil
     ) {
         self.rtcManager = rtcManager
         self.cameraController = cameraController
+        self.errorHandler = errorHandler
         self.imageController = imageController
-        self.interactionController = interactionController
+        interactionController = InteractionController(
+            listener: interactionListener
+        )
         self.videoController = videoController
     }
 
@@ -79,6 +86,12 @@ actor MediaController: MediaControlling {
             return false
         }
         return videoController?.hasAudio ?? false
+    }
+
+    nonisolated func setErrorListener(
+        _ listener: MediaSourceErrorListener?
+    ) {
+        errorHandler.setListener(listener)
     }
 
     /// 设置摄像头预览就绪监听器。
@@ -206,7 +219,15 @@ actor MediaController: MediaControlling {
         await stopSource(ifKindIs: .video)
     }
 
-    /// 视频来源在新一轮生成开始时从文件起点重新播放。
+    /// 将文件视频的本地显示暂停在最近输出的一帧。
+    func pauseVideoPreview() async -> VideoPreviewResume {
+        guard activeSource?.kind == .video, let videoController else {
+            return {}
+        }
+        return await videoController.pauseVideoPreview()
+    }
+
+    /// 视频来源在新一轮生成开始时从预览暂停位置重新播放。
     func restartForGeneration() async throws {
         guard activeSource?.kind == .video else {
             return

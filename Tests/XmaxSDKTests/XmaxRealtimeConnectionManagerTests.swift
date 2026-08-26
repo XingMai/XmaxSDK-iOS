@@ -87,7 +87,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             userID: "bot-user"
         )
 
-        try components.remoteVideoController.setRemoteStream(remoteStream)
+        try components.renderController.setRemoteStream(remoteStream)
 
         XCTAssertEqual(
             rtcManager.calls.last,
@@ -270,7 +270,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
 private extension XmaxRealtimeConnectionManagerTests {
     struct Components {
         let manager: XmaxRealtimeConnectionManager
-        let remoteVideoController: RemoteVideoController
+        let renderController: RenderController
     }
 
     var session: RealtimeSession {
@@ -296,7 +296,7 @@ private extension XmaxRealtimeConnectionManagerTests {
         rtcManager: RtcManagingStub = RtcManagingStub(),
         sessionService: RealtimeSessionServicingStub
     ) -> Components {
-        let remoteVideoController = RemoteVideoController(
+        let renderController = RenderController(
             rtcManager: rtcManager
         )
         let transportController = TransportController(
@@ -304,13 +304,12 @@ private extension XmaxRealtimeConnectionManagerTests {
         )
         return Components(
             manager: XmaxRealtimeConnectionManager(
-                rtcManager: rtcManager,
                 sessionService: sessionService,
                 interactionController: InteractionController(),
-                remoteVideoController: remoteVideoController,
+                renderController: renderController,
                 transportController: transportController
             ),
-            remoteVideoController: remoteVideoController
+            renderController: renderController
         )
     }
 }

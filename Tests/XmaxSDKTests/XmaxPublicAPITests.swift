@@ -146,6 +146,17 @@ final class XmaxPublicAPITests: XCTestCase {
         try await manager.stopLocalVideoStream()
     }
 
+    private func startGeneration(
+        using manager: any XmaxRealtimeManaging,
+        localStream: RealtimeMediaStream,
+        context: RealtimeContext?
+    ) async throws -> RealtimeMediaStream {
+        try await manager.startGeneration(
+            localStream: localStream,
+            context: context
+        )
+    }
+
     private func readPublicRealtimeStream(
         _ stream: RealtimeMediaStream
     ) -> (String, String?, RealtimeVideoFormat?, CameraPosition?) {

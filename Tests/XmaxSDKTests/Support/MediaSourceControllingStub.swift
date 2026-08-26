@@ -4,7 +4,7 @@ import Foundation
 enum MediaSourceControllingCall: Equatable {
     case prepare(URL, RealtimeVideoFormat?)
     case start
-    case restart
+    case restart(Int64)
     case stop
 }
 
@@ -64,9 +64,9 @@ final class MediaSourceControllingStub:
         }
     }
 
-    func restart() async throws {
+    func restart(from mediaTimeUs: Int64) async throws {
         try lock.withLock {
-            storedCalls.append(.restart)
+            storedCalls.append(.restart(mediaTimeUs))
             if let restartError {
                 throw restartError
             }

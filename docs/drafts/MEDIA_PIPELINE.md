@@ -234,10 +234,16 @@ RtcManager
 
 - 启动时预留 100ms 解码准备时间。
 - 循环周期向上对齐到 10ms。
-- 第 N 次循环的播放时间为：
+- 正常预览从文件时间 0 开始。
+- 生成重启的第一轮可以从点击时记录的文件时间开始，首轮时长为“检查点到
+  文件尾”。
+- 首轮结束后，后续循环都从文件时间 0 开始，并使用完整文件周期。
+- 检查点重启时各轮播放锚点为：
 
 ```text
-初始播放锚点 + N × 对齐后的循环时长
+第 0 轮：初始播放锚点
+第 1 轮：初始播放锚点 + 对齐后的首轮剩余时长
+第 N 轮：第 1 轮锚点 + (N - 1) × 对齐后的完整循环时长
 ```
 
 视频和音频不会各自以“解码完成时间”开启下一轮，从而避免循环次数增加后逐渐漂移。
@@ -267,7 +273,7 @@ RtcManager
 7. 将帧旋转信息重置为 0，避免本地预览和编码分别解释旋转元数据。
 8. 按目标 fps 采样。
 9. 落后超过一个目标帧间隔的帧直接丢弃。
-10. 通过 `TransportController` 将帧交给内部 `StreamController`。
+10. 通过 Core 注入的中性视频帧监听器交给 Transport 统一入口。
 11. 到达文件末尾后，根据共享时间线创建下一轮 decoder。
 
 最终 RTC 收到的视频帧为：
@@ -335,9 +341,9 @@ RTC 本地 Canvas 已使用与文件帧相同的显示宽高；建立实时连�
 - `Sources/XmaxSDK/Foundation/Media/Video/VideoFileFrameDecoder.swift`
 - `Sources/XmaxSDK/Foundation/Media/Audio/AudioFileFrameDecoder.swift`
 
-## 4. 连接后的发布
+## 4. 连接与发布
 
-调用：
+接入方需要提前建立实时连接时，可以显式调用：
 
 ```swift
 let remoteStream = try await realtime.connect(
@@ -371,9 +377,27 @@ transportController.setVideoEncoderConfig(videoFormat)
 
 目前相机链路还没有麦克风音频，因此相机只发布视频。
 
+`connect(localStream:)` 会在调用时创建 Session 并建立 RTC 连接，因此
+可能从此时开始产生实时服务费用。不需要预连接的产品应使用下一节的
+组合生成入口。
+
 ## 5. 生成时的行为
 
-调用：
+推荐调用：
+
+```swift
+let remoteStream = try await realtime.startGeneration(
+    localStream: localStream,
+    context: RealtimeContext(...)
+)
+```
+
+这个组合入口会先在 SDK 内确立文件视频的暂停检查点，再按需建立
+Session 和 RTC 连接，因此未点击生成时不会因预连接产生费用。如果已经
+连接，则直接复用当前连接。图片和相机也使用同一入口，但不需要文件
+视频检查点。返回的 `remoteStream` 用于绑定生成结果视图。
+
+已经显式调用 `connect(localStream:)` 的高级接入方，仍可继续调用：
 
 ```swift
 try await realtime.startGeneration(
@@ -384,17 +408,25 @@ try await realtime.startGeneration(
 执行顺序：
 
 ```text
+记录最近送入 RTC 的帧及其源文件时间
+    ↓
+立即阻止新帧进入本地 RTC Canvas，使用同一帧覆盖预览
+    ↓
+尚未连接时，创建 Session 并建立 RTC 连接
+    ↓
 创建 taskID 和 SEI 状态
     ↓
 向房间发送 start generation
     ↓
-如果当前来源是视频，重新建立 MediaTimeline
+如果当前来源是文件视频，从检查点重新建立 MediaTimeline
     ↓
-视频和音频同时从文件起点开始
+视频和音频同时从同一个文件时间开始
     ↓
 后续视频帧携带当前 taskID 对应的 SEI
     ↓
 等待远端生成流确认
+    ↓
+清除静态帧覆盖，显示远端结果
 ```
 
 图片来源不需要重启，因为它始终输出同一帧。
@@ -407,10 +439,18 @@ mediaController.restartForGeneration()
 
 这会：
 
+- 使用最近实际送入 RTC 的目标尺寸 NV12 帧作为检查点画面。
+- 记录该帧对应的源文件时间；若尚未产生首帧，则回退到文件时间 0。
 - 清空本地待播放音频。
 - 释放当前音视频 decoder。
 - 创建新的共享时间线。
-- 音频和视频同时从文件开头重新播放。
+- 音频和视频同时从检查点开始第一轮，抵达文件尾后再从文件起点循环。
+
+进入暂停时先原子地阻止新的本地视频帧进入 RTC Canvas，使 Canvas 立即保持最后
+一帧；随后在 `XmaxVideoView` 中生成同一帧的静态覆盖。检查点时间线建立完成后
+恢复底层音视频推送，静态覆盖继续保留，否则服务端无法完成生成准备。收到匹配
+taskID 的远端 ready 后，或生成失败、取消时，SDK 会自动清除覆盖帧。旧生成操作
+持有的恢复闭包带版本校验，不会误清除较新一次操作的暂停画面。
 
 ## 6. 媒体来源更新
 
@@ -435,8 +475,8 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 ## 7. 当前尚未完成的部分
 
 核心采集和 RTC 推送链路已经具备，XLab 已接入图片与视频文件选择和公开创建
-接口。目前尚未完成鸿蒙版“开始生成时冻结视频首帧、远端结果出现后解除冻结”
-的预览优化。
+接口。目前 iOS 已实现“点击位置检查点”：开始生成时冻结当前处理后视频帧，
+音视频从同一源文件时间重新输出，远端结果 ready 后解除冻结。Harmony 仍待同步。
 
 因此当前状态是：图片与视频可以进入 RTC、预览、连接和生成生命周期；下一步可以接入 XLab 做真机端到端调试，并基于本稿继续优化 Pipeline。
 
@@ -447,5 +487,5 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 - [ ] 明确图片和视频的默认输出格式策略。
 - [ ] 明确显式 `videoFormat` 是严格输出值还是模型约束前的期望值。
 - [ ] 真机评估视频 NV12 目标尺寸预处理的性能和画质。
-- [ ] 实现生成等待期间的视频首帧冻结。
+- [x] 实现生成等待期间的点击位置帧冻结与音视频检查点重启。
 - [ ] 完成 XLab 图片与视频端到端调试入口。

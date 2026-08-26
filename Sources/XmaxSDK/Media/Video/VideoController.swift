@@ -12,12 +12,14 @@ final class VideoController: @unchecked Sendable {
 
     // 业务层组件
     private let mediaSourceController: any MediaSourceControlling
+    private let localVideoPreviewController: LocalVideoPreviewController
 
     // 并发控制
     private let stateLock = NSLock()
 
     // 本地资源
     private var activeTrack: RealtimeVideoTrack?
+    private var generationMediaTimeUs: Int64?
 
     @MainActor
     convenience init(
@@ -27,12 +29,19 @@ final class VideoController: @unchecked Sendable {
         errorListener: @escaping MediaSourceErrorListener
     ) {
         let audioManager = AudioManager()
+        let localVideoPreviewController = LocalVideoPreviewController()
         let mediaSourceController = MediaSourceController(
             metadataManager: MediaFileMetadataManager(),
             audioManager: audioManager,
             mediaService: MediaService(),
             videoSourceController: VideoSourceController(
-                frameListener: videoFrameListener,
+                frameListener: { frame, mediaTimeUs in
+                    try localVideoPreviewController.output(
+                        frame: frame,
+                        mediaTimeUs: mediaTimeUs,
+                        frameListener: videoFrameListener
+                    )
+                },
                 errorListener: errorListener
             ),
             audioSourceController: AudioSourceController(
@@ -46,18 +55,22 @@ final class VideoController: @unchecked Sendable {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
-            mediaSourceController: mediaSourceController
+            mediaSourceController: mediaSourceController,
+            localVideoPreviewController: localVideoPreviewController
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
-        mediaSourceController: any MediaSourceControlling
+        mediaSourceController: any MediaSourceControlling,
+        localVideoPreviewController: LocalVideoPreviewController =
+            LocalVideoPreviewController()
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaSourceController = mediaSourceController
+        self.localVideoPreviewController = localVideoPreviewController
     }
 
     /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
@@ -89,12 +102,31 @@ final class VideoController: @unchecked Sendable {
         )
     }
 
-    /// 从文件起点重新开始音视频循环，用于新一轮生成。
+    /// 从暂停预览对应的文件时间重新开始音视频循环。
     func restartForGeneration() async throws {
-        guard currentTrack != nil else {
+        let mediaTimeUs = stateLock.withLock { () -> Int64? in
+            guard activeTrack != nil else { return nil }
+            return generationMediaTimeUs ?? 0
+        }
+        guard let mediaTimeUs else {
             return
         }
-        try await mediaSourceController.restart()
+        try await mediaSourceController.restart(from: mediaTimeUs)
+        localVideoPreviewController.resumeVideoOutput()
+    }
+
+    /// 将文件视频预览暂停在最近输出的一帧。
+    func pauseVideoPreview() async -> VideoPreviewResume {
+        guard let track = currentTrack else {
+            return {}
+        }
+        let pausedPreview = await localVideoPreviewController.pause(
+            track: track
+        )
+        stateLock.withLock {
+            generationMediaTimeUs = pausedPreview.mediaTimeUs
+        }
+        return pausedPreview.resume
     }
 
     /// 停止文件音视频输出并释放 RTC 外部音频和预览资源。
@@ -106,9 +138,11 @@ final class VideoController: @unchecked Sendable {
             let track = activeTrack
             let hasAudio = track != nil && mediaSourceController.hasAudio
             activeTrack = nil
+            generationMediaTimeUs = nil
             return (track, hasAudio)
         }
         await mediaSourceController.stop()
+        await localVideoPreviewController.reset()
 
         if state.1 {
             do {
@@ -175,6 +209,7 @@ private extension VideoController {
             )
         } catch {
             await mediaSourceController.stop()
+            await localVideoPreviewController.reset()
             if externalAudioStarted {
                 do {
                     try rtcManager.stopExternalAudioSource()
