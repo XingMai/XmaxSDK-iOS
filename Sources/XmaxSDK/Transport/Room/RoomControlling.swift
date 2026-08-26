@@ -20,7 +20,6 @@ protocol RoomControlling: Actor {
     /// 发送生成条件变更信令。
     func changeGenerationCondition(
         taskID: String,
-        conditionVersion: Int,
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext
     ) throws

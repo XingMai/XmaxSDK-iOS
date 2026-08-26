@@ -50,12 +50,11 @@ final class RoomEventTests: XCTestCase {
         XCTAssertNil(params["ref_image_path"])
     }
 
-    func testChangeConditionEventIncludesVersion() throws {
+    func testChangeConditionEventMatchesRoomProtocol() throws {
         let event = try decode(
             RoomEvent.changeCondition(
                 userID: "user-id",
                 taskID: "task-id",
-                conditionVersion: 3,
                 videoFormat: RealtimeVideoFormat(
                     width: 720,
                     height: 1280,
@@ -66,7 +65,7 @@ final class RoomEventTests: XCTestCase {
         )
 
         XCTAssertEqual(event["event"] as? String, "change_condition")
-        XCTAssertEqual(event["condition_version"] as? Int, 3)
+        XCTAssertNil(event["condition_version"])
     }
 
     func testStopTracksAndHeartbeatEventsMatchRoomProtocol() throws {

@@ -374,20 +374,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             return
         }
 
-        waiter.confirmationTask = Task { [weak self, weak waiter] in
-            guard let self, let waiter else {
-                return
-            }
-            do {
-                try await Task.sleep(
-                    nanoseconds: self.generationTiming
-                        .confirmationDelayNanoseconds
-                )
-            } catch {
-                return
-            }
-            self.resolveGenerationStart(taskID: waiter.taskID)
-        }
+        resolveGenerationStart(taskID: waiter.taskID)
     }
 }
 
@@ -417,7 +404,6 @@ private extension StreamController {
         let taskID: String
         let continuation: AsyncThrowingStream<Void, any Error>.Continuation
         var timeoutTask: Task<Void, Never>?
-        var confirmationTask: Task<Void, Never>?
         var confirmationPending = false
 
         init(
@@ -476,7 +462,6 @@ private extension StreamController {
             return
         }
         waiter.timeoutTask?.cancel()
-        waiter.confirmationTask?.cancel()
         waiter.continuation.yield()
         waiter.continuation.finish()
     }
@@ -507,7 +492,6 @@ private extension StreamController {
             return
         }
         waiter.timeoutTask?.cancel()
-        waiter.confirmationTask?.cancel()
         waiter.continuation.finish(throwing: error)
     }
 
@@ -555,13 +539,11 @@ private extension StreamController {
     }
 }
 
-/// 定义生成确认等待的超时和远端首帧稳定延迟。
+/// 定义生成确认等待的超时时间。
 struct StreamGenerationTiming: Sendable {
     let timeoutNanoseconds: UInt64
-    let confirmationDelayNanoseconds: UInt64
 
     static let live = StreamGenerationTiming(
-        timeoutNanoseconds: 30_000_000_000,
-        confirmationDelayNanoseconds: 150_000_000
+        timeoutNanoseconds: 30_000_000_000
     )
 }

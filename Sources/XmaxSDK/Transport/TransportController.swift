@@ -116,13 +116,11 @@ final class TransportController: TransportControlling, @unchecked Sendable {
 
     func updateGeneration(
         taskID: String,
-        conditionVersion: Int,
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext
     ) async throws {
         try await roomController.changeGenerationCondition(
             taskID: taskID,
-            conditionVersion: conditionVersion,
             videoFormat: videoFormat,
             context: context
         )

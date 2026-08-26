@@ -118,7 +118,6 @@ actor RoomController: RoomControlling {
 
     func changeGenerationCondition(
         taskID: String,
-        conditionVersion: Int,
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext
     ) throws {
@@ -126,7 +125,6 @@ actor RoomController: RoomControlling {
             RoomEvent.changeCondition(
                 userID: try requireUserID(),
                 taskID: taskID,
-                conditionVersion: conditionVersion,
                 videoFormat: videoFormat,
                 context: context
             )

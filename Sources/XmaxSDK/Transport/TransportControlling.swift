@@ -83,14 +83,12 @@ protocol TransportControlling: Sendable {
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务的唯一标识。
-    ///   - conditionVersion: 单调递增的条件版本号。
     ///   - videoFormat: 当前本地媒体使用的视频格式。
     ///   - context: 更新后的生成条件上下文。
     /// - Throws: RTC 房间未就绪、参数无效或条件变更信令发送失败时
     ///   抛出错误。
     func updateGeneration(
         taskID: String,
-        conditionVersion: Int,
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext
     ) async throws

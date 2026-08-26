@@ -10,9 +10,6 @@ final class RealtimePreviewBackdropView: UIView {
     // 显示配置
     private let videoContentMode: VideoContentMode
 
-    // 运行状态
-    private var remoteVisibilityVersion: UInt64 = 0
-
     private var gradientLayer: CAGradientLayer {
         layer as! CAGradientLayer
     }
@@ -29,7 +26,6 @@ final class RealtimePreviewBackdropView: UIView {
         let view = XmaxVideoView()
         view.videoContentMode = videoContentMode
         view.backgroundColor = .feed(rgb: 0x101010)
-        view.alpha = 0
         view.isHidden = true
         return view
     }()
@@ -73,44 +69,16 @@ final class RealtimePreviewBackdropView: UIView {
     }
 
     func prepareRealtime(_ track: RealtimeVideoTrack?) {
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
         remoteVideoView.track = track
     }
 
-    func showRealtime(animated: Bool) {
+    func showRealtime() {
         guard remoteVideoView.track != nil else { return }
-        guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
-            return
-        }
-        remoteVisibilityVersion &+= 1
-        let version = remoteVisibilityVersion
-        remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.isHidden = false
-
-        let changes = {
-            self.remoteVideoView.alpha = 1
-        }
-        guard animated, window != nil else {
-            changes()
-            return
-        }
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            options: [.beginFromCurrentState, .curveEaseInOut],
-            animations: changes
-        ) { _ in
-            guard version == self.remoteVisibilityVersion else { return }
-        }
     }
 
     private func clearRealtime() {
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
         remoteVideoView.track = nil
     }

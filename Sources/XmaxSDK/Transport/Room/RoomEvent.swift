@@ -23,7 +23,6 @@ enum RoomEvent {
     static func changeCondition(
         userID: String,
         taskID: String,
-        conditionVersion: Int,
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext
     ) throws -> String {
@@ -34,8 +33,7 @@ enum RoomEvent {
                     context: context
                 ),
                 userID: userID,
-                taskID: taskID,
-                conditionVersion: conditionVersion
+                taskID: taskID
             )
         )
     }
@@ -125,14 +123,12 @@ private extension RoomEvent {
         let params: GenerationParameters
         let userID: String
         let taskID: String
-        let conditionVersion: Int
 
         enum CodingKeys: String, CodingKey {
             case event
             case params
             case userID = "user_id"
             case taskID = "uid"
-            case conditionVersion = "condition_version"
         }
     }
 

@@ -15,9 +15,6 @@ actor XmaxRealtimeGenerationManager {
     // 生成资源
     private var currentContext: RealtimeContext?
 
-    // 运行状态
-    private var conditionVersion = 0
-
     init(
         transportController: any TransportControlling,
         taskIDGenerator: @escaping @Sendable () -> String =
@@ -47,8 +44,6 @@ actor XmaxRealtimeGenerationManager {
             videoFormat: videoFormat,
             context: resolvedContext
         )
-        conditionVersion = 0
-
         do {
             try await onGenerationStarted()
             try await withTaskCancellationHandler {
@@ -75,10 +70,8 @@ actor XmaxRealtimeGenerationManager {
             return
         }
 
-        conditionVersion += 1
         try await transportController.updateGeneration(
             taskID: taskID,
-            conditionVersion: conditionVersion,
             videoFormat: videoFormat,
             context: context
         )
@@ -91,7 +84,6 @@ actor XmaxRealtimeGenerationManager {
 
     func reset(taskID: String = "") async {
         currentContext = nil
-        conditionVersion = 0
         await stop(taskID: taskID)
     }
 

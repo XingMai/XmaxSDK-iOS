@@ -42,8 +42,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
     func testStartTimeoutStopsTaskAndSendsStopSignal() async throws {
         let components = try await makeComponents(
             timing: StreamGenerationTiming(
-                timeoutNanoseconds: 0,
-                confirmationDelayNanoseconds: 0
+                timeoutNanoseconds: 0
             )
         )
 
@@ -75,7 +74,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         await components.roomController.leave()
     }
 
-    func testUpdateIncrementsConditionVersionWithoutCreatingNewTask() async throws {
+    func testUpdateReusesTaskWithoutAddingUnspecifiedFields() async throws {
         let components = try await makeComponents()
         let startTask = Task {
             try await components.manager.start(
@@ -106,10 +105,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         let changes = decodedEvents(components.rtcManager).filter {
             $0["event"] as? String == "change_condition"
         }
-        XCTAssertEqual(
-            changes.compactMap { $0["condition_version"] as? Int },
-            [1, 2]
-        )
+        XCTAssertTrue(changes.allSatisfy { $0["condition_version"] == nil })
         XCTAssertTrue(
             changes.allSatisfy { $0["uid"] as? String == taskID }
         )
@@ -263,8 +259,7 @@ private extension XmaxRealtimeGenerationManagerTests {
 
     func makeComponents(
         timing: StreamGenerationTiming = StreamGenerationTiming(
-            timeoutNanoseconds: 1_000_000_000,
-            confirmationDelayNanoseconds: 0
+            timeoutNanoseconds: 1_000_000_000
         )
     ) async throws -> Components {
         let rtcManager = RtcManagingStub()

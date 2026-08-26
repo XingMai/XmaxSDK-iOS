@@ -203,8 +203,7 @@ final class StreamControllerTests: XCTestCase {
                 receivedStreams.append(stream)
             },
             generationTiming: StreamGenerationTiming(
-                timeoutNanoseconds: 1_000_000_000,
-                confirmationDelayNanoseconds: 0
+                timeoutNanoseconds: 1_000_000_000
             )
         )
         try controller.configureRoom(
@@ -244,8 +243,7 @@ final class StreamControllerTests: XCTestCase {
         let controller = StreamController(
             rtcManager: RtcManagingStub(),
             generationTiming: StreamGenerationTiming(
-                timeoutNanoseconds: 0,
-                confirmationDelayNanoseconds: 0
+                timeoutNanoseconds: 0
             )
         )
         try controller.configureRoom(roomID: "room-id", botName: nil)

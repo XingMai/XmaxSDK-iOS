@@ -211,7 +211,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
         )
         XCTAssertEqual(changeEvent["uid"] as? String, taskID)
-        XCTAssertEqual(changeEvent["condition_version"] as? Int, 1)
+        XCTAssertNil(changeEvent["condition_version"])
 
         await components.manager.stopGeneration()
         let stoppedState = await components.manager.currentState
@@ -422,8 +422,7 @@ private extension XmaxRealtimeManagerTests {
                 try remoteVideoController.setRemoteStream(stream)
             },
             generationTiming: StreamGenerationTiming(
-                timeoutNanoseconds: 1_000_000_000,
-                confirmationDelayNanoseconds: 0
+                timeoutNanoseconds: 1_000_000_000
             )
         )
         let cameraController = CameraController(

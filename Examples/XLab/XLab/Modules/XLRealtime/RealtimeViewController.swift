@@ -307,7 +307,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             }
         case .generating:
             guard isGenerationRequested else { return }
-            previewView.showRealtime(animated: true)
+            previewView.showRealtime()
             loadingOverlay.hideLoading()
         case .idle, .disconnecting, .disconnected, .error:
             loadingOverlay.hideLoading()
@@ -710,7 +710,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     context: context
                 )
                 guard !Task.isCancelled else { return }
-                previewView.showRealtime(animated: true)
+                previewView.showRealtime()
                 loadingOverlay.hideLoading()
             } catch is CancellationError {
                 return

@@ -136,7 +136,6 @@ final class RoomControllerTests: XCTestCase {
         )
         try await controller.changeGenerationCondition(
             taskID: "task-id",
-            conditionVersion: 2,
             videoFormat: format,
             context: RealtimeContext(prompt: "second")
         )
