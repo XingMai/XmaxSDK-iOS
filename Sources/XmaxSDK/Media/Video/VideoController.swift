@@ -83,11 +83,11 @@ final class VideoController: @unchecked Sendable {
     }
 
     /// 静音或恢复本地文件视频的音频预览。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async throws {
+    func setLocalAudioPreviewMuted(_ muted: Bool) async {
         guard currentTrack != nil else {
             return
         }
-        try await mediaSourceController.setLocalAudioPreviewMuted(muted)
+        await mediaSourceController.setLocalAudioPreviewMuted(muted)
     }
 
     /// 停止文件音视频输出并释放 RTC 外部音频和预览资源。

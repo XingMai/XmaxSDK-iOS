@@ -33,15 +33,12 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         playerNode.volume = Self.previewVolume
     }
 
-    /// 启用或停止本地音频预览，不影响同一 PCM 帧继续送入 RTC。
-    func setPlaybackEnabled(_ enabled: Bool) {
+    /// 开始接收并播放本地预览 PCM 帧。
+    func start() {
         queue.async { [self] in
-            guard isPlaybackEnabled != enabled else { return }
-            isPlaybackEnabled = enabled
-            if !enabled {
-                playerNode.volume = Self.previewVolume
-                stopPlayback()
-            }
+            guard !isPlaybackEnabled else { return }
+            isPlaybackEnabled = true
+            playerNode.volume = Self.previewVolume
         }
     }
 

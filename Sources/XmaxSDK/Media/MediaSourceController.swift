@@ -95,7 +95,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
     }
 
-    func setLocalAudioPreviewMuted(_ muted: Bool) async throws {
+    func setLocalAudioPreviewMuted(_ muted: Bool) async {
         guard hasAudio else {
             return
         }

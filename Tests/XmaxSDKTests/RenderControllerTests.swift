@@ -4,31 +4,30 @@ import XCTest
 
 @MainActor
 final class RenderControllerTests: XCTestCase {
-    func testSettingStreamAfterAttachBindsRemoteVideo() async throws {
+    func testSettingStreamAfterAttachBindsRemoteVideo() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
-        let view = UIView()
 
         try registration.binding.attach(
-            to: view,
+            to: UIView(),
             contentMode: .fit
         )
-        controller.setRemoteStream(stream)
-        await controller.waitForPendingRenderUpdates()
+        try controller.setRemoteStream(stream)
 
         XCTAssertEqual(
             rtcManager.calls,
             [.bindRemoteVideo(stream, .fit)]
         )
-        await controller.resetRemoteTrack(registration.track)
     }
 
-    func testReplacingStreamUnbindsPreviousAndBindsCurrent() async throws {
+    func testReplacingStreamUnbindsPreviousAndBindsCurrent() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
         let firstStream = RemoteStream(
             roomID: "room-id",
             userID: "first-user"
@@ -37,15 +36,13 @@ final class RenderControllerTests: XCTestCase {
             roomID: "room-id",
             userID: "second-user"
         )
-        let view = UIView()
         try registration.binding.attach(
-            to: view,
+            to: UIView(),
             contentMode: .fill
         )
-        controller.setRemoteStream(firstStream)
+        try controller.setRemoteStream(firstStream)
 
-        controller.setRemoteStream(secondStream)
-        await controller.waitForPendingRenderUpdates()
+        try controller.setRemoteStream(secondStream)
 
         XCTAssertEqual(
             rtcManager.calls,
@@ -55,28 +52,25 @@ final class RenderControllerTests: XCTestCase {
                 .bindRemoteVideo(secondStream, .fill)
             ]
         )
-        await controller.resetRemoteTrack(registration.track)
     }
 
-    func testDetachPreservesStreamForLaterAttachment() async throws {
+    func testDetachPreservesStreamForLaterAttachment() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
-        let firstView = UIView()
-        let secondView = UIView()
-        controller.setRemoteStream(stream)
+        try controller.setRemoteStream(stream)
         try registration.binding.attach(
-            to: firstView,
+            to: UIView(),
             contentMode: .fit
         )
 
         try registration.binding.detach()
         try registration.binding.attach(
-            to: secondView,
+            to: UIView(),
             contentMode: .fill
         )
-        await controller.waitForPendingRenderUpdates()
 
         XCTAssertEqual(
             rtcManager.calls,
@@ -86,25 +80,22 @@ final class RenderControllerTests: XCTestCase {
                 .bindRemoteVideo(stream, .fill)
             ]
         )
-        await controller.resetRemoteTrack(registration.track)
     }
 
-    func testResetUnbindsAndClearsStreamAndView() async throws {
+    func testResetUnbindsAndClearsStreamAndView() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
-        let firstView = UIView()
-        let secondView = UIView()
-        controller.setRemoteStream(stream)
+        try controller.setRemoteStream(stream)
         try registration.binding.attach(
-            to: firstView,
+            to: UIView(),
             contentMode: .fit
         )
 
-        await controller.resetRemoteTrack(registration.track)
+        try controller.resetRemoteTrack(registration.track)
         try registration.binding.attach(
-            to: secondView,
+            to: UIView(),
             contentMode: .fill
         )
 
@@ -117,7 +108,7 @@ final class RenderControllerTests: XCTestCase {
         )
     }
 
-    func testViewLifecycleRemoteCanvasBindingFailureReportsRTCError() async throws {
+    func testViewLifecycleRemoteCanvasBindingFailureReportsRTCError() throws {
         let expectedError = XmaxError(
             code: .rtcError,
             message: "Failed to bind the remote RTC canvas"
@@ -131,22 +122,20 @@ final class RenderControllerTests: XCTestCase {
             errorListener: { recorder.record($0) }
         )
         let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
-        let view = UIView()
-        controller.setRemoteStream(stream)
+        try controller.setRemoteStream(stream)
 
-        XCTAssertNoThrow(
+        XCTAssertThrowsError(
             try registration.binding.attach(
-                to: view,
+                to: UIView(),
                 contentMode: .fill
             )
         )
-        await controller.waitForPendingRenderUpdates()
         XCTAssertEqual(recorder.recordedErrors, [expectedError])
-        await controller.resetRemoteTrack(registration.track)
     }
 
-    func testGenerationRemoteCanvasBindingFailureReportsRTCError() async throws {
+    func testGenerationRemoteCanvasBindingFailureIsOnlyThrown() throws {
         let expectedError = XmaxError(
             code: .rtcError,
             message: "Failed to bind the remote RTC canvas"
@@ -160,18 +149,15 @@ final class RenderControllerTests: XCTestCase {
             errorListener: { recorder.record($0) }
         )
         let registration = try registerRemoteTrack(with: controller)
-        let view = UIView()
+        defer { try? controller.resetRemoteTrack(registration.track) }
         try registration.binding.attach(
-            to: view,
+            to: UIView(),
             contentMode: .fill
         )
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
 
-        controller.setRemoteStream(stream)
-        await controller.waitForPendingRenderUpdates()
-
-        XCTAssertEqual(recorder.recordedErrors, [expectedError])
-        await controller.resetRemoteTrack(registration.track)
+        XCTAssertThrowsError(try controller.setRemoteStream(stream))
+        XCTAssertTrue(recorder.recordedErrors.isEmpty)
     }
 }
 

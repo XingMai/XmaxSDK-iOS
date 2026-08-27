@@ -211,11 +211,11 @@ actor MediaController: MediaControlling {
     }
 
     /// 静音或恢复文件视频的本地音频预览。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async throws {
+    func setLocalAudioPreviewMuted(_ muted: Bool) async {
         guard activeSource?.kind == .video, let videoController else {
             return
         }
-        try await videoController.setLocalAudioPreviewMuted(muted)
+        await videoController.setLocalAudioPreviewMuted(muted)
     }
 
     /// 在当前相机来源空闲时切换前置或后置摄像头。

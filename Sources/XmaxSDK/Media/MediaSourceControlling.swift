@@ -20,7 +20,7 @@ protocol MediaSourceControlling: Sendable {
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；
     ///   `false` 表示恢复本地播放器音量。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async throws
+    func setLocalAudioPreviewMuted(_ muted: Bool) async
 
     /// 将本地播放器画面绑定到 SDK 视频视图。
     @MainActor

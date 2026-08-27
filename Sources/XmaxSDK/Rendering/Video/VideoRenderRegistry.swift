@@ -23,11 +23,4 @@ enum VideoRenderRegistry {
     ) -> VideoRenderBinding? {
         bindings[ObjectIdentifier(track)]
     }
-
-    static func setPreviewFrame(
-        _ frame: VideoFrame?,
-        for track: RealtimeVideoTrack
-    ) throws {
-        try bindings[ObjectIdentifier(track)]?.setPreviewFrame(frame)
-    }
 }

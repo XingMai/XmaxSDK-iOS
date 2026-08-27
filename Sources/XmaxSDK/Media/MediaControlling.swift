@@ -124,8 +124,7 @@ protocol MediaControlling: Actor, InteractionControlling {
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；
     ///   `false` 表示恢复本地播放器音量。
-    /// - Throws: 本地音频预览状态更新失败时抛出错误。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async throws
+    func setLocalAudioPreviewMuted(_ muted: Bool) async
 
     /// 判断指定媒体流是否由当前活动媒体来源持有。
     ///

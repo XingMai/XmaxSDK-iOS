@@ -440,6 +440,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
+    @MainActor
     func bindRemoteVideo(
         _ stream: RemoteStream,
         to view: UIView,
@@ -466,6 +467,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
+    @MainActor
     func unbindRemoteVideo(_ stream: RemoteStream) throws {
         try operationLock.withLock {
             guard let engine = stateLock.withLock({ engineLease?.engine }),

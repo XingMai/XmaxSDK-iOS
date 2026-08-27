@@ -633,7 +633,7 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
-                renderController.setRemoteStream(stream)
+                try renderController.setRemoteStream(stream)
             },
             generationTiming: StreamGenerationTiming(
                 timeoutNanoseconds: 1_000_000_000

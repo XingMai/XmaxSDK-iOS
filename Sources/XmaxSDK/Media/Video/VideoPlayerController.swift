@@ -236,8 +236,10 @@ final class VideoPlayerController: VideoPlayerControlling {
             throw Self.mediaError("Configure the video player before starting it")
         }
 
-        audioPreviewPlayer.setPlaybackEnabled(configuration.hasAudio)
-        audioPreviewPlayer.setMuted(false)
+        if configuration.hasAudio {
+            audioPreviewPlayer.start()
+            audioPreviewPlayer.setMuted(false)
+        }
         let timeline = MediaPlaybackTimeline(
             mediaDurationSeconds: configuration.durationSeconds
         )

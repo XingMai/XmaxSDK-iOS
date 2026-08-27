@@ -87,8 +87,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             userID: "bot-user"
         )
 
-        components.renderController.setRemoteStream(remoteStream)
-        await components.renderController.waitForPendingRenderUpdates()
+        try components.renderController.setRemoteStream(remoteStream)
 
         XCTAssertEqual(
             rtcManager.calls.last,

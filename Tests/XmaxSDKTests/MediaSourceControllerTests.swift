@@ -63,8 +63,8 @@ final class MediaSourceControllerTests: XCTestCase {
             videoFormat: nil
         )
 
-        try await components.controller.setLocalAudioPreviewMuted(true)
-        try await components.controller.setLocalAudioPreviewMuted(false)
+        await components.controller.setLocalAudioPreviewMuted(true)
+        await components.controller.setLocalAudioPreviewMuted(false)
 
         XCTAssertEqual(Array(components.player.calls.suffix(2)), [
             .setLocalAudioPreviewMuted(true),
@@ -79,7 +79,7 @@ final class MediaSourceControllerTests: XCTestCase {
             videoFormat: nil
         )
 
-        try await components.controller.setLocalAudioPreviewMuted(true)
+        await components.controller.setLocalAudioPreviewMuted(true)
 
         XCTAssertFalse(components.player.calls.contains(
             .setLocalAudioPreviewMuted(true)

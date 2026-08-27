@@ -47,7 +47,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             rtcManager: rtcManager,
             errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
-                renderController.setRemoteStream(stream)
+                try renderController.setRemoteStream(stream)
             }
         )
 
@@ -504,7 +504,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            try await mediaController.setLocalAudioPreviewMuted(true)
+            await mediaController.setLocalAudioPreviewMuted(true)
             let remoteStream = try await connect(localStream: localStream)
             try await performStartGeneration(context: context)
             return remoteStream
@@ -546,7 +546,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let version = operationVersion.current
         do {
-            try await mediaController.setLocalAudioPreviewMuted(true)
+            await mediaController.setLocalAudioPreviewMuted(true)
             let taskID = try await generationManager.start(
                 videoFormat: videoFormat,
                 context: context,
@@ -731,11 +731,7 @@ private extension XmaxRealtimeManager {
     }
 
     func unmuteLocalAudioPreview() async {
-        do {
-            try await mediaController.setLocalAudioPreviewMuted(false)
-        } catch {
-            await reportError(error)
-        }
+        await mediaController.setLocalAudioPreviewMuted(false)
     }
 }
 

@@ -62,7 +62,7 @@ final class MediaSourceControllingStub:
         }
     }
 
-    func setLocalAudioPreviewMuted(_ muted: Bool) async throws {
+    func setLocalAudioPreviewMuted(_ muted: Bool) async {
         lock.withLock {
             storedCalls.append(.setLocalAudioPreviewMuted(muted))
         }

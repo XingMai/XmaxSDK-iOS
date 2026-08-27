@@ -291,6 +291,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
+    @MainActor
     func bindRemoteVideo(
         _ stream: RemoteStream,
         to view: UIView,
@@ -304,6 +305,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
+    @MainActor
     func unbindRemoteVideo(_ stream: RemoteStream) throws {
         try lock.withLock {
             storedCalls.append(.unbindRemoteVideo(stream))

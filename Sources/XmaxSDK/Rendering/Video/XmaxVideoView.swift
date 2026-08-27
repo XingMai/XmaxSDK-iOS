@@ -67,7 +67,6 @@ public final class XmaxVideoView: UIView {
         (any TrajectoryEffectRendering)?
 
     // 视频预览
-    private var playerLayer: AVPlayerLayer?
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
     private var decodedVideoTimebase: CMTimebase?
 
@@ -134,7 +133,6 @@ public final class XmaxVideoView: UIView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        playerLayer?.frame = bounds
         decodedVideoLayer?.frame = bounds
         trajectoryOverlayView.frame = bounds
         bringSubviewToFront(trajectoryOverlayView)
@@ -166,40 +164,7 @@ extension XmaxVideoView {
         imageView.isHidden = true
     }
 
-    func displayPlayer(
-        _ player: AVPlayer,
-        contentMode: VideoContentMode
-    ) {
-        clearDecodedVideoPreview()
-        let playerLayer: AVPlayerLayer
-        if let currentLayer = self.playerLayer {
-            playerLayer = currentLayer
-        } else {
-            playerLayer = AVPlayerLayer()
-            playerLayer.frame = bounds
-            layer.insertSublayer(playerLayer, at: 0)
-            self.playerLayer = playerLayer
-        }
-        playerLayer.player = player
-        playerLayer.videoGravity = contentMode == .fit ?
-            .resizeAspect : .resizeAspectFill
-        playerLayer.isHidden = false
-    }
-
-    func clearPlayer(_ player: AVPlayer) {
-        guard playerLayer?.player === player else {
-            return
-        }
-        playerLayer?.player = nil
-        playerLayer?.removeFromSuperlayer()
-        playerLayer = nil
-    }
-
     func prepareDecodedVideoPreview(contentMode: VideoContentMode) {
-        playerLayer?.player = nil
-        playerLayer?.removeFromSuperlayer()
-        playerLayer = nil
-
         let decodedVideoLayer: AVSampleBufferDisplayLayer
         if let currentLayer = self.decodedVideoLayer {
             decodedVideoLayer = currentLayer

@@ -9,7 +9,7 @@ typealias RenderInteractionListener = @Sendable (
 protocol RenderControlling: AnyObject, Sendable {
 
     /// 更新当前需要渲染的远端 RTC 视频流。
-    func setRemoteStream(_ stream: RemoteStream?)
+    func setRemoteStream(_ stream: RemoteStream?) throws
 
     /// 为远端视频轨道注册画面和轨迹交互绑定。
     func registerRemoteTrack(
@@ -24,5 +24,5 @@ protocol RenderControlling: AnyObject, Sendable {
     )
 
     /// 注销远端轨道的所有渲染绑定并重置远端画面。
-    func resetRemoteTrack(_ track: RealtimeVideoTrack?) async
+    func resetRemoteTrack(_ track: RealtimeVideoTrack?) throws
 }
