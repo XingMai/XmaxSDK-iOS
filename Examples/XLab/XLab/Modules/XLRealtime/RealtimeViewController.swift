@@ -132,27 +132,25 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         return view
     }()
 
-    private lazy var switchCameraButton: RealtimeCameraSwitchButton = {
-        let button = RealtimeCameraSwitchButton()
-        button.isEnabled = false
-        button.isHidden = localInput != nil
-        button.addTarget(
-            self,
-            action: #selector(switchCamera(_:)),
-            for: .touchUpInside
-        )
-        return button
+    private lazy var cameraActionBar: RealtimeCameraActionBar = {
+        let actionBar = RealtimeCameraActionBar()
+        actionBar.isHidden = localInput != nil
+        actionBar.setSwitchCameraEnabled(false)
+        actionBar.onSwitchCamera = { [weak self] in
+            self?.switchCamera()
+        }
+        return actionBar
     }()
 
-    private lazy var mediaPickerButton: RealtimeMediaPickerButton = {
-        let button = RealtimeMediaPickerButton()
-        button.isHidden = localInput == nil
-        button.addTarget(
-            self,
-            action: #selector(presentLocalMediaPicker),
-            for: .touchUpInside
+    private lazy var mediaTopBar: RealtimeMediaTopBar = {
+        let topBar = RealtimeMediaTopBar(
+            showsMute: localInput?.kind == .video
         )
-        return button
+        topBar.isHidden = localInput == nil
+        topBar.onOpenGallery = { [weak self] in
+            self?.presentLocalMediaPicker()
+        }
+        return topBar
     }()
 
     private lazy var loadingOverlay = RealtimeLoadingOverlay()
@@ -236,24 +234,24 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         backButton.addTarget(self, action: #selector(goBack), for: .touchUpInside)
         view.addSubview(backButton)
 
-        view.addSubview(switchCameraButton)
-        view.addSubview(mediaPickerButton)
+        view.addSubview(cameraActionBar)
+        view.addSubview(mediaTopBar)
 
         backButton.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
             make.leading.equalToSuperview().offset(12)
             make.size.equalTo(44)
         }
-        switchCameraButton.snp.makeConstraints { make in
+        cameraActionBar.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
             make.trailing.equalToSuperview().inset(8)
             make.width.equalTo(58)
-            make.height.equalTo(62)
+            make.height.equalTo(124)
         }
-        mediaPickerButton.snp.makeConstraints { make in
+        mediaTopBar.snp.makeConstraints { make in
             make.centerY.equalTo(backButton)
             make.trailing.equalToSuperview().inset(12)
-            make.size.equalTo(44)
+            make.height.equalTo(44)
         }
     }
 
@@ -695,7 +693,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 if input != nil {
                     setPreviewDisplayed(true)
                 }
-                switchCameraButton.isEnabled = localInput == nil
+                cameraActionBar.setSwitchCameraEnabled(localInput == nil)
             } catch {
                 guard !Task.isCancelled else {
                     return
@@ -765,7 +763,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         touchAnimationReferencePath = nil
         localMediaStream = nil
         remoteRealtimeStream = nil
-        switchCameraButton.isEnabled = false
+        cameraActionBar.setSwitchCameraEnabled(false)
         loadingOverlay.hideLoading()
         hasDisplayedPreview = false
         controlPanelView.isUserInteractionEnabled = false
@@ -1048,7 +1046,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         view.endEditing(true)
     }
 
-    @objc private func presentLocalMediaPicker() {
+    private func presentLocalMediaPicker() {
         guard let kind = localInput?.kind,
               presentedViewController == nil else {
             return
@@ -1072,20 +1070,20 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
     }
 
-    @objc private func switchCamera(_ sender: UIControl) {
+    private func switchCamera() {
         guard localInput == nil,
               localMediaStream != nil else {
             return
         }
 
-        sender.isEnabled = false
+        cameraActionBar.setSwitchCameraEnabled(false)
         localMediaOperationTask?.cancel()
-        localMediaOperationTask = Task { @MainActor [weak self, weak sender] in
+        localMediaOperationTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
             defer {
-                sender?.isEnabled = true
+                cameraActionBar.setSwitchCameraEnabled(true)
             }
             do {
                 let stream = try await realtimeManager.switchCamera()
