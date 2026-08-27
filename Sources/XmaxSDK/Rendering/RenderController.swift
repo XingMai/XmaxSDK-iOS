@@ -1,4 +1,4 @@
-import Foundation
+import UIKit
 
 /// 统一协调视频轨道、RTC 画面和轨迹交互的渲染资源。
 @MainActor
@@ -7,47 +7,46 @@ final class RenderController: RenderControlling {
     // 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 渲染层组件
-    private let remoteVideoController: any RemoteVideoControlling
+    // 远端渲染资源
+    private var remoteStream: RemoteStream?
+    private weak var remoteView: UIView?
+    private var remoteContentMode = VideoContentMode.fill
 
-    convenience init(rtcManager: any RtcManaging) {
-        self.init(
-            rtcManager: rtcManager,
-            remoteVideoController: RemoteVideoController(
-                rtcManager: rtcManager
-            )
-        )
-    }
-
-    init(
-        rtcManager: any RtcManaging,
-        remoteVideoController: any RemoteVideoControlling
-    ) {
+    init(rtcManager: any RtcManaging) {
         self.rtcManager = rtcManager
-        self.remoteVideoController = remoteVideoController
     }
 
     func setRemoteStream(_ stream: RemoteStream?) throws {
-        try remoteVideoController.setRemoteStream(stream)
+        let previousStream = remoteStream
+        if let previousStream, previousStream != stream {
+            try rtcManager.unbindRemoteVideo(previousStream)
+        }
+
+        remoteStream = stream
+        guard let stream, let remoteView else { return }
+        try rtcManager.bindRemoteVideo(
+            stream,
+            to: remoteView,
+            contentMode: remoteContentMode
+        )
     }
 
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,
         interactionListener: @escaping RenderInteractionListener
     ) {
-        let remoteVideoController = remoteVideoController
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
                 libraryName: rtcManager.renderLibraryName,
-                attachHandler: { view, contentMode in
-                    try remoteVideoController.attach(
+                attachHandler: { [weak self] view, contentMode in
+                    try self?.attachRemoteVideo(
                         to: view,
                         contentMode: contentMode
                     )
                 },
-                detachHandler: { _ in
-                    try remoteVideoController.detach()
+                detachHandler: { [weak self] _ in
+                    try self?.detachRemoteVideo()
                 }
             )
         )
@@ -75,6 +74,47 @@ final class RenderController: RenderControlling {
             VideoRenderRegistry.unregister(track)
             TrajectoryRegistry.unregister(track)
         }
-        try remoteVideoController.reset()
+        try resetRemoteVideo()
+    }
+}
+
+private extension RenderController {
+    func attachRemoteVideo(
+        to view: UIView,
+        contentMode: VideoContentMode
+    ) throws {
+        if let remoteView,
+           remoteView !== view,
+           let remoteStream {
+            try rtcManager.unbindRemoteVideo(remoteStream)
+        }
+
+        remoteView = view
+        remoteContentMode = contentMode
+        guard let remoteStream else { return }
+        try rtcManager.bindRemoteVideo(
+            remoteStream,
+            to: view,
+            contentMode: contentMode
+        )
+    }
+
+    func detachRemoteVideo() throws {
+        guard remoteView != nil else { return }
+        remoteView = nil
+        if let remoteStream {
+            try rtcManager.unbindRemoteVideo(remoteStream)
+        }
+    }
+
+    func resetRemoteVideo() throws {
+        let stream = remoteStream
+        remoteStream = nil
+        remoteView = nil
+        remoteContentMode = .fill
+
+        if let stream {
+            try rtcManager.unbindRemoteVideo(stream)
+        }
     }
 }
