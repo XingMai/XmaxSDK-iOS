@@ -7,6 +7,7 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
     // 测试配置
     private let resolvedSize: CGSize
     private let resolutionError: (any Error)?
+    private let frameInterpolationSupported: Bool
 
     // 并发状态
     private let lock = NSLock()
@@ -14,10 +15,12 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
 
     init(
         resolvedSize: CGSize,
-        resolutionError: (any Error)? = nil
+        resolutionError: (any Error)? = nil,
+        frameInterpolationSupported: Bool = false
     ) {
         self.resolvedSize = resolvedSize
         self.resolutionError = resolutionError
+        self.frameInterpolationSupported = frameInterpolationSupported
     }
 
     var requestedSizes: [CGSize] {
@@ -32,5 +35,9 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
             }
             return resolvedSize
         }
+    }
+
+    func supportsFrameInterpolation(for size: CGSize) -> Bool {
+        frameInterpolationSupported
     }
 }

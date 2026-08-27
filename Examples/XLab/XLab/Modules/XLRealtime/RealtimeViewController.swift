@@ -16,11 +16,21 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private static let filePreviewTopOffset: CGFloat = 68
     private static let defaultLocalAudioVolume: Float = 0.45
     private static let defaultRemoteAudioVolume: Float = 1
-    private static let cameraVideoFormat = RealtimeVideoFormat(
-        width: 832,
-        height: 1472,
-        fps: 24
-    )
+    private static var cameraVideoFormat: RealtimeVideoFormat {
+        if #available(iOS 26.0, *) {
+            RealtimeVideoFormat(width: 704, height: 1280, fps: 24)
+        } else {
+            RealtimeVideoFormat(width: 832, height: 1472, fps: 24)
+        }
+    }
+
+    private static var initialFrameInterpolationEnabled: Bool {
+        if #available(iOS 26.0, *) {
+            true
+        } else {
+            false
+        }
+    }
 
     // 实时资源
     private var localInput: RealtimeLocalInput?
@@ -60,6 +70,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var mediaCleanupTask: Task<Void, Never>?
     private var localAudioVolumeTask: Task<Void, Never>?
     private var remoteAudioVolumeTask: Task<Void, Never>?
+    private var frameInterpolationTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
     // 布局约束
@@ -156,9 +167,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         actionBar.onSwitchCamera = { [weak self] in
             self?.switchCamera()
         }
-        actionBar.onFrameInterpolationUnavailable = { [weak self] in
-            self?.showFrameInterpolationUnavailableToast()
+        actionBar.onFrameInterpolationChanged = { [weak self] enabled in
+            self?.setFrameInterpolationEnabled(enabled)
         }
+        actionBar.setFrameInterpolationEnabled(
+            Self.initialFrameInterpolationEnabled
+        )
         return actionBar
     }()
 
@@ -176,14 +190,34 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         topBar.onMuteChanged = { [weak self] muted in
             self?.setAudioMuted(muted)
         }
-        topBar.onFrameInterpolationUnavailable = { [weak self] in
-            self?.showFrameInterpolationUnavailableToast()
+        topBar.onFrameInterpolationChanged = { [weak self] enabled in
+            self?.setFrameInterpolationEnabled(enabled)
         }
+        topBar.setFrameInterpolationEnabled(
+            Self.initialFrameInterpolationEnabled
+        )
         return topBar
     }()
 
-    private func showFrameInterpolationUnavailableToast() {
-        XLToast.show("只有 iOS 26 及以上版本才支持插帧", in: view)
+    private func setFrameInterpolationEnabled(_ enabled: Bool) {
+        frameInterpolationTask?.cancel()
+        frameInterpolationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await realtimeManager.setFrameInterpolationEnabled(
+                    enabled
+                )
+                guard !Task.isCancelled else { return }
+                cameraActionBar.setFrameInterpolationEnabled(enabled)
+                mediaTopBar.setFrameInterpolationEnabled(enabled)
+            } catch {
+                guard !Task.isCancelled else { return }
+                let currentValue =
+                    await realtimeManager.isFrameInterpolationEnabled
+                cameraActionBar.setFrameInterpolationEnabled(currentValue)
+                mediaTopBar.setFrameInterpolationEnabled(currentValue)
+            }
+        }
     }
 
     private func presentAudioVolumeMenu(from sourceView: UIView) {
@@ -319,6 +353,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     deinit {
         localAudioVolumeTask?.cancel()
         remoteAudioVolumeTask?.cancel()
+        frameInterpolationTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -434,7 +469,19 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func presentRealtimeError(_ error: XmaxError) {
-        guard error.code != .cancelled,
+        guard error.code != .cancelled else { return }
+        if error.code == .frameInterpolationUnsupported {
+            XLToast.show(error.localizedDescription, in: view)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let enabled =
+                    await realtimeManager.isFrameInterpolationEnabled
+                cameraActionBar.setFrameInterpolationEnabled(enabled)
+                mediaTopBar.setFrameInterpolationEnabled(enabled)
+            }
+            return
+        }
+        guard
               presentedViewController == nil else {
             return
         }
@@ -488,7 +535,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             )
         )
         return client.createRealtimeManager(
-            options: RealtimeConfiguration(model: .x2_0)
+            options: RealtimeConfiguration(
+                model: .x2_0,
+                isFrameInterpolationEnabled:
+                    Self.initialFrameInterpolationEnabled
+            )
         )
     }
 
@@ -898,6 +949,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         generationOperationTask = nil
         touchAnimationPreparationTask?.cancel()
         touchAnimationPreparationTask = nil
+        frameInterpolationTask?.cancel()
+        frameInterpolationTask = nil
         let pendingRealtimeListener = realtimeListenerTask
         pendingRealtimeListener?.cancel()
         realtimeListenerTask = nil

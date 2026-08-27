@@ -26,8 +26,7 @@ enum RtcManagingCall: Equatable {
     case sendRoomMessage(String)
     case bindLocalVideo(VideoContentMode)
     case unbindLocalVideo
-    case bindRemoteVideo(RemoteStream, VideoContentMode)
-    case unbindRemoteVideo(RemoteStream)
+    case setRemoteVideoFrameListener(RemoteStream, enabled: Bool)
 }
 
 final class RtcManagingStub: RtcManaging, @unchecked Sendable {
@@ -56,8 +55,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let leaveRoomHandler: LeaveRoomHandler?
     private let bindLocalVideoError: (any Error)?
     private let unbindLocalVideoError: (any Error)?
-    private let bindRemoteVideoError: (any Error)?
-    private let unbindRemoteVideoError: (any Error)?
+    private let setRemoteVideoFrameListenerError: (any Error)?
 
     // 并发状态
     private let lock = NSLock()
@@ -86,8 +84,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         leaveRoomHandler: LeaveRoomHandler? = nil,
         bindLocalVideoError: (any Error)? = nil,
         unbindLocalVideoError: (any Error)? = nil,
-        bindRemoteVideoError: (any Error)? = nil,
-        unbindRemoteVideoError: (any Error)? = nil
+        setRemoteVideoFrameListenerError: (any Error)? = nil
     ) {
         self.initializationError = initializationError
         self.encodingError = encodingError
@@ -107,8 +104,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         self.leaveRoomHandler = leaveRoomHandler
         self.bindLocalVideoError = bindLocalVideoError
         self.unbindLocalVideoError = unbindLocalVideoError
-        self.bindRemoteVideoError = bindRemoteVideoError
-        self.unbindRemoteVideoError = unbindRemoteVideoError
+        self.setRemoteVideoFrameListenerError =
+            setRemoteVideoFrameListenerError
     }
 
     var calls: [RtcManagingCall] {
@@ -305,26 +302,19 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
-    @MainActor
-    func bindRemoteVideo(
-        _ stream: RemoteStream,
-        to view: UIView,
-        contentMode: VideoContentMode
+    func setRemoteVideoFrameListener(
+        _ listener: RtcRemoteVideoFrameListener?,
+        for stream: RemoteStream
     ) throws {
         try lock.withLock {
-            storedCalls.append(.bindRemoteVideo(stream, contentMode))
-            if let bindRemoteVideoError {
-                throw bindRemoteVideoError
-            }
-        }
-    }
-
-    @MainActor
-    func unbindRemoteVideo(_ stream: RemoteStream) throws {
-        try lock.withLock {
-            storedCalls.append(.unbindRemoteVideo(stream))
-            if let unbindRemoteVideoError {
-                throw unbindRemoteVideoError
+            storedCalls.append(
+                .setRemoteVideoFrameListener(
+                    stream,
+                    enabled: listener != nil
+                )
+            )
+            if let setRemoteVideoFrameListenerError {
+                throw setRemoteVideoFrameListenerError
             }
         }
     }

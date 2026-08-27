@@ -9,6 +9,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     // 媒体层组件
     private let mediaController: any MediaControlling
 
+    // 渲染层组件
+    private let renderController: any RenderControlling
+
+    // 服务层组件
+    private let mediaService: any MediaServicing
+
     // 传输层组件
     private let streamController: any StreamControlling
 
@@ -40,6 +46,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let renderController = RenderController(
             rtcManager: rtcManager,
+            frameInterpolationEnabled:
+                options.isFrameInterpolationEnabled,
             errorListener: { errorHandler.forward($0) }
         )
 
@@ -82,6 +90,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         self.streamController = streamController
         self.mediaController = mediaController
+        self.renderController = renderController
+        mediaService = MediaService()
         self.connectionManager = connectionManager
         self.errorHandler = errorHandler
         self.generationManager = generationManager
@@ -91,6 +101,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         options: RealtimeConfiguration,
         streamController: any StreamControlling,
         mediaController: any MediaControlling,
+        renderController: any RenderControlling,
+        mediaService: any MediaServicing = MediaService(),
         connectionManager: XmaxRealtimeConnectionManager,
         errorHandler: RealtimeErrorHandler,
         generationManager: XmaxRealtimeGenerationManager
@@ -98,6 +110,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.options = options
         self.streamController = streamController
         self.mediaController = mediaController
+        self.renderController = renderController
+        self.mediaService = mediaService
         self.connectionManager = connectionManager
         self.errorHandler = errorHandler
         self.generationManager = generationManager
@@ -105,6 +119,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     var currentState: RealtimeState {
         state
+    }
+
+    var isFrameInterpolationEnabled: Bool {
+        get async {
+            await renderController.isFrameInterpolationEnabled
+        }
+    }
+
+    var isFrameInterpolationSupported: Bool {
+        get async {
+            await renderController.isFrameInterpolationSupported
+        }
     }
 
     func setStateListener(_ listener: RealtimeStateListener?) async {
@@ -154,6 +180,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
+    func setFrameInterpolationEnabled(_ enabled: Bool) async throws {
+        do {
+            let videoFormat = await mediaController.currentVideoFormat
+            try await renderController.setFrameInterpolationEnabled(
+                enabled,
+                videoFormat: videoFormat
+            )
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -171,10 +209,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            return try await mediaController.createLocalCameraStream(
+            let stream = try await mediaController.createLocalCameraStream(
                 videoFormat: videoFormat,
                 position: position
             )
+            await reconcileFrameInterpolation(for: stream)
+            return stream
         } catch {
             throw await reportError(error)
         }
@@ -205,6 +245,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 videoFormat: videoFormat,
                 position: position
             )
+            await reconcileFrameInterpolation(for: stream)
             if hasConnection {
                 if let videoFormat = stream.videoTrack?.videoFormat {
                     try streamController.setVideoEncoderConfig(videoFormat)
@@ -243,7 +284,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         }
         do {
-            return try await mediaController.switchCamera()
+            let stream = try await mediaController.switchCamera()
+            await reconcileFrameInterpolation(for: stream)
+            return stream
         } catch {
             throw await reportError(error)
         }
@@ -266,10 +309,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            return try await mediaController.createLocalImageStream(
+            let stream = try await mediaController.createLocalImageStream(
                 imageData: imageData,
                 videoFormat: videoFormat
             )
+            await reconcileFrameInterpolation(for: stream)
+            return stream
         } catch {
             throw await reportError(error)
         }
@@ -292,10 +337,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            return try await mediaController.createLocalImageStream(
+            let stream = try await mediaController.createLocalImageStream(
                 decodedImage: decodedImage,
                 videoFormat: videoFormat
             )
+            await reconcileFrameInterpolation(for: stream)
+            return stream
         } catch {
             throw await reportError(error)
         }
@@ -318,10 +365,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            return try await mediaController.createLocalImageStream(
+            let stream = try await mediaController.createLocalImageStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
+            await reconcileFrameInterpolation(for: stream)
+            return stream
         } catch {
             throw await reportError(error)
         }
@@ -371,6 +420,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     )
                 }
                 try streamController.setVideoEncoderConfig(resolvedFormat)
+                await reconcileFrameInterpolation(for: stream)
                 return stream
             } catch {
                 await mediaController.stopLocalVideoStream()
@@ -628,6 +678,35 @@ private extension XmaxRealtimeManager {
     struct TerminationOperation {
         let id: UUID
         let task: Task<Void, Never>
+    }
+
+    func reconcileFrameInterpolation(
+        for stream: RealtimeMediaStream
+    ) async {
+        guard await renderController.isFrameInterpolationEnabled,
+              let videoFormat = stream.videoTrack?.videoFormat else {
+            return
+        }
+        let size = CGSize(
+            width: videoFormat.width,
+            height: videoFormat.height
+        )
+        guard !mediaService.supportsFrameInterpolation(for: size) else {
+            return
+        }
+
+        try? await renderController.setFrameInterpolationEnabled(
+            false,
+            videoFormat: videoFormat
+        )
+        await errorHandler.report(
+            XmaxError(
+                code: .frameInterpolationUnsupported,
+                message: "Frame interpolation is unavailable for " +
+                    "\(videoFormat.width) × \(videoFormat.height) video; " +
+                    "the stream will continue without interpolation"
+            )
+        )
     }
 
     func synchronizeConnectionAfterCameraUpdate(

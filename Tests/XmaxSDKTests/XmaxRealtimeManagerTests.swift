@@ -83,6 +83,32 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
+    func testUnsupportedInitialFrameInterpolationDoesNotStopStreamCreation()
+        async throws {
+        let components = makeComponents(
+            frameInterpolationEnabled: true,
+            frameInterpolationSupported: false
+        )
+        var receivedErrors: [XmaxError] = []
+        await components.manager.setErrorListener { error in
+            receivedErrors.append(error)
+        }
+
+        let stream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat
+        )
+        let interpolationEnabled =
+            await components.manager.isFrameInterpolationEnabled
+
+        XCTAssertNotNil(stream.videoTrack)
+        XCTAssertFalse(interpolationEnabled)
+        XCTAssertEqual(
+            receivedErrors.map(\.code),
+            [.frameInterpolationUnsupported]
+        )
+        try await components.manager.stopLocalCameraStream()
+    }
+
     func testPublicInterfaceForwardsImageLifecycle() async throws {
         let components = makeComponents()
         let manager: any XmaxRealtimeManaging = components.manager
@@ -683,12 +709,19 @@ private extension XmaxRealtimeManagerTests {
 
     func makeComponents(
         sessionCreateError: (any Error)? = nil,
-        sessionCloseError: (any Error)? = nil
+        sessionCloseError: (any Error)? = nil,
+        frameInterpolationEnabled: Bool = false,
+        frameInterpolationSupported: Bool = false
     ) -> Components {
         let errorHandler = RealtimeErrorHandler()
         let rtcManager = RtcManagingStub()
+        let mediaService = MediaServicingStub(
+            resolvedSize: CGSize(width: 1_024, height: 768),
+            frameInterpolationSupported: frameInterpolationSupported
+        )
         let renderController = RenderController(
             rtcManager: rtcManager,
+            frameInterpolationEnabled: frameInterpolationEnabled,
             errorListener: { errorHandler.forward($0) }
         )
         let streamController = StreamController(
@@ -704,9 +737,7 @@ private extension XmaxRealtimeManagerTests {
         let cameraController = CameraController(
             rtcManager: rtcManager,
             permissionManager: PermissionManagingStub(),
-            mediaService: MediaServicingStub(
-                resolvedSize: CGSize(width: 1_024, height: 768)
-            ),
+            mediaService: mediaService,
             errorListener: { errorHandler.forward($0) }
         )
         let imageSource = ImageSourceControllingStub(
@@ -757,9 +788,15 @@ private extension XmaxRealtimeManagerTests {
         )
         return Components(
             manager: XmaxRealtimeManager(
-                options: RealtimeConfiguration(model: .x2_0),
+                options: RealtimeConfiguration(
+                    model: .x2_0,
+                    isFrameInterpolationEnabled:
+                        frameInterpolationEnabled
+                ),
                 streamController: streamController,
                 mediaController: mediaController,
+                renderController: renderController,
+                mediaService: mediaService,
                 connectionManager: connectionManager,
                 errorHandler: errorHandler,
                 generationManager: XmaxRealtimeGenerationManager(

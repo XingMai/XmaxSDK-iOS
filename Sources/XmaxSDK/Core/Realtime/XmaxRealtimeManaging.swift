@@ -12,6 +12,12 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState { get async }
 
+    /// 当前实际生效的远端视频插帧状态。
+    var isFrameInterpolationEnabled: Bool { get async }
+
+    /// 当前设备是否具备远端视频插帧能力。
+    var isFrameInterpolationSupported: Bool { get async }
+
     /// 设置实时状态监听器，传入空值时清除监听器。
     func setStateListener(_ listener: RealtimeStateListener?) async
 
@@ -46,6 +52,15 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// - Parameter volume: 远端播放音量，取值范围为 `0...1`。
     /// - Throws: 音量超出有效范围或 RTC 音量配置失败时抛出错误。
     func setRemoteAudioVolume(_ volume: Float) async throws
+
+    /// 开启或关闭远端生成画面的插帧。
+    ///
+    /// 设置结果覆盖初始化配置，并持续应用于当前及后续远端视频流。显式开启
+    /// 时，如果当前设备或已有本地流不支持插帧，则保持原状态并抛出错误。
+    ///
+    /// - Parameter enabled: 是否开启远端视频插帧。
+    /// - Throws: 当前设备、视频规格或帧处理器不支持插帧时抛出错误。
+    func setFrameInterpolationEnabled(_ enabled: Bool) async throws
 
     /// 创建本地相机流并开始预览。
     func createLocalCameraStream(

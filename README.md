@@ -14,7 +14,7 @@ XmaxSDK 的原生 iOS 实现。1.0.0 版本支持 CocoaPods 和 Manual 两种接
 Sources/XmaxSDK
 ├── Core
 ├── Rendering
-├── Transport
+├── Stream
 ├── Media
 ├── Service
 └── Foundation
@@ -23,9 +23,32 @@ Sources/XmaxSDK
 目录按实际能力逐步创建，不添加空模块或占位类型。
 
 业务层通过与层同名的 Controller 向 Core 暴露能力。Core 只依赖
-`MediaControlling` 和 `TransportControlling`，不直接调用业务层内部组件。
-Media 只产生中性音视频帧，Core 在组装阶段将帧监听器连接到 Transport；
-Media 与 Transport 之间没有直接依赖。
+`MediaControlling`、`StreamControlling` 和 `RenderControlling`，不直接调用
+业务层内部组件。Media 只产生中性音视频帧，Core 在组装阶段将帧监听器连接到
+Stream；Media 与 Stream 之间没有直接依赖。
+
+## 远端视频插帧
+
+iOS 26 及以上的受支持设备默认开启远端生成画面的 2 倍帧率插值。SDK 无论
+是否开启插帧，远端画面都统一通过解码帧管线交给 `XmaxVideoView` 渲染，因此
+运行时切换不会更换 RTC Canvas。
+
+```swift
+let realtime = client.createRealtimeManager(
+    options: RealtimeConfiguration(
+        model: .x2_0,
+        isFrameInterpolationEnabled: true
+    )
+)
+
+try await realtime.setFrameInterpolationEnabled(false)
+```
+
+接入方可以通过 `isFrameInterpolationSupported` 查询当前设备的全局能力，或通过
+`XmaxClient.createMediaService().supportsFrameInterpolation(for:)` 检查指定
+视频尺寸。初始化时请求开启但实际尺寸不受支持，SDK 会继续无插帧播放并通过
+错误监听器上报 `FRAME_INTERPOLATION_UNSUPPORTED`；运行时显式开启失败则同时
+抛出该错误。
 
 ## CocoaPods 本地开发
 

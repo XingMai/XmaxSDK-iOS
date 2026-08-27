@@ -4,26 +4,27 @@ import XCTest
 
 @MainActor
 final class RenderControllerTests: XCTestCase {
-    func testSettingStreamAfterAttachBindsRemoteVideo() throws {
+    func testSettingStreamAfterAttachStartsRemoteFrameDelivery() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
         defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        let videoView = XmaxVideoView()
 
         try registration.binding.attach(
-            to: UIView(),
+            to: videoView,
             contentMode: .fit
         )
         try controller.setRemoteStream(stream)
 
         XCTAssertEqual(
             rtcManager.calls,
-            [.bindRemoteVideo(stream, .fit)]
+            [.setRemoteVideoFrameListener(stream, enabled: true)]
         )
     }
 
-    func testReplacingStreamUnbindsPreviousAndBindsCurrent() throws {
+    func testReplacingStreamStopsPreviousAndStartsCurrentFrames() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
@@ -36,8 +37,9 @@ final class RenderControllerTests: XCTestCase {
             roomID: "room-id",
             userID: "second-user"
         )
+        let videoView = XmaxVideoView()
         try registration.binding.attach(
-            to: UIView(),
+            to: videoView,
             contentMode: .fill
         )
         try controller.setRemoteStream(firstStream)
@@ -47,9 +49,9 @@ final class RenderControllerTests: XCTestCase {
         XCTAssertEqual(
             rtcManager.calls,
             [
-                .bindRemoteVideo(firstStream, .fill),
-                .unbindRemoteVideo(firstStream),
-                .bindRemoteVideo(secondStream, .fill)
+                .setRemoteVideoFrameListener(firstStream, enabled: true),
+                .setRemoteVideoFrameListener(firstStream, enabled: false),
+                .setRemoteVideoFrameListener(secondStream, enabled: true)
             ]
         )
     }
@@ -60,61 +62,89 @@ final class RenderControllerTests: XCTestCase {
         let registration = try registerRemoteTrack(with: controller)
         defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        let firstVideoView = XmaxVideoView()
+        let secondVideoView = XmaxVideoView()
         try controller.setRemoteStream(stream)
         try registration.binding.attach(
-            to: UIView(),
+            to: firstVideoView,
             contentMode: .fit
         )
 
         try registration.binding.detach()
         try registration.binding.attach(
-            to: UIView(),
+            to: secondVideoView,
             contentMode: .fill
         )
 
         XCTAssertEqual(
             rtcManager.calls,
             [
-                .bindRemoteVideo(stream, .fit),
-                .unbindRemoteVideo(stream),
-                .bindRemoteVideo(stream, .fill)
+                .setRemoteVideoFrameListener(stream, enabled: true),
+                .setRemoteVideoFrameListener(stream, enabled: false),
+                .setRemoteVideoFrameListener(stream, enabled: true)
             ]
         )
     }
 
-    func testResetUnbindsAndClearsStreamAndView() throws {
+    func testUpdatingContentModeDoesNotRegisterRemoteFramesAgain() throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(rtcManager: rtcManager)
+        let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
+        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        let videoView = XmaxVideoView()
+        try controller.setRemoteStream(stream)
+        try registration.binding.attach(
+            to: videoView,
+            contentMode: .fit
+        )
+
+        try registration.binding.attach(
+            to: videoView,
+            contentMode: .fill
+        )
+
+        XCTAssertEqual(
+            rtcManager.calls,
+            [.setRemoteVideoFrameListener(stream, enabled: true)]
+        )
+    }
+
+    func testResetStopsFramesAndClearsStreamAndView() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let registration = try registerRemoteTrack(with: controller)
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        let firstVideoView = XmaxVideoView()
+        let secondVideoView = XmaxVideoView()
         try controller.setRemoteStream(stream)
         try registration.binding.attach(
-            to: UIView(),
+            to: firstVideoView,
             contentMode: .fit
         )
 
         try controller.resetRemoteTrack(registration.track)
         try registration.binding.attach(
-            to: UIView(),
+            to: secondVideoView,
             contentMode: .fill
         )
 
         XCTAssertEqual(
             rtcManager.calls,
             [
-                .bindRemoteVideo(stream, .fit),
-                .unbindRemoteVideo(stream)
+                .setRemoteVideoFrameListener(stream, enabled: true),
+                .setRemoteVideoFrameListener(stream, enabled: false)
             ]
         )
     }
 
-    func testViewLifecycleRemoteCanvasBindingFailureReportsRTCError() throws {
+    func testViewLifecycleFrameBindingFailureReportsRTCError() throws {
         let expectedError = XmaxError(
             code: .rtcError,
-            message: "Failed to bind the remote RTC canvas"
+            message: "Failed to bind the remote RTC frame sink"
         )
         let rtcManager = RtcManagingStub(
-            bindRemoteVideoError: expectedError
+            setRemoteVideoFrameListenerError: expectedError
         )
         let recorder = RenderErrorRecorder()
         let controller = RenderController(
@@ -124,24 +154,25 @@ final class RenderControllerTests: XCTestCase {
         let registration = try registerRemoteTrack(with: controller)
         defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        let videoView = XmaxVideoView()
         try controller.setRemoteStream(stream)
 
         XCTAssertThrowsError(
             try registration.binding.attach(
-                to: UIView(),
+                to: videoView,
                 contentMode: .fill
             )
         )
         XCTAssertEqual(recorder.recordedErrors, [expectedError])
     }
 
-    func testGenerationRemoteCanvasBindingFailureIsOnlyThrown() throws {
+    func testGenerationFrameBindingFailureIsOnlyThrown() throws {
         let expectedError = XmaxError(
             code: .rtcError,
-            message: "Failed to bind the remote RTC canvas"
+            message: "Failed to bind the remote RTC frame sink"
         )
         let rtcManager = RtcManagingStub(
-            bindRemoteVideoError: expectedError
+            setRemoteVideoFrameListenerError: expectedError
         )
         let recorder = RenderErrorRecorder()
         let controller = RenderController(
@@ -150,8 +181,9 @@ final class RenderControllerTests: XCTestCase {
         )
         let registration = try registerRemoteTrack(with: controller)
         defer { try? controller.resetRemoteTrack(registration.track) }
+        let videoView = XmaxVideoView()
         try registration.binding.attach(
-            to: UIView(),
+            to: videoView,
             contentMode: .fill
         )
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")

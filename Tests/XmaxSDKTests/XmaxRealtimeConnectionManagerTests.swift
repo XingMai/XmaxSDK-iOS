@@ -91,11 +91,16 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
 
         XCTAssertEqual(
             rtcManager.calls.last,
-            .bindRemoteVideo(remoteStream, .fit)
+            .setRemoteVideoFrameListener(remoteStream, enabled: true)
         )
         _ = try await components.manager.disconnect()
         XCTAssertTrue(
-            rtcManager.calls.contains(.unbindRemoteVideo(remoteStream))
+            rtcManager.calls.contains(
+                .setRemoteVideoFrameListener(
+                    remoteStream,
+                    enabled: false
+                )
+            )
         )
     }
 

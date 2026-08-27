@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// 提供与模型输入约束相关的媒体业务规则。
+/// 提供模型输入尺寸和平台媒体能力相关的业务规则。
 final class MediaService: MediaServicing, Sendable {
 
     // 模型约束
@@ -37,6 +37,10 @@ final class MediaService: MediaServicing, Sendable {
             Self.modelSizeAlignment
         )
         return CGSize(width: width, height: height)
+    }
+
+    func supportsFrameInterpolation(for size: CGSize) -> Bool {
+        FrameInterpolationSupport.supports(size: size)
     }
 }
 

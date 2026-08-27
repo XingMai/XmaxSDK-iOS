@@ -44,7 +44,12 @@ RtcManager → 火山 RTC
 VideoRenderRegistry → XmaxVideoView
         ├── 图片轨道：UIImageView
         ├── 文件视频：AVSampleBufferDisplayLayer
-        └── 摄像头和远端轨道：RTC Canvas
+        ├── 摄像头：RTC Canvas
+        └── 远端轨道：RTC VideoSink → 远端帧管线
+                         ├── 关闭插帧：解码帧直通
+                         └── 开启插帧：VideoToolbox x2 插帧
+                                      ↓
+                              AVSampleBufferDisplayLayer
 ```
 
 ## 1. 统一入口和资源所有权
@@ -170,9 +175,9 @@ RtcManager.pushExternalVideoFrame()
 图片帧通过 Core 在组装阶段注入的 `MediaVideoFrameListener` 交给 Stream。
 `ImageController` 和 `MediaController` 都不依赖 `StreamControlling`。
 
-`XmaxVideoView` 根据轨道绑定自动选择图片或 RTC 渲染，接入方不需要判断
-媒体来源。图片预览不会重复解码，也不会占用 RTC 本地 Canvas。图片没有 SDK
-管理的音频，因此连接时只发布视频。
+`XmaxVideoView` 根据轨道绑定自动选择图片、本地 RTC Canvas 或远端自渲染，
+接入方不需要判断媒体来源。图片预览不会重复解码，也不会占用 RTC 本地
+Canvas。图片没有 SDK 管理的音频，因此连接时只发布视频。
 
 相关实现：
 
@@ -480,3 +485,26 @@ MediaPlaybackTimeline
 - [ ] 真机评估视频 NV12 目标尺寸预处理的性能和画质。
 - [x] 文件视频生成期间保持统一 reader 持续运行，并隔离 RTC 音频会话变化。
 - [ ] 完成 XLab 图片与视频端到端调试入口。
+
+## 10. 远端视频帧与插帧链路
+
+远端视频统一使用自渲染，不因插帧开关在 RTC Canvas 与自渲染之间切换：
+
+```text
+VolcEngineRTC 解码
+    ↓ BGRA CVPixelBuffer（自动转正、关闭镜像）
+RtcRemoteVideoSink
+    ↓ DecodedVideoFrame
+RemoteVideoFramePipeline
+    ├── 插帧关闭：原帧直通
+    └── 插帧开启：VTFrameProcessor 在相邻帧间生成 1 帧
+    ↓
+XmaxVideoView
+    ↓
+AVSampleBufferDisplayLayer
+```
+
+插帧只在 iOS 26 及以上且 `VTLowLatencyFrameInterpolationConfiguration` 接受
+实际视频尺寸时开启，不额外硬编码像素面积阈值。初始化配置不受支持时，SDK
+自动回退到原帧直通并通过错误监听器提示；接入方运行时显式开启不受支持的
+现有流时抛出同一类错误。关闭插帧始终成功，并清理帧处理器和待输出帧。

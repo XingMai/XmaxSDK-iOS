@@ -69,6 +69,7 @@ public final class XmaxVideoView: UIView {
     // 视频预览
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
     private var decodedVideoTimebase: CMTimebase?
+    private var nextDecodedVideoPresentationTime = CMTime.invalid
 
     // 图片预览
     private lazy var imageView: UIImageView = {
@@ -251,12 +252,71 @@ extension XmaxVideoView {
         }
     }
 
+    func displayRemoteVideoFrame(
+        _ frame: DecodedVideoFrame,
+        contentMode: VideoContentMode
+    ) {
+        if decodedVideoLayer == nil {
+            prepareDecodedVideoPreview(contentMode: contentMode)
+        }
+        guard let decodedVideoLayer,
+              let decodedVideoTimebase else {
+            return
+        }
+        decodedVideoLayer.videoGravity = contentMode == .fit ?
+            .resizeAspect : .resizeAspectFill
+        if decodedVideoLayer.requiresFlushToResumeDecoding {
+            decodedVideoLayer.flush()
+            nextDecodedVideoPresentationTime = .invalid
+        }
+
+        var formatDescription: CMVideoFormatDescription?
+        guard CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: frame.pixelBuffer,
+            formatDescriptionOut: &formatDescription
+        ) == noErr,
+              let formatDescription else {
+            return
+        }
+
+        let currentTime = CMTimebaseGetTime(decodedVideoTimebase)
+        let presentationTime: CMTime
+        if nextDecodedVideoPresentationTime.isValid,
+           nextDecodedVideoPresentationTime >= currentTime {
+            presentationTime = nextDecodedVideoPresentationTime
+        } else {
+            presentationTime = currentTime
+        }
+        let duration = frame.duration.isValid && frame.duration > .zero ?
+            frame.duration : CMTime(value: 1, timescale: 24)
+        var timing = CMSampleTimingInfo(
+            duration: duration,
+            presentationTimeStamp: presentationTime,
+            decodeTimeStamp: .invalid
+        )
+        var sampleBuffer: CMSampleBuffer?
+        guard CMSampleBufferCreateReadyWithImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: frame.pixelBuffer,
+            formatDescription: formatDescription,
+            sampleTiming: &timing,
+            sampleBufferOut: &sampleBuffer
+        ) == noErr,
+              let sampleBuffer else {
+            return
+        }
+        decodedVideoLayer.enqueue(sampleBuffer)
+        nextDecodedVideoPresentationTime = presentationTime + duration
+    }
+
     func clearDecodedVideoPreview() {
         decodedVideoLayer?.flushAndRemoveImage()
         decodedVideoLayer?.controlTimebase = nil
         decodedVideoLayer?.removeFromSuperlayer()
         decodedVideoLayer = nil
         decodedVideoTimebase = nil
+        nextDecodedVideoPresentationTime = .invalid
     }
 
     func attachCurrentTrackIfNeeded() {

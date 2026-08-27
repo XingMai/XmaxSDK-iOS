@@ -23,10 +23,14 @@ final class XmaxPublicAPITests: XCTestCase {
         )
 
         let manager: any XmaxRealtimeManaging = client.createRealtimeManager(
-            options: RealtimeConfiguration(model: .x2_0)
+            options: RealtimeConfiguration(
+                model: .x2_0,
+                isFrameInterpolationEnabled: true
+            )
         )
 
         XCTAssertEqual(manager.options.model, .x2_0)
+        XCTAssertTrue(manager.options.isFrameInterpolationEnabled)
     }
 
     func testPublicRealtimeCameraModelsAreConstructible() throws {
@@ -101,6 +105,11 @@ final class XmaxPublicAPITests: XCTestCase {
         let service: any MediaServicing = client.createMediaService()
 
         XCTAssertNotNil(service as Any)
+        XCTAssertFalse(
+            service.supportsFrameInterpolation(
+                for: CGSize(width: 0, height: 1_280)
+            )
+        )
     }
 
     private func createDefaultCameraStream(

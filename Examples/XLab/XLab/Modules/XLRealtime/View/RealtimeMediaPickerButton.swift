@@ -11,19 +11,11 @@ final class RealtimeMediaTopBar: UIView {
     var onOpenGallery: (() -> Void)?
     var onOpenAudioVolume: ((UIView) -> Void)?
     var onMuteChanged: ((Bool) -> Void)?
-    var onFrameInterpolationUnavailable: (() -> Void)?
+    var onFrameInterpolationChanged: ((Bool) -> Void)?
 
     private let showsMute: Bool
     private var isMuted = false
-    private var isFrameInterpolationEnabled =
-        RealtimeMediaTopBar.supportsFrameInterpolation
-
-    private static var supportsFrameInterpolation: Bool {
-        if #available(iOS 26.0, *) {
-            return true
-        }
-        return false
-    }
+    private var isFrameInterpolationEnabled = false
 
     private lazy var audioVolumeButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
@@ -60,12 +52,12 @@ final class RealtimeMediaTopBar: UIView {
             systemName: "bolt.fill",
             accessibilityLabel: isFrameInterpolationEnabled
                 ? "关闭插帧"
-                : "插帧不可用"
+                : "开启插帧"
         )
         button.setActive(isFrameInterpolationEnabled)
         button.accessibilityValue = isFrameInterpolationEnabled
             ? "已开启"
-            : "需要 iOS 26 或更高版本"
+            : "已关闭"
         button.addTarget(
             self,
             action: #selector(toggleFrameInterpolation),
@@ -158,6 +150,17 @@ final class RealtimeMediaTopBar: UIView {
         renderMuteState()
     }
 
+    func setFrameInterpolationEnabled(_ enabled: Bool) {
+        isFrameInterpolationEnabled = enabled
+        frameInterpolationButton.setActive(enabled)
+        frameInterpolationButton.accessibilityLabel = enabled
+            ? "关闭插帧"
+            : "开启插帧"
+        frameInterpolationButton.accessibilityValue = enabled
+            ? "已开启"
+            : "已关闭"
+    }
+
     private func renderMuteState() {
         muteButton.setContent(
             title: isMuted ? "静音" : "声音",
@@ -176,19 +179,7 @@ final class RealtimeMediaTopBar: UIView {
     }
 
     @objc private func toggleFrameInterpolation() {
-        guard Self.supportsFrameInterpolation else {
-            onFrameInterpolationUnavailable?()
-            return
-        }
-
-        isFrameInterpolationEnabled.toggle()
-        frameInterpolationButton.setActive(isFrameInterpolationEnabled)
-        frameInterpolationButton.accessibilityLabel = isFrameInterpolationEnabled
-            ? "关闭插帧"
-            : "开启插帧"
-        frameInterpolationButton.accessibilityValue = isFrameInterpolationEnabled
-            ? "已开启"
-            : "已关闭"
+        onFrameInterpolationChanged?(!isFrameInterpolationEnabled)
     }
 
     private func makeSymbolImage(systemName: String) -> UIImage? {

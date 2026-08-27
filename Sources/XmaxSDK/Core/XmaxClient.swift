@@ -51,9 +51,9 @@ public final class XmaxClient: Sendable {
         return XmaxStorageManager(apiService: apiService)
     }
 
-    /// 创建媒体处理 Service。
+    /// 创建媒体处理与能力查询 Service。
     ///
-    /// - Returns: 可用于计算模型输入尺寸的媒体 Service。
+    /// - Returns: 可用于计算模型输入尺寸和查询平台媒体能力的 Service。
     public func createMediaService() -> any MediaServicing {
         MediaService()
     }

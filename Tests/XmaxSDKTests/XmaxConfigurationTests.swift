@@ -33,9 +33,10 @@ final class XmaxConfigurationTests: XCTestCase {
         }
     }
 
-    func testRealtimeConfigurationKeepsModel() {
+    func testRealtimeConfigurationKeepsModelAndEnablesInterpolationByDefault() {
         let configuration = RealtimeConfiguration(model: .x2_0)
 
         XCTAssertEqual(configuration.model.rawValue, "x2.0")
+        XCTAssertTrue(configuration.isFrameInterpolationEnabled)
     }
 }

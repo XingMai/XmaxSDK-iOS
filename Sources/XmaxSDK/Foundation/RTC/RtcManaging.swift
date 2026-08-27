@@ -101,19 +101,13 @@ protocol RtcManaging: Sendable {
     @MainActor
     func unbindLocalVideo() throws
 
-    /// 将远端视频流绑定到渲染视图。
-    @MainActor
-    func bindRemoteVideo(
-        _ stream: RemoteStream,
-        to view: UIView,
-        contentMode: VideoContentMode
+    /// 设置指定远端流的解码视频帧监听器，传入空值时停止帧回调。
+    func setRemoteVideoFrameListener(
+        _ listener: RtcRemoteVideoFrameListener?,
+        for stream: RemoteStream
     ) throws
 
-    /// 解除远端视频流与渲染视图的绑定。
-    @MainActor
-    func unbindRemoteVideo(_ stream: RemoteStream) throws
-
-    /// 获取 RTC 渲染库名称。
+    /// 获取本地视频使用的 RTC 渲染库名称。
     var renderLibraryName: String { get }
 
     /// 向当前 RTC 房间发送消息。

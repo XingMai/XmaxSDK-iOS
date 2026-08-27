@@ -23,6 +23,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     private var activeRoom: RoomContext?
     private var pendingJoin: PendingJoin?
     private let videoFrameCache = RtcVideoFrameCache()
+    private var remoteVideoSinks: [RemoteStream: RtcRemoteVideoSink] = [:]
 
     // 事件监听
     private weak var eventListener: (any RtcEventListener)?
@@ -93,6 +94,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 initialization = nil
                 cameraPreviewReadyListener = nil
                 remoteStreamIDs.removeAll()
+                remoteVideoSinks.removeAll()
                 videoFrameCache.removeAll()
                 isCameraVideoSourceActive = false
                 hasCapturedFirstLocalVideoFrame = false
@@ -294,6 +296,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 activeRoom = nil
                 pendingJoin = nil
                 remoteStreamIDs.removeAll()
+                remoteVideoSinks.removeAll()
                 return resources
             }
             resources.pendingJoin?.timeoutTask?.cancel()
@@ -477,49 +480,55 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    @MainActor
-    func bindRemoteVideo(
-        _ stream: RemoteStream,
-        to view: UIView,
-        contentMode: VideoContentMode
+    func setRemoteVideoFrameListener(
+        _ listener: RtcRemoteVideoFrameListener?,
+        for stream: RemoteStream
     ) throws {
         try operationLock.withLock {
-            let engine = try requireEngine()
-            guard let streamID = stateLock.withLock({
-                remoteStreamIDs[stream]
-            }) else {
+            let streamID = stateLock.withLock { remoteStreamIDs[stream] }
+            if listener == nil {
+                _ = stateLock.withLock {
+                    remoteVideoSinks.removeValue(forKey: stream)
+                }
+                guard let streamID else { return }
+                try withOptionalEngine { engine in
+                    try checkResult(
+                        engine.setRemoteVideoSink(
+                            streamID,
+                            withSink: nil,
+                            withRemoteRenderConfig:
+                                Self.makeRemoteVideoSinkConfiguration()
+                        ),
+                        operation: "setRemoteVideoSink"
+                    )
+                }
+                return
+            }
+            guard let streamID, let listener else {
                 throw XmaxError(
                     code: .rtcError,
                     message: "Remote stream is unavailable"
                 )
             }
-            let canvas = RtcVideoConverter.makeCanvas(
-                view: view,
-                contentMode: contentMode
-            )
+            let engine = try requireEngine()
+            let sink = RtcRemoteVideoSink(frameListener: listener)
+            let configuration = Self.makeRemoteVideoSinkConfiguration()
             try checkResult(
-                engine.setRemoteVideoCanvas(streamID, withCanvas: canvas),
-                operation: "setRemoteVideoCanvas"
+                engine.setRemoteVideoSink(
+                    streamID,
+                    withSink: sink,
+                    withRemoteRenderConfig: configuration
+                ),
+                operation: "setRemoteVideoSink"
             )
-        }
-    }
-
-    @MainActor
-    func unbindRemoteVideo(_ stream: RemoteStream) throws {
-        try operationLock.withLock {
-            guard let engine = stateLock.withLock({ engineLease?.engine }),
-                  let streamID = stateLock.withLock({ remoteStreamIDs[stream] }) else {
-                return
+            stateLock.withLock {
+                remoteVideoSinks[stream] = sink
             }
-            try checkResult(
-                engine.setRemoteVideoCanvas(streamID, withCanvas: nil),
-                operation: "setRemoteVideoCanvas"
-            )
         }
     }
 
     var renderLibraryName: String {
-        "VolcEngineRTC"
+        "XmaxSDK"
     }
 
     func sendRoomMessage(_ message: String) throws {
@@ -559,6 +568,17 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
 }
 
 private extension RtcManager {
+
+    static func makeRemoteVideoSinkConfiguration()
+        -> ByteRTCRemoteVideoSinkConfig {
+        let configuration = ByteRTCRemoteVideoSinkConfig()
+        configuration.position = ByteRTCRemoteVideoSinkPosition(rawValue: 1)!
+        configuration.requiredPixelFormat =
+            ByteRTCVideoSinkPixelFormat(rawValue: 7)!
+        configuration.applyRotation = ByteRTCVideoApplyRotation(rawValue: 0)!
+        configuration.mirrorType = ByteRTCVideoSinkMirrorType(rawValue: 2)!
+        return configuration
+    }
 
     /// 保存一次共享初始化任务。
     struct Initialization {
@@ -903,6 +923,7 @@ private extension RtcManager {
                 remoteStreamIDs[stream] = streamID
             } else {
                 remoteStreamIDs.removeValue(forKey: stream)
+                remoteVideoSinks.removeValue(forKey: stream)
             }
             return (eventListener, stream)
         }

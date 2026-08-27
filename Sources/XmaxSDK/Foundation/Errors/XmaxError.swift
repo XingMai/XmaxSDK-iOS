@@ -30,6 +30,10 @@ public enum XmaxErrorCode: String, CaseIterable, Sendable {
     /// 本地媒体读取、解码、同步或帧处理发生错误。
     case mediaError = "MEDIA_ERROR"
 
+    /// 当前系统、设备或视频规格不支持远端视频插帧。
+    case frameInterpolationUnsupported =
+        "FRAME_INTERPOLATION_UNSUPPORTED"
+
     /// 接入方未授予相机权限。
     case cameraPermissionDenied = "CAMERA_PERMISSION_DENIED"
 

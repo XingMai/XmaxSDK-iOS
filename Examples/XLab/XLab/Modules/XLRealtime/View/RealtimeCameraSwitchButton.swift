@@ -3,17 +3,9 @@ import UIKit
 
 final class RealtimeCameraActionBar: UIView {
     var onSwitchCamera: (() -> Void)?
-    var onFrameInterpolationUnavailable: (() -> Void)?
+    var onFrameInterpolationChanged: ((Bool) -> Void)?
 
-    private var isFrameInterpolationEnabled =
-        RealtimeCameraActionBar.supportsFrameInterpolation
-
-    private static var supportsFrameInterpolation: Bool {
-        if #available(iOS 26.0, *) {
-            return true
-        }
-        return false
-    }
+    private var isFrameInterpolationEnabled = false
 
     private lazy var switchCameraButton: RealtimeLabeledActionButton = {
         let button = RealtimeLabeledActionButton(
@@ -44,10 +36,10 @@ final class RealtimeCameraActionBar: UIView {
         button.setActive(isFrameInterpolationEnabled)
         button.accessibilityLabel = isFrameInterpolationEnabled
             ? "关闭插帧"
-            : "插帧不可用"
+            : "开启插帧"
         button.accessibilityValue = isFrameInterpolationEnabled
             ? "已开启"
-            : "需要 iOS 26 或更高版本"
+            : "已关闭"
         button.addTarget(
             self,
             action: #selector(toggleFrameInterpolation),
@@ -87,24 +79,23 @@ final class RealtimeCameraActionBar: UIView {
         switchCameraButton.isEnabled = isEnabled
     }
 
+    func setFrameInterpolationEnabled(_ enabled: Bool) {
+        isFrameInterpolationEnabled = enabled
+        frameInterpolationButton.setActive(enabled)
+        frameInterpolationButton.accessibilityLabel = enabled
+            ? "关闭插帧"
+            : "开启插帧"
+        frameInterpolationButton.accessibilityValue = enabled
+            ? "已开启"
+            : "已关闭"
+    }
+
     @objc private func switchCamera() {
         onSwitchCamera?()
     }
 
     @objc private func toggleFrameInterpolation() {
-        guard Self.supportsFrameInterpolation else {
-            onFrameInterpolationUnavailable?()
-            return
-        }
-
-        isFrameInterpolationEnabled.toggle()
-        frameInterpolationButton.setActive(isFrameInterpolationEnabled)
-        frameInterpolationButton.accessibilityLabel = isFrameInterpolationEnabled
-            ? "关闭插帧"
-            : "开启插帧"
-        frameInterpolationButton.accessibilityValue = isFrameInterpolationEnabled
-            ? "已开启"
-            : "已关闭"
+        onFrameInterpolationChanged?(!isFrameInterpolationEnabled)
     }
 }
 

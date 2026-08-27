@@ -43,4 +43,28 @@ final class MediaServiceTests: XCTestCase {
             )
         }
     }
+
+    func testFrameInterpolationRejectsInvalidVideoSize() {
+        let service = MediaService()
+
+        XCTAssertFalse(service.supportsFrameInterpolation(
+            for: CGSize(width: CGFloat.nan, height: 1_280)
+        ))
+        XCTAssertFalse(service.supportsFrameInterpolation(
+            for: CGSize(width: 704.5, height: 1_280)
+        ))
+        XCTAssertFalse(service.supportsFrameInterpolation(
+            for: CGSize(width: 0, height: 1_280)
+        ))
+    }
+
+#if targetEnvironment(simulator)
+    func testFrameInterpolationIsUnavailableInSimulator() {
+        XCTAssertFalse(
+            MediaService().supportsFrameInterpolation(
+                for: CGSize(width: 704, height: 1_280)
+            )
+        )
+    }
+#endif
 }
