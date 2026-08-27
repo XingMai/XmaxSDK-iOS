@@ -499,7 +499,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             return
         }
 
-        isPickingReference = true
         referencePickerDestination = destination
         view.endEditing(true)
 
@@ -510,6 +509,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         present(picker, animated: true)
+        picker.presentationController?.delegate = self
+    }
+
+    func beginReferencePicking() {
+        isPickingReference = true
     }
 
     func finishReferencePicking(

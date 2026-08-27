@@ -2,7 +2,8 @@ import Foundation
 import PhotosUI
 import UniformTypeIdentifiers
 
-extension RealtimeViewController: PHPickerViewControllerDelegate {
+extension RealtimeViewController: PHPickerViewControllerDelegate,
+    UIAdaptivePresentationControllerDelegate {
     func picker(
         _ picker: PHPickerViewController,
         didFinishPicking results: [PHPickerResult]
@@ -12,6 +13,7 @@ extension RealtimeViewController: PHPickerViewControllerDelegate {
             finishReferencePicking(localURL: nil)
             return
         }
+        beginReferencePicking()
 
         let provider = result.itemProvider
         let typeIdentifier = provider.registeredTypeIdentifiers.first {
@@ -51,6 +53,12 @@ extension RealtimeViewController: PHPickerViewControllerDelegate {
                 }
             }
         }
+    }
+
+    func presentationControllerDidDismiss(
+        _ presentationController: UIPresentationController
+    ) {
+        finishReferencePicking(localURL: nil)
     }
 
     private nonisolated static func copyReferenceToCache(

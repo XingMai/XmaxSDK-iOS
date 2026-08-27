@@ -250,8 +250,11 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     private func presentMediaPicker(for kind: MediaSelectionKind) {
-        guard !isPickingMedia else { return }
-        isPickingMedia = true
+        guard !isPickingMedia,
+              presentedViewController == nil else {
+            return
+        }
+
         pendingMediaSelectionKind = kind
 
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
@@ -261,6 +264,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         present(picker, animated: true)
+        picker.presentationController?.delegate = self
     }
 
     private func loadSelectedMedia(
@@ -614,7 +618,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 }
 
-extension FeedViewController: PHPickerViewControllerDelegate {
+extension FeedViewController: PHPickerViewControllerDelegate,
+    UIAdaptivePresentationControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         guard let result = results.first, let kind = pendingMediaSelectionKind else {
             isPickingMedia = false
@@ -622,9 +627,17 @@ extension FeedViewController: PHPickerViewControllerDelegate {
             picker.dismiss(animated: true)
             return
         }
+        isPickingMedia = true
         picker.dismiss(animated: true) { [weak self] in
             self?.loadSelectedMedia(result, kind: kind)
         }
+    }
+
+    func presentationControllerDidDismiss(
+        _ presentationController: UIPresentationController
+    ) {
+        isPickingMedia = false
+        pendingMediaSelectionKind = nil
     }
 }
 

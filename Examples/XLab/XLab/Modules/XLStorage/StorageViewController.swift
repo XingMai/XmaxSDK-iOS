@@ -464,14 +464,26 @@ final class StorageViewController: UIViewController {
     }
 
     private func configurePicker() {
-        let plus = makeFeedLabel("+", size: 22, color: orange)
-        plus.textAlignment = .center
-        plus.backgroundColor = orange.withAlphaComponent(0.09)
-        plus.layer.cornerRadius = 21
-        plus.layer.borderWidth = 1
-        plus.layer.borderColor = orange.withAlphaComponent(0.24).cgColor
-        plus.clipsToBounds = true
-        plus.snp.makeConstraints { make in make.size.equalTo(42) }
+        let plusContainer = UIView()
+        plusContainer.backgroundColor = orange.withAlphaComponent(0.09)
+        plusContainer.layer.cornerRadius = 21
+        plusContainer.layer.borderWidth = 1
+        plusContainer.layer.borderColor = orange.withAlphaComponent(0.24).cgColor
+        plusContainer.clipsToBounds = true
+        plusContainer.snp.makeConstraints { make in make.size.equalTo(42) }
+        let plusIcon = UIImageView(
+            image: UIImage(
+                systemName: "plus",
+                withConfiguration: UIImage.SymbolConfiguration(
+                    pointSize: 17,
+                    weight: .regular
+                )
+            )
+        )
+        plusIcon.tintColor = orange
+        plusIcon.contentMode = .center
+        plusContainer.addSubview(plusIcon)
+        plusIcon.snp.makeConstraints { make in make.center.equalToSuperview() }
         let pickerTitle = makeFeedLabel(
             "点击选择图片或视频",
             size: 12,
@@ -479,9 +491,9 @@ final class StorageViewController: UIViewController {
             color: .feed(rgb: 0x9D9185)
         )
         let pickerType = makeFeedLabel("IMAGE  /  VIDEO", size: 9, color: .feed(rgb: 0x62584E), letterSpacing: 0.8)
-        let pickerStack = feedVerticalStack([plus, pickerTitle, pickerType])
+        let pickerStack = feedVerticalStack([plusContainer, pickerTitle, pickerType])
         pickerStack.alignment = .center
-        pickerStack.setCustomSpacing(11, after: plus)
+        pickerStack.setCustomSpacing(11, after: plusContainer)
         pickerStack.setCustomSpacing(5, after: pickerTitle)
         emptyPickerContent.addSubview(pickerStack)
         pickerStack.snp.makeConstraints { make in make.center.equalToSuperview() }
@@ -652,9 +664,12 @@ final class StorageViewController: UIViewController {
     }
 
     @objc private func selectMedia() {
-        guard !isPicking, !isUploading else { return }
-        isPicking = true
-        refreshState()
+        guard !isPicking,
+              !isUploading,
+              presentedViewController == nil else {
+            return
+        }
+
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
         configuration.filter = .any(of: [.images, .videos])
         configuration.selectionLimit = 1
@@ -662,6 +677,7 @@ final class StorageViewController: UIViewController {
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         present(picker, animated: true)
+        picker.presentationController?.delegate = self
     }
 
     private func loadSelectedMedia(from result: PHPickerResult) {
@@ -879,14 +895,23 @@ final class StorageViewController: UIViewController {
     @objc private func goBack() { navigationController?.popViewController(animated: true) }
 }
 
-extension StorageViewController: PHPickerViewControllerDelegate {
+extension StorageViewController: PHPickerViewControllerDelegate,
+    UIAdaptivePresentationControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
         guard let result = results.first else {
             finishPicking(error: nil)
             return
         }
+        isPicking = true
+        refreshState()
         loadSelectedMedia(from: result)
+    }
+
+    func presentationControllerDidDismiss(
+        _ presentationController: UIPresentationController
+    ) {
+        finishPicking(error: nil)
     }
 }
 

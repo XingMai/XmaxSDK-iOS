@@ -14,8 +14,7 @@ final class RealtimeLocalMediaPicker: NSObject {
         kind: RealtimeLocalInput.Kind,
         completion: @escaping Completion
     ) {
-        guard self.completion == nil,
-              viewController.presentedViewController == nil else {
+        guard viewController.presentedViewController == nil else {
             completion(.success(nil))
             return
         }
@@ -30,6 +29,14 @@ final class RealtimeLocalMediaPicker: NSObject {
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         viewController.present(picker, animated: true)
+        picker.presentationController?.delegate = self
+    }
+
+    private func finishAfterInteractiveDismissal() {
+        let completion = completion
+        self.completion = nil
+        selectedKind = nil
+        completion?(.success(nil))
     }
 
     private func loadImage(
@@ -178,6 +185,14 @@ extension RealtimeLocalMediaPicker: PHPickerViewControllerDelegate {
                 dismissing: picker
             )
         }
+    }
+}
+
+extension RealtimeLocalMediaPicker: UIAdaptivePresentationControllerDelegate {
+    func presentationControllerDidDismiss(
+        _ presentationController: UIPresentationController
+    ) {
+        finishAfterInteractiveDismissal()
     }
 }
 
