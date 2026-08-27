@@ -22,6 +22,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     // 实时资源
     private var localInput: RealtimeLocalInput?
+    private let trajectoryStyle: RealtimeTrajectoryStyle
     private let realtimeManager: any XmaxRealtimeManaging
     private var localMediaStream: RealtimeMediaStream?
     private var remoteRealtimeStream: RealtimeMediaStream?
@@ -79,7 +80,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     // 界面组件
     private lazy var previewView = RealtimePreviewBackdropView(
-        usesFileLayout: localInput != nil
+        usesFileLayout: localInput != nil,
+        trajectoryRenderer: trajectoryStyle == .xLabCustom
+            ? Self.makeCustomTrajectoryRenderer()
+            : nil
     )
 
     private lazy var controlPanelView: RealtimeControlPanelView = {
@@ -169,8 +173,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private lazy var loadingOverlay = RealtimeLoadingOverlay()
 
-    init(localInput: RealtimeLocalInput? = nil) {
+    init(
+        localInput: RealtimeLocalInput? = nil,
+        trajectoryStyle: RealtimeTrajectoryStyle = .sdkDefault
+    ) {
         self.localInput = localInput
+        self.trajectoryStyle = trajectoryStyle
         realtimeManager = Self.makeRealtimeManager()
         super.init(nibName: nil, bundle: nil)
     }

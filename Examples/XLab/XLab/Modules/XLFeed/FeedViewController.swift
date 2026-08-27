@@ -8,6 +8,15 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private enum MediaSelectionKind: Sendable {
         case image
         case video
+        case customTrajectoryImage
+
+        var isVideo: Bool {
+            self == .video
+        }
+
+        var usesCustomTrajectoryRenderer: Bool {
+            self == .customTrajectoryImage
+        }
     }
 
     // 网络与媒体选择状态
@@ -161,7 +170,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             makeSectionHeader(title: "SDK FEATURES", subtitle: "更多能力与接入示例")
         )
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
-        contentStack.addArrangedSubview(FeedFeatureCardView(
+        let customTrajectoryCard = FeedFeatureCardView(
             category: "SDK RENDERING / TRAJECTORY",
             watermark: "FX",
             accentColor: FeedPalette.pink,
@@ -171,7 +180,15 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             subtitle: "使用自定义 Renderer 绘制交互轨迹。",
             tags: ["CANVAS", "MULTI-TOUCH", "CUSTOM EFFECT"],
             highlightedTag: "CUSTOM EFFECT"
-        ))
+        )
+        customTrajectoryCard.isUserInteractionEnabled = true
+        customTrajectoryCard.addGestureRecognizer(
+            UITapGestureRecognizer(
+                target: self,
+                action: #selector(selectCustomTrajectoryImage)
+            )
+        )
+        contentStack.addArrangedSubview(customTrajectoryCard)
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let storageCard = FeedFeatureCardView(
             category: "SDK SERVICE / STORAGE",
@@ -228,6 +245,10 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         presentMediaPicker(for: .image)
     }
 
+    @objc private func selectCustomTrajectoryImage() {
+        presentMediaPicker(for: .customTrajectoryImage)
+    }
+
     private func presentMediaPicker(for kind: MediaSelectionKind) {
         guard !isPickingMedia else { return }
         isPickingMedia = true
@@ -235,7 +256,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
 
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
         configuration.selectionLimit = 1
-        configuration.filter = kind == .video ? .videos : .images
+        configuration.filter = kind.isVideo ? .videos : .images
         configuration.preferredAssetRepresentationMode = .current
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
@@ -247,11 +268,11 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         kind: MediaSelectionKind
     ) {
         let provider = result.itemProvider
-        let expectedType = kind == .video ? UTType.movie : UTType.image
+        let expectedType = kind.isVideo ? UTType.movie : UTType.image
         let registeredType = provider.registeredTypeIdentifiers
             .compactMap(UTType.init)
             .first { type in
-                kind == .video
+                kind.isVideo
                     ? type.conforms(to: .movie)
                     : type.conforms(to: .image)
             }
@@ -259,8 +280,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         let preferredExtension = registeredType?.preferredFilenameExtension
 
         switch kind {
-        case .image:
-            loadSelectedImage(from: provider)
+        case .image, .customTrajectoryImage:
+            loadSelectedImage(from: provider, kind: kind)
         case .video:
             loadSelectedVideo(
                 from: provider,
@@ -271,7 +292,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     private func loadSelectedImage(
-        from provider: NSItemProvider
+        from provider: NSItemProvider,
+        kind: MediaSelectionKind
     ) {
         provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
             guard let self else { return }
@@ -292,7 +314,11 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             }
 
             DispatchQueue.main.async {
-                self.finishMediaSelection(with: .image(image))
+                self.finishMediaSelection(
+                    with: .image(image),
+                    usesCustomTrajectoryRenderer:
+                        kind.usesCustomTrajectoryRenderer
+                )
             }
         }
     }
@@ -328,7 +354,10 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
                     preferredExtension: preferredExtension
                 )
                 DispatchQueue.main.async {
-                    self.finishMediaSelection(with: .video(localURL))
+                    self.finishMediaSelection(
+                        with: .video(localURL),
+                        usesCustomTrajectoryRenderer: false
+                    )
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -366,11 +395,19 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         return destination
     }
 
-    private func finishMediaSelection(with input: RealtimeLocalInput) {
+    private func finishMediaSelection(
+        with input: RealtimeLocalInput,
+        usesCustomTrajectoryRenderer: Bool
+    ) {
         isPickingMedia = false
         pendingMediaSelectionKind = nil
         navigationController?.pushViewController(
-            RealtimeViewController(localInput: input),
+            RealtimeViewController(
+                localInput: input,
+                trajectoryStyle: usesCustomTrajectoryRenderer
+                    ? .xLabCustom
+                    : .sdkDefault
+            ),
             animated: true
         )
     }
@@ -378,7 +415,9 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private func finishMediaSelection(error: Error, kind: MediaSelectionKind) {
         isPickingMedia = false
         pendingMediaSelectionKind = nil
-        let fallback = kind == .video ? "读取视频失败，请重试" : "读取图片失败，请重试"
+        let fallback = kind.isVideo
+            ? "读取视频失败，请重试"
+            : "读取图片失败，请重试"
         let message = error.localizedDescription
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let alert = UIAlertController(

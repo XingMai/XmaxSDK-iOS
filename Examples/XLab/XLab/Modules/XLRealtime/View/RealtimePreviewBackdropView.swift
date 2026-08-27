@@ -9,6 +9,7 @@ final class RealtimePreviewBackdropView: UIView {
 
     // 显示配置
     private let videoContentMode: VideoContentMode
+    private let trajectoryRenderer: (any TrajectoryEffectRendering)?
 
     private var gradientLayer: CAGradientLayer {
         layer as! CAGradientLayer
@@ -25,14 +26,19 @@ final class RealtimePreviewBackdropView: UIView {
     private lazy var remoteVideoView: XmaxVideoView = {
         let view = XmaxVideoView()
         view.videoContentMode = videoContentMode
+        view.trajectoryRenderer = trajectoryRenderer
         view.backgroundColor = .feed(rgb: 0x101010)
         view.alpha = 0
         view.isHidden = true
         return view
     }()
 
-    init(usesFileLayout: Bool) {
+    init(
+        usesFileLayout: Bool,
+        trajectoryRenderer: (any TrajectoryEffectRendering)? = nil
+    ) {
         videoContentMode = usesFileLayout ? .fit : .fill
+        self.trajectoryRenderer = trajectoryRenderer
         super.init(frame: .zero)
         clipsToBounds = true
         gradientLayer.colors = [

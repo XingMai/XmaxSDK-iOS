@@ -18,6 +18,7 @@
 		F10000000000000000000001 /* RealtimeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* RealtimeViewController.swift */; };
 		F10000000000000000000002 /* RealtimeViewController+Notification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* RealtimeViewController+Notification.swift */; };
 		F10000000000000000000003 /* RealtimeViewController+Picker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RealtimeViewController+Picker.swift */; };
+		F10000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */; };
 		F11000000000000000000001 /* RealtimeCameraSwitchButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */; };
 		F11000000000000000000002 /* RealtimeControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000002 /* RealtimeControlPanelView.swift */; };
 		F11000000000000000000003 /* RealtimeLoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000003 /* RealtimeLoadingOverlay.swift */; };
@@ -48,6 +49,7 @@
 		F20000000000000000000001 /* RealtimeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeViewController.swift; sourceTree = "<group>"; };
 		F20000000000000000000002 /* RealtimeViewController+Notification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+Notification.swift"; sourceTree = "<group>"; };
 		F20000000000000000000003 /* RealtimeViewController+Picker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+Picker.swift"; sourceTree = "<group>"; };
+		F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+CustomTrajectory.swift"; sourceTree = "<group>"; };
 		F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraSwitchButton.swift; sourceTree = "<group>"; };
 		F21000000000000000000002 /* RealtimeControlPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeControlPanelView.swift; sourceTree = "<group>"; };
 		F21000000000000000000003 /* RealtimeLoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeLoadingOverlay.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				F20000000000000000000001 /* RealtimeViewController.swift */,
 				F20000000000000000000002 /* RealtimeViewController+Notification.swift */,
 				F20000000000000000000003 /* RealtimeViewController+Picker.swift */,
+				F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */,
 				C00000000000000000000006 /* Model */,
 				C00000000000000000000007 /* Service */,
 				C00000000000000000000005 /* View */,
@@ -333,6 +336,7 @@
 				F10000000000000000000001 /* RealtimeViewController.swift in Sources */,
 				F10000000000000000000002 /* RealtimeViewController+Notification.swift in Sources */,
 				F10000000000000000000003 /* RealtimeViewController+Picker.swift in Sources */,
+				F10000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift in Sources */,
 				F11000000000000000000001 /* RealtimeCameraSwitchButton.swift in Sources */,
 				F11000000000000000000002 /* RealtimeControlPanelView.swift in Sources */,
 				F11000000000000000000003 /* RealtimeLoadingOverlay.swift in Sources */,
