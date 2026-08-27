@@ -3,17 +3,27 @@ import UIKit
 
 final class RealtimeMediaTopBar: UIView {
     private enum Layout {
-        static let itemWidth: CGFloat = 52
-        static let height: CGFloat = 54
-        static let iconSize: CGFloat = 21
+        static let itemWidth: CGFloat = 48
+        static let height: CGFloat = 50
+        static let iconSize: CGFloat = 17
     }
 
     var onOpenGallery: (() -> Void)?
     var onOpenAudioVolume: ((UIView) -> Void)?
     var onMuteChanged: ((Bool) -> Void)?
+    var onFrameInterpolationUnavailable: (() -> Void)?
 
     private let showsMute: Bool
     private var isMuted = false
+    private var isFrameInterpolationEnabled =
+        RealtimeMediaTopBar.supportsFrameInterpolation
+
+    private static var supportsFrameInterpolation: Bool {
+        if #available(iOS 26.0, *) {
+            return true
+        }
+        return false
+    }
 
     private lazy var audioVolumeButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
@@ -48,7 +58,18 @@ final class RealtimeMediaTopBar: UIView {
         let button = makeActionButton(
             title: "插帧",
             systemName: "bolt.fill",
-            accessibilityLabel: "插帧"
+            accessibilityLabel: isFrameInterpolationEnabled
+                ? "关闭插帧"
+                : "插帧不可用"
+        )
+        button.setActive(isFrameInterpolationEnabled)
+        button.accessibilityValue = isFrameInterpolationEnabled
+            ? "已开启"
+            : "需要 iOS 26 或更高版本"
+        button.addTarget(
+            self,
+            action: #selector(toggleFrameInterpolation),
+            for: .touchUpInside
         )
         return button
     }()
@@ -152,6 +173,22 @@ final class RealtimeMediaTopBar: UIView {
 
     @objc private func openAudioVolume() {
         onOpenAudioVolume?(audioVolumeButton)
+    }
+
+    @objc private func toggleFrameInterpolation() {
+        guard Self.supportsFrameInterpolation else {
+            onFrameInterpolationUnavailable?()
+            return
+        }
+
+        isFrameInterpolationEnabled.toggle()
+        frameInterpolationButton.setActive(isFrameInterpolationEnabled)
+        frameInterpolationButton.accessibilityLabel = isFrameInterpolationEnabled
+            ? "关闭插帧"
+            : "开启插帧"
+        frameInterpolationButton.accessibilityValue = isFrameInterpolationEnabled
+            ? "已开启"
+            : "已关闭"
     }
 
     private func makeSymbolImage(systemName: String) -> UIImage? {
@@ -303,7 +340,7 @@ private final class RealtimeMediaActionButton: UIControl {
     private lazy var iconView: UIImageView = {
         let imageView = UIImageView(image: image?.withRenderingMode(.alwaysTemplate))
         imageView.tintColor = .white
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .center
         configureShadow(for: imageView)
         return imageView
     }()
@@ -331,12 +368,13 @@ private final class RealtimeMediaActionButton: UIControl {
         addSubview(actionLabel)
 
         iconView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(6)
+            make.top.equalToSuperview().offset(5)
             make.centerX.equalToSuperview()
-            make.size.equalTo(22)
+            make.width.equalTo(28)
+            make.height.equalTo(22)
         }
         actionLabel.snp.makeConstraints { make in
-            make.top.equalTo(iconView.snp.bottom).offset(4)
+            make.top.equalTo(iconView.snp.bottom).offset(2)
             make.centerX.equalToSuperview()
         }
     }
@@ -348,6 +386,15 @@ private final class RealtimeMediaActionButton: UIControl {
     func setContent(title: String, image: UIImage?) {
         actionLabel.text = title
         iconView.image = image?.withRenderingMode(.alwaysTemplate)
+    }
+
+    func setActive(_ isActive: Bool) {
+        iconView.tintColor = isActive ? .systemYellow : .white
+        if isActive {
+            accessibilityTraits.insert(.selected)
+        } else {
+            accessibilityTraits.remove(.selected)
+        }
     }
 
     override var isHighlighted: Bool {

@@ -156,6 +156,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         actionBar.onSwitchCamera = { [weak self] in
             self?.switchCamera()
         }
+        actionBar.onFrameInterpolationUnavailable = { [weak self] in
+            self?.showFrameInterpolationUnavailableToast()
+        }
         return actionBar
     }()
 
@@ -173,8 +176,15 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         topBar.onMuteChanged = { [weak self] muted in
             self?.setAudioMuted(muted)
         }
+        topBar.onFrameInterpolationUnavailable = { [weak self] in
+            self?.showFrameInterpolationUnavailableToast()
+        }
         return topBar
     }()
+
+    private func showFrameInterpolationUnavailableToast() {
+        XLToast.show("只有 iOS 26 及以上版本才支持插帧", in: view)
+    }
 
     private func presentAudioVolumeMenu(from sourceView: UIView) {
         guard presentedViewController == nil else { return }
@@ -474,7 +484,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let client = XmaxClient(
             configuration: XmaxConfiguration(
                 apiKey: apiKey,
-                loggerOptions: .all
+                loggerOptions: .business
             )
         )
         return client.createRealtimeManager(
@@ -665,7 +675,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let client = XmaxClient(
             configuration: XmaxConfiguration(
                 apiKey: apiKey,
-                loggerOptions: .all
+                loggerOptions: .business
             )
         )
         let storageManager = try client.createStorageManager()
@@ -700,7 +710,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 let client = XmaxClient(
                     configuration: XmaxConfiguration(
                         apiKey: apiKey,
-                        loggerOptions: .all
+                        loggerOptions: .business
                     )
                 )
                 let storageManager = try client.createStorageManager()

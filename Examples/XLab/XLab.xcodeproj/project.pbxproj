@@ -381,6 +381,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6699VXB63W;
@@ -401,6 +402,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6699VXB63W;

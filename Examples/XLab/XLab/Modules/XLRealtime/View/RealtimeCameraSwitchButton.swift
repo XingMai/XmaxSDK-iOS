@@ -3,6 +3,17 @@ import UIKit
 
 final class RealtimeCameraActionBar: UIView {
     var onSwitchCamera: (() -> Void)?
+    var onFrameInterpolationUnavailable: (() -> Void)?
+
+    private var isFrameInterpolationEnabled =
+        RealtimeCameraActionBar.supportsFrameInterpolation
+
+    private static var supportsFrameInterpolation: Bool {
+        if #available(iOS 26.0, *) {
+            return true
+        }
+        return false
+    }
 
     private lazy var switchCameraButton: RealtimeLabeledActionButton = {
         let button = RealtimeLabeledActionButton(
@@ -30,7 +41,18 @@ final class RealtimeCameraActionBar: UIView {
             title: "插帧",
             image: image
         )
-        button.accessibilityLabel = "插帧"
+        button.setActive(isFrameInterpolationEnabled)
+        button.accessibilityLabel = isFrameInterpolationEnabled
+            ? "关闭插帧"
+            : "插帧不可用"
+        button.accessibilityValue = isFrameInterpolationEnabled
+            ? "已开启"
+            : "需要 iOS 26 或更高版本"
+        button.addTarget(
+            self,
+            action: #selector(toggleFrameInterpolation),
+            for: .touchUpInside
+        )
         return button
     }()
 
@@ -67,6 +89,22 @@ final class RealtimeCameraActionBar: UIView {
 
     @objc private func switchCamera() {
         onSwitchCamera?()
+    }
+
+    @objc private func toggleFrameInterpolation() {
+        guard Self.supportsFrameInterpolation else {
+            onFrameInterpolationUnavailable?()
+            return
+        }
+
+        isFrameInterpolationEnabled.toggle()
+        frameInterpolationButton.setActive(isFrameInterpolationEnabled)
+        frameInterpolationButton.accessibilityLabel = isFrameInterpolationEnabled
+            ? "关闭插帧"
+            : "开启插帧"
+        frameInterpolationButton.accessibilityValue = isFrameInterpolationEnabled
+            ? "已开启"
+            : "已关闭"
     }
 }
 
@@ -115,6 +153,15 @@ private final class RealtimeLabeledActionButton: UIControl {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func setActive(_ isActive: Bool) {
+        iconView.tintColor = isActive ? .systemYellow : .white
+        if isActive {
+            accessibilityTraits.insert(.selected)
+        } else {
+            accessibilityTraits.remove(.selected)
+        }
     }
 
     private func configureShadow(for view: UIView) {
