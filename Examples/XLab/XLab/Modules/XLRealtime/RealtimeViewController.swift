@@ -14,6 +14,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
     private static let touchAnimationPrompt = "让画面自然动起来"
     private static let filePreviewTopOffset: CGFloat = 68
+    private static let defaultLocalAudioVolume: Float = 0.45
+    private static let defaultRemoteAudioVolume: Float = 1
     private static let cameraVideoFormat = RealtimeVideoFormat(
         width: 832,
         height: 1472,
@@ -33,6 +35,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var hasDisplayedPreview = false
     private var isSuspendedForBackground = false
 
+    // 音频状态
+    private var localAudioVolume = defaultLocalAudioVolume
+    private var remoteAudioVolume = defaultRemoteAudioVolume
+    private var isAudioMuted = false
+
     // 触控动图
     private var touchAnimationReferencePath: String?
 
@@ -51,6 +58,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var touchAnimationPreparationTask: Task<Void, Never>?
     private var realtimeListenerTask: Task<Void, Never>?
     private var mediaCleanupTask: Task<Void, Never>?
+    private var localAudioVolumeTask: Task<Void, Never>?
+    private var remoteAudioVolumeTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
     // 布局约束
@@ -158,8 +167,82 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         topBar.onOpenGallery = { [weak self] in
             self?.presentLocalMediaPicker()
         }
+        topBar.onOpenAudioVolume = { [weak self] sourceView in
+            self?.presentAudioVolumeMenu(from: sourceView)
+        }
+        topBar.onMuteChanged = { [weak self] muted in
+            self?.setAudioMuted(muted)
+        }
         return topBar
     }()
+
+    private func presentAudioVolumeMenu(from sourceView: UIView) {
+        guard presentedViewController == nil else { return }
+
+        let menu = RealtimeAudioVolumeMenuViewController(
+            localVolume: localAudioVolume,
+            remoteVolume: remoteAudioVolume
+        )
+        menu.onLocalVolumeChanged = { [weak self] volume in
+            self?.setLocalAudioVolume(volume)
+        }
+        menu.onRemoteVolumeChanged = { [weak self] volume in
+            self?.setRemoteAudioVolume(volume)
+        }
+        if let popover = menu.popoverPresentationController {
+            popover.delegate = menu
+            popover.sourceView = sourceView
+            popover.sourceRect = sourceView.bounds
+            popover.permittedArrowDirections = .up
+        }
+        present(menu, animated: true)
+    }
+
+    private func setAudioMuted(_ muted: Bool) {
+        isAudioMuted = muted
+        applyLocalAudioVolume(muted ? 0 : localAudioVolume)
+        applyRemoteAudioVolume(muted ? 0 : remoteAudioVolume)
+    }
+
+    private func setLocalAudioVolume(_ volume: Float) {
+        localAudioVolume = volume
+        if isAudioMuted {
+            isAudioMuted = false
+            mediaTopBar.setMuted(false)
+            applyRemoteAudioVolume(remoteAudioVolume)
+        }
+        applyLocalAudioVolume(volume)
+    }
+
+    private func setRemoteAudioVolume(_ volume: Float) {
+        remoteAudioVolume = volume
+        if isAudioMuted {
+            isAudioMuted = false
+            mediaTopBar.setMuted(false)
+            applyLocalAudioVolume(localAudioVolume)
+        }
+        applyRemoteAudioVolume(volume)
+    }
+
+    private func applyLocalAudioVolume(_ volume: Float) {
+        localAudioVolumeTask?.cancel()
+        let realtimeManager = realtimeManager
+        localAudioVolumeTask = Task {
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            try? await realtimeManager.setLocalAudioVolume(volume)
+        }
+    }
+
+    private func applyRemoteAudioVolume(_ volume: Float) {
+        remoteAudioVolumeTask?.cancel()
+        let realtimeManager = realtimeManager
+        remoteAudioVolumeTask = Task {
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            try? await realtimeManager.setRemoteAudioVolume(volume)
+        }
+    }
 
     private lazy var realtimeErrorAlert: UIAlertController = {
         let alert = UIAlertController(
@@ -224,6 +307,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     deinit {
+        localAudioVolumeTask?.cancel()
+        remoteAudioVolumeTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 

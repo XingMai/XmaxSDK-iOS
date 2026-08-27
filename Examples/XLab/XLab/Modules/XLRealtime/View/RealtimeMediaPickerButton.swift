@@ -9,9 +9,25 @@ final class RealtimeMediaTopBar: UIView {
     }
 
     var onOpenGallery: (() -> Void)?
+    var onOpenAudioVolume: ((UIView) -> Void)?
+    var onMuteChanged: ((Bool) -> Void)?
 
     private let showsMute: Bool
     private var isMuted = false
+
+    private lazy var audioVolumeButton: RealtimeMediaActionButton = {
+        let button = makeActionButton(
+            title: "音量",
+            systemName: "slider.horizontal.3",
+            accessibilityLabel: "调整音量"
+        )
+        button.addTarget(
+            self,
+            action: #selector(openAudioVolume),
+            for: .touchUpInside
+        )
+        return button
+    }()
 
     private lazy var muteButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
@@ -54,6 +70,7 @@ final class RealtimeMediaTopBar: UIView {
     private lazy var stackView: UIStackView = {
         var buttons: [UIView] = []
         if showsMute {
+            buttons.append(audioVolumeButton)
             buttons.append(muteButton)
         }
         buttons.append(frameInterpolationButton)
@@ -83,7 +100,7 @@ final class RealtimeMediaTopBar: UIView {
 
     override var intrinsicContentSize: CGSize {
         CGSize(
-            width: CGFloat(showsMute ? 3 : 2) * Layout.itemWidth,
+            width: CGFloat(showsMute ? 4 : 2) * Layout.itemWidth,
             height: Layout.height
         )
     }
@@ -110,6 +127,17 @@ final class RealtimeMediaTopBar: UIView {
 
     @objc private func toggleMute() {
         isMuted.toggle()
+        renderMuteState()
+        onMuteChanged?(isMuted)
+    }
+
+    func setMuted(_ muted: Bool) {
+        guard isMuted != muted else { return }
+        isMuted = muted
+        renderMuteState()
+    }
+
+    private func renderMuteState() {
         muteButton.setContent(
             title: isMuted ? "静音" : "声音",
             image: makeSymbolImage(
@@ -120,6 +148,10 @@ final class RealtimeMediaTopBar: UIView {
         )
         muteButton.accessibilityLabel = isMuted ? "开启声音" : "关闭声音"
         muteButton.accessibilityValue = isMuted ? "已静音" : "已开启"
+    }
+
+    @objc private func openAudioVolume() {
+        onOpenAudioVolume?(audioVolumeButton)
     }
 
     private func makeSymbolImage(systemName: String) -> UIImage? {
@@ -134,6 +166,136 @@ final class RealtimeMediaTopBar: UIView {
 
     @objc private func openGallery() {
         onOpenGallery?()
+    }
+}
+
+final class RealtimeAudioVolumeMenuViewController: UIViewController,
+    UIPopoverPresentationControllerDelegate {
+
+    // 音量回调
+    var onLocalVolumeChanged: ((Float) -> Void)?
+    var onRemoteVolumeChanged: ((Float) -> Void)?
+
+    // 界面组件
+    private let localVolumeRow: RealtimeAudioVolumeSliderRow
+    private let remoteVolumeRow: RealtimeAudioVolumeSliderRow
+
+    init(localVolume: Float, remoteVolume: Float) {
+        localVolumeRow = RealtimeAudioVolumeSliderRow(
+            title: "本地音量",
+            value: localVolume
+        )
+        remoteVolumeRow = RealtimeAudioVolumeSliderRow(
+            title: "远端音量",
+            value: remoteVolume
+        )
+        super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .popover
+        preferredContentSize = CGSize(width: 260, height: 144)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .secondarySystemBackground
+        view.layer.cornerRadius = 14
+        view.clipsToBounds = true
+
+        localVolumeRow.onValueChanged = { [weak self] value in
+            self?.onLocalVolumeChanged?(value)
+        }
+        remoteVolumeRow.onValueChanged = { [weak self] value in
+            self?.onRemoteVolumeChanged?(value)
+        }
+
+        let stackView = UIStackView(
+            arrangedSubviews: [localVolumeRow, remoteVolumeRow]
+        )
+        stackView.axis = .vertical
+        stackView.distribution = .fillEqually
+        stackView.spacing = 8
+        view.addSubview(stackView)
+        stackView.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(14)
+        }
+    }
+
+    func adaptivePresentationStyle(
+        for controller: UIPresentationController
+    ) -> UIModalPresentationStyle {
+        .none
+    }
+}
+
+private final class RealtimeAudioVolumeSliderRow: UIView {
+
+    // 音量回调
+    var onValueChanged: ((Float) -> Void)?
+
+    // 界面组件
+    private let titleLabel = UILabel()
+    private let valueLabel = UILabel()
+    private let slider = UISlider()
+
+    init(title: String, value: Float) {
+        super.init(frame: .zero)
+
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        titleLabel.textColor = .label
+
+        valueLabel.font = .monospacedDigitSystemFont(
+            ofSize: 12,
+            weight: .regular
+        )
+        valueLabel.textColor = .secondaryLabel
+        valueLabel.textAlignment = .right
+
+        slider.minimumValue = 0
+        slider.maximumValue = 1
+        slider.value = value
+        slider.minimumTrackTintColor = .systemPink
+        slider.accessibilityLabel = title
+        slider.addTarget(
+            self,
+            action: #selector(sliderValueChanged),
+            for: .valueChanged
+        )
+
+        addSubview(titleLabel)
+        addSubview(valueLabel)
+        addSubview(slider)
+        titleLabel.snp.makeConstraints { make in
+            make.top.leading.equalToSuperview()
+        }
+        valueLabel.snp.makeConstraints { make in
+            make.top.trailing.equalToSuperview()
+            make.leading.greaterThanOrEqualTo(titleLabel.snp.trailing)
+                .offset(8)
+        }
+        slider.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(4)
+            make.horizontalEdges.bottom.equalToSuperview()
+        }
+        renderValue(value)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    @objc private func sliderValueChanged() {
+        renderValue(slider.value)
+        onValueChanged?(slider.value)
+    }
+
+    private func renderValue(_ value: Float) {
+        let percentage = Int((value * 100).rounded())
+        valueLabel.text = "\(percentage)%"
+        slider.accessibilityValue = valueLabel.text
     }
 }
 
