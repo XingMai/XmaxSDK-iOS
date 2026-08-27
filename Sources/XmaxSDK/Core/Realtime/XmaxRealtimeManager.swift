@@ -47,7 +47,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             rtcManager: rtcManager,
             errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
-                try renderController.setRemoteStream(stream)
+                renderController.setRemoteStream(stream)
             }
         )
 
@@ -504,12 +504,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         do {
-            try await mediaController.setLocalAudioPreviewEnabled(false)
+            try await mediaController.setLocalAudioPreviewMuted(true)
             let remoteStream = try await connect(localStream: localStream)
             try await performStartGeneration(context: context)
             return remoteStream
         } catch {
-            await resumeLocalAudioPreview()
+            await unmuteLocalAudioPreview()
             throw error
         }
     }
@@ -546,7 +546,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let version = operationVersion.current
         do {
-            try await mediaController.setLocalAudioPreviewEnabled(false)
+            try await mediaController.setLocalAudioPreviewMuted(true)
             let taskID = try await generationManager.start(
                 videoFormat: videoFormat,
                 context: context,
@@ -574,7 +574,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             )
         } catch {
-            await resumeLocalAudioPreview()
+            await unmuteLocalAudioPreview()
             throw await reportError(error)
         }
     }
@@ -594,7 +594,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         } catch {
             await reportError(error)
         }
-        await resumeLocalAudioPreview()
+        await unmuteLocalAudioPreview()
         if wasGenerating, operationVersion.isCurrent(version) {
             await emitState(
                 RealtimeState(
@@ -677,7 +677,7 @@ private extension XmaxRealtimeManager {
         } catch {
             await reportError(error)
         }
-        await resumeLocalAudioPreview()
+        await unmuteLocalAudioPreview()
         guard terminationOperation?.id == operationID else {
             return
         }
@@ -730,9 +730,9 @@ private extension XmaxRealtimeManager {
         return xmaxError
     }
 
-    func resumeLocalAudioPreview() async {
+    func unmuteLocalAudioPreview() async {
         do {
-            try await mediaController.setLocalAudioPreviewEnabled(true)
+            try await mediaController.setLocalAudioPreviewMuted(false)
         } catch {
             await reportError(error)
         }

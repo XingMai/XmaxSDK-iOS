@@ -155,7 +155,7 @@ final class StreamControllerTests: XCTestCase {
     }
 
     @MainActor
-    func testResetRoomClearsSubscriptionsAndLocalPublications() throws {
+    func testResetRoomClearsSubscriptionsAndLocalPublications() async throws {
         let rtcManager = RtcManagingStub()
         let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(
@@ -168,8 +168,8 @@ final class StreamControllerTests: XCTestCase {
             published: true
         )
 
-        controller.resetStream()
-        controller.resetStream()
+        await controller.resetStream()
+        await controller.resetStream()
 
         XCTAssertEqual(
             rtcManager.calls,
@@ -270,7 +270,7 @@ final class StreamControllerTests: XCTestCase {
                 subscribe: true
             )
         ))
-        _ = controller.stopStreamGeneration(taskID: "task-id")
+        _ = await controller.stopStreamGeneration(taskID: "task-id")
         XCTAssertTrue(rtcManager.calls.contains(
             .subscribeRemoteAudio(
                 userID: "bot-user",
@@ -304,7 +304,7 @@ final class StreamControllerTests: XCTestCase {
                 )
             )
         }
-        _ = controller.stopStreamGeneration(taskID: "task-id")
+        _ = await controller.stopStreamGeneration(taskID: "task-id")
     }
 
     @MainActor
@@ -321,7 +321,7 @@ final class StreamControllerTests: XCTestCase {
             taskID: "task-id"
         )
 
-        let stoppedTaskID = controller.stopStreamGeneration(
+        let stoppedTaskID = await controller.stopStreamGeneration(
             taskID: "task-id"
         )
 
@@ -333,6 +333,35 @@ final class StreamControllerTests: XCTestCase {
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
         }
+    }
+
+    @MainActor
+    func testExternalVideoFrameWithoutGenerationIsIgnored() throws {
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
+        let format = try VideoFormat(
+            width: 2,
+            height: 2,
+            pixelFormat: .nv12
+        )
+        let frame = try VideoFrame(
+            format: format,
+            timestampUs: 0,
+            planes: [
+                try VideoFramePlane(
+                    data: Data(repeating: 0, count: 4),
+                    stride: 2
+                ),
+                try VideoFramePlane(
+                    data: Data(repeating: 0, count: 2),
+                    stride: 2
+                )
+            ]
+        )
+
+        try controller.pushLocalVideoFrame(frame)
+
+        XCTAssertTrue(rtcManager.calls.isEmpty)
     }
 
     @MainActor
@@ -369,7 +398,7 @@ final class StreamControllerTests: XCTestCase {
             rtcManager.calls,
             [.pushExternalVideoFrame(seiData: Data("task-id".utf8))]
         )
-        _ = controller.stopStreamGeneration(taskID: "task-id")
+        _ = await controller.stopStreamGeneration(taskID: "task-id")
         do {
             try await confirmation.value
             XCTFail("Expected stopped confirmation to be cancelled")

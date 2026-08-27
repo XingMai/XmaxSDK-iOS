@@ -16,11 +16,11 @@ protocol MediaSourceControlling: Sendable {
     /// 从文件起点开始循环输出音视频帧。
     func start() async throws
 
-    /// 启用或暂停本地音频预览，不影响 RTC 音频帧输出。
+    /// 静音或恢复本地音频预览，不影响播放器和 RTC 音频帧输出。
     ///
-    /// - Parameter enabled: `true` 表示播放本地预览音频；
-    ///   `false` 表示立即清空缓冲并保持静音。
-    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws
+    /// - Parameter muted: `true` 表示仅静音本地播放器；
+    ///   `false` 表示恢复本地播放器音量。
+    func setLocalAudioPreviewMuted(_ muted: Bool) async throws
 
     /// 将本地播放器画面绑定到 SDK 视频视图。
     @MainActor

@@ -319,10 +319,7 @@ Harmony：
 
 ## SYNC-011 文件解码器安全停止
 
-状态：历史方案；iOS 已由 SYNC-014 的系统播放器链路取代。
-
-> iOS 已移除文件视频使用的 AVAssetReader 音视频 decoder，本节只保留为
-> Harmony 排查旧 reader 生命周期问题的历史记录。
+状态：iOS 已实现；Harmony 待核对。
 
 统一目标：
 
@@ -336,6 +333,8 @@ iOS：
 - [x] 移除 `release()` 中跨线程调用 `AVAssetReader.cancelReading()` 的逻辑。
 - [x] 解码任务退出时在自身执行链中取消仍处于读取状态的 reader。
 - [x] 视频帧转换和音频帧处理失败时统一由退出清理负责取消 reader。
+- [x] 停止媒体源时取消父任务并等待音视频子任务全部退出，退出完成前不得创建
+  下一组 reader。
 - [ ] 真机重复执行生成、停止和重新生成，确认不再发生 reader 崩溃。
 
 Harmony：
@@ -346,7 +345,7 @@ Harmony：
 
 ## SYNC-012 文件视频本地音频预览
 
-状态：历史方案；iOS 已由 SYNC-014 的 AVPlayer 系统播放与音频 Tap 取代。
+状态：iOS 已实现；Harmony 待核对。
 
 统一目标：
 
@@ -356,9 +355,12 @@ Harmony：
 
 iOS：
 
-- [x] 本地音频改由 AVPlayer 系统播放，不再经过 SDK 自建 AVAudioEngine 缓冲。
+- [x] 本地音频使用 `AVAudioEngine` 播放解码后的 48 kHz、单声道 PCM16。
 - [x] 移除 RTC 外部音频源的强制扬声器路由，允许系统选择有线耳机和蓝牙设备。
-- [x] 使用前置 `MTAudioProcessingTap` 复制独立音频播放器的 PCM 数据供 RTC 使用。
+- [x] 本地预览和 RTC 推流复用同一份 10 ms PCM 帧，不使用第二个播放器或
+  `MTAudioProcessingTap`。
+- [x] 生成期间只把本地 PCM 播放器音量设为 0，不停止播放器或音频引擎；统一
+  媒体时间轴和 RTC PCM 推帧保持连续。
 - [ ] 真机验证静音模式、扬声器、有线耳机和蓝牙耳机播放。
 
 Harmony：
@@ -371,55 +373,55 @@ Harmony：
 状态：已废弃。iOS 真机体验确认不再采用点击检查点、播放器暂停、精确 seek
 或静态帧覆盖；当前方案见 SYNC-014。Harmony 不需要同步本节历史实现。
 
-## SYNC-014 文件视频解耦播放器时间线
+## SYNC-014 文件视频统一解码时间线
 
-状态：iOS 已改为持续播放方案；Harmony 暂不修改，待 iOS 真机验证后同步。
+状态：iOS 已实现；Harmony 暂不修改，待 iOS 真机验证后同步。
 
 统一目标：
 
-- 本地文件视频使用同步启动的视频与音频播放器；视频播放器只承载视频轨道，
-  音频播放器只承载音频轨道和 RTC 音频 Tap。
-- RTC 音频订阅、退订或离房重配置共享 Audio Session 时，不得暂停本地视频
-  播放器；恢复本地声音前，音频播放器重新对齐视频播放器的当前位置。
-- 本地预览由平台播放器原生渲染，SDK 统一视频视图内部完成绑定，接入方无需
-  额外创建播放器或视图。
-- 用户点击生成、等待连接和 Loading 时播放器始终持续运行，不暂停、不 seek、
+- 文件音频和视频分别由 `AVAssetReader` 解码，共享同一个单调绝对时间轴和循环
+  边界。
+- 同一份目标尺寸 NV12 帧同时用于 `XmaxVideoView` 本地预览和 RTC 外部视频源；
+  同一份 10 ms PCM 帧同时用于 `AVAudioEngine` 本地播放和 RTC 外部音频源。
+- 本地预览由 SDK 统一视频视图内部完成，接入方无需额外创建播放器或视图。
+- 用户点击生成、等待连接和 Loading 时统一媒体时间轴始终持续运行，不暂停、不 seek、
   不建立点击检查点，也不显示静态冻结帧。
-- Loading 和远端生成期间播放器保持解码热状态；远端 ready 后由远端视图覆盖
-  本地视图，停止生成时只切回持续播放的本地视图并恢复音量。
+- Loading 和远端生成期间 reader 保持解码热状态；远端 ready 后由远端视图覆盖
+  本地视图，停止生成时先让后续本地视频帧绕过 RTC，再切回持续解码的本地视图
+  并恢复 PCM 播放器音量。
 - 远端音频仍只在匹配 taskID 的远端画面 ready 后订阅，音视频共用同一切换
   边界。
 - 不强制选择扬声器；有线耳机和蓝牙路由交给系统音频会话处理。
 
 iOS：
 
-- [x] `XmaxVideoView` 内部使用 `AVPlayerLayer` 显示本地文件视频。
-- [x] `AVPlayerItemVideoOutput` 从纯视频 `AVPlayerItem` 取得 NV12 像素缓冲，
-  经目标比例裁剪、缩放和物理旋转后进入 RTC。
-- [x] `MTAudioProcessingTap` 从独立纯音频 `AVPlayerItem` 复制 PCM，转换为 48 kHz、
-  单声道、PCM16，并切分为 10 ms RTC 音频帧。
-- [x] 音视频播放器从相同媒体位置启动；恢复本地声音前重新对齐媒体位置。
-- [x] RTC 音频会话变化与本地视频播放器解耦，避免远端 ready 前和离房后的
-  可见视频停顿。
+- [x] `XmaxVideoView` 内部使用 `AVSampleBufferDisplayLayer` 显示处理后的本地帧，
+  主线程来不及显示时只保留最新帧。
+- [x] 视频 reader 输出 NV12，经目标比例裁剪、缩放和物理旋转后同时进入预览与
+  RTC。
+- [x] 音频 reader 输出 48 kHz、单声道、PCM16，并按共享时间轴切分、调度为
+  10 ms PCM 帧。
+- [x] 音视频 reader 使用同一绝对起点和循环长度，不依赖两个播放器各自的时钟。
+- [x] RTC 音频会话变化只影响本地 `AVAudioEngine`，不暂停视频解码和 RTC 推帧。
 - [x] 删除 `pauseVideoPreview()`、生成检查点、恢复闭包和冻结帧覆盖能力。
-- [x] 生成开始、Loading、远端显示和停止生成不改变播放器时间线。
-- [x] 文件结束后音视频播放器 seek 到零并同步继续循环。
-- [x] 删除 `VideoFileFrameDecoder`、`AudioFileFrameDecoder`、`MediaTimeline`、
-  `VideoSourceController`、`AudioSourceController`、`AudioManager` 和
-  `LocalVideoPreviewController`。
+- [x] 生成开始、Loading、远端显示和停止生成不改变媒体时间线。
+- [x] 无活动生成任务时，本地视频帧只用于预览，不调用 RTC 推帧，避免 RTC
+  退房锁阻塞统一 reader。
+- [x] 文件结束后音视频 reader 按共享循环边界创建下一轮 reader。
+- [x] reader 仅由所属解码任务访问；停止时等待任务退出，避免
+  `startReading()` 与跨线程 `cancelReading()` 竞态。
 - [x] 移除 `setDefaultAudioRoute(.speakerphone)`。
 - [x] 公共 API 和公共模型保持不变。
 - [x] SDK 真机目标编译通过。
 - [ ] 真机验证本地画面方向、目标构图和音画同步。
 - [ ] 真机验证 Loading 持续播放、远端 ready 同时出声出画、停止立即恢复。
 - [ ] 真机验证扬声器、有线耳机、AirPods 和其他蓝牙设备路由。
-- [ ] 真机重复生成、停止和重新生成，确认播放器和 Tap 生命周期稳定。
+- [ ] 真机重复生成、停止和重新生成，确认 reader 和音频引擎生命周期稳定。
 
 Harmony：
 
-- [ ] iOS 真机行为确认后，评估 AVPlayerLayer、VideoOutput、Audio Tap 在
-  Harmony 平台的等价能力。
-- [ ] 若平台音频生命周期不会阻塞视频播放器，可继续使用单播放器；否则对齐
-  iOS 的音视频播放器解耦策略。
-- [ ] 对齐生成期间播放器持续运行，不实现点击检查点或冻结帧覆盖。
-- [ ] 本地播放器在远端阶段保持热状态，停止生成时直接恢复显示与声音。
+- [ ] iOS 真机行为确认后，对齐音视频共享绝对时间轴和循环边界。
+- [ ] 本地预览与 RTC 复用同一份处理后视频帧和 PCM 帧，不重复解码。
+- [ ] 对齐 reader 单所有者和停止等待屏障，避免读取与释放并发。
+- [ ] 对齐生成期间媒体时间线持续运行，不实现点击检查点或冻结帧覆盖。
+- [ ] 本地解码在远端阶段保持热状态，停止生成时直接恢复显示与声音。

@@ -2,10 +2,9 @@
 import CoreMedia
 import CoreVideo
 import Foundation
-import QuartzCore
 import UIKit
 
-/// 定义相互解耦的视频预览和音频输出能力。
+/// 定义基于统一媒体时间轴的文件音视频输出能力。
 protocol VideoPlayerControlling: Sendable {
 
     /// 配置本地视频文件及最终 RTC 输出格式。
@@ -21,44 +20,138 @@ protocol VideoPlayerControlling: Sendable {
 
     /// 开始本地预览和 RTC 音视频帧输出。
     @MainActor
-    func start() throws
+    func start() async throws
 
-    /// 启用或静音系统播放器的本地音频。
+    /// 静音或恢复本地音频预览，不影响播放器和 RTC 音频帧输出。
     @MainActor
-    func setLocalAudioPreviewEnabled(_ enabled: Bool)
+    func setLocalAudioPreviewMuted(_ muted: Bool)
 
-    /// 将播放器画面绑定到 SDK 视频视图。
+    /// 将解码后的视频画面绑定到 SDK 视频视图。
     @MainActor
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
     ) throws
 
-    /// 从 SDK 视频视图解除播放器画面。
+    /// 从 SDK 视频视图解除解码画面。
     @MainActor
     func detachPreview(from view: UIView)
 
-    /// 停止播放器并释放全部输出资源。
+    /// 停止解码并等待全部 reader 在所属任务内安全退出。
     @MainActor
-    func stop()
+    func stop() async
 }
 
-/// 使用独立 AVPlayer 分别承载视频预览和音频输出。
-///
-/// 视频播放器只包含视频轨道，避免 RTC 重配置共享音频会话时暂停本地画面；
-/// 音频播放器负责本地声音和 RTC PCM 帧输出。
+/// 将解码帧投递到当前绑定的 SDK 视频视图。
 @MainActor
-final class VideoPlayerController: NSObject, VideoPlayerControlling {
+private final class DecodedVideoPreviewPresenter {
 
-    private struct PixelBufferBox: @unchecked Sendable {
-        let value: CVPixelBuffer
+    // 预览资源
+    private weak var view: XmaxVideoView?
+    private var contentMode = VideoContentMode.fill
+
+    func attach(
+        to view: XmaxVideoView,
+        contentMode: VideoContentMode
+    ) {
+        self.view = view
+        self.contentMode = contentMode
+        view.prepareDecodedVideoPreview(contentMode: contentMode)
     }
 
-    // 视频输出参数
-    private static let pixelBufferAttributes: [String: any Sendable] = [
-        kCVPixelBufferPixelFormatTypeKey as String:
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-    ]
+    func detach(from view: XmaxVideoView) {
+        view.clearDecodedVideoPreview()
+        if self.view === view {
+            self.view = nil
+        }
+    }
+
+    func display(_ frame: VideoFrame) {
+        view?.displayDecodedVideoFrame(frame, contentMode: contentMode)
+    }
+
+    func clear() {
+        view?.clearDecodedVideoPreview()
+        view = nil
+    }
+}
+
+/// 合并主线程来不及显示的帧，只保留最新的视频预览帧。
+private final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
+
+    // 渲染组件
+    private let presenter: DecodedVideoPreviewPresenter
+
+    // 并发状态
+    private let lock = NSLock()
+    private var pendingFrame: VideoFrame?
+    private var isDeliveryScheduled = false
+
+    init(presenter: DecodedVideoPreviewPresenter) {
+        self.presenter = presenter
+    }
+
+    func enqueue(_ frame: VideoFrame) {
+        let shouldSchedule = lock.withLock { () -> Bool in
+            pendingFrame = frame
+            guard !isDeliveryScheduled else { return false }
+            isDeliveryScheduled = true
+            return true
+        }
+        if shouldSchedule {
+            scheduleDelivery()
+        }
+    }
+
+    func reset() {
+        lock.withLock {
+            pendingFrame = nil
+        }
+    }
+
+    private func scheduleDelivery() {
+        Task { @MainActor [weak self] in
+            self?.deliverLatestFrame()
+        }
+    }
+
+    @MainActor
+    private func deliverLatestFrame() {
+        let frame = lock.withLock { () -> VideoFrame? in
+            let frame = pendingFrame
+            pendingFrame = nil
+            return frame
+        }
+        if let frame {
+            presenter.display(frame)
+        }
+
+        let shouldScheduleAgain = lock.withLock { () -> Bool in
+            if pendingFrame == nil {
+                isDeliveryScheduled = false
+                return false
+            }
+            return true
+        }
+        if shouldScheduleAgain {
+            scheduleDelivery()
+        }
+    }
+}
+
+/// 使用 AVAssetReader 解码共享时间轴上的本地音视频帧。
+@MainActor
+final class VideoPlayerController: VideoPlayerControlling {
+
+    private struct PlaybackConfiguration: Sendable {
+        let fileURL: URL
+        let outputWidth: Int
+        let outputHeight: Int
+        let rotation: VideoRotation
+        let frameRate: Int
+        let hasAudio: Bool
+        let durationSeconds: Double
+    }
 
     // 帧监听
     private let videoFrameListener: MediaVideoFrameListener
@@ -66,31 +159,17 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
     private let errorListener: XmaxErrorListener
 
     // 平台资源
-    private let videoPlayer = AVPlayer()
-    private let audioPlayer = AVPlayer()
-    private let frameQueue = DispatchQueue(
-        label: "ai.xmax.sdk.video-player-frame",
-        qos: .userInteractive
+    private let audioPreviewPlayer = LocalAudioPreviewPlayer()
+    private let previewPresenter = DecodedVideoPreviewPresenter()
+    private lazy var previewDispatcher = DecodedVideoPreviewDispatcher(
+        presenter: previewPresenter
     )
-    private var videoPlayerItem: AVPlayerItem?
-    private var audioPlayerItem: AVPlayerItem?
-    private var videoOutput: AVPlayerItemVideoOutput?
-    private var audioTap: PlayerAudioTap?
-    private var displayLink: CADisplayLink?
-    private var endObserver: NSObjectProtocol?
-    private weak var previewView: XmaxVideoView?
 
-    // 视频配置
-    private var outputWidth = 0
-    private var outputHeight = 0
-    private var outputRotation = VideoRotation.rotation0
-    private var frameRate = 0
+    // 媒体配置
+    private var configuration: PlaybackConfiguration?
 
     // 运行状态
-    private var isConfigured = false
-    private var isFrameConversionPending = false
-    private var audioPreviewVersion: UInt64 = 0
-    private var isPlaying = false
+    private var playbackTask: Task<Void, Never>?
 
     init(
         videoFrameListener: @escaping MediaVideoFrameListener,
@@ -100,14 +179,9 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
         self.videoFrameListener = videoFrameListener
         self.audioFrameListener = audioFrameListener
         self.errorListener = errorListener
-        super.init()
-        videoPlayer.actionAtItemEnd = .none
-        videoPlayer.automaticallyWaitsToMinimizeStalling = false
-        audioPlayer.actionAtItemEnd = .none
-        audioPlayer.automaticallyWaitsToMinimizeStalling = true
     }
 
-    /// 配置纯视频播放器、独立音频播放器和音频处理 Tap。
+    /// 校验文件并保存统一解码所需的媒体配置。
     func configure(
         fileURL: URL,
         outputWidth: Int,
@@ -122,88 +196,84 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
               outputHeight > 0,
               outputWidth.isMultiple(of: 2),
               outputHeight.isMultiple(of: 2),
-              frameRate > 0 else {
+              frameRate > 0,
+              configuration == nil,
+              playbackTask == nil else {
             throw Self.mediaError("Video player configuration is invalid")
-        }
-        guard !isConfigured else {
-            throw Self.mediaError(
-                "Stop the current video player before configuring another file"
-            )
         }
 
         let asset = AVURLAsset(url: fileURL)
-        let videoItem = try await makeVideoPlayerItem(asset: asset)
-        let output = AVPlayerItemVideoOutput(
-            pixelBufferAttributes: Self.pixelBufferAttributes
-        )
-        videoItem.add(output)
-
-        var resolvedAudioItem: AVPlayerItem?
-        var resolvedAudioTap: PlayerAudioTap?
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        guard !videoTracks.isEmpty else {
+            throw Self.mediaError("The media file does not contain a video track")
+        }
         if hasAudio {
-            let audioPlayback = try await makeAudioPlayback(asset: asset)
-            resolvedAudioItem = audioPlayback.item
-            resolvedAudioTap = audioPlayback.tap
+            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+            guard !audioTracks.isEmpty else {
+                throw Self.mediaError("The media file does not contain an audio track")
+            }
+        }
+        let duration = try await asset.load(.duration)
+        let durationSeconds = CMTimeGetSeconds(duration)
+        guard durationSeconds.isFinite, durationSeconds > 0 else {
+            throw Self.mediaError("The media file has an invalid duration")
         }
 
-        self.outputWidth = outputWidth
-        self.outputHeight = outputHeight
-        outputRotation = rotation
-        self.frameRate = frameRate
-        videoOutput = output
-        audioTap = resolvedAudioTap
-        videoPlayerItem = videoItem
-        audioPlayerItem = resolvedAudioItem
-        videoPlayer.replaceCurrentItem(with: videoItem)
-        audioPlayer.replaceCurrentItem(with: resolvedAudioItem)
-        observeEnd(of: videoItem)
-        isConfigured = true
+        configuration = PlaybackConfiguration(
+            fileURL: fileURL,
+            outputWidth: outputWidth,
+            outputHeight: outputHeight,
+            rotation: rotation,
+            frameRate: frameRate,
+            hasAudio: hasAudio,
+            durationSeconds: durationSeconds
+        )
     }
 
-    /// 从当前文件位置开始播放并输出音视频帧。
-    func start() throws {
-        guard isConfigured, videoPlayerItem != nil else {
+    /// 启动共用时间轴的音视频解码任务。
+    func start() async throws {
+        guard let configuration, playbackTask == nil else {
             throw Self.mediaError("Configure the video player before starting it")
         }
-        startDisplayLink()
-        startPlayers()
-        isPlaying = true
-    }
 
-    /// 设置独立音频播放器静音状态，不影响前置音频 Tap 的 RTC 帧输出。
-    func setLocalAudioPreviewEnabled(_ enabled: Bool) {
-        audioPreviewVersion &+= 1
-        let version = audioPreviewVersion
-        guard enabled else {
-            audioPlayer.isMuted = true
-            return
-        }
-        guard isConfigured, isPlaying, audioPlayerItem != nil else {
-            audioPlayer.isMuted = false
-            return
-        }
-
-        audioPlayer.isMuted = true
-        audioPlayer.pause()
-        audioPlayer.seek(
-            to: videoPlayer.currentTime(),
-            toleranceBefore: .zero,
-            toleranceAfter: .zero
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self,
-                      self.isConfigured,
-                      self.audioPreviewVersion == version else {
-                    return
-                }
-                self.audioTap?.reset()
-                self.audioPlayer.isMuted = false
-                self.audioPlayer.play()
+        audioPreviewPlayer.setPlaybackEnabled(configuration.hasAudio)
+        audioPreviewPlayer.setMuted(false)
+        let timeline = MediaPlaybackTimeline(
+            mediaDurationSeconds: configuration.durationSeconds
+        )
+        let videoListener = videoFrameListener
+        let audioListener = audioFrameListener
+        let errorListener = errorListener
+        let audioPreviewPlayer = audioPreviewPlayer
+        let previewDispatcher = previewDispatcher
+        playbackTask = Task.detached(priority: .userInitiated) {
+            do {
+                try await Self.play(
+                    configuration: configuration,
+                    timeline: timeline,
+                    videoHandler: { frame in
+                        previewDispatcher.enqueue(frame)
+                        try videoListener(frame)
+                    },
+                    audioHandler: { frame in
+                        audioPreviewPlayer.enqueue(frame)
+                        try audioListener(frame)
+                    }
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                errorListener(XmaxError.from(error))
             }
         }
     }
 
-    /// 将 AVPlayerLayer 绑定到 SDK 视频视图。
+    /// 切换本地 PCM 静音状态；播放时间轴和 RTC 推帧保持连续。
+    func setLocalAudioPreviewMuted(_ muted: Bool) {
+        audioPreviewPlayer.setMuted(muted)
+    }
+
+    /// 绑定 SDK 内部的解码视频渲染视图。
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
@@ -214,220 +284,311 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
                 message: "File video tracks require an XmaxVideoView"
             )
         }
-        previewView = videoView
-        videoView.displayPlayer(videoPlayer, contentMode: contentMode)
+        previewPresenter.attach(to: videoView, contentMode: contentMode)
     }
 
-    /// 从 SDK 视频视图解除 AVPlayerLayer。
+    /// 解除 SDK 内部的解码视频渲染视图。
     func detachPreview(from view: UIView) {
-        guard let videoView = view as? XmaxVideoView else {
-            return
-        }
-        videoView.clearPlayer(videoPlayer)
-        if previewView === videoView {
-            previewView = nil
-        }
+        guard let videoView = view as? XmaxVideoView else { return }
+        previewPresenter.detach(from: videoView)
     }
 
-    /// 停止播放器并释放输出、Tap 和渲染资源。
-    func stop() {
-        isConfigured = false
-        isPlaying = false
-        isFrameConversionPending = false
-        audioPreviewVersion &+= 1
-        displayLink?.invalidate()
-        displayLink = nil
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-            self.endObserver = nil
-        }
-        videoPlayer.pause()
-        audioPlayer.pause()
-        videoPlayer.replaceCurrentItem(with: nil)
-        audioPlayer.replaceCurrentItem(with: nil)
-        videoPlayerItem = nil
-        audioPlayerItem = nil
-        videoOutput = nil
-        audioTap = nil
-        previewView = nil
-        outputWidth = 0
-        outputHeight = 0
-        outputRotation = .rotation0
-        frameRate = 0
+    /// 取消任务并等待音视频 reader 退出后释放配置。
+    func stop() async {
+        let task = playbackTask
+        playbackTask = nil
+        task?.cancel()
+        await task?.value
+        await audioPreviewPlayer.stop()
+        previewDispatcher.reset()
+        previewPresenter.clear()
+        configuration = nil
     }
 }
 
 private extension VideoPlayerController {
-    struct AudioPlayback {
-        let item: AVPlayerItem
-        let tap: PlayerAudioTap
-    }
+    typealias VideoHandler = @Sendable (VideoFrame) throws -> Void
+    typealias AudioHandler = @Sendable (AudioFrame) throws -> Void
 
-    func makeVideoPlayerItem(asset: AVAsset) async throws -> AVPlayerItem {
-        let tracks = try await asset.loadTracks(withMediaType: .video)
-        guard let sourceTrack = tracks.first else {
-            throw Self.mediaError("The media file does not contain a video track")
-        }
-        let timeRange = try await sourceTrack.load(.timeRange)
-        let preferredTransform = try await sourceTrack.load(
-            .preferredTransform
-        )
-        let composition = AVMutableComposition()
-        guard let track = composition.addMutableTrack(
-            withMediaType: .video,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        ) else {
-            throw Self.mediaError("Failed to create the video playback track")
-        }
-        try track.insertTimeRange(
-            timeRange,
-            of: sourceTrack,
-            at: .zero
-        )
-        track.preferredTransform = preferredTransform
-        return AVPlayerItem(asset: composition)
-    }
-
-    func makeAudioPlayback(asset: AVAsset) async throws -> AudioPlayback {
-        let tracks = try await asset.loadTracks(withMediaType: .audio)
-        guard let sourceTrack = tracks.first else {
-            throw Self.mediaError("The media file does not contain an audio track")
-        }
-        let timeRange = try await sourceTrack.load(.timeRange)
-        let composition = AVMutableComposition()
-        guard let track = composition.addMutableTrack(
-            withMediaType: .audio,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        ) else {
-            throw Self.mediaError("Failed to create the audio playback track")
-        }
-        try track.insertTimeRange(
-            timeRange,
-            of: sourceTrack,
-            at: .zero
-        )
-        let item = AVPlayerItem(asset: composition)
-
-        let tap = try PlayerAudioTap(
-            frameListener: audioFrameListener,
-            errorListener: errorListener
-        )
-        let parameters = AVMutableAudioMixInputParameters(track: track)
-        parameters.audioTapProcessor = tap.takeProcessingTap()
-        let audioMix = AVMutableAudioMix()
-        audioMix.inputParameters = [parameters]
-        item.audioMix = audioMix
-        return AudioPlayback(item: item, tap: tap)
-    }
-
-    func observeEnd(of item: AVPlayerItem) {
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-        }
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                await self?.restartAfterEnd(item: item)
-            }
-        }
-    }
-
-    func restartAfterEnd(item: AVPlayerItem) async {
-        guard isConfigured, videoPlayerItem === item else {
-            return
-        }
-        videoPlayer.pause()
-        audioPlayer.pause()
-        await seek(videoPlayer, to: .zero)
-        if audioPlayerItem != nil {
-            await seek(audioPlayer, to: .zero)
-        }
-        audioTap?.reset()
-        startPlayers()
-        isPlaying = true
-    }
-
-    func startPlayers() {
-        if audioPlayerItem != nil {
-            audioPlayer.play()
-        }
-        videoPlayer.play()
-    }
-
-    func seek(_ player: AVPlayer, to time: CMTime) async {
-        await withCheckedContinuation { continuation in
-            player.seek(
-                to: time,
-                toleranceBefore: .zero,
-                toleranceAfter: .zero
-            ) { _ in
-                continuation.resume()
-            }
-        }
-    }
-
-    func startDisplayLink() {
-        guard displayLink == nil else {
-            return
-        }
-        let displayLink = CADisplayLink(
-            target: self,
-            selector: #selector(handleDisplayLink(_:))
-        )
-        displayLink.preferredFramesPerSecond = frameRate
-        displayLink.add(to: .main, forMode: .common)
-        self.displayLink = displayLink
-    }
-
-    @objc func handleDisplayLink(_ displayLink: CADisplayLink) {
-        guard isConfigured,
-              isPlaying,
-              !isFrameConversionPending,
-              let videoOutput else {
-            return
-        }
-        let itemTime = videoOutput.itemTime(
-            forHostTime: displayLink.targetTimestamp
-        )
-        guard videoOutput.hasNewPixelBuffer(forItemTime: itemTime),
-              let pixelBuffer = videoOutput.copyPixelBuffer(
-                  forItemTime: itemTime,
-                  itemTimeForDisplay: nil
-              ) else {
-            return
-        }
-
-        let pixelBufferBox = PixelBufferBox(value: pixelBuffer)
-        let width = outputWidth
-        let height = outputHeight
-        let rotation = outputRotation
-        let timestampUs = Int64(
-            DispatchTime.now().uptimeNanoseconds / 1_000
-        )
-        isFrameConversionPending = true
-        frameQueue.async { [weak self] in
-            do {
-                let frame = try NV12VideoFrameConverter.convert(
-                    pixelBuffer: pixelBufferBox.value,
-                    outputWidth: width,
-                    outputHeight: height,
-                    rotation: rotation,
-                    timestampUs: timestampUs
+    private nonisolated static func play(
+        configuration: PlaybackConfiguration,
+        timeline: MediaPlaybackTimeline,
+        videoHandler: @escaping VideoHandler,
+        audioHandler: @escaping AudioHandler
+    ) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await produceVideoFrames(
+                    configuration: configuration,
+                    timeline: timeline,
+                    handler: videoHandler
                 )
-                try self?.videoFrameListener(frame)
-            } catch {
-                self?.errorListener(XmaxError.from(error))
             }
-            Task { @MainActor [weak self] in
-                self?.isFrameConversionPending = false
+            if configuration.hasAudio {
+                group.addTask {
+                    try await produceAudioFrames(
+                        configuration: configuration,
+                        timeline: timeline,
+                        handler: audioHandler
+                    )
+                }
             }
+            try await group.waitForAll()
         }
     }
 
-    static func mediaError(_ message: String) -> XmaxError {
+    private nonisolated static func produceVideoFrames(
+        configuration: PlaybackConfiguration,
+        timeline: MediaPlaybackTimeline,
+        handler: @escaping VideoHandler
+    ) async throws {
+        let frameIntervalSeconds = 1 / Double(configuration.frameRate)
+        let frameIntervalNanoseconds = UInt64(
+            frameIntervalSeconds * 1_000_000_000
+        )
+        var loopIndex = 0
+
+        while true {
+            try Task.checkCancellation()
+            let asset = AVURLAsset(url: configuration.fileURL)
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            guard let track = tracks.first else {
+                throw mediaError("The media file does not contain a video track")
+            }
+            let timeRange = try await track.load(.timeRange)
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderTrackOutput(
+                track: track,
+                outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String:
+                        Int(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange),
+                ]
+            )
+            output.alwaysCopiesSampleData = false
+            guard reader.canAdd(output) else {
+                throw mediaError("The media video track cannot be decoded")
+            }
+            reader.add(output)
+            guard reader.startReading() else {
+                throw mediaError(
+                    reader.error?.localizedDescription ??
+                        "The media video track could not start decoding"
+                )
+            }
+            defer {
+                if reader.status == .reading {
+                    reader.cancelReading()
+                }
+            }
+
+            var yieldedFrame = false
+            var lastYieldedSeconds = -Double.infinity
+            while reader.status == .reading {
+                try Task.checkCancellation()
+                guard let sampleBuffer = output.copyNextSampleBuffer() else {
+                    break
+                }
+                let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                let relativeTime = CMTimeSubtract(pts, timeRange.start)
+                let relativeSeconds = max(0, CMTimeGetSeconds(relativeTime))
+                guard relativeSeconds.isFinite,
+                      relativeSeconds - lastYieldedSeconds >=
+                        frameIntervalSeconds * 0.75,
+                      let pixelBuffer = CMSampleBufferGetImageBuffer(
+                          sampleBuffer
+                      ) else {
+                    continue
+                }
+
+                let target = timeline.target(
+                    loopIndex: loopIndex,
+                    mediaOffsetSeconds: relativeSeconds
+                )
+                let now = DispatchTime.now().uptimeNanoseconds
+                if now > target, now - target > frameIntervalNanoseconds {
+                    continue
+                }
+                let frame = try NV12VideoFrameConverter.convert(
+                    pixelBuffer: pixelBuffer,
+                    outputWidth: configuration.outputWidth,
+                    outputHeight: configuration.outputHeight,
+                    rotation: configuration.rotation,
+                    timestampUs: monotonicTimestampUs()
+                )
+                try await sleep(untilNanoseconds: target)
+                try handler(frame)
+                yieldedFrame = true
+                lastYieldedSeconds = relativeSeconds
+            }
+
+            if reader.status == .failed {
+                throw mediaError(
+                    reader.error?.localizedDescription ??
+                        "The media video track failed while decoding"
+                )
+            }
+            guard yieldedFrame else {
+                throw mediaError("The media file produced no video frames")
+            }
+            loopIndex += 1
+            let nextLoop = timeline.target(
+                loopIndex: loopIndex,
+                mediaOffsetSeconds: 0
+            )
+            try await sleep(untilNanoseconds: nextLoop)
+        }
+    }
+
+    private nonisolated static func produceAudioFrames(
+        configuration: PlaybackConfiguration,
+        timeline: MediaPlaybackTimeline,
+        handler: @escaping AudioHandler
+    ) async throws {
+        var loopIndex = 0
+        while true {
+            try Task.checkCancellation()
+            let asset = AVURLAsset(url: configuration.fileURL)
+            let tracks = try await asset.loadTracks(withMediaType: .audio)
+            guard let track = tracks.first else {
+                throw mediaError("The media file does not contain an audio track")
+            }
+            let timeRange = try await track.load(.timeRange)
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderAudioMixOutput(
+                audioTracks: [track],
+                audioSettings: [
+                    AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVSampleRateKey: AudioFrame.sampleRate,
+                    AVNumberOfChannelsKey: AudioFrame.channelCount,
+                    AVLinearPCMBitDepthKey: 16,
+                    AVLinearPCMIsFloatKey: false,
+                    AVLinearPCMIsBigEndianKey: false,
+                    AVLinearPCMIsNonInterleaved: false,
+                ]
+            )
+            output.alwaysCopiesSampleData = false
+            guard reader.canAdd(output) else {
+                throw mediaError("The media audio track cannot be decoded")
+            }
+            reader.add(output)
+            guard reader.startReading() else {
+                throw mediaError(
+                    reader.error?.localizedDescription ??
+                        "The media audio track could not start decoding"
+                )
+            }
+            defer {
+                if reader.status == .reading {
+                    reader.cancelReading()
+                }
+            }
+
+            var packetizer = PCMFramePacketizer(
+                totalSamples: timeline.cycleSampleCount
+            )
+            while reader.status == .reading {
+                try Task.checkCancellation()
+                guard let sampleBuffer = output.copyNextSampleBuffer() else {
+                    break
+                }
+                let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                let relativeTime = CMTimeSubtract(pts, timeRange.start)
+                let relativeSeconds = max(0, CMTimeGetSeconds(relativeTime))
+                guard relativeSeconds.isFinite else { continue }
+                let startSample = Int(
+                    (relativeSeconds * Double(AudioFrame.sampleRate)).rounded()
+                )
+                packetizer.append(
+                    try pcmData(from: sampleBuffer),
+                    at: startSample
+                )
+                try await emitAudioFrames(
+                    packetizer: &packetizer,
+                    loopIndex: loopIndex,
+                    timeline: timeline,
+                    handler: handler
+                )
+            }
+
+            if reader.status == .failed {
+                throw mediaError(
+                    reader.error?.localizedDescription ??
+                        "The media audio track failed while decoding"
+                )
+            }
+            packetizer.finishWithSilence()
+            try await emitAudioFrames(
+                packetizer: &packetizer,
+                loopIndex: loopIndex,
+                timeline: timeline,
+                handler: handler
+            )
+            loopIndex += 1
+        }
+    }
+
+    nonisolated static func emitAudioFrames(
+        packetizer: inout PCMFramePacketizer,
+        loopIndex: Int,
+        timeline: MediaPlaybackTimeline,
+        handler: @escaping AudioHandler
+    ) async throws {
+        while let packet = packetizer.nextFrame() {
+            let target = timeline.target(
+                loopIndex: loopIndex,
+                sampleOffset: packet.sampleOffset
+            )
+            let now = DispatchTime.now().uptimeNanoseconds
+            if now < target {
+                try await sleep(untilNanoseconds: target)
+            } else if now - target > 30_000_000 {
+                continue
+            }
+            try handler(
+                AudioFrame(
+                    data: packet.data,
+                    timestampUs: monotonicTimestampUs()
+                )
+            )
+        }
+    }
+
+    nonisolated static func pcmData(
+        from sampleBuffer: CMSampleBuffer
+    ) throws -> Data {
+        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+            return Data()
+        }
+        let length = CMBlockBufferGetDataLength(blockBuffer)
+        var data = Data(count: length)
+        let status = data.withUnsafeMutableBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else {
+                return kCMBlockBufferBadCustomBlockSourceErr
+            }
+            return CMBlockBufferCopyDataBytes(
+                blockBuffer,
+                atOffset: 0,
+                dataLength: length,
+                destination: baseAddress
+            )
+        }
+        guard status == kCMBlockBufferNoErr else {
+            throw mediaError("The decoded PCM data could not be read")
+        }
+        return data
+    }
+
+    nonisolated static func monotonicTimestampUs() -> Int64 {
+        Int64(DispatchTime.now().uptimeNanoseconds / 1_000)
+    }
+
+    nonisolated static func sleep(untilNanoseconds target: UInt64) async throws {
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now < target else { return }
+        try await Task.sleep(nanoseconds: target - now)
+    }
+
+    nonisolated static func mediaError(_ message: String) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }

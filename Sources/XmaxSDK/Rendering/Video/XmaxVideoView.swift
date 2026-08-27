@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import CoreImage
+import CoreMedia
 import CoreVideo
 import UIKit
 
@@ -67,6 +68,8 @@ public final class XmaxVideoView: UIView {
 
     // 视频预览
     private var playerLayer: AVPlayerLayer?
+    private var decodedVideoLayer: AVSampleBufferDisplayLayer?
+    private var decodedVideoTimebase: CMTimebase?
 
     // 图片预览
     private lazy var imageView: UIImageView = {
@@ -132,6 +135,7 @@ public final class XmaxVideoView: UIView {
     public override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer?.frame = bounds
+        decodedVideoLayer?.frame = bounds
         trajectoryOverlayView.frame = bounds
         bringSubviewToFront(trajectoryOverlayView)
     }
@@ -166,6 +170,7 @@ extension XmaxVideoView {
         _ player: AVPlayer,
         contentMode: VideoContentMode
     ) {
+        clearDecodedVideoPreview()
         let playerLayer: AVPlayerLayer
         if let currentLayer = self.playerLayer {
             playerLayer = currentLayer
@@ -188,6 +193,105 @@ extension XmaxVideoView {
         playerLayer?.player = nil
         playerLayer?.removeFromSuperlayer()
         playerLayer = nil
+    }
+
+    func prepareDecodedVideoPreview(contentMode: VideoContentMode) {
+        playerLayer?.player = nil
+        playerLayer?.removeFromSuperlayer()
+        playerLayer = nil
+
+        let decodedVideoLayer: AVSampleBufferDisplayLayer
+        if let currentLayer = self.decodedVideoLayer {
+            decodedVideoLayer = currentLayer
+        } else {
+            decodedVideoLayer = AVSampleBufferDisplayLayer()
+            decodedVideoLayer.frame = bounds
+            layer.insertSublayer(decodedVideoLayer, at: 0)
+            self.decodedVideoLayer = decodedVideoLayer
+
+            var timebase: CMTimebase?
+            let status = CMTimebaseCreateWithSourceClock(
+                allocator: kCFAllocatorDefault,
+                sourceClock: CMClockGetHostTimeClock(),
+                timebaseOut: &timebase
+            )
+            if status == noErr, let timebase {
+                CMTimebaseSetTime(timebase, time: .zero)
+                CMTimebaseSetRate(timebase, rate: 1)
+                decodedVideoLayer.controlTimebase = timebase
+                decodedVideoTimebase = timebase
+            }
+        }
+        decodedVideoLayer.videoGravity = contentMode == .fit ?
+            .resizeAspect : .resizeAspectFill
+    }
+
+    func displayDecodedVideoFrame(
+        _ frame: VideoFrame,
+        contentMode: VideoContentMode
+    ) {
+        if decodedVideoLayer == nil {
+            prepareDecodedVideoPreview(contentMode: contentMode)
+        }
+        guard let decodedVideoLayer,
+              let decodedVideoTimebase else {
+            return
+        }
+        decodedVideoLayer.videoGravity = contentMode == .fit ?
+            .resizeAspect : .resizeAspectFill
+        if decodedVideoLayer.requiresFlushToResumeDecoding {
+            decodedVideoLayer.flush()
+        }
+
+        do {
+            let pixelBuffer = try Self.makeNV12PixelBuffer(frame)
+            var formatDescription: CMVideoFormatDescription?
+            guard CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescriptionOut: &formatDescription
+            ) == noErr,
+                  let formatDescription else {
+                throw Self.invalidImageFrameError
+            }
+            let presentationTime = CMTimebaseGetTime(decodedVideoTimebase)
+            var timing = CMSampleTimingInfo(
+                duration: .invalid,
+                presentationTimeStamp: presentationTime,
+                decodeTimeStamp: .invalid
+            )
+            var sampleBuffer: CMSampleBuffer?
+            guard CMSampleBufferCreateReadyWithImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescription: formatDescription,
+                sampleTiming: &timing,
+                sampleBufferOut: &sampleBuffer
+            ) == noErr,
+                  let sampleBuffer else {
+                throw Self.invalidImageFrameError
+            }
+            CMSetAttachment(
+                sampleBuffer,
+                key: kCMSampleAttachmentKey_DisplayImmediately,
+                value: kCFBooleanTrue,
+                attachmentMode: kCMAttachmentMode_ShouldPropagate
+            )
+            decodedVideoLayer.enqueue(sampleBuffer)
+        } catch {
+            Self.logRenderingFailure(
+                title: "显示本地视频帧失败 (Failed to Display Local Video Frame)",
+                error: error
+            )
+        }
+    }
+
+    func clearDecodedVideoPreview() {
+        decodedVideoLayer?.flushAndRemoveImage()
+        decodedVideoLayer?.controlTimebase = nil
+        decodedVideoLayer?.removeFromSuperlayer()
+        decodedVideoLayer = nil
+        decodedVideoTimebase = nil
     }
 
     func attachCurrentTrackIfNeeded() {
@@ -322,7 +426,25 @@ extension XmaxVideoView {
     static func makeNV12Image(_ frame: VideoFrame) throws -> UIImage {
         let width = frame.format.width
         let height = frame.format.height
-        guard width > 0,
+        let pixelBuffer = try makeNV12PixelBuffer(frame)
+
+        let image = CIImage(cvPixelBuffer: pixelBuffer)
+        guard let cgImage = imageContext.createCGImage(
+            image,
+            from: CGRect(x: 0, y: 0, width: width, height: height)
+        ) else {
+            throw invalidImageFrameError
+        }
+        return UIImage(cgImage: cgImage)
+    }
+
+    static func makeNV12PixelBuffer(
+        _ frame: VideoFrame
+    ) throws -> CVPixelBuffer {
+        let width = frame.format.width
+        let height = frame.format.height
+        guard frame.format.pixelFormat == .nv12,
+              width > 0,
               height > 0,
               width.isMultiple(of: 2),
               height.isMultiple(of: 2),
@@ -346,8 +468,8 @@ extension XmaxVideoView {
             throw invalidImageFrameError
         }
 
-        guard CVPixelBufferLockBaseAddress(pixelBuffer, [])
-            == kCVReturnSuccess else {
+        guard CVPixelBufferLockBaseAddress(pixelBuffer, []) ==
+                kCVReturnSuccess else {
             throw invalidImageFrameError
         }
         defer {
@@ -374,15 +496,7 @@ extension XmaxVideoView {
                 1
             )
         )
-
-        let image = CIImage(cvPixelBuffer: pixelBuffer)
-        guard let cgImage = imageContext.createCGImage(
-            image,
-            from: CGRect(x: 0, y: 0, width: width, height: height)
-        ) else {
-            throw invalidImageFrameError
-        }
-        return UIImage(cgImage: cgImage)
+        return pixelBuffer
     }
 
     static func copyPlane(

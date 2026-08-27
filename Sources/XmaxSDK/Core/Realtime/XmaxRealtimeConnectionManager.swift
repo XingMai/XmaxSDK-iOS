@@ -182,14 +182,7 @@ private extension XmaxRealtimeConnectionManager {
     }
 
     func resetRemoteRendering(track: RealtimeVideoTrack?) async {
-        do {
-            try await renderController.resetRemoteTrack(track)
-        } catch {
-            Self.logCleanupFailure(
-                title: "重置远端视频渲染失败 (Failed to Reset Remote Video Rendering)",
-                error: error
-            )
-        }
+        await renderController.resetRemoteTrack(track)
     }
 
     func closeSessionAfterFailedConnection(_ sessionID: String) async {

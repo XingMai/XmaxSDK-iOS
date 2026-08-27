@@ -252,7 +252,11 @@ final class StreamController: StreamControlling, RtcEventListener,
     }
 
     func pushLocalVideoFrame(_ frame: VideoFrame) throws {
-        let seiData = stateLock.withLock { state.generationTask?.seiData }
+        guard let seiData = stateLock.withLock({
+            state.generationTask?.seiData
+        }) else {
+            return
+        }
         do {
             try rtcManager.pushExternalVideoFrame(frame, seiData: seiData)
         } catch {
@@ -354,12 +358,11 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    @MainActor
     @discardableResult
     func stopStreamGeneration(
         taskID: String,
         reason: String = "Realtime generation start cancelled"
-    ) -> String {
+    ) async -> String {
         let result = operationLock.withLock { () -> StopResult in
             let currentTaskID = stateLock.withLock {
                 state.generationTask?.id ?? ""
@@ -404,13 +407,12 @@ final class StreamController: StreamControlling, RtcEventListener,
                 )
             }
         }
-        clearRemoteStream()
+        await clearRemoteStream()
         return result.taskID
     }
 
-    @MainActor
-    func resetStream() {
-        _ = stopStreamGeneration(taskID: "")
+    func resetStream() async {
+        _ = await stopStreamGeneration(taskID: "")
         operationLock.withLock {
             let previousState = stateLock.withLock { () -> State in
                 let previousState = state

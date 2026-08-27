@@ -210,12 +210,12 @@ actor MediaController: MediaControlling {
         await stopSource(ifKindIs: .video)
     }
 
-    /// 启用或暂停文件视频的本地音频预览。
-    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
+    /// 静音或恢复文件视频的本地音频预览。
+    func setLocalAudioPreviewMuted(_ muted: Bool) async throws {
         guard activeSource?.kind == .video, let videoController else {
             return
         }
-        try await videoController.setLocalAudioPreviewEnabled(enabled)
+        try await videoController.setLocalAudioPreviewMuted(muted)
     }
 
     /// 在当前相机来源空闲时切换前置或后置摄像头。

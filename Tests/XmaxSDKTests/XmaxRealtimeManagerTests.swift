@@ -252,10 +252,10 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await startTask.value
 
         XCTAssertTrue(components.videoSource.calls.contains(
-            .setLocalAudioPreviewEnabled(false)
+            .setLocalAudioPreviewMuted(true)
         ))
         XCTAssertFalse(components.videoSource.calls.contains(
-            .setLocalAudioPreviewEnabled(true)
+            .setLocalAudioPreviewMuted(false)
         ))
         XCTAssertTrue(components.rtcManager.calls.contains(.publishLocalAudio))
         XCTAssertTrue(components.rtcManager.calls.contains(
@@ -267,7 +267,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         await components.manager.stopGeneration()
         XCTAssertTrue(components.videoSource.calls.contains(
-            .setLocalAudioPreviewEnabled(true)
+            .setLocalAudioPreviewMuted(false)
         ))
         XCTAssertTrue(components.rtcManager.calls.contains(
             .subscribeRemoteAudio(
@@ -347,10 +347,10 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         }
 
         XCTAssertTrue(components.videoSource.calls.contains(
-            .setLocalAudioPreviewEnabled(false)
+            .setLocalAudioPreviewMuted(true)
         ))
         XCTAssertTrue(components.videoSource.calls.contains(
-            .setLocalAudioPreviewEnabled(true)
+            .setLocalAudioPreviewMuted(false)
         ))
 
         try await components.manager.stopLocalVideoStream()
@@ -633,7 +633,7 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
-                try renderController.setRemoteStream(stream)
+                renderController.setRemoteStream(stream)
             },
             generationTiming: StreamGenerationTiming(
                 timeoutNanoseconds: 1_000_000_000

@@ -5,7 +5,7 @@ import UIKit
 enum MediaSourceControllingCall: Equatable {
     case prepare(URL, RealtimeVideoFormat?)
     case start
-    case setLocalAudioPreviewEnabled(Bool)
+    case setLocalAudioPreviewMuted(Bool)
     case stop
 }
 
@@ -62,9 +62,9 @@ final class MediaSourceControllingStub:
         }
     }
 
-    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
+    func setLocalAudioPreviewMuted(_ muted: Bool) async throws {
         lock.withLock {
-            storedCalls.append(.setLocalAudioPreviewEnabled(enabled))
+            storedCalls.append(.setLocalAudioPreviewMuted(muted))
         }
     }
 

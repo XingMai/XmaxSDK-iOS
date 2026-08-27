@@ -4,8 +4,8 @@
 >
 > 基线提交：`cc35183 feat: add image and video media pipelines`
 >
-> 更新：文件视频旧的双 AVAssetReader、独立 PCM 播放与 MediaTimeline 方案已被
-> 系统播放器链路取代；当前实现以本文末尾“文件视频解耦播放器链路”为准。
+> 更新：文件视频使用双 `AVAssetReader` 和共享 `MediaPlaybackTimeline`，当前实现
+> 以本文末尾“文件视频统一解码链路”为准。
 
 当前图片和文件视频都被抽象为“本地外部视频源”。Media 层只产生中性
 音视频帧，Core 组装根把帧监听器连接到
@@ -27,8 +27,9 @@ XmaxRealtimeManager
         │       │                        └── DecodedImage → BGRA 帧
         │       └── 视频：VideoController
         │                  └── MediaSourceController
-        │                         ├── VideoSourceController → NV12 帧
-        │                         └── AudioSourceController → PCM 音频帧
+        │                         └── VideoPlayerController
+        │                                ├── 视频 reader → NV12 帧
+        │                                └── 音频 reader → PCM 音频帧
         │
         └── StreamController
             统一流层入口
@@ -42,7 +43,8 @@ RtcManager → 火山 RTC
 
 VideoRenderRegistry → XmaxVideoView
         ├── 图片轨道：UIImageView
-        └── 摄像头、视频和远端轨道：RTC Canvas
+        ├── 文件视频：AVSampleBufferDisplayLayer
+        └── 摄像头和远端轨道：RTC Canvas
 ```
 
 ## 1. 统一入口和资源所有权
@@ -187,12 +189,11 @@ VideoController
     ↓
 MediaSourceController.prepare()
     ├── MediaFileMetadataManager
-    ├── VideoSourceController.configure()
-    └── AudioSourceController.configure()（有音轨时）
+    └── VideoPlayerController.configure()
     ↓
-共享 MediaTimeline
-    ├── VideoFileFrameDecoder → NV12
-    └── AudioFileFrameDecoder → PCM16
+共享 MediaPlaybackTimeline
+    ├── 视频 AVAssetReader → NV12
+    └── 音频 AVAssetReader → PCM16
     ↓
 StreamController
     ↓
@@ -224,19 +225,19 @@ RtcManager
 的物理宽高就是目标显示宽高，旋转信息重置为 0。本地预览和 RTC 编码因此直接
 消费同一份已定向像素，不依赖 RTC 对旋转元数据采用一致的渲染策略。
 
-### 3.3 解耦视频预览与音频输出
+### 3.3 统一音视频时间轴
 
-文件视频使用两个同步启动并持续运行的系统播放器：纯视频播放器负责本地预览和
-RTC 视频帧，纯音频播放器负责本地声音和 RTC 音频帧。RTC 重配置共享音频会话
-时只会影响音频播放器，不会暂停本地视频画面。生成开始、Loading、远端显示和
-停止生成都不会暂停视频播放器或覆盖冻结帧；停止生成后，音频播放器会对齐当前
-视频位置再恢复本地声音。
+文件视频由音频和视频 `AVAssetReader` 解码，两条链路共享同一个单调绝对时间轴、
+起点和循环边界。视频处理后的同一份 NV12 帧同时用于本地预览和 RTC；音频切分
+后的同一份 10 ms PCM 帧同时用于本地 `AVAudioEngine` 和 RTC。生成开始、Loading、
+远端显示和停止生成都不会暂停统一时间轴或覆盖冻结帧；生成期间只停止本地 PCM
+的声音输出，播放器、解码和 RTC 推帧继续运行。
 
 ### 3.4 视频解码与推帧
 
-`VideoSourceController` 执行以下步骤：
+`VideoPlayerController` 的视频 reader 执行以下步骤：
 
-1. 使用 `VideoFileFrameDecoder` 解码文件。
+1. 使用 `AVAssetReaderTrackOutput` 解码文件。
 2. 通过 AVFoundation 输出源文件 NV12。
 3. 根据目标显示尺寸和源文件旋转信息确定裁剪、缩放的中间尺寸。
 4. 使用 Accelerate/vImage 按目标比例居中裁剪并高质量缩放 NV12：
@@ -272,7 +273,7 @@ VideoFrame
 
 ### 3.5 音频解码与推帧
 
-如果视频包含音轨，`AudioSourceController` 会：
+如果视频包含音轨，`VideoPlayerController` 的音频 reader 会：
 
 1. 使用 AVFoundation 解码音频。
 2. 统一转换为：
@@ -280,9 +281,9 @@ VideoFrame
    - 单声道。
    - PCM16。
 3. 切分成每帧 10ms，即 480 个采样点。
-4. 使用和视频相同的 `MediaTimeline`。
+4. 使用和视频相同的 `MediaPlaybackTimeline`。
 5. 同时送往：
-   - `AudioManager`：本地播放。
+   - `LocalAudioPreviewPlayer`：本地播放。
    - `StreamController`：RTC 外部音频流入口。
 
 尚未连接房间时，RTC 音频推帧会被流层忽略，但本地音频仍然播放。连接并发布本地音频后，PCM 帧才真正推给 RTC。
@@ -296,7 +297,7 @@ VideoFrame
 3. 启用 RTC 外部视频源。
 4. 如果有音轨，启用 RTC 外部音频源。
 5. 注册本地预览。
-6. 同时启动音视频 decoder。
+6. 同时启动共享时间轴上的音视频 reader。
 7. 创建本地 `RealtimeMediaStream`。
 
 `XmaxRealtimeManager` 取得最终 `RealtimeVideoFormat` 后，会在把本地轨道返回给
@@ -314,11 +315,10 @@ RTC 本地 Canvas 已使用与文件帧相同的显示宽高；建立实时连�
 
 - `Sources/XmaxSDK/Media/Video/VideoController.swift`
 - `Sources/XmaxSDK/Media/MediaSourceController.swift`
-- `Sources/XmaxSDK/Media/MediaTimeline.swift`
-- `Sources/XmaxSDK/Media/Video/VideoSourceController.swift`
-- `Sources/XmaxSDK/Media/Audio/AudioSourceController.swift`
-- `Sources/XmaxSDK/Foundation/Media/Video/VideoFileFrameDecoder.swift`
-- `Sources/XmaxSDK/Foundation/Media/Audio/AudioFileFrameDecoder.swift`
+- `Sources/XmaxSDK/Media/Video/VideoPlayerController.swift`
+- `Sources/XmaxSDK/Media/Video/MediaPlaybackTimeline.swift`
+- `Sources/XmaxSDK/Media/Audio/PCMFramePacketizer.swift`
+- `Sources/XmaxSDK/Media/Audio/LocalAudioPreviewPlayer.swift`
 
 ## 4. 连接与发布
 
@@ -372,7 +372,7 @@ let remoteStream = try await realtime.startGeneration(
 ```
 
 这个组合入口会按需建立 Session 和 RTC 连接，因此未点击生成时不会因预连接
-产生费用。如果已经连接，则直接复用当前连接。文件视频播放器始终持续运行，
+产生费用。如果已经连接，则直接复用当前连接。文件视频 reader 始终持续运行，
 返回的 `remoteStream` 用于绑定生成结果视图。
 
 已经显式调用 `connect(localStream:)` 的高级接入方，仍可继续调用：
@@ -386,9 +386,9 @@ try await realtime.startGeneration(
 执行顺序：
 
 ```text
-本地播放器和 RTC 音视频帧持续输出
+本地 reader 持续输出预览音视频帧
     ↓
-关闭本地音频预览，PCM 帧仍继续送入 RTC
+静音本地音频预览，播放器和 PCM 时间轴保持运行
     ↓
 尚未连接时，创建 Session 并建立 RTC 连接
     ↓
@@ -403,10 +403,11 @@ try await realtime.startGeneration(
 订阅远端音频并显示远端结果
 ```
 
-Loading 和远端显示期间，本地播放器都持续为 RTC 输出当前音视频帧，不维护
+Loading 和远端显示期间，本地 reader 都持续为 RTC 输出当前音视频帧，不维护
 点击检查点、冻结帧或恢复闭包。收到匹配 taskID 的远端 ready 后，SDK 才订阅
 远端音频，使远端声音和画面在同一 ready 边界对接入方可用。生成失败、取消、
-停止或断开时，SDK 取消订阅远端音频并恢复本地音频预览。
+停止或断开时，SDK 先清除生成任务，使后续本地视频帧立即绕过 RTC，再取消订阅
+远端音频并恢复本地音频预览音量。
 
 ## 6. 媒体来源更新
 
@@ -431,47 +432,44 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 ## 7. 当前尚未完成的部分
 
 核心采集和 RTC 推送链路已经具备，XLab 已接入图片与视频文件选择和公开创建
-接口。目前 iOS 文件视频采用持续播放方案：生成期间不暂停、不 seek、不覆盖
+接口。目前 iOS 文件视频采用统一 reader 持续解码方案：生成期间不暂停、不 seek、不覆盖
 冻结帧，远端结果 ready 后只切换显示和音频。
 
 因此当前状态是：图片与视频可以进入 RTC、预览、连接和生成生命周期；下一步可以接入 XLab 做真机端到端调试，并基于本稿继续优化 Pipeline。
 
-## 8. 文件视频解耦播放器链路
+## 8. 文件视频统一解码链路
 
-文件视频当前使用相互解耦的纯视频与纯音频 `AVPlayerItem`：
+文件视频当前使用共享时间轴的音视频 reader：
 
 ```text
-纯视频 AVPlayerItem
-├── AVPlayerLayer
-│   └── XmaxVideoView 内部本地预览
-└── AVPlayerItemVideoOutput
-    └── NV12 裁剪 / 缩放 / 旋转 → StreamController → RTC
-
-纯音频 AVPlayerItem
-├── 系统音频输出
-│   └── 本地预览声音
-└── MTAudioProcessingTap（PreEffects）
-    └── 48 kHz / Mono / PCM16 / 10 ms → StreamController → RTC
+MediaPlaybackTimeline
+├── 视频 AVAssetReader
+│   └── NV12 裁剪 / 缩放 / 旋转
+│       ├── AVSampleBufferDisplayLayer → XmaxVideoView 本地预览
+│       └── StreamController → RTC
+└── 音频 AVAssetReader
+    └── 48 kHz / Mono / PCM16 / 10 ms
+        ├── AVAudioEngine → 本地预览声音
+        └── StreamController → RTC
 ```
 
-两个播放器从相同媒体位置启动。音频 Tap 仍只复制音频播放器的前置 PCM 数据，
-不使用 `AVAssetReader`。RTC 音频订阅或离房导致共享
-`AVAudioSession` 重配置时，纯视频播放器不参与音频会话，因此本地画面保持
-连续；恢复本地声音前，音频播放器会重新对齐视频播放器的当前时间。
+两个 reader 使用同一个绝对起点和循环长度。RTC 音频订阅或离房导致共享
+`AVAudioSession` 重配置时，视频 reader 和 RTC 帧调度不受影响；本地音频恢复后
+直接消费统一时间轴之后产生的新 PCM 帧。
 
 生成生命周期：
 
-1. 创建本地视频流时准备一组音视频播放器并同步开始循环预览。
-2. 用户点击生成时保持两个播放器运行，只关闭本地音频预览。
-3. Session、RTC 连接和生成信令建立期间，播放器继续为本地预览和 RTC 输出
-   当前音视频帧。
+1. 创建本地视频流时准备共享时间轴并启动音视频 reader。
+2. 用户点击生成时保持 reader 和本地音频播放器运行，只静音本地预览音量。
+3. Session 和 RTC 连接建立期间，reader 继续输出本地预览；生成任务建立后，
+   当前音视频帧开始送入 RTC。
 4. 匹配 taskID 的远端 ready 到达后，远端画面和音频一起切换；本地音视频
-   播放器继续在远端视图下方运行。
-5. 停止时直接隐藏远端视图，显示持续运行的本地视频，并在 RTC 音频资源完成
-   清理后对齐音频位置、恢复音量。
+   reader 继续在远端视图下方运行。
+5. 停止时清除生成任务，使本地视频帧不再进入 RTC 调用，再直接隐藏远端视图；
+   本地视频持续显示，本地音频播放器只需恢复音量。
 
-这条链路不再使用 `VideoFileFrameDecoder`、`AudioFileFrameDecoder`、
-`MediaTimeline`、独立 `AVAudioEngine` 播放器或冻结帧覆盖层。
+这条链路不使用双 `AVPlayer`、`MTAudioProcessingTap` 或冻结帧覆盖层。每个 reader
+只由所属解码任务访问；停止时等待音视频任务全部退出，之后才允许重新配置。
 
 ## 9. 待讨论与优化项
 
@@ -480,5 +478,5 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 - [ ] 明确图片和视频的默认输出格式策略。
 - [ ] 明确显式 `videoFormat` 是严格输出值还是模型约束前的期望值。
 - [ ] 真机评估视频 NV12 目标尺寸预处理的性能和画质。
-- [x] 文件视频生成期间保持视频播放器持续运行，并隔离 RTC 音频会话变化。
+- [x] 文件视频生成期间保持统一 reader 持续运行，并隔离 RTC 音频会话变化。
 - [ ] 完成 XLab 图片与视频端到端调试入口。

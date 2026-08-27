@@ -51,7 +51,7 @@ protocol StreamControlling: Sendable {
     ///   抛出错误。
     func setLocalAudioEnabled(_ enabled: Bool) throws
 
-    /// 推送本地外部视频帧。
+    /// 在生成任务活动期间推送本地外部视频帧；无生成任务时忽略。
     ///
     /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
     /// - Throws: RTC 资源尚未就绪或视频帧转换失败时抛出错误。

@@ -63,12 +63,12 @@ final class MediaSourceControllerTests: XCTestCase {
             videoFormat: nil
         )
 
-        try await components.controller.setLocalAudioPreviewEnabled(false)
-        try await components.controller.setLocalAudioPreviewEnabled(true)
+        try await components.controller.setLocalAudioPreviewMuted(true)
+        try await components.controller.setLocalAudioPreviewMuted(false)
 
         XCTAssertEqual(Array(components.player.calls.suffix(2)), [
-            .setLocalAudioPreviewEnabled(false),
-            .setLocalAudioPreviewEnabled(true)
+            .setLocalAudioPreviewMuted(true),
+            .setLocalAudioPreviewMuted(false)
         ])
     }
 
@@ -79,10 +79,10 @@ final class MediaSourceControllerTests: XCTestCase {
             videoFormat: nil
         )
 
-        try await components.controller.setLocalAudioPreviewEnabled(false)
+        try await components.controller.setLocalAudioPreviewMuted(true)
 
         XCTAssertFalse(components.player.calls.contains(
-            .setLocalAudioPreviewEnabled(false)
+            .setLocalAudioPreviewMuted(true)
         ))
     }
 }
@@ -151,7 +151,7 @@ private enum VideoPlayerControllingCall: Equatable {
         hasAudio: Bool
     )
     case start
-    case setLocalAudioPreviewEnabled(Bool)
+    case setLocalAudioPreviewMuted(Bool)
     case attachPreview
     case detachPreview
     case stop
@@ -181,12 +181,12 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
         ))
     }
 
-    func start() throws {
+    func start() async throws {
         calls.append(.start)
     }
 
-    func setLocalAudioPreviewEnabled(_ enabled: Bool) {
-        calls.append(.setLocalAudioPreviewEnabled(enabled))
+    func setLocalAudioPreviewMuted(_ muted: Bool) {
+        calls.append(.setLocalAudioPreviewMuted(muted))
     }
 
     func attachPreview(
@@ -200,7 +200,7 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
         calls.append(.detachPreview)
     }
 
-    func stop() {
+    func stop() async {
         calls.append(.stop)
     }
 }
