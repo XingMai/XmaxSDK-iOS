@@ -131,7 +131,7 @@ actor XmaxRealtimeConnectionManager {
     }
 
     @discardableResult
-    func disconnect(fallbackSessionID: String? = nil) async -> String? {
+    func disconnect(fallbackSessionID: String? = nil) async throws -> String? {
         let session = activeSession
         let remoteTrack = activeRemoteTrack
         activeSession = nil
@@ -143,14 +143,7 @@ actor XmaxRealtimeConnectionManager {
 
         let sessionID = session?.id ?? fallbackSessionID
         if let sessionID {
-            do {
-                try await sessionService.closeSession(sessionID: sessionID)
-            } catch {
-                Self.logCleanupFailure(
-                    operation: "关闭实时会话",
-                    error: error
-                )
-            }
+            try await sessionService.closeSession(sessionID: sessionID)
         }
         return sessionID
     }

@@ -686,9 +686,17 @@ private extension XmaxRealtimeManager {
             await reportError(error)
         }
         await resumeLocalAudioPreview()
-        let sessionID = await connectionManager.disconnect(
-            fallbackSessionID: fallbackSessionID
-        )
+        let activeSessionID = await connectionManager.currentSessionID
+        var sessionID = activeSessionID.isEmpty
+            ? fallbackSessionID
+            : activeSessionID
+        do {
+            sessionID = try await connectionManager.disconnect(
+                fallbackSessionID: fallbackSessionID
+            )
+        } catch {
+            await reportError(error)
+        }
         guard terminationOperation?.id == operationID else {
             return
         }

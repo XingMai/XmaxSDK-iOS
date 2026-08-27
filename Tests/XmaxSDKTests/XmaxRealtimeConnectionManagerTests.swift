@@ -58,7 +58,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         )
         XCTAssertNotNil(TrajectoryRegistry.binding(for: track))
 
-        _ = await components.manager.disconnect()
+        _ = try await components.manager.disconnect()
     }
 
     func testRemoteTrackBindingRendersSelectedRtcStream() async throws {
@@ -93,7 +93,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             rtcManager.calls.last,
             .bindRemoteVideo(remoteStream, .fit)
         )
-        _ = await components.manager.disconnect()
+        _ = try await components.manager.disconnect()
         XCTAssertTrue(
             rtcManager.calls.contains(.unbindRemoteVideo(remoteStream))
         )
@@ -115,7 +115,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         )
         let track = try XCTUnwrap(stream.videoTrack)
 
-        let disconnectedSessionID = await components.manager.disconnect()
+        let disconnectedSessionID = try await components.manager.disconnect()
         let currentSessionID = await components.manager.currentSessionID
 
         XCTAssertEqual(disconnectedSessionID, "session-id")
@@ -225,11 +225,12 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         )
     }
 
-    func testDisconnectUsesFallbackSessionWhenActiveResourcesAreMissing() async {
+    func testDisconnectUsesFallbackSessionWhenActiveResourcesAreMissing()
+        async throws {
         let sessionService = RealtimeSessionServicingStub(session: session)
         let components = makeManager(sessionService: sessionService)
 
-        let sessionID = await components.manager.disconnect(
+        let sessionID = try await components.manager.disconnect(
             fallbackSessionID: "fallback-session"
         )
 
@@ -263,7 +264,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         await components.manager.updateRemoteVideoFormat(updatedFormat)
 
         XCTAssertEqual(stream.videoTrack?.videoFormat, updatedFormat)
-        _ = await components.manager.disconnect()
+        _ = try await components.manager.disconnect()
     }
 }
 

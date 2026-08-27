@@ -499,6 +499,31 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
+    func testDisconnectFailureReportsError() async throws {
+        let expectedError = XmaxError(
+            code: .networkError,
+            message: "close session failed"
+        )
+        let components = makeComponents(sessionCloseError: expectedError)
+        var receivedErrors: [XmaxError] = []
+        await components.manager.setErrorListener { error in
+            receivedErrors.append(error)
+        }
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+
+        await components.manager.disconnect()
+
+        XCTAssertEqual(receivedErrors, [expectedError])
+        let state = await components.manager.currentState
+        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertEqual(state.sessionID, "session-id")
+        try await components.manager.stopLocalCameraStream()
+    }
+
     func testStateListenerReceivesCurrentAndLifecycleStates() async throws {
         let components = makeComponents()
         var states: [RealtimeConnectionState] = []
@@ -613,7 +638,8 @@ private extension XmaxRealtimeManagerTests {
     }
 
     func makeComponents(
-        sessionCreateError: (any Error)? = nil
+        sessionCreateError: (any Error)? = nil,
+        sessionCloseError: (any Error)? = nil
     ) -> Components {
         let rtcManager = RtcManagingStub()
         let renderController = RenderController(
@@ -674,7 +700,8 @@ private extension XmaxRealtimeManagerTests {
                 ),
                 closeReason: nil
             ),
-            createError: sessionCreateError
+            createError: sessionCreateError,
+            closeError: sessionCloseError
         )
         let connectionManager = XmaxRealtimeConnectionManager(
             sessionService: sessionService,
