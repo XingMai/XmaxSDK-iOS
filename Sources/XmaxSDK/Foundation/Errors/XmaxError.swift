@@ -1,5 +1,8 @@
 import Foundation
 
+/// SDK 内部组件上报统一错误时使用的监听器。
+typealias XmaxErrorListener = @Sendable (XmaxError) -> Void
+
 /// SDK 向接入方暴露的统一错误码。
 public enum XmaxErrorCode: String, CaseIterable, Sendable {
 

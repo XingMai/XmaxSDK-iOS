@@ -7,13 +7,20 @@ final class RenderController: RenderControlling {
     // 基础层组件
     private let rtcManager: any RtcManaging
 
+    // 事件监听
+    private let errorListener: XmaxErrorListener
+
     // 远端渲染资源
     private var remoteStream: RemoteStream?
     private weak var remoteView: UIView?
     private var remoteContentMode = VideoContentMode.fill
 
-    init(rtcManager: any RtcManaging) {
+    init(
+        rtcManager: any RtcManaging,
+        errorListener: @escaping XmaxErrorListener = { _ in }
+    ) {
         self.rtcManager = rtcManager
+        self.errorListener = errorListener
     }
 
     func setRemoteStream(_ stream: RemoteStream?) throws {
@@ -92,11 +99,16 @@ private extension RenderController {
         remoteView = view
         remoteContentMode = contentMode
         guard let remoteStream else { return }
-        try rtcManager.bindRemoteVideo(
-            remoteStream,
-            to: view,
-            contentMode: contentMode
-        )
+        do {
+            try rtcManager.bindRemoteVideo(
+                remoteStream,
+                to: view,
+                contentMode: contentMode
+            )
+        } catch {
+            errorListener(XmaxError.from(error))
+            throw error
+        }
     }
 
     func detachRemoteVideo() throws {

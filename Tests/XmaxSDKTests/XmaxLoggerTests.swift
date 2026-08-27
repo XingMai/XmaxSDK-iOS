@@ -18,4 +18,22 @@ final class XmaxLoggerTests: XCTestCase {
             "[Xmax] Ready"
         )
     }
+
+    func testLoggerStateFiltersConfiguredOptions() {
+        let state = XmaxLoggerState()
+
+        XCTAssertFalse(state.isEnabled(.business))
+        XCTAssertFalse(state.isEnabled(.performance))
+
+        state.update(.business)
+
+        XCTAssertTrue(state.isEnabled(.business))
+        XCTAssertFalse(state.isEnabled(.performance))
+
+        state.update(.all)
+
+        XCTAssertTrue(state.isEnabled(.business))
+        XCTAssertTrue(state.isEnabled(.performance))
+        XCTAssertFalse(state.isEnabled([]))
+    }
 }

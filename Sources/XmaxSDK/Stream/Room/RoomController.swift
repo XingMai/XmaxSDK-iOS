@@ -6,7 +6,7 @@ actor RoomController: RoomControlling {
     // 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 流层组件
+    // 传输层组件
     private let heartbeat: RoomHeartbeat
 
     // 房间资源
@@ -215,7 +215,7 @@ private extension RoomController {
                   data: formattedData,
                   encoding: .utf8
               ) else {
-            return "发送房间信令\n└─ 内容：\(message)"
+            return "发送房间信令 (Outbound Room Signaling)\n└─ 内容：\(message)"
         }
 
         let eventType = event["event"] as? String ?? "unknown"
@@ -223,7 +223,7 @@ private extension RoomController {
             of: "\n",
             with: "\n   "
         )
-        return "发送房间信令\n" +
+        return "发送房间信令 (Outbound Room Signaling)\n" +
             "├─ 类型：\(eventType)\n" +
             "└─ 内容：\n" +
             "   \(indentedMessage)"

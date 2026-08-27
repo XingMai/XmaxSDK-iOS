@@ -259,6 +259,9 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertFalse(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(true)
         ))
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .resumePreviewIfNeeded
+        ))
         XCTAssertTrue(components.rtcManager.calls.contains(.publishLocalAudio))
         XCTAssertTrue(components.rtcManager.calls.contains(
             .subscribeRemoteAudio(
@@ -268,6 +271,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         ))
 
         await components.manager.stopGeneration()
+        XCTAssertEqual(
+            components.videoSource.calls.filter {
+                $0 == .resumePreviewIfNeeded
+            }.count,
+            1
+        )
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(true)
         ))
@@ -340,13 +349,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
             videoFormat: nil
         )
-        let outputCounter = LockedCounter()
-        try components.videoPreviewController.output(
-            frame: try makeBGRAFrame(timestampUs: 1),
-            mediaTimeUs: 500_000,
-            frameListener: { _ in outputCounter.increment() }
-        )
-
         do {
             _ = try await components.manager.startGeneration(
                 localStream: localStream,
@@ -357,12 +359,10 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             XCTAssertEqual((error as? XmaxError)?.code, .sessionError)
         }
 
-        try components.videoPreviewController.output(
-            frame: try makeBGRAFrame(timestampUs: 2),
-            mediaTimeUs: 510_000,
-            frameListener: { _ in outputCounter.increment() }
-        )
-        XCTAssertEqual(outputCounter.value, 2)
+        XCTAssertTrue(components.videoSource.calls.contains(.pause))
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .resumePreviewIfNeeded
+        ))
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(false)
         ))
@@ -626,7 +626,6 @@ private extension XmaxRealtimeManagerTests {
         let sessionService: RealtimeSessionServicingStub
         let imageSource: ImageSourceControllingStub
         let videoSource: MediaSourceControllingStub
-        let videoPreviewController: LocalVideoPreviewController
     }
 
     var videoFormat: RealtimeVideoFormat {
@@ -641,12 +640,15 @@ private extension XmaxRealtimeManagerTests {
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil
     ) -> Components {
+        let errorHandler = RealtimeErrorHandler()
         let rtcManager = RtcManagingStub()
         let renderController = RenderController(
-            rtcManager: rtcManager
+            rtcManager: rtcManager,
+            errorListener: { errorHandler.forward($0) }
         )
         let streamController = StreamController(
             rtcManager: rtcManager,
+            errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             },
@@ -659,7 +661,8 @@ private extension XmaxRealtimeManagerTests {
             permissionManager: PermissionManagingStub(),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 1_024, height: 768)
-            )
+            ),
+            errorListener: { errorHandler.forward($0) }
         )
         let imageSource = ImageSourceControllingStub(
             resolvedFormat: imageFormat
@@ -674,12 +677,10 @@ private extension XmaxRealtimeManagerTests {
                 hasAudio: true
             )
         )
-        let videoPreviewController = LocalVideoPreviewController()
         let videoController = VideoController(
             rtcManager: rtcManager,
             permissionManager: PermissionManagingStub(),
-            mediaSourceController: videoSource,
-            localVideoPreviewController: videoPreviewController
+            mediaSourceController: videoSource
         )
         let mediaController = MediaController(
             rtcManager: rtcManager,
@@ -715,6 +716,7 @@ private extension XmaxRealtimeManagerTests {
                 streamController: streamController,
                 mediaController: mediaController,
                 connectionManager: connectionManager,
+                errorHandler: errorHandler,
                 generationManager: XmaxRealtimeGenerationManager(
                     interactionController: mediaController,
                     streamController: streamController
@@ -724,8 +726,7 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             sessionService: sessionService,
             imageSource: imageSource,
-            videoSource: videoSource,
-            videoPreviewController: videoPreviewController
+            videoSource: videoSource
         )
     }
 

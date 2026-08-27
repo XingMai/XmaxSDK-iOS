@@ -22,7 +22,7 @@ final class ImageController: @unchecked Sendable {
     convenience init(
         rtcManager: any RtcManaging,
         frameListener: @escaping MediaVideoFrameListener,
-        errorListener: @escaping MediaSourceErrorListener
+        errorListener: @escaping XmaxErrorListener
     ) {
         let imageManager = ImageManager()
         self.init(
@@ -121,7 +121,7 @@ final class ImageController: @unchecked Sendable {
                     try VideoRenderRegistry.binding(for: track)?.detach()
                 } catch {
                     Self.logCleanupFailure(
-                        operation: "解除本地图片预览绑定",
+                        title: "解除本地图片预览绑定失败 (Failed to Detach Local Image Preview)",
                         error: error
                     )
                 }
@@ -209,11 +209,11 @@ private extension ImageController {
     }
 
     static func logCleanupFailure(
-        operation: String,
+        title: String,
         error: any Error
     ) {
         XmaxLogger.error(
-            "\(operation)失败\n└─ 原因：" +
+            "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription,
             category: "Realtime"
         )

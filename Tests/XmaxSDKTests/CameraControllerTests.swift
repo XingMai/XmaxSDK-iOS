@@ -221,6 +221,40 @@ final class CameraControllerTests: XCTestCase {
             ]
         )
     }
+
+    @MainActor
+    func testLocalCanvasBindingFailureReportsRTCError() async throws {
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "Failed to bind the local RTC canvas"
+        )
+        let recorder = CameraErrorRecorder()
+        let manager = makeManager(
+            rtcManager: RtcManagingStub(
+                bindLocalVideoError: expectedError
+            ),
+            errorListener: { recorder.record($0) }
+        )
+        let stream = try await manager.createLocalCameraStream(
+            videoFormat: RealtimeVideoFormat(
+                width: 1_024,
+                height: 768,
+                fps: 30
+            ),
+            position: .front
+        )
+        let track = try XCTUnwrap(stream.videoTrack)
+        let binding = try XCTUnwrap(
+            VideoRenderRegistry.binding(for: track)
+        )
+
+        XCTAssertThrowsError(
+            try binding.attach(to: UIView(), contentMode: .fill)
+        )
+        XCTAssertEqual(recorder.recordedErrors, [expectedError])
+
+        await manager.stopLocalCameraStream()
+    }
 }
 
 private extension CameraControllerTests {
@@ -229,12 +263,29 @@ private extension CameraControllerTests {
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
         mediaService: MediaServicingStub = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
-        )
+        ),
+        errorListener: @escaping XmaxErrorListener = { _ in }
     ) -> CameraController {
         CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaService: mediaService
+            mediaService: mediaService,
+            errorListener: errorListener
         )
+    }
+}
+
+private final class CameraErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var errors: [XmaxError] = []
+
+    var recordedErrors: [XmaxError] {
+        lock.withLock { errors }
+    }
+
+    func record(_ error: XmaxError) {
+        lock.withLock {
+            errors.append(error)
+        }
     }
 }

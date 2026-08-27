@@ -107,6 +107,73 @@ final class RenderControllerTests: XCTestCase {
             ]
         )
     }
+
+    func testViewLifecycleRemoteCanvasBindingFailureReportsRTCError() throws {
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "Failed to bind the remote RTC canvas"
+        )
+        let rtcManager = RtcManagingStub(
+            bindRemoteVideoError: expectedError
+        )
+        let recorder = RenderErrorRecorder()
+        let controller = RenderController(
+            rtcManager: rtcManager,
+            errorListener: { recorder.record($0) }
+        )
+        let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
+        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        try controller.setRemoteStream(stream)
+
+        XCTAssertThrowsError(
+            try registration.binding.attach(
+                to: UIView(),
+                contentMode: .fill
+            )
+        )
+        XCTAssertEqual(recorder.recordedErrors, [expectedError])
+    }
+
+    func testGenerationRemoteCanvasBindingFailureIsOnlyThrown() throws {
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "Failed to bind the remote RTC canvas"
+        )
+        let rtcManager = RtcManagingStub(
+            bindRemoteVideoError: expectedError
+        )
+        let recorder = RenderErrorRecorder()
+        let controller = RenderController(
+            rtcManager: rtcManager,
+            errorListener: { recorder.record($0) }
+        )
+        let registration = try registerRemoteTrack(with: controller)
+        defer { try? controller.resetRemoteTrack(registration.track) }
+        try registration.binding.attach(
+            to: UIView(),
+            contentMode: .fill
+        )
+        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+
+        XCTAssertThrowsError(try controller.setRemoteStream(stream))
+        XCTAssertTrue(recorder.recordedErrors.isEmpty)
+    }
+}
+
+private final class RenderErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var errors: [XmaxError] = []
+
+    var recordedErrors: [XmaxError] {
+        lock.withLock { errors }
+    }
+
+    func record(_ error: XmaxError) {
+        lock.withLock {
+            errors.append(error)
+        }
+    }
 }
 
 private extension RenderControllerTests {

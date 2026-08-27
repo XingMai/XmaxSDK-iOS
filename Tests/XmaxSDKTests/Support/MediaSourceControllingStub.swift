@@ -1,10 +1,13 @@
 import Foundation
+import UIKit
 @testable import XmaxSDK
 
 enum MediaSourceControllingCall: Equatable {
     case prepare(URL, RealtimeVideoFormat?)
     case start
+    case pause
     case restart(Int64)
+    case resumePreviewIfNeeded
     case setLocalAudioPreviewEnabled(Bool)
     case stop
 }
@@ -18,6 +21,7 @@ final class MediaSourceControllingStub:
     private let prepareError: (any Error)?
     private let startError: (any Error)?
     private let restartError: (any Error)?
+    private let pauseMediaTimeUs: Int64?
 
     // 并发状态
     private let lock = NSLock()
@@ -27,12 +31,14 @@ final class MediaSourceControllingStub:
         configuration: MediaSourceConfiguration,
         prepareError: (any Error)? = nil,
         startError: (any Error)? = nil,
-        restartError: (any Error)? = nil
+        restartError: (any Error)? = nil,
+        pauseMediaTimeUs: Int64? = 0
     ) {
         self.configuration = configuration
         self.prepareError = prepareError
         self.startError = startError
         self.restartError = restartError
+        self.pauseMediaTimeUs = pauseMediaTimeUs
     }
 
     var calls: [MediaSourceControllingCall] {
@@ -74,11 +80,33 @@ final class MediaSourceControllingStub:
         }
     }
 
+    func pause() async -> Int64? {
+        lock.withLock {
+            storedCalls.append(.pause)
+        }
+        return pauseMediaTimeUs
+    }
+
+    func resumePreviewIfNeeded() async {
+        lock.withLock {
+            storedCalls.append(.resumePreviewIfNeeded)
+        }
+    }
+
     func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
         lock.withLock {
             storedCalls.append(.setLocalAudioPreviewEnabled(enabled))
         }
     }
+
+    @MainActor
+    func attachPreview(
+        to view: UIView,
+        contentMode: VideoContentMode
+    ) throws {}
+
+    @MainActor
+    func detachPreview(from view: UIView) {}
 
     func stop() async {
         lock.withLock {

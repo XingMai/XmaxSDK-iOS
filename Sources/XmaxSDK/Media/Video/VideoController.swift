@@ -1,6 +1,6 @@
 import Foundation
 
-/// 协调本地视频文件解码、音视频循环和 RTC 预览资源。
+/// 协调本地视频播放器、RTC 外部音视频源和预览资源。
 final class VideoController: @unchecked Sendable {
 
     // 轨道标识
@@ -12,7 +12,6 @@ final class VideoController: @unchecked Sendable {
 
     // 业务层组件
     private let mediaSourceController: any MediaSourceControlling
-    private let localVideoPreviewController: LocalVideoPreviewController
 
     // 并发控制
     private let stateLock = NSLock()
@@ -26,51 +25,33 @@ final class VideoController: @unchecked Sendable {
         rtcManager: any RtcManaging,
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
-        errorListener: @escaping MediaSourceErrorListener
+        errorListener: @escaping XmaxErrorListener
     ) {
-        let audioManager = AudioManager()
-        let localVideoPreviewController = LocalVideoPreviewController()
+        let playerController = VideoPlayerController(
+            videoFrameListener: videoFrameListener,
+            audioFrameListener: audioFrameListener,
+            errorListener: errorListener
+        )
         let mediaSourceController = MediaSourceController(
             metadataManager: MediaFileMetadataManager(),
-            audioManager: audioManager,
             mediaService: MediaService(),
-            videoSourceController: VideoSourceController(
-                frameListener: { frame, mediaTimeUs in
-                    try localVideoPreviewController.output(
-                        frame: frame,
-                        mediaTimeUs: mediaTimeUs,
-                        frameListener: videoFrameListener
-                    )
-                },
-                errorListener: errorListener
-            ),
-            audioSourceController: AudioSourceController(
-                frameListener: { frame in
-                    audioManager.write(frame: frame)
-                    try audioFrameListener(frame)
-                },
-                errorListener: errorListener
-            )
+            playerController: playerController
         )
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
-            mediaSourceController: mediaSourceController,
-            localVideoPreviewController: localVideoPreviewController
+            mediaSourceController: mediaSourceController
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
-        mediaSourceController: any MediaSourceControlling,
-        localVideoPreviewController: LocalVideoPreviewController =
-            LocalVideoPreviewController()
+        mediaSourceController: any MediaSourceControlling
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaSourceController = mediaSourceController
-        self.localVideoPreviewController = localVideoPreviewController
     }
 
     /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
@@ -112,21 +93,20 @@ final class VideoController: @unchecked Sendable {
             return
         }
         try await mediaSourceController.restart(from: mediaTimeUs)
-        localVideoPreviewController.resumeVideoOutput()
     }
 
-    /// 将文件视频预览暂停在最近输出的一帧。
+    /// 将文件视频播放器暂停在当前显示位置。
     func pauseVideoPreview() async -> VideoPreviewResume {
-        guard let track = currentTrack else {
+        guard currentTrack != nil else {
             return {}
         }
-        let pausedPreview = await localVideoPreviewController.pause(
-            track: track
-        )
+        let mediaTimeUs = await mediaSourceController.pause()
         stateLock.withLock {
-            generationMediaTimeUs = pausedPreview.mediaTimeUs
+            generationMediaTimeUs = mediaTimeUs
         }
-        return pausedPreview.resume
+        return { [weak self] in
+            await self?.mediaSourceController.resumePreviewIfNeeded()
+        }
     }
 
     /// 启用或暂停本地文件视频的音频预览。
@@ -150,14 +130,13 @@ final class VideoController: @unchecked Sendable {
             return (track, hasAudio)
         }
         await mediaSourceController.stop()
-        await localVideoPreviewController.reset()
 
         if state.1 {
             do {
                 try rtcManager.stopExternalAudioSource()
             } catch {
                 Self.logCleanupFailure(
-                    operation: "停止 RTC 外部音频源",
+                    title: "停止 RTC 外部音频源失败 (Failed to Stop RTC External Audio Source)",
                     error: error
                 )
             }
@@ -165,14 +144,6 @@ final class VideoController: @unchecked Sendable {
         if let track = state.0 {
             await MainActor.run {
                 VideoRenderRegistry.unregister(track)
-                do {
-                    try rtcManager.unbindLocalVideo()
-                } catch {
-                    Self.logCleanupFailure(
-                        operation: "解除 RTC 本地预览绑定",
-                        error: error
-                    )
-                }
             }
         }
     }
@@ -217,13 +188,12 @@ private extension VideoController {
             )
         } catch {
             await mediaSourceController.stop()
-            await localVideoPreviewController.reset()
             if externalAudioStarted {
                 do {
                     try rtcManager.stopExternalAudioSource()
                 } catch {
                     Self.logCleanupFailure(
-                        operation: "回滚 RTC 外部音频源",
+                        title: "回滚 RTC 外部音频源失败 (Failed to Roll Back RTC External Audio Source)",
                         error: error
                     )
                 }
@@ -231,14 +201,6 @@ private extension VideoController {
             if let track {
                 await MainActor.run {
                     VideoRenderRegistry.unregister(track)
-                    do {
-                        try rtcManager.unbindLocalVideo()
-                    } catch {
-                        Self.logCleanupFailure(
-                            operation: "回滚 RTC 本地预览绑定",
-                            error: error
-                        )
-                    }
                 }
             }
             throw XmaxError.from(error)
@@ -250,26 +212,26 @@ private extension VideoController {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcManager.renderLibraryName,
+                libraryName: "AVFoundation",
                 attachHandler: { view, contentMode in
-                    try self.rtcManager.bindLocalVideo(
+                    try self.mediaSourceController.attachPreview(
                         to: view,
                         contentMode: contentMode
                     )
                 },
-                detachHandler: { _ in
-                    try self.rtcManager.unbindLocalVideo()
+                detachHandler: { view in
+                    self.mediaSourceController.detachPreview(from: view)
                 }
             )
         )
     }
 
     static func logCleanupFailure(
-        operation: String,
+        title: String,
         error: any Error
     ) {
         XmaxLogger.error(
-            "\(operation)失败\n└─ 原因：" +
+            "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription,
             category: "Realtime"
         )

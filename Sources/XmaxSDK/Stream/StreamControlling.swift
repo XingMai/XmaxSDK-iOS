@@ -1,6 +1,6 @@
 import Foundation
 
-/// 定义流层向 Core 暴露的统一能力。
+/// 定义传输层向 Core 暴露的统一能力。
 protocol StreamControlling: Sendable {
 
     /// 设置实时视频编码器配置。
@@ -54,14 +54,14 @@ protocol StreamControlling: Sendable {
     /// 推送本地外部视频帧。
     ///
     /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
-    /// - Throws: RTC 外部视频帧推送失败时抛出错误。
+    /// - Throws: RTC 资源尚未就绪或视频帧转换失败时抛出错误。
     func pushLocalVideoFrame(_ frame: VideoFrame) throws
 
     /// 推送本地外部音频帧。
     ///
     /// - Parameter frame: 已准备好交给 RTC 的 PCM 音频帧；
     ///   本地音频尚未发布时忽略。
-    /// - Throws: RTC 外部音频帧推送失败时抛出错误。
+    /// - Throws: RTC 资源尚未就绪或音频帧转换失败时抛出错误。
     func pushLocalAudioFrame(_ frame: AudioFrame) throws
 
     /// 建立生成任务并发送开始信令。

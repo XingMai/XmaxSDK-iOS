@@ -34,7 +34,7 @@ enum ApiLogger {
         durationMs: Int
     ) {
         XmaxLogger.error(
-            "\(method.rawValue) \(path) 失败\n" +
+            "\(method.rawValue) \(path) 失败 (Request Failed)\n" +
                 "├─ 耗时：\(durationMs) ms\n" +
                 "└─ 原因：\(ErrorMessageFormatter.format(error))",
             category: "API"

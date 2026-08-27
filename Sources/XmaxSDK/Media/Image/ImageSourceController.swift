@@ -15,7 +15,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
 
     // 图片帧监听器
     private let frameListener: MediaVideoFrameListener
-    private let errorListener: MediaSourceErrorListener
+    private let errorListener: XmaxErrorListener
 
     // 并发控制
     private let stateLock = NSLock()
@@ -31,7 +31,7 @@ final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
         imageManager: any ImageManaging,
         mediaService: any MediaServicing,
         frameListener: @escaping MediaVideoFrameListener,
-        errorListener: @escaping MediaSourceErrorListener
+        errorListener: @escaping XmaxErrorListener
     ) {
         self.imageManager = imageManager
         self.mediaService = mediaService

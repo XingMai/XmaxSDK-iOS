@@ -128,6 +128,33 @@ final class StreamControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testRemoteVideoSubscriptionFailureReportsError() throws {
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "subscribe failed"
+        )
+        let rtcManager = RtcManagingStub(
+            subscribeRemoteVideoError: expectedError
+        )
+        let receivedErrors = StreamErrorRecorder()
+        let controller = StreamController(
+            rtcManager: rtcManager,
+            errorListener: { receivedErrors.append($0) }
+        )
+        try controller.configureRoom(
+            roomID: "room-id",
+            botName: "bot-user"
+        )
+
+        rtcManager.emitRemoteVideoPublished(
+            userID: "bot-user",
+            published: true
+        )
+
+        XCTAssertEqual(receivedErrors.values, [expectedError])
+    }
+
+    @MainActor
     func testResetRoomClearsSubscriptionsAndLocalPublications() throws {
         let rtcManager = RtcManagingStub()
         let controller = StreamController(rtcManager: rtcManager)
@@ -348,6 +375,21 @@ final class StreamControllerTests: XCTestCase {
             XCTFail("Expected stopped confirmation to be cancelled")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+    }
+}
+
+private final class StreamErrorRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var errors: [XmaxError] = []
+
+    var values: [XmaxError] {
+        lock.withLock { errors }
+    }
+
+    func append(_ error: XmaxError) {
+        lock.withLock {
+            errors.append(error)
         }
     }
 }

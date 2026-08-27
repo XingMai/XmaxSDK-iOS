@@ -5,6 +5,17 @@ import XCTest
 import XmaxSDK
 
 final class XmaxPublicAPITests: XCTestCase {
+    func testPublicLoggerOptionsAreComposable() {
+        let options: XmaxLoggerOption = [.business, .performance]
+        let configuration = XmaxConfiguration(
+            apiKey: "test-key",
+            loggerOptions: options
+        )
+
+        XCTAssertEqual(options, .all)
+        XCTAssertEqual(configuration.loggerOptions, .all)
+    }
+
     @MainActor
     func testClientCreatesPublicRealtimeManager() {
         let client = XmaxClient(

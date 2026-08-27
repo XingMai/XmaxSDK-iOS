@@ -38,6 +38,25 @@ xcodebuild -workspace Examples/XLab/XLab.xcworkspace -scheme XLab \
 XLab 通过 `pod 'XmaxSDK', path: '../..'` 接入当前仓库的 SDK 源码。请使用
 `Examples/XLab/XLab.xcworkspace` 打开示例工程。
 
+## 日志配置
+
+XmaxSDK 默认不输出日志。接入方可以在创建全局配置时选择需要输出的日志类型：
+
+```swift
+let configuration = XmaxConfiguration(
+    apiKey: apiKey,
+    loggerOptions: [.business, .performance]
+)
+let client = XmaxClient(configuration: configuration)
+```
+
+- `.business`：Room、API、Realtime、Storage 等业务运行日志。
+- `.performance`：RTC 视频上下行、网络质量、系统性能及性能告警日志。
+- `.all`：输出以上全部日志。
+- `[]`：不输出 XmaxSDK 日志，也是默认值。
+
+日志配置为进程级配置，由所有 `XmaxClient` 共享。
+
 ## CocoaPods 接入
 
 由于火山 RTC 使用独立的 CocoaPods Specs 仓库，接入方需要在 `Podfile`

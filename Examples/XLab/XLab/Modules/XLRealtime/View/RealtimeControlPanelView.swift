@@ -2,6 +2,11 @@ import SnapKit
 import UIKit
 
 final class RealtimeControlPanelView: UIView {
+    enum InitialMode {
+        case standard
+        case touchAnimation
+    }
+
     private enum Layout {
         static let topSpacing: CGFloat = 6
         static let categoryHeight: CGFloat = 36
@@ -28,7 +33,7 @@ final class RealtimeControlPanelView: UIView {
         let content: Content
     }
 
-    private let categories = [
+    private static let categories = [
         Category(
             id: "charx",
             name: "换形象",
@@ -52,17 +57,19 @@ final class RealtimeControlPanelView: UIView {
         Category(id: "mox", name: "触控动图", content: .instruction),
         Category(id: "free", name: "自由", content: .prompt)
     ]
+    private let categories: [Category]
     private var referencesByCategory = Dictionary(
         grouping: RealtimeReferenceCatalog.load().items,
         by: \.categoryID
     )
     private var categoryButtons: [UIButton] = []
     private var referenceListViews: [String: RealtimeReferenceListView] = [:]
-    private var selectedCategoryIndex = 0
+    private var selectedCategoryIndex: Int
     private var selectedReferenceID: String?
     private var isGenerationActive = false
 
     var onBeginPromptEditing: ((String) -> Void)?
+    var onPromptSubmit: ((String) -> Void)?
     var onReferenceSelectionChanged: ((RealtimeReferenceCatalog.Item?) -> Void)?
     var onAddReference: ((String) -> Void)?
     var onRetryReferenceUpload: ((RealtimeReferenceCatalog.Item) -> Void)?
@@ -140,14 +147,26 @@ final class RealtimeControlPanelView: UIView {
         view.onBeginEditing = { [weak self] text in
             self?.onBeginPromptEditing?(text)
         }
+        view.onSubmit = { [weak self] text in
+            self?.onPromptSubmit?(text)
+        }
         view.onReferenceAction = { [weak self] in
             self?.onPromptReferenceAction?()
         }
         return view
     }()
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(initialMode: InitialMode = .standard) {
+        categories = Self.categories
+        switch initialMode {
+        case .standard:
+            selectedCategoryIndex = 0
+        case .touchAnimation:
+            selectedCategoryIndex = Self.categories.firstIndex {
+                $0.id == "mox"
+            } ?? 0
+        }
+        super.init(frame: .zero)
         backgroundColor = .feed(rgb: 0x101010)
         configureCategoryRow()
         configureContentArea()

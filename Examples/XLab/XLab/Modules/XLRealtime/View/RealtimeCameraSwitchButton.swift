@@ -20,7 +20,7 @@ final class RealtimeCameraActionBar: UIView {
 
     private lazy var frameInterpolationButton: RealtimeLabeledActionButton = {
         let image = UIImage(
-            systemName: "rectangle.stack.fill",
+            systemName: "bolt.fill",
             withConfiguration: UIImage.SymbolConfiguration(
                 pointSize: 20,
                 weight: .medium

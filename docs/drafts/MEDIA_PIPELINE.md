@@ -3,6 +3,9 @@
 > 状态：临时设计稿，用于后续优化图片与文件视频 Pipeline。
 >
 > 基线提交：`cc35183 feat: add image and video media pipelines`
+>
+> 更新：文件视频旧的双 AVAssetReader、独立 PCM 播放与 MediaTimeline 方案已被
+> 单 AVPlayer 时间线取代；当前实现以本文末尾“文件视频单播放器链路”为准。
 
 当前图片和文件视频都被抽象为“本地外部视频源”。Media 层只产生中性
 音视频帧，Core 组装根把帧监听器连接到
@@ -477,7 +480,42 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 
 因此当前状态是：图片与视频可以进入 RTC、预览、连接和生成生命周期；下一步可以接入 XLab 做真机端到端调试，并基于本稿继续优化 Pipeline。
 
-## 8. 待讨论与优化项
+## 8. 文件视频单播放器链路
+
+文件视频当前只使用一个 `AVPlayerItem`：
+
+```text
+AVPlayerItem
+├── AVPlayerLayer
+│   └── XmaxVideoView 内部本地预览
+├── AVPlayerItemVideoOutput
+│   └── NV12 裁剪 / 缩放 / 旋转 → StreamController → RTC
+└── MTAudioProcessingTap（PreEffects）
+    └── 48 kHz / Mono / PCM16 / 10 ms → StreamController → RTC
+```
+
+本地声音由 `AVPlayer` 直接交给系统音频链路播放。Tap 只复制前置 PCM 数据，
+不会让接入方再维护一个播放器，也不会再次读取或解码源文件。
+
+生成生命周期：
+
+1. 创建本地视频流时准备一个播放器并开始循环预览。
+2. 用户点击生成时立即 `pause()`，以 `currentTime()` 记录检查点；
+   `XmaxVideoView` 使用最近输出的目标尺寸帧冻结本地画面并静音。
+3. Session 和 RTC 连接成功、生成信令开始后，从检查点精确 seek 并播放，
+   但静态冻结帧继续覆盖本地 `AVPlayerLayer`。
+4. 本地播放器在远端阶段继续静音运行，为 RTC 持续提供音视频帧；Loading
+   期间接入方仍只看到点击位置的静态画面。
+5. 匹配 taskID 的远端 ready 到达后，远端画面和音频一起切换，并清除本地
+   冻结帧；本地播放器继续在远端视图下方运行。
+6. 停止时直接隐藏远端视图，显示持续运行的本地播放器并取消静音；失败或断开
+   仍会兜底清除冻结帧。
+
+这条链路不再使用 `VideoFileFrameDecoder`、`AudioFileFrameDecoder`、
+`MediaTimeline` 或独立 `AVAudioEngine` 播放器。冻结帧由 `XmaxVideoView`
+内部显示，不要求接入方增加 UIImageView 或预览切换逻辑。
+
+## 9. 待讨论与优化项
 
 跨平台修改项统一记录在 `CROSS_PLATFORM_ALIGNMENT.md`，本文件仅维护媒体管线本身的设计和待优化事项。
 

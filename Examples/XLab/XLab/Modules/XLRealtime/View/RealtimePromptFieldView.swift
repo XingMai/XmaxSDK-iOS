@@ -3,6 +3,7 @@ import UIKit
 
 final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
     var onBeginEditing: ((String) -> Void)?
+    var onSubmit: ((String) -> Void)?
     var onReferenceAction: (() -> Void)?
 
     private lazy var textField: UITextField = {
@@ -51,7 +52,12 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
         addSubview(textField)
         addSubview(referenceButton)
         addSubview(submitControl)
-        submitControl.alpha = 0.2
+        submitControl.accessibilityLabel = "提交自定义模式描述"
+        submitControl.addTarget(
+            self,
+            action: #selector(submitPrompt),
+            for: .touchUpInside
+        )
 
         textField.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(11)
@@ -68,6 +74,7 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
             make.centerY.equalToSuperview()
             make.size.equalTo(32)
         }
+        updateState()
     }
 
     required init?(coder: NSCoder) {
@@ -76,12 +83,12 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
 
     func setText(_ text: String) {
         textField.text = text
-        textDidChange()
+        updateState()
     }
 
     func setReference(_ reference: RealtimeReferenceCatalog.Item?) {
         referenceButton.setReference(reference)
-        textDidChange()
+        updateState()
     }
 
     func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
@@ -95,10 +102,28 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
     }
 
     @objc private func textDidChange() {
-        let hasText = !(textField.text ?? "")
+        updateState()
+    }
+
+    private func normalizedPrompt() -> String {
+        (textField.text ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-        submitControl.alpha = hasText ? 1 : 0.2
+    }
+
+    private func updateState() {
+        let isEnabled = !normalizedPrompt().isEmpty
+            && !referenceButton.blocksSubmission
+        submitControl.isEnabled = isEnabled
+        submitControl.alpha = isEnabled ? 1 : 0.2
+    }
+
+    @objc private func submitPrompt() {
+        let prompt = normalizedPrompt()
+        guard !prompt.isEmpty, !referenceButton.blocksSubmission else {
+            return
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        onSubmit?(prompt)
     }
 
     @objc private func referenceAction() {
@@ -106,7 +131,7 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
     }
 }
 
-private final class RealtimePromptCircleView: UIView {
+private final class RealtimePromptCircleView: UIControl {
     private let imageName: String
     private let imageSize: CGSize
 
@@ -137,5 +162,23 @@ private final class RealtimePromptCircleView: UIView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override var isHighlighted: Bool {
+        didSet {
+            UIView.animate(
+                withDuration: isHighlighted ? 0.08 : 0.18,
+                delay: 0,
+                options: [
+                    .allowUserInteraction,
+                    .beginFromCurrentState,
+                    .curveEaseOut,
+                ]
+            ) {
+                self.transform = self.isHighlighted
+                    ? CGAffineTransform(scaleX: 0.84, y: 0.84)
+                    : .identity
+            }
+        }
     }
 }

@@ -1,7 +1,6 @@
 import PhotosUI
 import SnapKit
 import UIKit
-import UniformTypeIdentifiers
 import XmaxSDK
 
 final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegate {
@@ -14,7 +13,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     // 本地配置
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
     private static let touchAnimationPrompt = "让画面自然动起来"
-    private static let filePreviewTopOffset: CGFloat = 60
+    private static let filePreviewTopOffset: CGFloat = 68
     private static let cameraVideoFormat = RealtimeVideoFormat(
         width: 832,
         height: 1472,
@@ -84,10 +83,15 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     )
 
     private lazy var controlPanelView: RealtimeControlPanelView = {
-        let view = RealtimeControlPanelView()
+        let initialMode: RealtimeControlPanelView.InitialMode =
+            localInput?.kind == .image ? .touchAnimation : .standard
+        let view = RealtimeControlPanelView(initialMode: initialMode)
         view.isUserInteractionEnabled = false
         view.onBeginPromptEditing = { [weak self] text in
             self?.showPromptKeyboard(text: text)
+        }
+        view.onPromptSubmit = { [weak self] text in
+            self?.submitPrompt(text)
         }
         view.onReferenceSelectionChanged = { [weak self] reference in
             self?.handleReferenceSelection(reference)
@@ -261,7 +265,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         mediaTopBar.snp.makeConstraints { make in
             make.centerY.equalTo(backButton)
             make.trailing.equalToSuperview().inset(12)
-            make.height.equalTo(44)
         }
     }
 
@@ -376,7 +379,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             forKey: Self.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
-            configuration: XmaxConfiguration(apiKey: apiKey)
+            configuration: XmaxConfiguration(
+                apiKey: apiKey,
+                loggerOptions: .all
+            )
         )
         return client.createRealtimeManager(
             options: RealtimeConfiguration(model: .x2_0)
@@ -403,7 +409,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         present(picker, animated: true)
     }
 
-    private func finishReferencePicking(
+    func finishReferencePicking(
         localURL: URL?,
         error: (any Error)? = nil
     ) {
@@ -564,7 +570,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             forKey: Self.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
-            configuration: XmaxConfiguration(apiKey: apiKey)
+            configuration: XmaxConfiguration(
+                apiKey: apiKey,
+                loggerOptions: .all
+            )
         )
         let storageManager = try client.createStorageManager()
         let uploaded = try await storageManager.uploadImage(
@@ -596,7 +605,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         referenceUploadTasks[reference.id] = Task { [weak self, reference] in
             do {
                 let client = XmaxClient(
-                    configuration: XmaxConfiguration(apiKey: apiKey)
+                    configuration: XmaxConfiguration(
+                        apiKey: apiKey,
+                        loggerOptions: .all
+                    )
                 )
                 let storageManager = try client.createStorageManager()
                 let uploaded = try await storageManager.uploadImage(
@@ -805,7 +817,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await realtimeManager.setCameraPreviewReadyListener(nil)
             await pendingLocalMediaOperation?.value
             await pendingGenerationOperation?.value
-            await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
             switch localInput {
             case .image:
@@ -885,7 +896,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await pendingTouchAnimationPreparation?.value
             guard !Task.isCancelled else { return }
 
-            await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
             await stopLocalMediaStream(for: previousInput)
             guard !Task.isCancelled else { return }
@@ -963,7 +973,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     context: context
                 )
                 guard !Task.isCancelled else {
-                    await realtimeManager.stopGeneration()
                     await realtimeManager.disconnect()
                     return
                 }
@@ -1008,7 +1017,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         previousOperation?.cancel()
         generationOperationTask = Task { [realtimeManager] in
             await previousOperation?.value
-            await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
         }
     }
@@ -1119,88 +1127,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 }
 
-extension RealtimeViewController: PHPickerViewControllerDelegate {
-    func picker(
-        _ picker: PHPickerViewController,
-        didFinishPicking results: [PHPickerResult]
-    ) {
-        picker.dismiss(animated: true)
-        guard let result = results.first else {
-            finishReferencePicking(localURL: nil)
-            return
-        }
-
-        let provider = result.itemProvider
-        let typeIdentifier = provider.registeredTypeIdentifiers.first {
-            UTType($0)?.conforms(to: .image) == true
-        } ?? UTType.image.identifier
-        let preferredExtension = UTType(typeIdentifier)?
-            .preferredFilenameExtension
-
-        provider.loadFileRepresentation(
-            forTypeIdentifier: typeIdentifier
-        ) { [weak self] sourceURL, error in
-            guard let self else { return }
-            guard let sourceURL else {
-                DispatchQueue.main.async {
-                    self.finishReferencePicking(
-                        localURL: nil,
-                        error: error ?? RealtimeReferenceImportError.missingFile
-                    )
-                }
-                return
-            }
-
-            do {
-                let localURL = try Self.copyReferenceToCache(
-                    sourceURL,
-                    preferredExtension: preferredExtension
-                )
-                DispatchQueue.main.async {
-                    self.finishReferencePicking(localURL: localURL)
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.finishReferencePicking(
-                        localURL: nil,
-                        error: error
-                    )
-                }
-            }
-        }
-    }
-
-    private nonisolated static func copyReferenceToCache(
-        _ sourceURL: URL,
-        preferredExtension: String?
-    ) throws -> URL {
-        let fileManager = FileManager.default
-        let cacheRoot = try fileManager.url(
-            for: .cachesDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let directoryURL = cacheRoot.appendingPathComponent(
-            "RealtimeReferences",
-            isDirectory: true
-        )
-        try fileManager.createDirectory(
-            at: directoryURL,
-            withIntermediateDirectories: true
-        )
-
-        let fileExtension = sourceURL.pathExtension.isEmpty
-            ? preferredExtension ?? "jpg"
-            : sourceURL.pathExtension
-        let destinationURL = directoryURL
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension(fileExtension)
-        try fileManager.copyItem(at: sourceURL, to: destinationURL)
-        return destinationURL
-    }
-}
-
 private enum RealtimeDemoError: LocalizedError {
     case connectionTransitioning
     case imageEncodingFailed
@@ -1213,8 +1139,4 @@ private enum RealtimeDemoError: LocalizedError {
             return "图片处理失败，请重新选择图片。"
         }
     }
-}
-
-private enum RealtimeReferenceImportError: Error {
-    case missingFile
 }

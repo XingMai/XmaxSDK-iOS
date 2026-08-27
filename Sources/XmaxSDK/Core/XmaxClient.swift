@@ -13,6 +13,7 @@ public final class XmaxClient: Sendable {
     /// - Parameter configuration: SDK 全局配置。
     public init(configuration: XmaxConfiguration) {
         self.configuration = configuration
+        XmaxLogger.configure(options: configuration.loggerOptions)
         apiService = ApiService(apiKey: configuration.apiKey)
     }
 
@@ -21,6 +22,7 @@ public final class XmaxClient: Sendable {
         apiService: any ApiServicing
     ) {
         self.configuration = configuration
+        XmaxLogger.configure(options: configuration.loggerOptions)
         self.apiService = apiService
     }
 

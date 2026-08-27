@@ -83,7 +83,7 @@ final class VideoControllerTests: XCTestCase {
 
         XCTAssertEqual(Array(source.calls.suffix(2)), [.restart(0), .stop])
         XCTAssertTrue(rtcManager.calls.contains(.stopExternalAudioSource))
-        XCTAssertTrue(rtcManager.calls.contains(.unbindLocalVideo))
+        XCTAssertFalse(rtcManager.calls.contains(.unbindLocalVideo))
         XCTAssertNil(manager.currentTrack)
     }
 
@@ -93,37 +93,17 @@ final class VideoControllerTests: XCTestCase {
             configuration: MediaSourceConfiguration(
                 videoFormat: videoFormat,
                 hasAudio: false
-            )
+            ),
+            pauseMediaTimeUs: 875_000
         )
-        let previewController = LocalVideoPreviewController()
         let manager = makeManager(
             rtcManager: rtcManager,
-            mediaSourceController: source,
-            localVideoPreviewController: previewController
+            mediaSourceController: source
         )
         _ = try await manager.createLocalVideoStream(
             fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
             videoFormat: nil
         )
-        try previewController.output(
-            frame: try VideoFrame(
-                format: VideoFormat(
-                    width: 1,
-                    height: 1,
-                    pixelFormat: .bgra
-                ),
-                timestampUs: 1,
-                planes: [
-                    VideoFramePlane(
-                        data: Data([0, 0, 0, 255]),
-                        stride: 4
-                    )
-                ]
-            ),
-            mediaTimeUs: 875_000,
-            frameListener: { _ in }
-        )
-
         _ = await manager.pauseVideoPreview()
         try await manager.restartForGeneration()
 
@@ -140,15 +120,12 @@ private extension VideoControllerTests {
         rtcManager: RtcManagingStub,
         permissionManager: PermissionManagingStub =
             PermissionManagingStub(),
-        mediaSourceController: MediaSourceControllingStub,
-        localVideoPreviewController: LocalVideoPreviewController =
-            LocalVideoPreviewController()
+        mediaSourceController: MediaSourceControllingStub
     ) -> VideoController {
         VideoController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaSourceController: mediaSourceController,
-            localVideoPreviewController: localVideoPreviewController
+            mediaSourceController: mediaSourceController
         )
     }
 }

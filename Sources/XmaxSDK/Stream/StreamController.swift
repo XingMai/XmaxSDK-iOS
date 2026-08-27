@@ -11,12 +11,13 @@ final class StreamController: StreamControlling, RtcEventListener,
     // 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 流层组件
+    // 传输层组件
     private let roomController: any RoomControlling
     private let encodingController: any EncodingControlling
     private let qualityController: any QualityControlling
 
     // 事件监听
+    private let errorListener: XmaxErrorListener
     private let remoteStreamListener: RemoteStreamListener
 
     // 生成配置
@@ -31,6 +32,7 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     convenience init(
         rtcManager: any RtcManaging,
+        errorListener: @escaping XmaxErrorListener = { _ in },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in },
         generationTiming: StreamGenerationTiming = .live
     ) {
@@ -39,6 +41,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             roomController: RoomController(rtcManager: rtcManager),
             encodingController: EncodingController(rtcManager: rtcManager),
             qualityController: QualityController(rtcManager: rtcManager),
+            errorListener: errorListener,
             remoteStreamListener: remoteStreamListener,
             generationTiming: generationTiming
         )
@@ -49,6 +52,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         roomController: any RoomControlling,
         encodingController: any EncodingControlling,
         qualityController: any QualityControlling,
+        errorListener: @escaping XmaxErrorListener = { _ in },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in },
         generationTiming: StreamGenerationTiming = .live
     ) {
@@ -56,6 +60,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         self.roomController = roomController
         self.encodingController = encodingController
         self.qualityController = qualityController
+        self.errorListener = errorListener
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
         rtcManager.setEventListener(self)
@@ -392,7 +397,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             error: XmaxError(code: .cancelled, message: reason)
         )
         for userID in result.remoteAudioUserIDs.sorted() {
-            performCleanup("取消订阅 RTC 远端音频") {
+            performCleanup("取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)") {
                 try rtcManager.subscribeRemoteAudio(
                     userID: userID,
                     subscribe: false
@@ -414,7 +419,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             }
 
             for userID in previousState.subscribedRemoteUserIDs.sorted() {
-                performCleanup("取消订阅 RTC 远端视频") {
+                performCleanup("取消订阅 RTC 远端视频失败 (Failed to Unsubscribe from RTC Remote Video)") {
                     try rtcManager.subscribeRemoteVideo(
                         userID: userID,
                         subscribe: false
@@ -422,12 +427,12 @@ final class StreamController: StreamControlling, RtcEventListener,
                 }
             }
             if previousState.localAudioPublished {
-                performCleanup("取消发布 RTC 本地音频") {
+                performCleanup("取消发布 RTC 本地音频失败 (Failed to Unpublish RTC Local Audio)") {
                     try rtcManager.unpublishLocalAudio()
                 }
             }
             if previousState.localVideoPublished {
-                performCleanup("取消发布 RTC 本地视频") {
+                performCleanup("取消发布 RTC 本地视频失败 (Failed to Unpublish RTC Local Video)") {
                     try rtcManager.unpublishLocalVideo()
                 }
             }
@@ -577,11 +582,20 @@ private extension StreamController {
                 state.subscribedRemoteUserIDs.insert(userID)
             }
         } catch {
-            XmaxLogger.error(
-                "订阅 RTC 远端视频失败\n└─ 原因：" +
-                    (error as NSError).localizedDescription,
-                category: "Stream"
-            )
+            let xmaxError = XmaxError.from(error)
+            let pendingTaskID = stateLock.withLock {
+                state.generationWaiter == nil
+                    ? nil
+                    : state.generationTask?.id
+            }
+            if let pendingTaskID {
+                rejectGenerationStart(
+                    taskID: pendingTaskID,
+                    error: xmaxError
+                )
+            } else {
+                errorListener(xmaxError)
+            }
         }
     }
 
@@ -609,7 +623,7 @@ private extension StreamController {
         guard wasSubscribed else {
             return
         }
-        performCleanup("取消订阅 RTC 远端音频") {
+        performCleanup("取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)") {
             try rtcManager.subscribeRemoteAudio(
                 userID: userID,
                 subscribe: false
@@ -672,7 +686,8 @@ private extension StreamController {
             try remoteStreamListener(nil)
         } catch {
             XmaxLogger.error(
-                "清理 RTC 远端生成流失败\n└─ 原因：" +
+                "清理 RTC 远端生成流失败 (Failed to Clean Up RTC Remote Generation Stream)\n" +
+                    "└─ 原因：" +
                     (error as NSError).localizedDescription,
                 category: "Stream"
             )
@@ -687,7 +702,8 @@ private extension StreamController {
             }
         } catch {
             XmaxLogger.error(
-                "回滚 RTC 本地视频发布失败\n└─ 原因：" +
+                "回滚 RTC 本地视频发布失败 (Failed to Roll Back RTC Local Video Publication)\n" +
+                    "└─ 原因：" +
                     (error as NSError).localizedDescription,
                 category: "Stream"
             )
@@ -695,14 +711,14 @@ private extension StreamController {
     }
 
     func performCleanup(
-        _ operation: String,
+        _ title: String,
         action: () throws -> Void
     ) {
         do {
             try action()
         } catch {
             XmaxLogger.error(
-                "\(operation)失败\n└─ 原因：" +
+                "\(title)\n└─ 原因：" +
                     (error as NSError).localizedDescription,
                 category: "Stream"
             )

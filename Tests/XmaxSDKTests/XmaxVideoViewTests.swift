@@ -136,48 +136,27 @@ final class XmaxVideoViewTests: XCTestCase {
         XCTAssertEqual(image.size, CGSize(width: 2, height: 2))
     }
 
-    func testLatestPauseOwnsPreviewUntilItsResumeRuns() async throws {
-        let rtcManager = RtcManagingStub()
-        let track = RealtimeVideoTrack(id: "video-track")
-        register(track: track, rtcManager: rtcManager)
-        defer { VideoRenderRegistry.unregister(track) }
-        let view = XmaxVideoView(track: track)
-        let window = UIWindow(
-            frame: CGRect(x: 0, y: 0, width: 320, height: 480)
-        )
-        window.addSubview(view)
+    func testPlayerFreezeFrameCoversAndRestoresPlayerPreview() throws {
+        let view = XmaxVideoView()
         let imageView = try XCTUnwrap(
             view.subviews.compactMap { $0 as? UIImageView }.first
         )
-        let controller = LocalVideoPreviewController()
-        try controller.output(
-            frame: try makeNV12Frame(timestampUs: 1),
-            mediaTimeUs: 123_000,
-            frameListener: { _ in }
+
+        try view.displayPlayerFreezeFrame(
+            makeNV12Frame(timestampUs: 0),
+            contentMode: .fit
         )
 
-        let firstPause = await controller.pause(track: track)
-        try controller.output(
-            frame: try makeNV12Frame(timestampUs: 2),
-            mediaTimeUs: 456_000,
-            frameListener: { _ in }
-        )
-        controller.resumeVideoOutput()
-        try controller.output(
-            frame: try makeNV12Frame(timestampUs: 2),
-            mediaTimeUs: 456_000,
-            frameListener: { _ in }
-        )
-        let secondPause = await controller.pause(track: track)
+        XCTAssertFalse(imageView.isHidden)
+        XCTAssertNotNil(imageView.image)
+        XCTAssertEqual(imageView.contentMode, .scaleAspectFit)
 
-        XCTAssertEqual(firstPause.mediaTimeUs, 123_000)
-        XCTAssertEqual(secondPause.mediaTimeUs, 456_000)
-        XCTAssertFalse(imageView.isHidden)
-        await firstPause.resume()
-        XCTAssertFalse(imageView.isHidden)
-        await secondPause.resume()
+        view.clearPlayerFreezeFrame()
+
         XCTAssertTrue(imageView.isHidden)
+        XCTAssertNil(imageView.image)
     }
+
 }
 
 private extension XmaxVideoViewTests {

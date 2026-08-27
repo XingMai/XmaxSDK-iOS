@@ -1,7 +1,8 @@
 import CoreGraphics
 import Foundation
+import UIKit
 
-/// 协调本地视频文件的元数据、共享时间线和音视频循环输出。
+/// 协调本地视频文件元数据、输出格式和单一播放器时间线。
 final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
     // 默认格式
@@ -9,14 +10,12 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
     // 基础层组件
     private let metadataManager: any MediaFileMetadataManaging
-    private let audioManager: any AudioManaging
 
     // 服务层组件
     private let mediaService: any MediaServicing
 
     // 媒体源组件
-    private let videoSourceController: any VideoSourceControlling
-    private let audioSourceController: any AudioSourceControlling
+    private let playerController: any VideoPlayerControlling
 
     // 并发控制
     private let stateLock = NSLock()
@@ -29,16 +28,12 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
     init(
         metadataManager: any MediaFileMetadataManaging,
-        audioManager: any AudioManaging,
         mediaService: any MediaServicing,
-        videoSourceController: any VideoSourceControlling,
-        audioSourceController: any AudioSourceControlling
+        playerController: any VideoPlayerControlling
     ) {
         self.metadataManager = metadataManager
-        self.audioManager = audioManager
         self.mediaService = mediaService
-        self.videoSourceController = videoSourceController
-        self.audioSourceController = audioSourceController
+        self.playerController = playerController
     }
 
     var hasAudio: Bool {
@@ -65,16 +60,14 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
                 metadata: metadata,
                 requestedFormat: videoFormat
             )
-            try videoSourceController.configure(
+            try await playerController.configure(
                 fileURL: fileURL,
                 outputWidth: resolvedFormat.width,
                 outputHeight: resolvedFormat.height,
                 rotation: metadata.rotation,
-                frameRate: resolvedFormat.fps
+                frameRate: resolvedFormat.fps,
+                hasAudio: metadata.hasAudio
             )
-            if metadata.hasAudio {
-                try audioSourceController.configure(fileURL: fileURL)
-            }
 
             let configuration = MediaSourceConfiguration(
                 videoFormat: resolvedFormat,
@@ -93,9 +86,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     }
 
     func start() async throws {
-        let preparedMedia = try beginRunning()
+        _ = try beginRunning()
         do {
-            try await startSources(preparedMedia: preparedMedia)
+            try await playerController.start()
         } catch {
             await rollbackRunning()
             throw XmaxError.from(error)
@@ -118,31 +111,41 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
                 max(mediaTimeUs, 0),
                 preparedMedia.metadata.durationUs - 1
             )
-            if preparedMedia.configuration.hasAudio {
-                try await audioManager.flush()
-            }
-            let timeline = try MediaTimeline(
-                durationUs: preparedMedia.metadata.durationUs,
-                mediaStartUs: resolvedMediaTimeUs
-            )
-            async let videoRestart: Void = videoSourceController.restart(
-                timeline: timeline
-            )
-            async let audioRestart: Void = restartAudioIfNeeded(
-                timeline: timeline,
-                hasAudio: preparedMedia.configuration.hasAudio
-            )
-            _ = try await (videoRestart, audioRestart)
+            try await playerController.restart(from: resolvedMediaTimeUs)
         } catch {
             throw XmaxError.from(error)
         }
+    }
+
+    func pause() async -> Int64? {
+        await playerController.pause()
+    }
+
+    func resumePreviewIfNeeded() async {
+        await playerController.resumePreviewIfNeeded()
     }
 
     func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
         guard hasAudio else {
             return
         }
-        try await audioManager.setPlaybackEnabled(enabled)
+        await playerController.setLocalAudioPreviewEnabled(enabled)
+    }
+
+    @MainActor
+    func attachPreview(
+        to view: UIView,
+        contentMode: VideoContentMode
+    ) throws {
+        try playerController.attachPreview(
+            to: view,
+            contentMode: contentMode
+        )
+    }
+
+    @MainActor
+    func detachPreview(from view: UIView) {
+        playerController.detachPreview(from: view)
     }
 
     func stop() async {
@@ -150,9 +153,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
             isRunning = false
             preparedMedia = nil
         }
-        videoSourceController.stop()
-        audioSourceController.stop()
-        await audioManager.stop()
+        await playerController.stop()
     }
 }
 
@@ -181,50 +182,11 @@ private extension MediaSourceController {
         }
     }
 
-    func startSources(preparedMedia: PreparedMedia) async throws {
-        if preparedMedia.configuration.hasAudio {
-            try await audioManager.start()
-        }
-        let timeline = try MediaTimeline(
-            durationUs: preparedMedia.metadata.durationUs
-        )
-        async let videoStart: Void = videoSourceController.start(
-            timeline: timeline
-        )
-        async let audioStart: Void = startAudioIfNeeded(
-            timeline: timeline,
-            hasAudio: preparedMedia.configuration.hasAudio
-        )
-        _ = try await (videoStart, audioStart)
-    }
-
-    func startAudioIfNeeded(
-        timeline: MediaTimeline,
-        hasAudio: Bool
-    ) async throws {
-        guard hasAudio else {
-            return
-        }
-        try await audioSourceController.start(timeline: timeline)
-    }
-
-    func restartAudioIfNeeded(
-        timeline: MediaTimeline,
-        hasAudio: Bool
-    ) async throws {
-        guard hasAudio else {
-            return
-        }
-        try await audioSourceController.restart(timeline: timeline)
-    }
-
     func rollbackRunning() async {
         stateLock.withLock {
             isRunning = false
         }
-        videoSourceController.stop()
-        audioSourceController.stop()
-        await audioManager.stop()
+        await playerController.stop()
     }
 
     func resolveVideoFormat(

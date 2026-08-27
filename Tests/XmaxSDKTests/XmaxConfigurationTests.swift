@@ -6,7 +6,17 @@ final class XmaxConfigurationTests: XCTestCase {
         let configuration = XmaxConfiguration(apiKey: "  test-key\n")
 
         XCTAssertEqual(configuration.apiKey, "test-key")
+        XCTAssertTrue(configuration.loggerOptions.isEmpty)
         XCTAssertNoThrow(try configuration.validate())
+    }
+
+    func testConfigurationKeepsLoggerOptions() {
+        let configuration = XmaxConfiguration(
+            apiKey: "test-key",
+            loggerOptions: [.business, .performance]
+        )
+
+        XCTAssertEqual(configuration.loggerOptions, .all)
     }
 
     func testEmptyAPIKeyFailsValidation() {

@@ -18,7 +18,7 @@ actor XmaxRealtimeConnectionManager {
     // 渲染层组件
     private let renderController: any RenderControlling
 
-    // 流层组件
+    // 传输层组件
     private let streamController: any StreamControlling
 
     // 连接资源
@@ -131,7 +131,7 @@ actor XmaxRealtimeConnectionManager {
     }
 
     @discardableResult
-    func disconnect(fallbackSessionID: String? = nil) async throws -> String? {
+    func disconnect() async throws -> String? {
         let session = activeSession
         let remoteTrack = activeRemoteTrack
         activeSession = nil
@@ -141,7 +141,7 @@ actor XmaxRealtimeConnectionManager {
         await resetRemoteRendering(track: remoteTrack)
         await streamController.disconnect()
 
-        let sessionID = session?.id ?? fallbackSessionID
+        let sessionID = session?.id
         if let sessionID {
             try await sessionService.closeSession(sessionID: sessionID)
         }
@@ -186,7 +186,7 @@ private extension XmaxRealtimeConnectionManager {
             try await renderController.resetRemoteTrack(track)
         } catch {
             Self.logCleanupFailure(
-                operation: "重置远端视频渲染",
+                title: "重置远端视频渲染失败 (Failed to Reset Remote Video Rendering)",
                 error: error
             )
         }
@@ -197,18 +197,18 @@ private extension XmaxRealtimeConnectionManager {
             try await sessionService.closeSession(sessionID: sessionID)
         } catch {
             Self.logCleanupFailure(
-                operation: "连接回滚关闭会话",
+                title: "连接回滚关闭会话失败 (Failed to Close Session During Connection Rollback)",
                 error: error
             )
         }
     }
 
     nonisolated static func logCleanupFailure(
-        operation: String,
+        title: String,
         error: any Error
     ) {
         XmaxLogger.error(
-            "\(operation)失败\n└─ 原因：" +
+            "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription,
             category: "Realtime"
         )

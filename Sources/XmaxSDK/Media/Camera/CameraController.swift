@@ -14,6 +14,9 @@ final class CameraController: @unchecked Sendable {
     // 服务层组件
     private let mediaService: any MediaServicing
 
+    // 事件监听
+    private let errorListener: XmaxErrorListener
+
     // 并发控制
     private let stateLock = NSLock()
 
@@ -22,23 +25,27 @@ final class CameraController: @unchecked Sendable {
 
     @MainActor
     convenience init(
-        rtcManager: any RtcManaging
+        rtcManager: any RtcManaging,
+        errorListener: @escaping XmaxErrorListener
     ) {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
-            mediaService: MediaService()
+            mediaService: MediaService(),
+            errorListener: errorListener
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
-        mediaService: any MediaServicing
+        mediaService: any MediaServicing,
+        errorListener: @escaping XmaxErrorListener = { _ in }
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaService = mediaService
+        self.errorListener = errorListener
     }
 
     /// 当前活动的本地相机视频轨道；尚未创建时返回空值。
@@ -119,7 +126,7 @@ final class CameraController: @unchecked Sendable {
                     try rtcManager.unbindLocalVideo()
                 } catch {
                     Self.logCleanupFailure(
-                        operation: "解除 RTC 本地预览绑定",
+                        title: "解除 RTC 本地预览绑定失败 (Failed to Detach RTC Local Preview)",
                         error: error
                     )
                 }
@@ -130,7 +137,7 @@ final class CameraController: @unchecked Sendable {
             try rtcManager.stopVideoCapture()
         } catch {
             Self.logCleanupFailure(
-                operation: "停止 RTC 相机采集",
+                title: "停止 RTC 相机采集失败 (Failed to Stop RTC Camera Capture)",
                 error: error
             )
         }
@@ -188,10 +195,15 @@ private extension CameraController {
                     binding: VideoRenderBinding(
                         libraryName: rtcManager.renderLibraryName,
                         attachHandler: { view, contentMode in
-                            try self.rtcManager.bindLocalVideo(
-                                to: view,
-                                contentMode: contentMode
-                            )
+                            do {
+                                try self.rtcManager.bindLocalVideo(
+                                    to: view,
+                                    contentMode: contentMode
+                                )
+                            } catch {
+                                self.errorListener(XmaxError.from(error))
+                                throw error
+                            }
                         },
                         detachHandler: { _ in
                             try self.rtcManager.unbindLocalVideo()
@@ -215,7 +227,7 @@ private extension CameraController {
                 try rtcManager.stopVideoCapture()
             } catch {
                 Self.logCleanupFailure(
-                    operation: "回滚 RTC 相机采集",
+                    title: "回滚 RTC 相机采集失败 (Failed to Roll Back RTC Camera Capture)",
                     error: error
                 )
             }
@@ -240,11 +252,11 @@ private extension CameraController {
     }
 
     static func logCleanupFailure(
-        operation: String,
+        title: String,
         error: any Error
     ) {
         XmaxLogger.error(
-            "\(operation)失败\n└─ 原因：" +
+            "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription,
             category: "Realtime"
         )

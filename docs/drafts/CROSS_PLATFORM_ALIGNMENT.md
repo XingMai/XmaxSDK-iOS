@@ -319,7 +319,10 @@ Harmony：
 
 ## SYNC-011 文件解码器安全停止
 
-状态：iOS 已完成；Harmony 待审视。
+状态：历史方案；iOS 已由 SYNC-014 的单 AVPlayer 链路取代。
+
+> iOS 已移除文件视频使用的 AVAssetReader 音视频 decoder，本节只保留为
+> Harmony 排查旧 reader 生命周期问题的历史记录。
 
 统一目标：
 
@@ -343,7 +346,7 @@ Harmony：
 
 ## SYNC-012 文件视频本地音频预览
 
-状态：iOS 已完成；Harmony 待验证。
+状态：历史方案；iOS 已由 SYNC-014 的 AVPlayer 系统播放与音频 Tap 取代。
 
 统一目标：
 
@@ -353,8 +356,9 @@ Harmony：
 
 iOS：
 
-- [x] 本地播放器使用与 RTC 兼容的播放录音音频会话，避免静音模式屏蔽预览音频。
-- [x] RTC 外部音频源将默认音频路由设为扬声器。
+- [x] 本地音频改由 AVPlayer 系统播放，不再经过 SDK 自建 AVAudioEngine 缓冲。
+- [x] 移除 RTC 外部音频源的强制扬声器路由，允许系统选择有线耳机和蓝牙设备。
+- [x] 使用前置 `MTAudioProcessingTap` 复制同一播放器的 PCM 数据供 RTC 使用。
 - [ ] 真机验证静音模式、扬声器、有线耳机和蓝牙耳机播放。
 
 Harmony：
@@ -364,8 +368,7 @@ Harmony：
 
 ## SYNC-013 文件视频生成点击位置检查点
 
-状态：iOS 已完成代码实现和真机目标编译；Harmony 暂不修改，待 iOS 真机验证
-后同步。
+状态：历史方案；静态帧覆盖和双 reader 时间线已由 SYNC-014 取代。
 
 统一目标：
 
@@ -414,3 +417,56 @@ Harmony：
 - [ ] 对齐组合生成入口，但不把内部检查点暴露给接入方。
 - [ ] 音视频使用同一检查点和时间线，首轮到文件尾后恢复完整循环。
 - [ ] 对齐本地音频暂停和远端 ready 后音视频同时切换的生命周期。
+
+## SYNC-014 文件视频单播放器时间线
+
+状态：iOS 已完成代码调整和 SDK 真机目标编译；Harmony 暂不修改，待 iOS
+真机验证后确定平台对应方案。
+
+统一目标：
+
+- 本地文件视频只保留一个播放时钟，预览、生成检查点、RTC 视频帧和 RTC
+  音频帧均以该时钟为准。
+- 本地预览由平台播放器原生渲染，SDK 统一视频视图内部完成绑定，接入方无需
+  额外创建播放器或视图。
+- 用户点击生成时同步暂停播放器，检查点直接取播放器当前文件时间；生成开始后
+  从该时间 seek 并静音播放。
+- loading 和远端生成期间播放器保持运行、保持解码热状态；loading 期间使用
+  静态帧遮住本地运动画面，远端 ready 后解除遮罩并由远端视图覆盖本地视图；
+  停止生成时只切回持续播放的本地视图并取消静音。
+- 远端音频仍只在匹配 taskID 的远端画面 ready 后订阅，音视频共用同一切换
+  边界。
+- 不强制选择扬声器；有线耳机和蓝牙路由交给系统音频会话处理。
+
+iOS：
+
+- [x] `XmaxVideoView` 内部使用 `AVPlayerLayer` 显示本地文件视频。
+- [x] `AVPlayerItemVideoOutput` 从同一个 `AVPlayerItem` 取得 NV12 像素缓冲，
+  经目标比例裁剪、缩放和物理旋转后进入 RTC。
+- [x] `MTAudioProcessingTap` 从同一个 `AVPlayerItem` 复制 PCM，转换为 48 kHz、
+  单声道、PCM16，并切分为 10 ms RTC 音频帧。
+- [x] `pauseVideoPreview()` 直接暂停播放器并记录 `currentTime()`，不再生成
+  独立 reader 检查点。
+- [x] `XmaxVideoView` 使用最近实际输出的目标尺寸帧冻结本地画面；等待远端
+  ready 期间 `AVPlayer` 继续为 RTC 解码，但运动画面不再暴露。
+- [x] 远端 ready 后解除静态帧冻结；生成失败、停止或断开仍作为兜底恢复路径。
+- [x] 生成从检查点精确 seek；失败恢复只在播放器尚未重启时继续播放。
+- [x] 文件结束后由同一个播放器 seek 到零继续循环。
+- [x] 删除 `VideoFileFrameDecoder`、`AudioFileFrameDecoder`、`MediaTimeline`、
+  `VideoSourceController`、`AudioSourceController`、`AudioManager` 和
+  `LocalVideoPreviewController`。
+- [x] 移除 `setDefaultAudioRoute(.speakerphone)`。
+- [x] 公共 API 和公共模型保持不变。
+- [x] SDK 真机目标编译通过。
+- [ ] 真机验证本地画面方向、目标构图和音画同步。
+- [ ] 真机验证点击立即暂停、远端 ready 同时出声出画、停止立即恢复。
+- [ ] 真机验证扬声器、有线耳机、AirPods 和其他蓝牙设备路由。
+- [ ] 真机重复生成、停止和重新生成，确认播放器和 Tap 生命周期稳定。
+
+Harmony：
+
+- [ ] iOS 真机行为确认后，评估 AVPlayerLayer、VideoOutput、Audio Tap 在
+  Harmony 平台的等价能力。
+- [ ] 若平台播放器可同时提供原生预览与解码帧，收敛为单播放器时钟。
+- [ ] 点击检查点使用播放器当前位置，不再维护独立 reader 墙钟。
+- [ ] 本地播放器在远端阶段保持热状态，停止生成时直接恢复显示与声音。

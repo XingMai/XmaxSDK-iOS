@@ -6,11 +6,23 @@ public struct XmaxConfiguration: Equatable, Sendable {
     /// 调用 Xmax 服务使用的 API Key。
     public let apiKey: String
 
+    /// SDK 输出的日志类型；默认为不输出日志。
+    public let loggerOptions: XmaxLoggerOption
+
     /// 创建 SDK 全局配置。
     ///
-    /// - Parameter apiKey: 调用 Xmax 服务使用的 API Key。
-    public init(apiKey: String) {
-        self.apiKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// - Parameters:
+    ///   - apiKey: 调用 Xmax 服务使用的 API Key。
+    ///   - loggerOptions: SDK 输出的日志类型；默认为空。
+    public init(
+        apiKey: String,
+        loggerOptions: XmaxLoggerOption = []
+    ) {
+        let resolvedApiKey = apiKey.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        self.apiKey = resolvedApiKey
+        self.loggerOptions = loggerOptions
     }
 
     /// 校验全局配置。

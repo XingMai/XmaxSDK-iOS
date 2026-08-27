@@ -225,25 +225,6 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         )
     }
 
-    func testDisconnectUsesFallbackSessionWhenActiveResourcesAreMissing()
-        async throws {
-        let sessionService = RealtimeSessionServicingStub(session: session)
-        let components = makeManager(sessionService: sessionService)
-
-        let sessionID = try await components.manager.disconnect(
-            fallbackSessionID: "fallback-session"
-        )
-
-        XCTAssertEqual(sessionID, "fallback-session")
-        XCTAssertEqual(
-            sessionService.calls,
-            [
-                .stopHeartbeat,
-                .closeSession("fallback-session")
-            ]
-        )
-    }
-
     func testUpdatingRemoteVideoFormatUpdatesActiveTrack() async throws {
         let components = makeManager(
             sessionService: RealtimeSessionServicingStub(session: session)

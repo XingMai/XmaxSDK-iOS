@@ -8,34 +8,18 @@ enum RtcStatsLogger {
     private static let category = "RTC"
 
     static func logLocalStreamStats(_ stats: ByteRTCLocalStreamStats) {
-        let video = stats.videoStats
-
         XmaxLogger.debug(
-            """
-            本地视频发送
-            ├─ 分辨率：\(video.encodedFrameWidth) × \(video.encodedFrameHeight)
-            ├─ 码率：\(video.sentKBitrate) kbps
-            ├─ 帧率：采集 \(video.inputFrameRate) fps，编码 \(video.encoderOutputFrameRate) fps，发送 \(video.sentFrameRate) fps
-            └─ 网络：丢包 \(percentage(video.videoLossRate))，RTT \(video.rtt) ms，抖动 \(video.jitter) ms
-            """,
-            category: category
+            localStreamStatsMessage(stats),
+            category: category,
+            option: .performance
         )
     }
 
     static func logRemoteStreamStats(_ stats: ByteRTCRemoteStreamStats) {
-        let video = stats.videoStats
-
         XmaxLogger.debug(
-            """
-            远端视频接收
-            ├─ 分辨率：\(video.width) × \(video.height)
-            ├─ 码率：\(video.receivedKBitrate) kbps
-            ├─ 帧率：解码 \(video.decoderOutputFrameRate) fps，渲染 \(video.renderOutputFrameRate) fps
-            ├─ 网络：丢包 \(percentage(video.videoLossRate))，RTT \(video.rtt) ms
-            ├─ 卡顿：\(video.stallCount) 次，\(video.stallDuration) ms
-            └─ 时延：端到端 \(video.e2eDelay) ms
-            """,
-            category: category
+            remoteStreamStatsMessage(stats),
+            category: category,
+            option: .performance
         )
     }
 
@@ -43,11 +27,79 @@ enum RtcStatsLogger {
         localQuality: ByteRTCNetworkQualityStats,
         remoteQualities: [ByteRTCNetworkQualityStats]
     ) {
+        XmaxLogger.debug(
+            networkQualityMessage(
+                localQuality: localQuality,
+                remoteQualities: remoteQualities
+            ),
+            category: category,
+            option: .performance
+        )
+    }
+
+    static func logSystemStats(_ stats: ByteRTCSysStats) {
+        XmaxLogger.debug(
+            systemStatsMessage(stats),
+            category: category,
+            option: .performance
+        )
+    }
+
+    static func logPerformanceAlarm(
+        reason: ByteRTCPerformanceAlarmReason,
+        data: ByteRTCSourceWantedData
+    ) {
+        XmaxLogger.debug(
+            performanceAlarmMessage(reason: reason, data: data),
+            category: category,
+            option: .performance
+        )
+    }
+
+    private static func localStreamStatsMessage(
+        _ stats: ByteRTCLocalStreamStats
+    ) -> String {
+        let video = stats.videoStats
+        return """
+        本地视频发送 (Local Video Uplink)
+        ├─ 分辨率：\(video.encodedFrameWidth) × \(video.encodedFrameHeight)
+        ├─ 发送码率：\(video.sentKBitrate) kbps
+        ├─ 采集帧率：\(video.inputFrameRate) fps
+        ├─ 编码帧率：\(video.encoderOutputFrameRate) fps
+        ├─ 发送帧率：\(video.sentFrameRate) fps
+        ├─ 视频丢包率：\(percentage(video.videoLossRate))
+        ├─ 网络往返时延：\(video.rtt) ms
+        └─ 网络抖动：\(video.jitter) ms
+        """
+    }
+
+    private static func remoteStreamStatsMessage(
+        _ stats: ByteRTCRemoteStreamStats
+    ) -> String {
+        let video = stats.videoStats
+        return """
+        远端视频接收 (Remote Video Downlink)
+        ├─ 分辨率：\(video.width) × \(video.height)
+        ├─ 接收码率：\(video.receivedKBitrate) kbps
+        ├─ 解码帧率：\(video.decoderOutputFrameRate) fps
+        ├─ 渲染帧率：\(video.renderOutputFrameRate) fps
+        ├─ 视频丢包率：\(percentage(video.videoLossRate))
+        ├─ 网络往返时延：\(video.rtt) ms
+        ├─ 卡顿次数：\(video.stallCount) 次
+        ├─ 卡顿时长：\(video.stallDuration) ms
+        └─ 端到端时延：\(video.e2eDelay) ms
+        """
+    }
+
+    private static func networkQualityMessage(
+        localQuality: ByteRTCNetworkQualityStats,
+        remoteQualities: [ByteRTCNetworkQualityStats]
+    ) -> String {
         let hasRemoteQuality = !remoteQualities.isEmpty
         let localBranch = hasRemoteQuality ? "├─" : "└─"
         let localIndent = hasRemoteQuality ? "│  " : "   "
         var lines = [
-            "网络质量",
+            "网络质量 (Network Quality Metrics)",
             "\(localBranch) 本地发送（上行）",
             "\(localIndent)├─ 质量：\(networkQualityName(localQuality.txQuality))",
             "\(localIndent)└─ \(networkMetrics(localQuality, includesRtt: true))"
@@ -65,11 +117,10 @@ enum RtcStatsLogger {
                 "\(indent)└─ \(networkMetrics(quality, includesRtt: false))"
             )
         }
-
-        XmaxLogger.debug(lines.joined(separator: "\n"), category: category)
+        return lines.joined(separator: "\n")
     }
 
-    static func logSystemStats(_ stats: ByteRTCSysStats) {
+    private static func systemStatsMessage(_ stats: ByteRTCSysStats) -> String {
         let cpu = [
             "应用 \(percentage(stats.cpuAppUsage))",
             "系统 \(percentage(stats.cpuTotalUsage))",
@@ -80,22 +131,18 @@ enum RtcStatsLogger {
             "应用占用 \(String(format: "%.2f", stats.memoryRatio))%",
             "系统占用 \(String(format: "%.2f", stats.totalMemoryRatio))%"
         ].joined(separator: "，")
-
-        XmaxLogger.debug(
-            """
-            性能统计
-            ├─ CPU：\(cpu)
-            └─ 内存：\(memory)
-            """,
-            category: category
-        )
+        return """
+        性能统计 (System Performance Metrics)
+        ├─ CPU：\(cpu)
+        └─ 内存：\(memory)
+        """
     }
 
-    static func logPerformanceAlarm(
+    private static func performanceAlarmMessage(
         reason: ByteRTCPerformanceAlarmReason,
         data: ByteRTCSourceWantedData
-    ) {
-        var lines = ["性能告警"]
+    ) -> String {
+        var lines = ["性能告警 (Performance Alert)"]
         let state = performanceAlarmName(reason)
         if data.width > 0, data.height > 0, data.frameRate > 0 {
             lines.append("├─ 状态：\(state)")
@@ -105,8 +152,7 @@ enum RtcStatsLogger {
         } else {
             lines.append("└─ 状态：\(state)")
         }
-
-        XmaxLogger.debug(lines.joined(separator: "\n"), category: category)
+        return lines.joined(separator: "\n")
     }
 
     private static func networkMetrics(

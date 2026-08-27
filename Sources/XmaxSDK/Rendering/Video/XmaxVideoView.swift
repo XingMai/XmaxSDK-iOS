@@ -1,3 +1,4 @@
+@preconcurrency import AVFoundation
 import CoreImage
 import CoreVideo
 import UIKit
@@ -64,6 +65,9 @@ public final class XmaxVideoView: UIView {
     private var customTrajectoryRenderer:
         (any TrajectoryEffectRendering)?
 
+    // 视频预览
+    private var playerLayer: AVPlayerLayer?
+
     // 图片预览
     private lazy var imageView: UIImageView = {
         let imageView = UIImageView()
@@ -127,6 +131,7 @@ public final class XmaxVideoView: UIView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        playerLayer?.frame = bounds
         trajectoryOverlayView.frame = bounds
         bringSubviewToFront(trajectoryOverlayView)
     }
@@ -157,6 +162,46 @@ extension XmaxVideoView {
         imageView.isHidden = true
     }
 
+    func displayPlayerFreezeFrame(
+        _ frame: VideoFrame,
+        contentMode: VideoContentMode
+    ) throws {
+        try displayImageFrame(frame, contentMode: contentMode)
+    }
+
+    func clearPlayerFreezeFrame() {
+        clearImageFrame()
+    }
+
+    func displayPlayer(
+        _ player: AVPlayer,
+        contentMode: VideoContentMode
+    ) {
+        let playerLayer: AVPlayerLayer
+        if let currentLayer = self.playerLayer {
+            playerLayer = currentLayer
+        } else {
+            playerLayer = AVPlayerLayer()
+            playerLayer.frame = bounds
+            layer.insertSublayer(playerLayer, at: 0)
+            self.playerLayer = playerLayer
+        }
+        playerLayer.player = player
+        playerLayer.videoGravity = contentMode == .fit ?
+            .resizeAspect : .resizeAspectFill
+        playerLayer.isHidden = false
+    }
+
+    func clearPlayer(_ player: AVPlayer) {
+        guard playerLayer?.player === player else {
+            return
+        }
+        clearPlayerFreezeFrame()
+        playerLayer?.player = nil
+        playerLayer?.removeFromSuperlayer()
+        playerLayer = nil
+    }
+
     func attachCurrentTrackIfNeeded() {
         guard window != nil, let track else {
             return
@@ -172,7 +217,7 @@ extension XmaxVideoView {
             } catch {
                 attachedTrack = nil
                 Self.logRenderingFailure(
-                    operation: "绑定视频渲染视图",
+                    title: "绑定视频渲染视图失败 (Failed to Attach Video Render View)",
                     error: error
                 )
             }
@@ -197,7 +242,7 @@ extension XmaxVideoView {
                 try VideoRenderRegistry.binding(for: track)?.detach(from: self)
             } catch {
                 Self.logRenderingFailure(
-                    operation: "解除视频渲染视图",
+                    title: "解除视频渲染视图失败 (Failed to Detach Video Render View)",
                     error: error
                 )
             }
@@ -223,11 +268,11 @@ extension XmaxVideoView {
     }
 
     static func logRenderingFailure(
-        operation: String,
+        title: String,
         error: any Error
     ) {
         XmaxLogger.error(
-            "\(operation)失败\n└─ 原因：" +
+            "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription,
             category: "Rendering"
         )

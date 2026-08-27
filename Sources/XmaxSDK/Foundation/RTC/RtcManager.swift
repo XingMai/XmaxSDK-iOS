@@ -214,10 +214,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     func startExternalAudioSource() throws {
         try withEngine { engine in
             try checkResult(
-                engine.setDefaultAudioRoute(.speakerphone),
-                operation: "setDefaultAudioRoute"
-            )
-            try checkResult(
                 engine.setAudioSourceType(.external),
                 operation: "setAudioSourceType"
             )
@@ -261,20 +257,14 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 for: frame,
                 seiData: seiData
             )
-            try checkResult(
-                engine.pushExternalVideoFrame(rtcFrame.value),
-                operation: "pushExternalVideoFrame"
-            )
+            _ = engine.pushExternalVideoFrame(rtcFrame.value)
         }
     }
 
     func pushExternalAudioFrame(_ frame: AudioFrame) throws {
         let rtcFrame = try RtcAudioConverter.convertFrame(frame)
         try withEngine { engine in
-            try checkResult(
-                engine.pushExternalAudioFrame(rtcFrame),
-                operation: "pushExternalAudioFrame"
-            )
+            _ = engine.pushExternalAudioFrame(rtcFrame)
         }
     }
 
@@ -963,7 +953,10 @@ private extension RtcManager {
         message: Data
     ) {
         guard let decodedMessage = String(data: message, encoding: .utf8) else {
-            XmaxLogger.warn("收到无法解码的 RTC SEI 消息", category: "RTC")
+            XmaxLogger.warn(
+                "收到无法解码的 RTC SEI 消息 (Failed to Decode Incoming RTC SEI Message)",
+                category: "RTC"
+            )
             return
         }
 

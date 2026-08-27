@@ -8,7 +8,6 @@ actor MediaController: MediaControlling {
 
     // 本地媒体组件
     private let cameraController: CameraController
-    private let errorHandler: MediaSourceErrorHandler
     private let imageController: ImageController?
     private let interactionController: any InteractionControlling
     private let videoController: VideoController?
@@ -25,19 +24,19 @@ actor MediaController: MediaControlling {
         rtcManager: any RtcManaging,
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
+        errorListener: @escaping XmaxErrorListener,
         interactionListener: @escaping InteractionListener
     ) {
-        let errorHandler = MediaSourceErrorHandler()
         self.rtcManager = rtcManager
         cameraController = CameraController(
-            rtcManager: rtcManager
+            rtcManager: rtcManager,
+            errorListener: errorListener
         )
         imageController = ImageController(
             rtcManager: rtcManager,
             frameListener: videoFrameListener,
-            errorListener: { errorHandler.report($0) }
+            errorListener: errorListener
         )
-        self.errorHandler = errorHandler
         interactionController = InteractionController(
             listener: interactionListener
         )
@@ -45,21 +44,19 @@ actor MediaController: MediaControlling {
             rtcManager: rtcManager,
             videoFrameListener: videoFrameListener,
             audioFrameListener: audioFrameListener,
-            errorListener: { errorHandler.report($0) }
+            errorListener: errorListener
         )
     }
 
     init(
         rtcManager: any RtcManaging,
         cameraController: CameraController,
-        errorHandler: MediaSourceErrorHandler = MediaSourceErrorHandler(),
         imageController: ImageController? = nil,
         interactionListener: @escaping InteractionListener = { _, _ in },
         videoController: VideoController? = nil
     ) {
         self.rtcManager = rtcManager
         self.cameraController = cameraController
-        self.errorHandler = errorHandler
         self.imageController = imageController
         interactionController = InteractionController(
             listener: interactionListener
@@ -86,12 +83,6 @@ actor MediaController: MediaControlling {
             return false
         }
         return videoController?.hasAudio ?? false
-    }
-
-    nonisolated func setErrorListener(
-        _ listener: MediaSourceErrorListener?
-    ) {
-        errorHandler.setListener(listener)
     }
 
     /// 设置摄像头预览就绪监听器。
@@ -398,7 +389,9 @@ private extension MediaController {
             } catch {
                 if !Self.isCancelled(error) {
                     XmaxLogger.error(
-                        "等待本地媒体操作结束失败\n└─ 原因：" +
+                        "等待本地媒体操作结束失败 " +
+                            "(Failed to Await Local Media Operation Completion)\n" +
+                            "└─ 原因：" +
                             (error as NSError).localizedDescription,
                         category: "Realtime"
                     )

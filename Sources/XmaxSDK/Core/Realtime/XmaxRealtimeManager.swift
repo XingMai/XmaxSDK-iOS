@@ -9,22 +9,23 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     // 媒体层组件
     private let mediaController: any MediaControlling
 
-    // 流层组件
+    // 传输层组件
     private let streamController: any StreamControlling
 
     // 实时管理组件
     private let connectionManager: XmaxRealtimeConnectionManager
+    private let errorHandler: RealtimeErrorHandler
     private let generationManager: XmaxRealtimeGenerationManager
 
     // 并发控制
     private let operationVersion = RealtimeOperationVersion()
 
     // 事件监听
-    private var errorListener: RealtimeErrorListener?
     private var stateListener: RealtimeStateListener?
 
     // 运行状态
     private var state = RealtimeState(connectionState: .idle)
+    private var localVideoPreviewResume: VideoPreviewResume?
     private var terminationOperation: TerminationOperation?
     private var terminationFinalState: RealtimeConnectionState?
 
@@ -35,16 +36,22 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ) {
         self.options = options
 
+        let errorHandler = RealtimeErrorHandler()
         let rtcManager = RtcManager()
+
         let renderController = RenderController(
-            rtcManager: rtcManager
+            rtcManager: rtcManager,
+            errorListener: { errorHandler.forward($0) }
         )
+
         let streamController = StreamController(
             rtcManager: rtcManager,
+            errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             }
         )
+
         let mediaController = MediaController(
             rtcManager: rtcManager,
             videoFrameListener: { frame in
@@ -53,6 +60,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             audioFrameListener: { frame in
                 try streamController.pushLocalAudioFrame(frame)
             },
+            errorListener: { errorHandler.forward($0) },
             interactionListener: { taskID, points in
                 try await streamController.sendTracks(
                     taskID: taskID,
@@ -60,12 +68,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             }
         )
+
         let connectionManager = XmaxRealtimeConnectionManager(
             sessionService: RealtimeSessionService(apiService: apiService),
             interactionController: mediaController,
             renderController: renderController,
             streamController: streamController
         )
+
         let generationManager = XmaxRealtimeGenerationManager(
             interactionController: mediaController,
             streamController: streamController
@@ -74,13 +84,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.streamController = streamController
         self.mediaController = mediaController
         self.connectionManager = connectionManager
+        self.errorHandler = errorHandler
         self.generationManager = generationManager
-
-        mediaController.setErrorListener { [weak self] error in
-            Task {
-                await self?.reportError(error)
-            }
-        }
     }
 
     init(
@@ -88,12 +93,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         streamController: any StreamControlling,
         mediaController: any MediaControlling,
         connectionManager: XmaxRealtimeConnectionManager,
+        errorHandler: RealtimeErrorHandler,
         generationManager: XmaxRealtimeGenerationManager
     ) {
         self.options = options
         self.streamController = streamController
         self.mediaController = mediaController
         self.connectionManager = connectionManager
+        self.errorHandler = errorHandler
         self.generationManager = generationManager
     }
 
@@ -109,7 +116,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func setErrorListener(_ listener: RealtimeErrorListener?) async {
-        errorListener = listener
+        errorHandler.setListener(listener)
     }
 
     func setCameraPreviewReadyListener(
@@ -501,6 +508,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         let resumeVideoPreview = await mediaController.pauseVideoPreview()
+        localVideoPreviewResume = resumeVideoPreview
         do {
             try await mediaController.setLocalAudioPreviewEnabled(false)
             let remoteStream = try await connect(localStream: localStream)
@@ -510,7 +518,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
             return remoteStream
         } catch {
-            await resumeVideoPreview()
+            await resumeLocalVideoPreview()
             await resumeLocalAudioPreview()
             throw error
         }
@@ -554,6 +562,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         } else {
             resumeVideoPreview = await mediaController.pauseVideoPreview()
         }
+        localVideoPreviewResume = resumeVideoPreview
         do {
             try await mediaController.setLocalAudioPreviewEnabled(false)
             let taskID = try await generationManager.start(
@@ -578,7 +587,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     message: "Realtime connection was cancelled"
                 )
             }
-            await resumeVideoPreview()
             await emitState(
                 RealtimeState(
                     connectionState: .generating,
@@ -586,8 +594,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     taskID: taskID
                 )
             )
+            await resumeLocalVideoPreview()
         } catch {
-            await resumeVideoPreview()
+            await resumeLocalVideoPreview()
             await resumeLocalAudioPreview()
             throw await reportError(error)
         }
@@ -603,6 +612,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let version = operationVersion.current
         let wasGenerating = state.connectionState == .generating
+        await resumeLocalVideoPreview()
         do {
             try await generationManager.stop(taskID: state.taskID ?? "")
         } catch {
@@ -642,8 +652,7 @@ private extension XmaxRealtimeManager {
     }
 
     func beginTermination(
-        finalState: RealtimeConnectionState,
-        fallbackSessionID: String? = nil
+        finalState: RealtimeConnectionState
     ) async {
         if let terminationOperation {
             if finalState == .disconnected {
@@ -663,8 +672,7 @@ private extension XmaxRealtimeManager {
             }
             await self.performTermination(
                 operationID: operationID,
-                taskID: taskID,
-                fallbackSessionID: fallbackSessionID
+                taskID: taskID
             )
         }
         terminationOperation = TerminationOperation(
@@ -677,9 +685,9 @@ private extension XmaxRealtimeManager {
 
     func performTermination(
         operationID: UUID,
-        taskID: String,
-        fallbackSessionID: String?
+        taskID: String
     ) async {
+        await resumeLocalVideoPreview()
         do {
             try await generationManager.reset(taskID: taskID)
         } catch {
@@ -687,13 +695,11 @@ private extension XmaxRealtimeManager {
         }
         await resumeLocalAudioPreview()
         let activeSessionID = await connectionManager.currentSessionID
-        var sessionID = activeSessionID.isEmpty
-            ? fallbackSessionID
+        var sessionID: String? = activeSessionID.isEmpty
+            ? nil
             : activeSessionID
         do {
-            sessionID = try await connectionManager.disconnect(
-                fallbackSessionID: fallbackSessionID
-            )
+            sessionID = try await connectionManager.disconnect()
         } catch {
             await reportError(error)
         }
@@ -720,10 +726,16 @@ private extension XmaxRealtimeManager {
             return
         }
         await reportError(error)
-        await beginTermination(
-            finalState: .error,
-            fallbackSessionID: sessionID
-        )
+        guard await connectionManager.currentSessionID == sessionID else {
+            return
+        }
+        await beginTermination(finalState: .error)
+    }
+
+    func resumeLocalVideoPreview() async {
+        let resume = localVideoPreviewResume
+        localVideoPreviewResume = nil
+        await resume?()
     }
 
     func ensureOperation(_ version: UInt64) throws {
@@ -745,9 +757,7 @@ private extension XmaxRealtimeManager {
     @discardableResult
     func reportError(_ error: any Error) async -> XmaxError {
         let xmaxError = XmaxError.from(error)
-        if let errorListener {
-            await errorListener(xmaxError)
-        }
+        await errorHandler.report(xmaxError)
         return xmaxError
     }
 
