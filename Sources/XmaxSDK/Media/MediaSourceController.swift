@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import UIKit
 
-/// 协调本地视频文件元数据、输出格式和单一播放器时间线。
+/// 协调本地视频文件元数据、输出格式和解耦的音视频播放器。
 final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
     // 默认格式

@@ -319,7 +319,7 @@ Harmony：
 
 ## SYNC-011 文件解码器安全停止
 
-状态：历史方案；iOS 已由 SYNC-014 的单 AVPlayer 链路取代。
+状态：历史方案；iOS 已由 SYNC-014 的系统播放器链路取代。
 
 > iOS 已移除文件视频使用的 AVAssetReader 音视频 decoder，本节只保留为
 > Harmony 排查旧 reader 生命周期问题的历史记录。
@@ -358,7 +358,7 @@ iOS：
 
 - [x] 本地音频改由 AVPlayer 系统播放，不再经过 SDK 自建 AVAudioEngine 缓冲。
 - [x] 移除 RTC 外部音频源的强制扬声器路由，允许系统选择有线耳机和蓝牙设备。
-- [x] 使用前置 `MTAudioProcessingTap` 复制同一播放器的 PCM 数据供 RTC 使用。
+- [x] 使用前置 `MTAudioProcessingTap` 复制独立音频播放器的 PCM 数据供 RTC 使用。
 - [ ] 真机验证静音模式、扬声器、有线耳机和蓝牙耳机播放。
 
 Harmony：
@@ -371,14 +371,16 @@ Harmony：
 状态：已废弃。iOS 真机体验确认不再采用点击检查点、播放器暂停、精确 seek
 或静态帧覆盖；当前方案见 SYNC-014。Harmony 不需要同步本节历史实现。
 
-## SYNC-014 文件视频单播放器时间线
+## SYNC-014 文件视频解耦播放器时间线
 
 状态：iOS 已改为持续播放方案；Harmony 暂不修改，待 iOS 真机验证后同步。
 
 统一目标：
 
-- 本地文件视频只保留一个播放时钟，预览、RTC 视频帧和 RTC 音频帧均以该
-  时钟为准。
+- 本地文件视频使用同步启动的视频与音频播放器；视频播放器只承载视频轨道，
+  音频播放器只承载音频轨道和 RTC 音频 Tap。
+- RTC 音频订阅、退订或离房重配置共享 Audio Session 时，不得暂停本地视频
+  播放器；恢复本地声音前，音频播放器重新对齐视频播放器的当前位置。
 - 本地预览由平台播放器原生渲染，SDK 统一视频视图内部完成绑定，接入方无需
   额外创建播放器或视图。
 - 用户点击生成、等待连接和 Loading 时播放器始终持续运行，不暂停、不 seek、
@@ -392,13 +394,16 @@ Harmony：
 iOS：
 
 - [x] `XmaxVideoView` 内部使用 `AVPlayerLayer` 显示本地文件视频。
-- [x] `AVPlayerItemVideoOutput` 从同一个 `AVPlayerItem` 取得 NV12 像素缓冲，
+- [x] `AVPlayerItemVideoOutput` 从纯视频 `AVPlayerItem` 取得 NV12 像素缓冲，
   经目标比例裁剪、缩放和物理旋转后进入 RTC。
-- [x] `MTAudioProcessingTap` 从同一个 `AVPlayerItem` 复制 PCM，转换为 48 kHz、
+- [x] `MTAudioProcessingTap` 从独立纯音频 `AVPlayerItem` 复制 PCM，转换为 48 kHz、
   单声道、PCM16，并切分为 10 ms RTC 音频帧。
+- [x] 音视频播放器从相同媒体位置启动；恢复本地声音前重新对齐媒体位置。
+- [x] RTC 音频会话变化与本地视频播放器解耦，避免远端 ready 前和离房后的
+  可见视频停顿。
 - [x] 删除 `pauseVideoPreview()`、生成检查点、恢复闭包和冻结帧覆盖能力。
 - [x] 生成开始、Loading、远端显示和停止生成不改变播放器时间线。
-- [x] 文件结束后由同一个播放器 seek 到零继续循环。
+- [x] 文件结束后音视频播放器 seek 到零并同步继续循环。
 - [x] 删除 `VideoFileFrameDecoder`、`AudioFileFrameDecoder`、`MediaTimeline`、
   `VideoSourceController`、`AudioSourceController`、`AudioManager` 和
   `LocalVideoPreviewController`。
@@ -414,6 +419,7 @@ Harmony：
 
 - [ ] iOS 真机行为确认后，评估 AVPlayerLayer、VideoOutput、Audio Tap 在
   Harmony 平台的等价能力。
-- [ ] 若平台播放器可同时提供原生预览与解码帧，收敛为单播放器时钟。
+- [ ] 若平台音频生命周期不会阻塞视频播放器，可继续使用单播放器；否则对齐
+  iOS 的音视频播放器解耦策略。
 - [ ] 对齐生成期间播放器持续运行，不实现点击检查点或冻结帧覆盖。
 - [ ] 本地播放器在远端阶段保持热状态，停止生成时直接恢复显示与声音。

@@ -5,7 +5,7 @@
 > 基线提交：`cc35183 feat: add image and video media pipelines`
 >
 > 更新：文件视频旧的双 AVAssetReader、独立 PCM 播放与 MediaTimeline 方案已被
-> 单 AVPlayer 时间线取代；当前实现以本文末尾“文件视频单播放器链路”为准。
+> 系统播放器链路取代；当前实现以本文末尾“文件视频解耦播放器链路”为准。
 
 当前图片和文件视频都被抽象为“本地外部视频源”。Media 层只产生中性
 音视频帧，Core 组装根把帧监听器连接到
@@ -224,11 +224,13 @@ RtcManager
 的物理宽高就是目标显示宽高，旋转信息重置为 0。本地预览和 RTC 编码因此直接
 消费同一份已定向像素，不依赖 RTC 对旋转元数据采用一致的渲染策略。
 
-### 3.3 使用单一播放器时间线
+### 3.3 解耦视频预览与音频输出
 
-文件视频只使用一个持续运行的 `AVPlayerItem`。本地预览、RTC 视频帧和 RTC
-音频帧都来自该播放器时间线；生成开始、Loading、远端显示和停止生成不会暂停、
-seek 或重建播放器。文件播放结束后，播放器 seek 到文件起点继续循环。
+文件视频使用两个同步启动并持续运行的系统播放器：纯视频播放器负责本地预览和
+RTC 视频帧，纯音频播放器负责本地声音和 RTC 音频帧。RTC 重配置共享音频会话
+时只会影响音频播放器，不会暂停本地视频画面。生成开始、Loading、远端显示和
+停止生成都不会暂停视频播放器或覆盖冻结帧；停止生成后，音频播放器会对齐当前
+视频位置再恢复本地声音。
 
 ### 3.4 视频解码与推帧
 
@@ -434,32 +436,39 @@ try await realtime.replaceLocalCameraStream(videoFormat: format)
 
 因此当前状态是：图片与视频可以进入 RTC、预览、连接和生成生命周期；下一步可以接入 XLab 做真机端到端调试，并基于本稿继续优化 Pipeline。
 
-## 8. 文件视频单播放器链路
+## 8. 文件视频解耦播放器链路
 
-文件视频当前只使用一个 `AVPlayerItem`：
+文件视频当前使用相互解耦的纯视频与纯音频 `AVPlayerItem`：
 
 ```text
-AVPlayerItem
+纯视频 AVPlayerItem
 ├── AVPlayerLayer
 │   └── XmaxVideoView 内部本地预览
-├── AVPlayerItemVideoOutput
-│   └── NV12 裁剪 / 缩放 / 旋转 → StreamController → RTC
+└── AVPlayerItemVideoOutput
+    └── NV12 裁剪 / 缩放 / 旋转 → StreamController → RTC
+
+纯音频 AVPlayerItem
+├── 系统音频输出
+│   └── 本地预览声音
 └── MTAudioProcessingTap（PreEffects）
     └── 48 kHz / Mono / PCM16 / 10 ms → StreamController → RTC
 ```
 
-本地声音由 `AVPlayer` 直接交给系统音频链路播放。Tap 只复制前置 PCM 数据，
-不会让接入方再维护一个播放器，也不会再次读取或解码源文件。
+两个播放器从相同媒体位置启动。音频 Tap 仍只复制音频播放器的前置 PCM 数据，
+不使用 `AVAssetReader`。RTC 音频订阅或离房导致共享
+`AVAudioSession` 重配置时，纯视频播放器不参与音频会话，因此本地画面保持
+连续；恢复本地声音前，音频播放器会重新对齐视频播放器的当前时间。
 
 生成生命周期：
 
-1. 创建本地视频流时准备一个播放器并开始循环预览。
-2. 用户点击生成时保持播放器运行，只关闭本地音频预览。
+1. 创建本地视频流时准备一组音视频播放器并同步开始循环预览。
+2. 用户点击生成时保持两个播放器运行，只关闭本地音频预览。
 3. Session、RTC 连接和生成信令建立期间，播放器继续为本地预览和 RTC 输出
    当前音视频帧。
-4. 匹配 taskID 的远端 ready 到达后，远端画面和音频一起切换；本地播放器继续
-   在远端视图下方运行。
-5. 停止时直接隐藏远端视图，显示持续运行的本地播放器并恢复音量。
+4. 匹配 taskID 的远端 ready 到达后，远端画面和音频一起切换；本地音视频
+   播放器继续在远端视图下方运行。
+5. 停止时直接隐藏远端视图，显示持续运行的本地视频，并在 RTC 音频资源完成
+   清理后对齐音频位置、恢复音量。
 
 这条链路不再使用 `VideoFileFrameDecoder`、`AudioFileFrameDecoder`、
 `MediaTimeline`、独立 `AVAudioEngine` 播放器或冻结帧覆盖层。
@@ -471,5 +480,5 @@ AVPlayerItem
 - [ ] 明确图片和视频的默认输出格式策略。
 - [ ] 明确显式 `videoFormat` 是严格输出值还是模型约束前的期望值。
 - [ ] 真机评估视频 NV12 目标尺寸预处理的性能和画质。
-- [x] 文件视频生成期间保持单一播放器时间线持续运行。
+- [x] 文件视频生成期间保持视频播放器持续运行，并隔离 RTC 音频会话变化。
 - [ ] 完成 XLab 图片与视频端到端调试入口。

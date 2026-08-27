@@ -668,7 +668,6 @@ private extension XmaxRealtimeManager {
         } catch {
             await reportError(error)
         }
-        await resumeLocalAudioPreview()
         let activeSessionID = await connectionManager.currentSessionID
         var sessionID: String? = activeSessionID.isEmpty
             ? nil
@@ -678,6 +677,7 @@ private extension XmaxRealtimeManager {
         } catch {
             await reportError(error)
         }
+        await resumeLocalAudioPreview()
         guard terminationOperation?.id == operationID else {
             return
         }
