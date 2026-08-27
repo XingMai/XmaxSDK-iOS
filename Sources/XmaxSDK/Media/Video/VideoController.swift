@@ -129,6 +129,14 @@ final class VideoController: @unchecked Sendable {
         return pausedPreview.resume
     }
 
+    /// 启用或暂停本地文件视频的音频预览。
+    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
+        guard currentTrack != nil else {
+            return
+        }
+        try await mediaSourceController.setLocalAudioPreviewEnabled(enabled)
+    }
+
     /// 停止文件音视频输出并释放 RTC 外部音频和预览资源。
     func stopLocalVideoStream() async {
         let state = stateLock.withLock { () -> (

@@ -325,6 +325,9 @@ private extension XmaxRealtimeGenerationManagerTests {
         let remoteStreams = RemoteStreamRecorder()
         let streamController = StreamController(
             rtcManager: rtcManager,
+            roomController: roomController,
+            encodingController: EncodingController(rtcManager: rtcManager),
+            qualityController: QualityController(rtcManager: rtcManager),
             remoteStreamListener: { stream in
                 remoteStreams.append(stream)
             },
@@ -334,16 +337,10 @@ private extension XmaxRealtimeGenerationManagerTests {
             roomID: "room-id",
             botName: "bot-user"
         )
-        let transportController = TransportController(
-            roomController: roomController,
-            streamController: streamController,
-            encodingController: EncodingController(rtcManager: rtcManager),
-            qualityController: QualityController(rtcManager: rtcManager)
-        )
         let interactionController = InteractionController {
             taskID,
             points in
-            try await transportController.sendTracks(
+            try await streamController.sendTracks(
                 taskID: taskID,
                 points: points
             )
@@ -351,7 +348,7 @@ private extension XmaxRealtimeGenerationManagerTests {
         return Components(
             manager: XmaxRealtimeGenerationManager(
                 interactionController: interactionController,
-                transportController: transportController,
+                streamController: streamController,
                 taskIDGenerator: { "task-fixed" }
             ),
             interactionController: interactionController,

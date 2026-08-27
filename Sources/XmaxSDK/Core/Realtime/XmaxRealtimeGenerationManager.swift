@@ -8,7 +8,7 @@ actor XmaxRealtimeGenerationManager {
 
     // 业务层组件
     private let interactionController: any InteractionControlling
-    private let transportController: any TransportControlling
+    private let streamController: any StreamControlling
 
     // 生成配置
     private let taskIDGenerator: @Sendable () -> String
@@ -18,12 +18,12 @@ actor XmaxRealtimeGenerationManager {
 
     init(
         interactionController: any InteractionControlling,
-        transportController: any TransportControlling,
+        streamController: any StreamControlling,
         taskIDGenerator: @escaping @Sendable () -> String =
             XmaxRealtimeGenerationManager.createTaskID
     ) {
         self.interactionController = interactionController
-        self.transportController = transportController
+        self.streamController = streamController
         self.taskIDGenerator = taskIDGenerator
     }
 
@@ -42,7 +42,7 @@ actor XmaxRealtimeGenerationManager {
         }
 
         let taskID = taskIDGenerator()
-        let confirmation = try await transportController.beginGeneration(
+        let confirmation = try await streamController.beginGeneration(
             taskID: taskID,
             videoFormat: videoFormat,
             context: resolvedContext
@@ -81,7 +81,7 @@ actor XmaxRealtimeGenerationManager {
             return
         }
 
-        try await transportController.updateGeneration(
+        try await streamController.updateGeneration(
             taskID: taskID,
             videoFormat: videoFormat,
             context: context
@@ -91,7 +91,7 @@ actor XmaxRealtimeGenerationManager {
 
     func stop(taskID: String) async {
         await interactionController.stopInteraction()
-        await transportController.stopGeneration(taskID: taskID)
+        await streamController.stopGeneration(taskID: taskID)
     }
 
     func reset(taskID: String = "") async {

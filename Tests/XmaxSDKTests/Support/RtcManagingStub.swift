@@ -19,6 +19,7 @@ enum RtcManagingCall: Equatable {
     case publishLocalAudio
     case unpublishLocalAudio
     case subscribeRemoteVideo(userID: String, subscribe: Bool)
+    case subscribeRemoteAudio(userID: String, subscribe: Bool)
     case joinRoom(RoomJoinConfiguration)
     case leaveRoom
     case sendRoomMessage(String)
@@ -46,6 +47,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let publishLocalAudioError: (any Error)?
     private let unpublishLocalAudioError: (any Error)?
     private let subscribeRemoteVideoError: (any Error)?
+    private let subscribeRemoteAudioError: (any Error)?
     private let joinRoomError: (any Error)?
     private let sendRoomMessageError: (any Error)?
     private let joinRoomHandler: JoinRoomHandler?
@@ -74,6 +76,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         publishLocalAudioError: (any Error)? = nil,
         unpublishLocalAudioError: (any Error)? = nil,
         subscribeRemoteVideoError: (any Error)? = nil,
+        subscribeRemoteAudioError: (any Error)? = nil,
         joinRoomError: (any Error)? = nil,
         sendRoomMessageError: (any Error)? = nil,
         joinRoomHandler: JoinRoomHandler? = nil,
@@ -93,6 +96,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         self.publishLocalAudioError = publishLocalAudioError
         self.unpublishLocalAudioError = unpublishLocalAudioError
         self.subscribeRemoteVideoError = subscribeRemoteVideoError
+        self.subscribeRemoteAudioError = subscribeRemoteAudioError
         self.joinRoomError = joinRoomError
         self.sendRoomMessageError = sendRoomMessageError
         self.joinRoomHandler = joinRoomHandler
@@ -251,6 +255,16 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         try record(
             .subscribeRemoteVideo(userID: userID, subscribe: subscribe),
             error: subscribeRemoteVideoError
+        )
+    }
+
+    func subscribeRemoteAudio(
+        userID: String,
+        subscribe: Bool
+    ) throws {
+        try record(
+            .subscribeRemoteAudio(userID: userID, subscribe: subscribe),
+            error: subscribeRemoteAudioError
         )
     }
 

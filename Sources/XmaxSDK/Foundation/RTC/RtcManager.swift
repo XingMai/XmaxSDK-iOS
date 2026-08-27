@@ -389,6 +389,34 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
+    func subscribeRemoteAudio(
+        userID: String,
+        subscribe: Bool
+    ) throws {
+        let normalizedUserID = userID.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !normalizedUserID.isEmpty else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "RTC user ID cannot be empty"
+            )
+        }
+
+        try operationLock.withLock {
+            let room = try requireRoom()
+            let streamID = stateLock.withLock {
+                remoteStreamIDs.first { stream, _ in
+                    stream.userID == normalizedUserID
+                }?.value ?? normalizedUserID
+            }
+            try checkResult(
+                room.subscribeStreamAudio(streamID, subscribe: subscribe),
+                operation: "subscribeStreamAudio"
+            )
+        }
+    }
+
     @MainActor
     func bindLocalVideo(
         to view: UIView,

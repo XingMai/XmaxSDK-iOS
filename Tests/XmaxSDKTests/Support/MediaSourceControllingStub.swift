@@ -5,6 +5,7 @@ enum MediaSourceControllingCall: Equatable {
     case prepare(URL, RealtimeVideoFormat?)
     case start
     case restart(Int64)
+    case setLocalAudioPreviewEnabled(Bool)
     case stop
 }
 
@@ -70,6 +71,12 @@ final class MediaSourceControllingStub:
             if let restartError {
                 throw restartError
             }
+        }
+    }
+
+    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
+        lock.withLock {
+            storedCalls.append(.setLocalAudioPreviewEnabled(enabled))
         }
     }
 

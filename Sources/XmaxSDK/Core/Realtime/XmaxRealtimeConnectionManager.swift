@@ -18,8 +18,8 @@ actor XmaxRealtimeConnectionManager {
     // 渲染层组件
     private let renderController: any RenderControlling
 
-    // 传输层组件
-    private let transportController: any TransportControlling
+    // 流层组件
+    private let streamController: any StreamControlling
 
     // 连接资源
     private var activeRemoteTrack: RealtimeVideoTrack?
@@ -29,12 +29,12 @@ actor XmaxRealtimeConnectionManager {
         sessionService: any RealtimeSessionServicing,
         interactionController: any InteractionControlling,
         renderController: any RenderControlling,
-        transportController: any TransportControlling
+        streamController: any StreamControlling
     ) {
         self.sessionService = sessionService
         self.interactionController = interactionController
         self.renderController = renderController
-        self.transportController = transportController
+        self.streamController = streamController
     }
 
     var currentSessionID: String {
@@ -84,7 +84,7 @@ actor XmaxRealtimeConnectionManager {
                 )
             }
 
-            try await transportController.connect(
+            try await streamController.connect(
                 connection: connection,
                 includeLocalAudio: includeLocalAudio,
                 ensureActive: {
@@ -139,7 +139,7 @@ actor XmaxRealtimeConnectionManager {
 
         sessionService.stopHeartbeat()
         await resetRemoteRendering(track: remoteTrack)
-        await transportController.disconnect()
+        await streamController.disconnect()
 
         let sessionID = session?.id ?? fallbackSessionID
         if let sessionID {
@@ -185,7 +185,7 @@ private extension XmaxRealtimeConnectionManager {
 
         sessionService.stopHeartbeat()
         await resetRemoteRendering(track: remoteTrack)
-        await transportController.disconnect()
+        await streamController.disconnect()
     }
 
     func resetRemoteRendering(track: RealtimeVideoTrack?) async {

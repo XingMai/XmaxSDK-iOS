@@ -6,8 +6,8 @@
 
 当前图片和文件视频都被抽象为“本地外部视频源”。Media 层只产生中性
 音视频帧，Core 组装根把帧监听器连接到
-`TransportController → StreamController → RtcManager → VolcEngineRTC`
-传输链路；Media 与 Transport 之间没有直接依赖。
+`StreamController → RtcManager → VolcEngineRTC`
+流链路；Media 与 Stream 之间没有直接依赖。
 
 ```text
 XmaxRealtimeManaging 公开 API
@@ -27,13 +27,10 @@ XmaxRealtimeManager
         │                         ├── VideoSourceController → NV12 帧
         │                         └── AudioSourceController → PCM 音频帧
         │
-        └── TransportController
-            统一传输层入口
+        └── StreamController
+            统一流层入口
                     ▲
                     └── Core 注入的中性音视频帧监听器
-        │
-        ▼
-StreamController
         │
         ▼
 RtcManager → 火山 RTC
@@ -121,8 +118,6 @@ DecodedImage
     ↓
 Core 注入的 MediaVideoFrameListener
     ↓
-TransportController.pushLocalVideoFrame()
-    ↓
 StreamController.pushLocalVideoFrame()
     ↓
 RtcManager.pushExternalVideoFrame()
@@ -167,8 +162,8 @@ RtcManager.pushExternalVideoFrame()
 4. 使用同一份 BGRA 帧数据注册 `UIImageView` 本地预览绑定。
 5. 开始持续产生图片帧。
 
-图片帧通过 Core 在组装阶段注入的 `MediaVideoFrameListener` 交给 Transport。
-`ImageController` 和 `MediaController` 都不依赖 `TransportControlling`。
+图片帧通过 Core 在组装阶段注入的 `MediaVideoFrameListener` 交给 Stream。
+`ImageController` 和 `MediaController` 都不依赖 `StreamControlling`。
 
 `XmaxVideoView` 根据轨道绑定自动选择图片或 RTC 渲染，接入方不需要判断
 媒体来源。图片预览不会重复解码，也不会占用 RTC 本地 Canvas。图片没有 SDK
@@ -195,8 +190,6 @@ MediaSourceController.prepare()
 共享 MediaTimeline
     ├── VideoFileFrameDecoder → NV12
     └── AudioFileFrameDecoder → PCM16
-    ↓
-TransportController
     ↓
 StreamController
     ↓
@@ -273,7 +266,7 @@ RtcManager
 7. 将帧旋转信息重置为 0，避免本地预览和编码分别解释旋转元数据。
 8. 按目标 fps 采样。
 9. 落后超过一个目标帧间隔的帧直接丢弃。
-10. 通过 Core 注入的中性视频帧监听器交给 Transport 统一入口。
+10. 通过 Core 注入的中性视频帧监听器交给 Stream 统一入口。
 11. 到达文件末尾后，根据共享时间线创建下一轮 decoder。
 
 最终 RTC 收到的视频帧为：
@@ -304,9 +297,9 @@ VideoFrame
 4. 使用和视频相同的 `MediaTimeline`。
 5. 同时送往：
    - `AudioManager`：本地播放。
-   - `TransportController`：RTC 外部音频传输入口。
+   - `StreamController`：RTC 外部音频流入口。
 
-尚未连接房间时，RTC 音频推帧会被传输层忽略，但本地音频仍然播放。连接并发布本地音频后，PCM 帧才真正推给 RTC。
+尚未连接房间时，RTC 音频推帧会被流层忽略，但本地音频仍然播放。连接并发布本地音频后，PCM 帧才真正推给 RTC。
 
 ### 3.6 RTC 视频和音频初始化
 
@@ -360,11 +353,11 @@ await mediaController.hasAudio
 随后由 Core 使用本地 Track 的最终 `videoFormat` 调用：
 
 ```swift
-transportController.setVideoEncoderConfig(videoFormat)
+streamController.setVideoEncoderConfig(videoFormat)
 ```
 
 编码配置属于连接和发布准备，不由相机、图片或视频 Controller 执行。已连接
-状态下更新相机采集格式时，Core 会同步更新 Transport 编码配置。
+状态下更新相机采集格式时，Core 会同步更新 Stream 编码配置。
 
 发布规则：
 
@@ -412,6 +405,8 @@ try await realtime.startGeneration(
     ↓
 立即阻止新帧进入本地 RTC Canvas，使用同一帧覆盖预览
     ↓
+清空并暂停本地音频预览，PCM 帧仍继续送入 RTC
+    ↓
 尚未连接时，创建 Session 并建立 RTC 连接
     ↓
 创建 taskID 和 SEI 状态
@@ -426,7 +421,7 @@ try await realtime.startGeneration(
     ↓
 等待远端生成流确认
     ↓
-清除静态帧覆盖，显示远端结果
+订阅远端音频，清除静态帧覆盖并显示远端结果
 ```
 
 图片来源不需要重启，因为它始终输出同一帧。
@@ -447,9 +442,11 @@ mediaController.restartForGeneration()
 - 音频和视频同时从检查点开始第一轮，抵达文件尾后再从文件起点循环。
 
 进入暂停时先原子地阻止新的本地视频帧进入 RTC Canvas，使 Canvas 立即保持最后
-一帧；随后在 `XmaxVideoView` 中生成同一帧的静态覆盖。检查点时间线建立完成后
-恢复底层音视频推送，静态覆盖继续保留，否则服务端无法完成生成准备。收到匹配
-taskID 的远端 ready 后，或生成失败、取消时，SDK 会自动清除覆盖帧。旧生成操作
+一帧，同时清空本地音频缓冲并停止后续本地播放；随后在 `XmaxVideoView`
+中生成同一帧的静态覆盖。检查点时间线建立完成后恢复底层音视频推送，
+但本地音频保持静音。收到匹配 taskID 的远端 ready 后，SDK 才订阅远端音频并
+清除覆盖帧，使远端音频和画面在同一 ready 边界对接入方可用。生成失败、取消、
+停止或断开时，SDK 取消订阅远端音频并恢复本地音频预览。旧生成操作
 持有的恢复闭包带版本校验，不会误清除较新一次操作的暂停画面。
 
 ## 6. 媒体来源更新

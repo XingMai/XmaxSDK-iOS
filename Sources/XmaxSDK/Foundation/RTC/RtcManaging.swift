@@ -78,6 +78,12 @@ protocol RtcManaging: Sendable {
         subscribe: Bool
     ) throws
 
+    /// 更新远端音频流订阅状态。
+    func subscribeRemoteAudio(
+        userID: String,
+        subscribe: Bool
+    ) throws
+
     /// 将本地视频绑定到渲染视图。
     @MainActor
     func bindLocalVideo(

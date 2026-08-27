@@ -6,7 +6,7 @@ actor RoomController: RoomControlling {
     // 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 传输层组件
+    // 流层组件
     private let heartbeat: RoomHeartbeat
 
     // 房间资源

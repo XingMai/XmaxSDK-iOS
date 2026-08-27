@@ -299,7 +299,7 @@ private extension XmaxRealtimeConnectionManagerTests {
         let renderController = RenderController(
             rtcManager: rtcManager
         )
-        let transportController = TransportController(
+        let streamController = StreamController(
             rtcManager: rtcManager
         )
         return Components(
@@ -307,7 +307,7 @@ private extension XmaxRealtimeConnectionManagerTests {
                 sessionService: sessionService,
                 interactionController: InteractionController(),
                 renderController: renderController,
-                transportController: transportController
+                streamController: streamController
             ),
             renderController: renderController
         )

@@ -86,6 +86,25 @@ final class MediaSourceControllerTests: XCTestCase {
         XCTAssertTrue(components.audioSource.startedTimelines.isEmpty)
         XCTAssertEqual(components.videoSource.startedTimelines.count, 1)
     }
+
+    func testLocalAudioPreviewControlDoesNotStopAudioDecoder() async throws {
+        let components = makeComponents(hasAudio: true)
+        _ = try await components.controller.prepare(
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
+            videoFormat: nil
+        )
+        try await components.controller.start()
+
+        try await components.controller.setLocalAudioPreviewEnabled(false)
+        try await components.controller.setLocalAudioPreviewEnabled(true)
+
+        XCTAssertEqual(components.audioManager.calls, [
+            .start,
+            .setPlaybackEnabled(false),
+            .setPlaybackEnabled(true)
+        ])
+        XCTAssertEqual(components.audioSource.stopCount, 0)
+    }
 }
 
 private extension MediaSourceControllerTests {
@@ -153,6 +172,7 @@ private final class MediaFileMetadataManagingStub:
 private enum AudioManagingCall: Equatable {
     case start
     case flush
+    case setPlaybackEnabled(Bool)
     case stop
 }
 
@@ -177,6 +197,12 @@ private final class AudioManagingStub: AudioManaging, @unchecked Sendable {
     func flush() async throws {
         lock.withLock {
             storedCalls.append(.flush)
+        }
+    }
+
+    func setPlaybackEnabled(_ enabled: Bool) async throws {
+        lock.withLock {
+            storedCalls.append(.setPlaybackEnabled(enabled))
         }
     }
 

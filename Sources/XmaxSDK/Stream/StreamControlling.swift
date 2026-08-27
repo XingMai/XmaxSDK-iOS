@@ -1,7 +1,7 @@
 import Foundation
 
-/// 定义传输层向 Core 暴露的统一能力。
-protocol TransportControlling: Sendable {
+/// 定义流层向 Core 暴露的统一能力。
+protocol StreamControlling: Sendable {
 
     /// 设置实时视频编码器配置。
     ///

@@ -9,8 +9,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     // 媒体层组件
     private let mediaController: any MediaControlling
 
-    // 传输层组件
-    private let transportController: any TransportControlling
+    // 流层组件
+    private let streamController: any StreamControlling
 
     // 实时管理组件
     private let connectionManager: XmaxRealtimeConnectionManager
@@ -39,7 +39,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let renderController = RenderController(
             rtcManager: rtcManager
         )
-        let transportController = TransportController(
+        let streamController = StreamController(
             rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
@@ -48,13 +48,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let mediaController = MediaController(
             rtcManager: rtcManager,
             videoFrameListener: { frame in
-                try transportController.pushLocalVideoFrame(frame)
+                try streamController.pushLocalVideoFrame(frame)
             },
             audioFrameListener: { frame in
-                try transportController.pushLocalAudioFrame(frame)
+                try streamController.pushLocalAudioFrame(frame)
             },
             interactionListener: { taskID, points in
-                try await transportController.sendTracks(
+                try await streamController.sendTracks(
                     taskID: taskID,
                     points: points
                 )
@@ -64,14 +64,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             sessionService: RealtimeSessionService(apiService: apiService),
             interactionController: mediaController,
             renderController: renderController,
-            transportController: transportController
+            streamController: streamController
         )
         let generationManager = XmaxRealtimeGenerationManager(
             interactionController: mediaController,
-            transportController: transportController
+            streamController: streamController
         )
 
-        self.transportController = transportController
+        self.streamController = streamController
         self.mediaController = mediaController
         self.connectionManager = connectionManager
         self.generationManager = generationManager
@@ -85,13 +85,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     init(
         options: RealtimeConfiguration,
-        transportController: any TransportControlling,
+        streamController: any StreamControlling,
         mediaController: any MediaControlling,
         connectionManager: XmaxRealtimeConnectionManager,
         generationManager: XmaxRealtimeGenerationManager
     ) {
         self.options = options
-        self.transportController = transportController
+        self.streamController = streamController
         self.mediaController = mediaController
         self.connectionManager = connectionManager
         self.generationManager = generationManager
@@ -121,13 +121,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {
-        transportController.setNetworkQualityListener(listener)
+        streamController.setNetworkQualityListener(listener)
     }
 
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     ) {
-        transportController.setPerformanceAlarmListener(listener)
+        streamController.setPerformanceAlarmListener(listener)
     }
 
     func createLocalCameraStream(
@@ -183,7 +183,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
             if hasConnection {
                 if let videoFormat = stream.videoTrack?.videoFormat {
-                    try transportController.setVideoEncoderConfig(videoFormat)
+                    try streamController.setVideoEncoderConfig(videoFormat)
                 }
                 await synchronizeConnectionAfterCameraUpdate(stream)
             }
@@ -346,7 +346,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                         message: "Local video stream has no video format"
                     )
                 }
-                try transportController.setVideoEncoderConfig(resolvedFormat)
+                try streamController.setVideoEncoderConfig(resolvedFormat)
                 return stream
             } catch {
                 await mediaController.stopLocalVideoStream()
@@ -402,7 +402,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         do {
             try ensureOperation(version)
-            try transportController.setVideoEncoderConfig(videoFormat)
+            try streamController.setVideoEncoderConfig(videoFormat)
             let remoteStream = try await connectionManager.connect(
                 model: options.model,
                 videoFormat: videoFormat,
@@ -498,6 +498,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let resumeVideoPreview = await mediaController.pauseVideoPreview()
         do {
+            try await mediaController.setLocalAudioPreviewEnabled(false)
             let remoteStream = try await connect(localStream: localStream)
             try await performStartGeneration(
                 context: context,
@@ -506,6 +507,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             return remoteStream
         } catch {
             await resumeVideoPreview()
+            await resumeLocalAudioPreview()
             throw error
         }
     }
@@ -549,6 +551,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             resumeVideoPreview = await mediaController.pauseVideoPreview()
         }
         do {
+            try await mediaController.setLocalAudioPreviewEnabled(false)
             let taskID = try await generationManager.start(
                 videoFormat: videoFormat,
                 context: context,
@@ -581,6 +584,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         } catch {
             await resumeVideoPreview()
+            await resumeLocalAudioPreview()
             throw await reportError(error)
         }
     }
@@ -596,6 +600,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let version = operationVersion.current
         let wasGenerating = state.connectionState == .generating
         await generationManager.stop(taskID: state.taskID ?? "")
+        await resumeLocalAudioPreview()
         if wasGenerating, operationVersion.isCurrent(version) {
             await emitState(
                 RealtimeState(
@@ -617,7 +622,7 @@ private extension XmaxRealtimeManager {
         _ stream: RealtimeMediaStream
     ) async {
         do {
-            try transportController.setLocalAudioEnabled(
+            try streamController.setLocalAudioEnabled(
                 await mediaController.hasAudio
             )
         } catch {
@@ -668,6 +673,7 @@ private extension XmaxRealtimeManager {
         fallbackSessionID: String?
     ) async {
         await generationManager.reset(taskID: taskID)
+        await resumeLocalAudioPreview()
         let sessionID = await connectionManager.disconnect(
             fallbackSessionID: fallbackSessionID
         )
@@ -722,6 +728,14 @@ private extension XmaxRealtimeManager {
             await errorListener(xmaxError)
         }
         return xmaxError
+    }
+
+    func resumeLocalAudioPreview() async {
+        do {
+            try await mediaController.setLocalAudioPreviewEnabled(true)
+        } catch {
+            _ = await reportError(error)
+        }
     }
 }
 

@@ -253,9 +253,30 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await startTask.value
 
         XCTAssertTrue(components.videoSource.calls.contains(.restart(0)))
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .setLocalAudioPreviewEnabled(false)
+        ))
+        XCTAssertFalse(components.videoSource.calls.contains(
+            .setLocalAudioPreviewEnabled(true)
+        ))
         XCTAssertTrue(components.rtcManager.calls.contains(.publishLocalAudio))
+        XCTAssertTrue(components.rtcManager.calls.contains(
+            .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: true
+            )
+        ))
 
         await components.manager.stopGeneration()
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .setLocalAudioPreviewEnabled(true)
+        ))
+        XCTAssertTrue(components.rtcManager.calls.contains(
+            .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: false
+            )
+        ))
         await components.manager.disconnect()
         try await components.manager.stopLocalVideoStream()
     }
@@ -342,6 +363,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             frameListener: { _ in outputCounter.increment() }
         )
         XCTAssertEqual(outputCounter.value, 2)
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .setLocalAudioPreviewEnabled(false)
+        ))
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .setLocalAudioPreviewEnabled(true)
+        ))
 
         try await components.manager.stopLocalVideoStream()
     }
@@ -548,7 +575,7 @@ private extension XmaxRealtimeManagerTests {
         let renderController = RenderController(
             rtcManager: rtcManager
         )
-        let transportController = TransportController(
+        let streamController = StreamController(
             rtcManager: rtcManager,
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
@@ -609,17 +636,17 @@ private extension XmaxRealtimeManagerTests {
             sessionService: sessionService,
             interactionController: mediaController,
             renderController: renderController,
-            transportController: transportController
+            streamController: streamController
         )
         return Components(
             manager: XmaxRealtimeManager(
                 options: RealtimeConfiguration(model: .x2_0),
-                transportController: transportController,
+                streamController: streamController,
                 mediaController: mediaController,
                 connectionManager: connectionManager,
                 generationManager: XmaxRealtimeGenerationManager(
                     interactionController: mediaController,
-                    transportController: transportController
+                    streamController: streamController
                 )
             ),
             mediaController: mediaController,

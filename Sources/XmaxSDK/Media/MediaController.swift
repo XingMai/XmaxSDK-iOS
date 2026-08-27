@@ -227,6 +227,14 @@ actor MediaController: MediaControlling {
         return await videoController.pauseVideoPreview()
     }
 
+    /// 启用或暂停文件视频的本地音频预览。
+    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
+        guard activeSource?.kind == .video, let videoController else {
+            return
+        }
+        try await videoController.setLocalAudioPreviewEnabled(enabled)
+    }
+
     /// 视频来源在新一轮生成开始时从预览暂停位置重新播放。
     func restartForGeneration() async throws {
         guard activeSource?.kind == .video else {

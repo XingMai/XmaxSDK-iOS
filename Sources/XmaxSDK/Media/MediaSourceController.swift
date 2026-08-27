@@ -138,6 +138,13 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
     }
 
+    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
+        guard hasAudio else {
+            return
+        }
+        try await audioManager.setPlaybackEnabled(enabled)
+    }
+
     func stop() async {
         stateLock.withLock {
             isRunning = false

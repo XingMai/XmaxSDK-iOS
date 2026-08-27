@@ -50,6 +50,33 @@ final class AudioManagerTests: XCTestCase {
         XCTAssertEqual(controller.enqueuedData, [])
     }
 
+    func testDisabledPlaybackFlushesAndIgnoresFramesUntilEnabled()
+        async throws {
+        let controller = AudioPlaybackControllerStub()
+        let manager = AudioManager(playbackFactory: { controller })
+        let firstFrame = AudioFrame(
+            data: Data(repeating: 1, count: 960),
+            timestampUs: 0
+        )
+        let secondFrame = AudioFrame(
+            data: Data(repeating: 2, count: 960),
+            timestampUs: 10_000
+        )
+
+        try await manager.start()
+        manager.write(frame: firstFrame)
+        try await manager.setPlaybackEnabled(false)
+        manager.write(frame: secondFrame)
+        try await manager.setPlaybackEnabled(true)
+        manager.write(frame: secondFrame)
+
+        XCTAssertEqual(controller.flushCount, 1)
+        XCTAssertEqual(
+            controller.enqueuedData,
+            [firstFrame.data, secondFrame.data]
+        )
+    }
+
     func testStartMapsPlatformFailureToMediaError() async {
         let manager = AudioManager(playbackFactory: {
             throw NSError(

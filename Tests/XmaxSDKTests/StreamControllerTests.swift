@@ -141,8 +141,8 @@ final class StreamControllerTests: XCTestCase {
             published: true
         )
 
-        controller.resetRoom()
-        controller.resetRoom()
+        controller.resetStream()
+        controller.resetStream()
 
         XCTAssertEqual(
             rtcManager.calls,
@@ -210,7 +210,9 @@ final class StreamControllerTests: XCTestCase {
             roomID: "room-id",
             botName: "bot-user"
         )
-        let confirmation = try controller.beginGeneration(taskID: "task-id")
+        let confirmation = try controller.beginGenerationConfirmation(
+            taskID: "task-id"
+        )
         let matchingStream = RemoteStream(
             roomID: "room-id",
             userID: "bot-user"
@@ -235,7 +237,19 @@ final class StreamControllerTests: XCTestCase {
 
         XCTAssertEqual(receivedStreams.count, 1)
         XCTAssertEqual(receivedStreams[0], matchingStream)
-        _ = controller.stopGeneration(taskID: "task-id")
+        XCTAssertTrue(rtcManager.calls.contains(
+            .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: true
+            )
+        ))
+        _ = controller.stopStreamGeneration(taskID: "task-id")
+        XCTAssertTrue(rtcManager.calls.contains(
+            .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: false
+            )
+        ))
     }
 
     @MainActor
@@ -247,7 +261,9 @@ final class StreamControllerTests: XCTestCase {
             )
         )
         try controller.configureRoom(roomID: "room-id", botName: nil)
-        let confirmation = try controller.beginGeneration(taskID: "task-id")
+        let confirmation = try controller.beginGenerationConfirmation(
+            taskID: "task-id"
+        )
 
         do {
             try await confirmation.value
@@ -261,7 +277,7 @@ final class StreamControllerTests: XCTestCase {
                 )
             )
         }
-        _ = controller.stopGeneration(taskID: "task-id")
+        _ = controller.stopStreamGeneration(taskID: "task-id")
     }
 
     @MainActor
@@ -274,9 +290,13 @@ final class StreamControllerTests: XCTestCase {
             }
         )
         try controller.configureRoom(roomID: "room-id", botName: nil)
-        let confirmation = try controller.beginGeneration(taskID: "task-id")
+        let confirmation = try controller.beginGenerationConfirmation(
+            taskID: "task-id"
+        )
 
-        let stoppedTaskID = controller.stopGeneration(taskID: "task-id")
+        let stoppedTaskID = controller.stopStreamGeneration(
+            taskID: "task-id"
+        )
 
         XCTAssertEqual(stoppedTaskID, "task-id")
         XCTAssertNil(receivedStreams.last ?? nil)
@@ -293,7 +313,9 @@ final class StreamControllerTests: XCTestCase {
         let rtcManager = RtcManagingStub()
         let controller = StreamController(rtcManager: rtcManager)
         try controller.configureRoom(roomID: "room-id", botName: nil)
-        let confirmation = try controller.beginGeneration(taskID: "task-id")
+        let confirmation = try controller.beginGenerationConfirmation(
+            taskID: "task-id"
+        )
         let format = try VideoFormat(
             width: 2,
             height: 2,
@@ -320,7 +342,7 @@ final class StreamControllerTests: XCTestCase {
             rtcManager.calls,
             [.pushExternalVideoFrame(seiData: Data("task-id".utf8))]
         )
-        _ = controller.stopGeneration(taskID: "task-id")
+        _ = controller.stopStreamGeneration(taskID: "task-id")
         do {
             try await confirmation.value
             XCTFail("Expected stopped confirmation to be cancelled")

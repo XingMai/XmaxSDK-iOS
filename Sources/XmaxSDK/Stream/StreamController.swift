@@ -4,12 +4,17 @@ typealias RemoteStreamListener = @MainActor @Sendable (
     RemoteStream?
 ) throws -> Void
 
-/// 管理本地媒体发布、外部帧推送和远端生成流匹配。
+/// 统一协调 RTC 房间、媒体流、编码和质量事件。
 final class StreamController: StreamControlling, RtcEventListener,
     @unchecked Sendable {
 
     // 基础层组件
     private let rtcManager: any RtcManaging
+
+    // 流层组件
+    private let roomController: any RoomControlling
+    private let encodingController: any EncodingControlling
+    private let qualityController: any QualityControlling
 
     // 事件监听
     private let remoteStreamListener: RemoteStreamListener
@@ -24,15 +29,123 @@ final class StreamController: StreamControlling, RtcEventListener,
     // 运行状态
     private var state = State()
 
-    init(
+    convenience init(
         rtcManager: any RtcManaging,
         remoteStreamListener: @escaping RemoteStreamListener = { _ in },
         generationTiming: StreamGenerationTiming = .live
     ) {
+        self.init(
+            rtcManager: rtcManager,
+            roomController: RoomController(rtcManager: rtcManager),
+            encodingController: EncodingController(rtcManager: rtcManager),
+            qualityController: QualityController(rtcManager: rtcManager),
+            remoteStreamListener: remoteStreamListener,
+            generationTiming: generationTiming
+        )
+    }
+
+    init(
+        rtcManager: any RtcManaging,
+        roomController: any RoomControlling,
+        encodingController: any EncodingControlling,
+        qualityController: any QualityControlling,
+        remoteStreamListener: @escaping RemoteStreamListener = { _ in },
+        generationTiming: StreamGenerationTiming = .live
+    ) {
         self.rtcManager = rtcManager
+        self.roomController = roomController
+        self.encodingController = encodingController
+        self.qualityController = qualityController
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
         rtcManager.setEventListener(self)
+    }
+
+    func setVideoEncoderConfig(
+        _ videoFormat: RealtimeVideoFormat
+    ) throws {
+        try encodingController.configure(videoFormat)
+    }
+
+    func setNetworkQualityListener(
+        _ listener: RealtimeNetworkQualityListener?
+    ) {
+        qualityController.setNetworkQualityListener(listener)
+    }
+
+    func setPerformanceAlarmListener(
+        _ listener: RealtimePerformanceAlarmListener?
+    ) {
+        qualityController.setPerformanceAlarmListener(listener)
+    }
+
+    func connect(
+        connection: RealtimeSessionConnection,
+        includeLocalAudio: Bool,
+        ensureActive: @escaping @Sendable () throws -> Void
+    ) async throws {
+        try await roomController.join(
+            connection: connection,
+            ensureActive: ensureActive
+        )
+        try ensureActive()
+        try configureRoom(
+            roomID: connection.roomID,
+            botName: connection.botName
+        )
+        try publishLocalStream(includeAudio: includeLocalAudio)
+    }
+
+    func disconnect() async {
+        await resetStream()
+        await roomController.leave()
+    }
+
+    func beginGeneration(
+        taskID: String,
+        videoFormat: RealtimeVideoFormat,
+        context: RealtimeContext
+    ) async throws -> Task<Void, any Error> {
+        let confirmation = try beginGenerationConfirmation(taskID: taskID)
+        do {
+            try await roomController.startGeneration(
+                taskID: taskID,
+                videoFormat: videoFormat,
+                context: context
+            )
+            return confirmation
+        } catch {
+            confirmation.cancel()
+            await stopGeneration(taskID: taskID)
+            throw XmaxError.from(error)
+        }
+    }
+
+    func updateGeneration(
+        taskID: String,
+        videoFormat: RealtimeVideoFormat,
+        context: RealtimeContext
+    ) async throws {
+        try await roomController.changeGenerationCondition(
+            taskID: taskID,
+            videoFormat: videoFormat,
+            context: context
+        )
+    }
+
+    func stopGeneration(taskID: String) async {
+        let stoppedTaskID = await stopStreamGeneration(taskID: taskID)
+        await roomController.stopGeneration(taskID: stoppedTaskID)
+    }
+
+    func sendTracks(
+        taskID: String,
+        points: [RealtimePoint]
+    ) async throws {
+        try await roomController.sendTracks(
+            taskID: taskID,
+            points: points
+        )
     }
 
     func configureRoom(
@@ -153,7 +266,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    func beginGeneration(
+    func beginGenerationConfirmation(
         taskID: String
     ) throws -> Task<Void, any Error> {
         let taskID = taskID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -238,39 +351,61 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     @MainActor
     @discardableResult
-    func stopGeneration(
+    func stopStreamGeneration(
         taskID: String,
-        reason: String
+        reason: String = "Realtime generation start cancelled"
     ) -> String {
         let result = operationLock.withLock { () -> StopResult in
             let currentTaskID = stateLock.withLock {
                 state.generationTask?.id ?? ""
             }
             guard taskID.isEmpty || taskID == currentTaskID else {
-                return StopResult(taskID: "", waiter: nil)
+                return StopResult(
+                    taskID: "",
+                    waiter: nil,
+                    remoteAudioUserIDs: []
+                )
             }
 
-            let waiter = stateLock.withLock { () -> GenerationWaiter? in
+            let stoppedState = stateLock.withLock { () -> (
+                GenerationWaiter?,
+                Set<String>
+            ) in
                 let waiter = state.generationWaiter
+                let remoteAudioUserIDs =
+                    state.subscribedRemoteAudioUserIDs
                 state.generationTask = nil
                 state.generationWaiter = nil
                 state.activeRemoteStream = nil
-                return waiter
+                state.subscribedRemoteAudioUserIDs.removeAll()
+                return (waiter, remoteAudioUserIDs)
             }
-            return StopResult(taskID: currentTaskID, waiter: waiter)
+            return StopResult(
+                taskID: currentTaskID,
+                waiter: stoppedState.0,
+                remoteAudioUserIDs: stoppedState.1
+            )
         }
 
         reject(
             result.waiter,
             error: XmaxError(code: .cancelled, message: reason)
         )
+        for userID in result.remoteAudioUserIDs.sorted() {
+            performCleanup("取消订阅 RTC 远端音频") {
+                try rtcManager.subscribeRemoteAudio(
+                    userID: userID,
+                    subscribe: false
+                )
+            }
+        }
         clearRemoteStream()
         return result.taskID
     }
 
     @MainActor
-    func resetRoom() {
-        _ = stopGeneration()
+    func resetStream() {
+        _ = stopStreamGeneration(taskID: "")
         operationLock.withLock {
             let previousState = stateLock.withLock { () -> State in
                 let previousState = state
@@ -324,6 +459,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                     state.subscribedRemoteUserIDs.remove(userID)
                 }
                 if currentState.activeRemoteStream?.userID == userID {
+                    unsubscribeRemoteAudio(userID: userID)
                     stateLock.withLock {
                         state.activeRemoteStream = nil
                     }
@@ -361,6 +497,7 @@ final class StreamController: StreamControlling, RtcEventListener,
 
         do {
             try remoteStreamListener(stream)
+            try subscribeRemoteAudio(userID: stream.userID)
             stateLock.withLock {
                 if state.generationTask?.id == waiter.taskID {
                     state.activeRemoteStream = stream
@@ -385,6 +522,7 @@ private extension StreamController {
         var localVideoPublished = false
         var localAudioPublished = false
         var subscribedRemoteUserIDs: Set<String> = []
+        var subscribedRemoteAudioUserIDs: Set<String> = []
         var generationTask: GenerationTask?
         var generationWaiter: GenerationWaiter?
         var activeRemoteStream: RemoteStream?
@@ -419,6 +557,7 @@ private extension StreamController {
     struct StopResult {
         let taskID: String
         let waiter: GenerationWaiter?
+        let remoteAudioUserIDs: Set<String>
     }
 
     func subscribeRemoteVideo(userID: String) {
@@ -442,6 +581,38 @@ private extension StreamController {
                 "订阅 RTC 远端视频失败\n└─ 原因：" +
                     (error as NSError).localizedDescription,
                 category: "Stream"
+            )
+        }
+    }
+
+    func subscribeRemoteAudio(userID: String) throws {
+        let alreadySubscribed = stateLock.withLock {
+            state.subscribedRemoteAudioUserIDs.contains(userID)
+        }
+        guard !alreadySubscribed else {
+            return
+        }
+
+        try rtcManager.subscribeRemoteAudio(
+            userID: userID,
+            subscribe: true
+        )
+        _ = stateLock.withLock {
+            state.subscribedRemoteAudioUserIDs.insert(userID)
+        }
+    }
+
+    func unsubscribeRemoteAudio(userID: String) {
+        let wasSubscribed = stateLock.withLock {
+            state.subscribedRemoteAudioUserIDs.remove(userID) != nil
+        }
+        guard wasSubscribed else {
+            return
+        }
+        performCleanup("取消订阅 RTC 远端音频") {
+            try rtcManager.subscribeRemoteAudio(
+                userID: userID,
+                subscribe: false
             )
         }
     }

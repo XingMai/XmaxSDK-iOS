@@ -117,7 +117,7 @@ iOS：
 
 - [x] 重命名 Audio、Image、MediaFileMetadata、Permission、RTC 和 Storage 基础能力。
 - [x] 将进程级 RTC Engine 资源管理器重命名为 `RtcEngineManager`。
-- [x] 同步 Core、Service、Media、Transport、Rendering 和测试代码引用。
+- [x] 同步 Core、Service、Media、Stream、Rendering 和测试代码引用。
 - [x] 真机 SDK 测试目标编译通过。
 
 Harmony：
@@ -130,24 +130,24 @@ Harmony：
 
 ## SYNC-005 业务层统一 Controller 边界
 
-状态：已对齐；iOS 与 Harmony 均已完成 Transport、Media 边界收口和编译验证。
+状态：iOS 已收口为 Stream、Media 统一边界并完成编译验证；Harmony 仍使用 Transport 命名。
 
 iOS 规范：
 
 - 具有多个协作组件和统一状态的业务层，通过与层同名的 Controller 向 Core 暴露能力。
 - Core 只依赖业务层的 `*Controlling` 协议，不直接持有层内子 Controller。
-- `TransportController` 内部协调 Room、Stream、Encoding 和 Quality。
+- `StreamController` 内部协调 Room、Encoding、Quality，并统一管理 RTC 流状态。
 - `MediaController` 内部协调 Camera、Image、Video、平台已有的 Interaction 能力以及本地媒体所有权。
 - 业务层子组件保留具体职责，不单独向 Core 暴露。
 
 iOS：
 
-- [x] 新增 `TransportControlling` 和 `TransportController`。
-- [x] Core 不再直接依赖 Room、Stream、Encoding 和 Quality Controller。
+- [x] 新增 `StreamControlling` 和 `StreamController`。
+- [x] Core 不再直接依赖 Room、Encoding 和 Quality Controller。
 - [x] 将媒体统一入口及相机、图片、视频组件从 Core 下沉至 Media。
 - [x] 新增 `MediaControlling`，Core 仅通过 `MediaController` 使用媒体层。
-- [x] `MediaControlling` 和 `TransportControlling` 的方法使用规范化中文文档注释，明确参数、返回值、失败条件和生命周期语义。
-- [x] Transport 层统一入口使用 `setVideoEncoderConfig()` 设置视频编码器配置；Foundation 层的 RTC 适配方法仍保留 `configureVideoEncoding()`。
+- [x] `MediaControlling` 和 `StreamControlling` 的方法使用规范化中文文档注释，明确参数、返回值、失败条件和生命周期语义。
+- [x] Stream 层统一入口使用 `setVideoEncoderConfig()` 设置视频编码器配置；Foundation 层的 RTC 适配方法仍保留 `configureVideoEncoding()`。
 - [x] 真机 SDK 测试目标编译通过。
 
 Harmony：
@@ -160,7 +160,7 @@ Harmony：
 - [x] Transport 层统一入口使用 `setVideoEncoderConfig()`；Foundation 层保留 `RtcManaging.configureVideoEncoding()`。
 - [x] Harmony HAR 构建通过。
 
-> Media 与 Transport 的直接依赖已在后续审视中废止，见 SYNC-008。
+> Media 与流层的直接依赖已在后续审视中废止，见 SYNC-008。
 
 ## SYNC-006 图片与视频来源 API 收敛
 
@@ -215,27 +215,27 @@ Harmony：
 - [ ] 视频、摄像头和远端轨道继续使用 RTC Surface。
 - [ ] 完成 HAR 与 XLab HAP 编译验证。
 
-## SYNC-008 Media 与 Transport 分层解耦
+## SYNC-008 Media 与流层分层解耦
 
 状态：iOS 已完成并通过 SDK 真机目标构建；Harmony 待同步。
 
 统一目标：
 
 - Media 层只负责媒体采集、解码、帧生产、本地 Track 和预览生命周期。
-- Transport 层只负责编码配置、房间发布、SEI 和 RTC 帧传输。
-- Media 层不依赖 `TransportControlling`，也不定义 `push`、`publish` 或
+- Stream 层只负责编码配置、房间发布、SEI 和 RTC 帧传输。
+- Media 层不依赖 `StreamControlling`，也不定义 `push`、`publish` 或
   `send` 等传输语义。
-- Media 通过中性音视频帧监听器输出帧，由 Core 组装根连接到 Transport。
+- Media 通过中性音视频帧监听器输出帧，由 Core 组装根连接到 Stream。
 - 视频编码配置在连接前由 Core 使用本地 Track 的最终格式设置；已连接相机
   更新格式时由 Core 同步更新。
 
 iOS：
 
 - [x] 从 `MediaController`、`CameraController`、`ImageController` 和
-  `VideoController` 移除 `TransportControlling` 依赖。
+  `VideoController` 移除 `StreamControlling` 依赖。
 - [x] 增加内部 `MediaVideoFrameListener` 和 `MediaAudioFrameListener`，只
   表达 Media 产生中性帧的事件。
-- [x] 在 `XmaxRealtimeManager` 组装阶段把帧监听器连接到 Transport。
+- [x] 在 `XmaxRealtimeManager` 组装阶段把帧监听器连接到 Stream。
 - [x] 将编码配置从媒体来源创建迁移到 `connect()`，并覆盖已连接相机更新。
 - [x] SDK 单元测试 Scheme 真机目标构建通过。
 
@@ -378,6 +378,10 @@ Harmony：
 - 点击时先阻止文件视频帧继续进入本地 RTC Canvas；检查点时间线建立后
   恢复底层音视频推送，静态覆盖保留到匹配 taskID 的远端 ready、生成失败
   或取消。
+- 进入连接和生成后立即清空并暂停本地音频预览，但不中断 RTC 需要的
+  PCM 帧推送。
+- 匹配 taskID 的远端 ready 到达时才订阅远端音频，使远端音频和画面
+  共用同一 ready 边界；停止、失败或断开时取消订阅并恢复本地音频。
 - 只增加一个组合 `startGeneration(localStream:context:)` 公共方法，不增加
   公共模型或内部抽象；`pauseVideoPreview()`、检查点时间和恢复闭包仍属于
   SDK 内部生命周期能力。
@@ -398,6 +402,8 @@ iOS：
 - [x] 增加检查点时间线、控制器转发、NV12 静态帧和恢复版本测试。
 - [x] 增加按需连接的组合生成入口，并覆盖点击前不创建 Session、连接
   失败恢复预览的测试。
+- [x] 本地音频预览与 RTC PCM 推送分离，loading 期间本地静音，远端 ready
+  时才订阅远端音频。
 - [x] SDK 单元测试 Scheme 真机目标构建通过。
 - [ ] 真机验证点击位置、画面构图、声音连续性和远端首帧一致性。
 - [ ] 真机连续执行生成、停止、再次生成，验证 reader 生命周期稳定。
@@ -407,3 +413,4 @@ Harmony：
 - [ ] iOS 真机行为确认后，再确定平台静态覆盖组件和 reader seek 实现。
 - [ ] 对齐组合生成入口，但不把内部检查点暴露给接入方。
 - [ ] 音视频使用同一检查点和时间线，首轮到文件尾后恢复完整循环。
+- [ ] 对齐本地音频暂停和远端 ready 后音视频同时切换的生命周期。

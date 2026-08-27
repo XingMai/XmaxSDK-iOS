@@ -13,6 +13,9 @@ final class AudioManager: AudioManaging, @unchecked Sendable {
     // 播放资源
     private var playbackController: (any AudioPlaybackControlling)?
 
+    // 运行状态
+    private var isPlaybackEnabled = true
+
     init(
         playbackFactory: @escaping PlaybackFactory = {
             try SystemAudioPlaybackController()
@@ -48,7 +51,7 @@ final class AudioManager: AudioManaging, @unchecked Sendable {
 
     func write(frame: AudioFrame) {
         lock.withLock {
-            guard let playbackController else {
+            guard isPlaybackEnabled, let playbackController else {
                 return
             }
 
@@ -82,10 +85,34 @@ final class AudioManager: AudioManaging, @unchecked Sendable {
         }
     }
 
+    func setPlaybackEnabled(_ enabled: Bool) async throws {
+        try lock.withLock {
+            guard isPlaybackEnabled != enabled else {
+                return
+            }
+            isPlaybackEnabled = enabled
+            guard !enabled, let playbackController else {
+                return
+            }
+
+            do {
+                try playbackController.flush()
+            } catch let error as XmaxError {
+                throw error
+            } catch {
+                throw XmaxError(
+                    code: .mediaError,
+                    message: (error as NSError).localizedDescription
+                )
+            }
+        }
+    }
+
     func stop() async {
         lock.withLock {
             let controller = playbackController
             playbackController = nil
+            isPlaybackEnabled = true
             controller?.stop()
         }
     }

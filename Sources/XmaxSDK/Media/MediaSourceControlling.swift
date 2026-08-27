@@ -43,6 +43,12 @@ protocol MediaSourceControlling: Sendable {
     /// - Parameter mediaTimeUs: 音频和视频共同使用的文件内起播时间。
     func restart(from mediaTimeUs: Int64) async throws
 
+    /// 启用或暂停本地音频预览，不影响 RTC 音频帧输出。
+    ///
+    /// - Parameter enabled: `true` 表示播放本地预览音频；
+    ///   `false` 表示立即清空缓冲并保持静音。
+    func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws
+
     /// 停止输出并释放解码与本地音频播放资源。
     func stop() async
 }
