@@ -22,6 +22,11 @@ protocol MediaSourceControlling: Sendable {
     ///   `false` 表示恢复本地播放器音量。
     func setLocalAudioPreviewMuted(_ muted: Bool) async
 
+    /// 设置本地音频预览音量。
+    ///
+    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
+    func setLocalAudioVolume(_ volume: Float) async
+
     /// 将本地播放器画面绑定到 SDK 视频视图。
     @MainActor
     func attachPreview(

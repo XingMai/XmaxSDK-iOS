@@ -85,6 +85,17 @@ final class MediaSourceControllerTests: XCTestCase {
             .setLocalAudioPreviewMuted(true)
         ))
     }
+
+    func testLocalAudioVolumeIsRetainedBeforeMediaPreparation() async {
+        let components = makeComponents(hasAudio: true)
+
+        await components.controller.setLocalAudioVolume(0.7)
+
+        XCTAssertEqual(
+            components.player.calls,
+            [.setLocalAudioVolume(0.7)]
+        )
+    }
 }
 
 private extension MediaSourceControllerTests {
@@ -152,6 +163,7 @@ private enum VideoPlayerControllingCall: Equatable {
     )
     case start
     case setLocalAudioPreviewMuted(Bool)
+    case setLocalAudioVolume(Float)
     case attachPreview
     case detachPreview
     case stop
@@ -187,6 +199,10 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
 
     func setLocalAudioPreviewMuted(_ muted: Bool) {
         calls.append(.setLocalAudioPreviewMuted(muted))
+    }
+
+    func setLocalAudioVolume(_ volume: Float) {
+        calls.append(.setLocalAudioVolume(volume))
     }
 
     func attachPreview(

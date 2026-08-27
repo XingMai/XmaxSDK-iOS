@@ -102,6 +102,10 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         await playerController.setLocalAudioPreviewMuted(muted)
     }
 
+    func setLocalAudioVolume(_ volume: Float) async {
+        await playerController.setLocalAudioVolume(volume)
+    }
+
     @MainActor
     func attachPreview(
         to view: UIView,

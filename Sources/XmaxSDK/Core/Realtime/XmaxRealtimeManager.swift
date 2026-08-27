@@ -136,6 +136,24 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         streamController.setPerformanceAlarmListener(listener)
     }
 
+    func setLocalAudioVolume(_ volume: Float) async throws {
+        do {
+            try Self.validateAudioVolume(volume)
+            await mediaController.setLocalAudioVolume(volume)
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
+    func setRemoteAudioVolume(_ volume: Float) async throws {
+        do {
+            try Self.validateAudioVolume(volume)
+            try streamController.setRemoteAudioVolume(volume)
+        } catch {
+            throw await reportError(error)
+        }
+    }
+
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -732,6 +750,15 @@ private extension XmaxRealtimeManager {
 
     func unmuteLocalAudioPreview() async {
         await mediaController.setLocalAudioPreviewMuted(false)
+    }
+
+    static func validateAudioVolume(_ volume: Float) throws {
+        guard volume.isFinite, (0...1).contains(volume) else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Audio volume must be between 0 and 1"
+            )
+        }
     }
 }
 

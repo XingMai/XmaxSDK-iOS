@@ -26,6 +26,10 @@ protocol VideoPlayerControlling: Sendable {
     @MainActor
     func setLocalAudioPreviewMuted(_ muted: Bool)
 
+    /// 设置本地音频预览音量。
+    @MainActor
+    func setLocalAudioVolume(_ volume: Float)
+
     /// 将解码后的视频画面绑定到 SDK 视频视图。
     @MainActor
     func attachPreview(
@@ -273,6 +277,11 @@ final class VideoPlayerController: VideoPlayerControlling {
     /// 切换本地 PCM 静音状态；播放时间轴和 RTC 推帧保持连续。
     func setLocalAudioPreviewMuted(_ muted: Bool) {
         audioPreviewPlayer.setMuted(muted)
+    }
+
+    /// 更新本地 PCM 播放音量。
+    func setLocalAudioVolume(_ volume: Float) {
+        audioPreviewPlayer.setVolume(volume)
     }
 
     /// 绑定 SDK 内部的解码视频渲染视图。

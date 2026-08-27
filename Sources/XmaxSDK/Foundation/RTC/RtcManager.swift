@@ -403,6 +403,43 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
+    func setRemoteAudioVolume(
+        _ volume: Int,
+        for userID: String
+    ) throws {
+        let normalizedUserID = userID.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !normalizedUserID.isEmpty else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "RTC user ID cannot be empty"
+            )
+        }
+        guard (0...100).contains(volume) else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "RTC audio volume must be between 0 and 100"
+            )
+        }
+
+        try operationLock.withLock {
+            let engine = try requireEngine()
+            let streamID = stateLock.withLock {
+                remoteStreamIDs.first { stream, _ in
+                    stream.userID == normalizedUserID
+                }?.value ?? normalizedUserID
+            }
+            try checkResult(
+                engine.setRemoteAudioPlaybackVolume(
+                    streamID,
+                    volume: Int32(volume)
+                ),
+                operation: "setRemoteAudioPlaybackVolume"
+            )
+        }
+    }
+
     @MainActor
     func bindLocalVideo(
         to view: UIView,

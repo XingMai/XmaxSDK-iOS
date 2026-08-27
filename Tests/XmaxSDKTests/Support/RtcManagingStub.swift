@@ -20,6 +20,7 @@ enum RtcManagingCall: Equatable {
     case unpublishLocalAudio
     case subscribeRemoteVideo(userID: String, subscribe: Bool)
     case subscribeRemoteAudio(userID: String, subscribe: Bool)
+    case setRemoteAudioVolume(Int, userID: String)
     case joinRoom(RoomJoinConfiguration)
     case leaveRoom
     case sendRoomMessage(String)
@@ -48,6 +49,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let unpublishLocalAudioError: (any Error)?
     private let subscribeRemoteVideoError: (any Error)?
     private let subscribeRemoteAudioError: (any Error)?
+    private let setRemoteAudioVolumeError: (any Error)?
     private let joinRoomError: (any Error)?
     private var sendRoomMessageError: (any Error)?
     private let joinRoomHandler: JoinRoomHandler?
@@ -77,6 +79,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         unpublishLocalAudioError: (any Error)? = nil,
         subscribeRemoteVideoError: (any Error)? = nil,
         subscribeRemoteAudioError: (any Error)? = nil,
+        setRemoteAudioVolumeError: (any Error)? = nil,
         joinRoomError: (any Error)? = nil,
         sendRoomMessageError: (any Error)? = nil,
         joinRoomHandler: JoinRoomHandler? = nil,
@@ -97,6 +100,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         self.unpublishLocalAudioError = unpublishLocalAudioError
         self.subscribeRemoteVideoError = subscribeRemoteVideoError
         self.subscribeRemoteAudioError = subscribeRemoteAudioError
+        self.setRemoteAudioVolumeError = setRemoteAudioVolumeError
         self.joinRoomError = joinRoomError
         self.sendRoomMessageError = sendRoomMessageError
         self.joinRoomHandler = joinRoomHandler
@@ -265,6 +269,16 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         try record(
             .subscribeRemoteAudio(userID: userID, subscribe: subscribe),
             error: subscribeRemoteAudioError
+        )
+    }
+
+    func setRemoteAudioVolume(
+        _ volume: Int,
+        for userID: String
+    ) throws {
+        try record(
+            .setRemoteAudioVolume(volume, userID: userID),
+            error: setRemoteAudioVolumeError
         )
     }
 

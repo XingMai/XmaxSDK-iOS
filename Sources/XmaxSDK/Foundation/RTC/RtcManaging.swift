@@ -84,6 +84,12 @@ protocol RtcManaging: Sendable {
         subscribe: Bool
     ) throws
 
+    /// 设置指定远端用户的音频播放音量。
+    func setRemoteAudioVolume(
+        _ volume: Int,
+        for userID: String
+    ) throws
+
     /// 将本地视频绑定到渲染视图。
     @MainActor
     func bindLocalVideo(

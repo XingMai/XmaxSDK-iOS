@@ -4,6 +4,68 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeManagerTests: XCTestCase {
+    func testPublicAudioVolumeControlsForwardNormalizedValues() async throws {
+        let components = makeComponents()
+
+        try await components.manager.setLocalAudioVolume(0.6)
+        try await components.manager.setRemoteAudioVolume(0.35)
+
+        XCTAssertTrue(components.videoSource.calls.contains(
+            .setLocalAudioVolume(0.6)
+        ))
+
+        let localStream = try await components.manager.createLocalVideoStream(
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+        let startTask = Task {
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "video")
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        let startEvent = try XCTUnwrap(
+            decodedEvents(components.rtcManager).first {
+                $0["event"] as? String == "start"
+            }
+        )
+        let taskID = try XCTUnwrap(startEvent["uid"] as? String)
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: taskID
+        )
+        try await startTask.value
+
+        XCTAssertTrue(components.rtcManager.calls.contains(
+            .setRemoteAudioVolume(35, userID: "bot-user")
+        ))
+
+        await components.manager.disconnect()
+        try await components.manager.stopLocalVideoStream()
+    }
+
+    func testPublicAudioVolumeControlsRejectOutOfRangeValues() async {
+        let components = makeComponents()
+
+        for volume: Float in [-0.01, 1.01, .infinity, .nan] {
+            do {
+                try await components.manager.setLocalAudioVolume(volume)
+                XCTFail("Expected invalid audio volume to fail")
+            } catch {
+                XCTAssertEqual(
+                    error as? XmaxError,
+                    XmaxError(
+                        code: .invalidConfiguration,
+                        message: "Audio volume must be between 0 and 1"
+                    )
+                )
+            }
+        }
+    }
+
     func testPublicInterfaceForwardsCameraLifecycle() async throws {
         let components = makeComponents()
         let manager: any XmaxRealtimeManaging = components.manager

@@ -25,6 +25,12 @@ protocol StreamControlling: Sendable {
         _ listener: RealtimePerformanceAlarmListener?
     )
 
+    /// 设置远端生成音频播放音量。
+    ///
+    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
+    /// - Throws: RTC 音量配置失败时抛出错误。
+    func setRemoteAudioVolume(_ volume: Float) throws
+
     /// 加入 RTC 房间并发布本地媒体流。
     ///
     /// - Parameters:

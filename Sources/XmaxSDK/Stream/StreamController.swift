@@ -23,6 +23,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     // 生成配置
     private let generationTiming: StreamGenerationTiming
 
+    // 音频配置
+    private var remoteAudioVolume = 100
+
     // 并发控制
     private let stateLock = NSLock()
     private let operationLock = NSRecursiveLock()
@@ -82,6 +85,24 @@ final class StreamController: StreamControlling, RtcEventListener,
         _ listener: RealtimePerformanceAlarmListener?
     ) {
         qualityController.setPerformanceAlarmListener(listener)
+    }
+
+    func setRemoteAudioVolume(_ volume: Float) throws {
+        let rtcVolume = Int((volume * 100).rounded())
+        try operationLock.withLock {
+            let userIDs = stateLock.withLock {
+                state.subscribedRemoteAudioUserIDs.sorted()
+            }
+            for userID in userIDs {
+                try rtcManager.setRemoteAudioVolume(
+                    rtcVolume,
+                    for: userID
+                )
+            }
+            stateLock.withLock {
+                remoteAudioVolume = rtcVolume
+            }
+        }
     }
 
     func connect(
@@ -602,13 +623,20 @@ private extension StreamController {
     }
 
     func subscribeRemoteAudio(userID: String) throws {
-        let alreadySubscribed = stateLock.withLock {
-            state.subscribedRemoteAudioUserIDs.contains(userID)
+        let audioState = stateLock.withLock {
+            (
+                state.subscribedRemoteAudioUserIDs.contains(userID),
+                remoteAudioVolume
+            )
         }
-        guard !alreadySubscribed else {
+        guard !audioState.0 else {
             return
         }
 
+        try rtcManager.setRemoteAudioVolume(
+            audioState.1,
+            for: userID
+        )
         try rtcManager.subscribeRemoteAudio(
             userID: userID,
             subscribe: true

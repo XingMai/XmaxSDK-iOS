@@ -265,6 +265,9 @@ final class StreamControllerTests: XCTestCase {
         XCTAssertEqual(receivedStreams.count, 1)
         XCTAssertEqual(receivedStreams[0], matchingStream)
         XCTAssertTrue(rtcManager.calls.contains(
+            .setRemoteAudioVolume(100, userID: "bot-user")
+        ))
+        XCTAssertTrue(rtcManager.calls.contains(
             .subscribeRemoteAudio(
                 userID: "bot-user",
                 subscribe: true
@@ -277,6 +280,45 @@ final class StreamControllerTests: XCTestCase {
                 subscribe: false
             )
         ))
+    }
+
+    @MainActor
+    func testRemoteAudioVolumeIsAppliedBeforeSubscription() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(
+            rtcManager: rtcManager,
+            generationTiming: StreamGenerationTiming(
+                timeoutNanoseconds: 1_000_000_000
+            )
+        )
+        try controller.setRemoteAudioVolume(0.35)
+        try controller.configureRoom(
+            roomID: "room-id",
+            botName: "bot-user"
+        )
+        let confirmation = try controller.beginGenerationConfirmation(
+            taskID: "task-id"
+        )
+
+        rtcManager.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: "task-id"
+        )
+        try await confirmation.value
+
+        let volumeIndex = try XCTUnwrap(rtcManager.calls.firstIndex(
+            of: .setRemoteAudioVolume(35, userID: "bot-user")
+        ))
+        let subscriptionIndex = try XCTUnwrap(rtcManager.calls.firstIndex(
+            of: .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: true
+            )
+        ))
+        XCTAssertLessThan(volumeIndex, subscriptionIndex)
     }
 
     @MainActor

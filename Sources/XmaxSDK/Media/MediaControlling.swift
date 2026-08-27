@@ -126,6 +126,11 @@ protocol MediaControlling: Actor, InteractionControlling {
     ///   `false` 表示恢复本地播放器音量。
     func setLocalAudioPreviewMuted(_ muted: Bool) async
 
+    /// 设置本地文件视频的音频预览音量。
+    ///
+    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
+    func setLocalAudioVolume(_ volume: Float) async
+
     /// 判断指定媒体流是否由当前活动媒体来源持有。
     ///
     /// - Parameter stream: 需要验证所有权的媒体流。

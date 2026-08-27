@@ -33,6 +33,20 @@ public protocol XmaxRealtimeManaging: Sendable {
         _ listener: RealtimePerformanceAlarmListener?
     ) async
 
+    /// 设置本地媒体预览音量。
+    ///
+    /// - Parameter volume: 本地预览音量，取值范围为 `0...1`。
+    /// - Throws: 音量超出有效范围时抛出错误。
+    func setLocalAudioVolume(_ volume: Float) async throws
+
+    /// 设置远端生成音频播放音量。
+    ///
+    /// 尚未连接或订阅远端流时保存配置，并在远端音频开始播放前应用。
+    ///
+    /// - Parameter volume: 远端播放音量，取值范围为 `0...1`。
+    /// - Throws: 音量超出有效范围或 RTC 音量配置失败时抛出错误。
+    func setRemoteAudioVolume(_ volume: Float) async throws
+
     /// 创建本地相机流并开始预览。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,

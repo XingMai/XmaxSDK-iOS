@@ -90,6 +90,11 @@ final class VideoController: @unchecked Sendable {
         await mediaSourceController.setLocalAudioPreviewMuted(muted)
     }
 
+    /// 设置本地文件视频的音频预览音量。
+    func setLocalAudioVolume(_ volume: Float) async {
+        await mediaSourceController.setLocalAudioVolume(volume)
+    }
+
     /// 停止文件音视频输出并释放 RTC 外部音频和预览资源。
     func stopLocalVideoStream() async {
         let state = stateLock.withLock { () -> (

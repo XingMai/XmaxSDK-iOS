@@ -218,6 +218,11 @@ actor MediaController: MediaControlling {
         await videoController.setLocalAudioPreviewMuted(muted)
     }
 
+    /// 设置本地文件视频的音频预览音量。
+    func setLocalAudioVolume(_ volume: Float) async {
+        await videoController?.setLocalAudioVolume(volume)
+    }
+
     /// 在当前相机来源空闲时切换前置或后置摄像头。
     func switchCamera() async throws -> RealtimeMediaStream {
         guard activeSource?.kind == .camera else {

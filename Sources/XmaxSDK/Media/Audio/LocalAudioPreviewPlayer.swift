@@ -5,7 +5,7 @@ import Foundation
 final class LocalAudioPreviewPlayer: @unchecked Sendable {
 
     // 音频配置
-    private static let previewVolume: Float = 0.45
+    private static let defaultVolume: Float = 0.45
 
     // 平台资源
     private let audioSession = AVAudioSession.sharedInstance()
@@ -19,6 +19,8 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
 
     // 运行状态
     private var isPlaybackEnabled = false
+    private var isMuted = false
+    private var volume = LocalAudioPreviewPlayer.defaultVolume
     private var hasConfiguredPlaybackSession = false
 
     init() {
@@ -30,7 +32,7 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         )!
         engine.attach(playerNode)
         engine.connect(playerNode, to: engine.mainMixerNode, format: format)
-        playerNode.volume = Self.previewVolume
+        playerNode.volume = Self.defaultVolume
     }
 
     /// 开始接收并播放本地预览 PCM 帧。
@@ -38,14 +40,23 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         queue.async { [self] in
             guard !isPlaybackEnabled else { return }
             isPlaybackEnabled = true
-            playerNode.volume = Self.previewVolume
+            applyVolume()
         }
     }
 
     /// 静音或恢复本地音频预览，不停止播放器和音频引擎。
     func setMuted(_ muted: Bool) {
         queue.async { [self] in
-            playerNode.volume = muted ? 0 : Self.previewVolume
+            isMuted = muted
+            applyVolume()
+        }
+    }
+
+    /// 设置本地音频预览音量。
+    func setVolume(_ volume: Float) {
+        queue.async { [self] in
+            self.volume = volume
+            applyVolume()
         }
     }
 
@@ -83,7 +94,8 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         await withCheckedContinuation { continuation in
             queue.async { [self] in
                 isPlaybackEnabled = false
-                playerNode.volume = Self.previewVolume
+                isMuted = false
+                applyVolume()
                 stopPlayback()
                 continuation.resume()
             }
@@ -92,6 +104,10 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
 }
 
 private extension LocalAudioPreviewPlayer {
+    func applyVolume() {
+        playerNode.volume = isMuted ? 0 : volume
+    }
+
     func activateAudioSession() throws {
         if !hasConfiguredPlaybackSession {
             try audioSession.setCategory(
