@@ -35,7 +35,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             }
         )
         XCTAssertEqual(startEvent["uid"] as? String, "task-fixed")
-        await components.manager.stop(taskID: taskID)
+        try await components.manager.stop(taskID: taskID)
         await components.roomController.leave()
     }
 
@@ -109,7 +109,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         XCTAssertTrue(
             changes.allSatisfy { $0["uid"] as? String == taskID }
         )
-        await components.manager.stop(taskID: taskID)
+        try await components.manager.stop(taskID: taskID)
         await components.roomController.leave()
     }
 
@@ -130,7 +130,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         )
         let taskID = try await startTask.value
 
-        await components.manager.stop(taskID: taskID)
+        try await components.manager.stop(taskID: taskID)
 
         XCTAssertNil(components.remoteStreams.values.last ?? nil)
         let stopEvent = try XCTUnwrap(
@@ -178,7 +178,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             [[360, 640]]
         )
 
-        await components.manager.stop(taskID: taskID)
+        try await components.manager.stop(taskID: taskID)
         await components.interactionController.submitInteraction(frame)
         for _ in 0..<20 { await Task.yield() }
         XCTAssertEqual(
@@ -231,7 +231,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             message: "task-fixed"
         )
         let firstTaskID = try await firstStart.value
-        await components.manager.stop(taskID: firstTaskID)
+        try await components.manager.stop(taskID: firstTaskID)
 
         let secondStart = Task {
             try await components.manager.start(
@@ -251,7 +251,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             message: "task-fixed"
         )
         let secondTaskID = try await secondStart.value
-        await components.manager.reset(taskID: secondTaskID)
+        try await components.manager.reset(taskID: secondTaskID)
 
         do {
             _ = try await components.manager.start(

@@ -25,7 +25,9 @@ protocol RoomControlling: Actor {
     ) throws
 
     /// 尝试发送生成停止信令，未进房或任务为空时忽略。
-    func stopGeneration(taskID: String)
+    ///
+    /// - Throws: RTC 停止信令发送失败时抛出错误。
+    func stopGeneration(taskID: String) throws
 
     /// 发送生成任务的交互轨迹。
     func sendTracks(

@@ -455,6 +455,50 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
+    func testStopGenerationFailureReportsError() async throws {
+        let components = makeComponents()
+        var receivedErrors: [XmaxError] = []
+        await components.manager.setErrorListener { error in
+            receivedErrors.append(error)
+        }
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+        let startTask = Task {
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "prompt")
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        let startEvent = try XCTUnwrap(
+            decodedEvents(components.rtcManager).first {
+                $0["event"] as? String == "start"
+            }
+        )
+        let taskID = try XCTUnwrap(startEvent["uid"] as? String)
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: taskID
+        )
+        try await startTask.value
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "sendRoomMessage failed: -1"
+        )
+        components.rtcManager.setSendRoomMessageError(expectedError)
+
+        await components.manager.stopGeneration()
+
+        XCTAssertEqual(receivedErrors, [expectedError])
+        await components.manager.disconnect()
+        try await components.manager.stopLocalCameraStream()
+    }
+
     func testStateListenerReceivesCurrentAndLifecycleStates() async throws {
         let components = makeComponents()
         var states: [RealtimeConnectionState] = []

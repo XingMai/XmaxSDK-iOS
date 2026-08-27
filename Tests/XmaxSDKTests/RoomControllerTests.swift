@@ -143,7 +143,7 @@ final class RoomControllerTests: XCTestCase {
             taskID: "task-id",
             points: [RealtimePoint(x: 10, y: 20)]
         )
-        await controller.stopGeneration(taskID: "task-id")
+        try await controller.stopGeneration(taskID: "task-id")
 
         let events = try rtcManager.controllerMessages.map(decode)
         XCTAssertEqual(
@@ -191,7 +191,7 @@ final class RoomControllerTests: XCTestCase {
             ensureActive: {}
         )
 
-        await controller.stopGeneration(taskID: "")
+        try await controller.stopGeneration(taskID: "")
         try await controller.sendTracks(taskID: "task-id", points: [])
 
         XCTAssertTrue(rtcManager.controllerMessages.isEmpty)

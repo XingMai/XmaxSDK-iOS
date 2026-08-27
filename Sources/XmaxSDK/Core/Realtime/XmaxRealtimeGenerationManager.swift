@@ -63,7 +63,7 @@ actor XmaxRealtimeGenerationManager {
             currentContext = resolvedContext
             return taskID
         } catch {
-            await stop(taskID: taskID)
+            try? await stop(taskID: taskID)
             throw XmaxError.from(error)
         }
     }
@@ -89,14 +89,14 @@ actor XmaxRealtimeGenerationManager {
         currentContext = context
     }
 
-    func stop(taskID: String) async {
+    func stop(taskID: String) async throws {
         await interactionController.stopInteraction()
-        await streamController.stopGeneration(taskID: taskID)
+        try await streamController.stopGeneration(taskID: taskID)
     }
 
-    func reset(taskID: String = "") async {
+    func reset(taskID: String = "") async throws {
         currentContext = nil
-        await stop(taskID: taskID)
+        try await stop(taskID: taskID)
     }
 
     nonisolated static func createTaskID() -> String {

@@ -131,26 +131,18 @@ actor RoomController: RoomControlling {
         )
     }
 
-    func stopGeneration(taskID: String) {
+    func stopGeneration(taskID: String) throws {
         guard !taskID.isEmpty,
               case .joined(let userID) = state else {
             return
         }
 
-        do {
-            try send(
-                RoomEvent.stop(
-                    userID: userID,
-                    taskID: taskID
-                )
+        try send(
+            RoomEvent.stop(
+                userID: userID,
+                taskID: taskID
             )
-        } catch {
-            XmaxLogger.error(
-                "发送生成停止消息失败\n└─ 原因：" +
-                    (error as NSError).localizedDescription,
-                category: "Room"
-            )
-        }
+        )
     }
 
     func sendTracks(

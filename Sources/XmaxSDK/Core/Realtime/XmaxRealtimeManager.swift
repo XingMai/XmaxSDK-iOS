@@ -78,7 +78,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         mediaController.setErrorListener { [weak self] error in
             Task {
-                _ = await self?.reportError(error)
+                await self?.reportError(error)
             }
         }
     }
@@ -396,7 +396,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         }
 
-        await generationManager.reset()
+        do {
+            try await generationManager.reset()
+        } catch {
+            throw await reportError(error)
+        }
         let version = operationVersion.advance()
         await emitState(RealtimeState(connectionState: .connecting))
 
@@ -599,7 +603,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let version = operationVersion.current
         let wasGenerating = state.connectionState == .generating
-        await generationManager.stop(taskID: state.taskID ?? "")
+        do {
+            try await generationManager.stop(taskID: state.taskID ?? "")
+        } catch {
+            await reportError(error)
+        }
         await resumeLocalAudioPreview()
         if wasGenerating, operationVersion.isCurrent(version) {
             await emitState(
@@ -626,7 +634,7 @@ private extension XmaxRealtimeManager {
                 await mediaController.hasAudio
             )
         } catch {
-            _ = await reportError(error)
+            await reportError(error)
         }
         if let videoFormat = stream.videoTrack?.videoFormat {
             await connectionManager.updateRemoteVideoFormat(videoFormat)
@@ -672,7 +680,11 @@ private extension XmaxRealtimeManager {
         taskID: String,
         fallbackSessionID: String?
     ) async {
-        await generationManager.reset(taskID: taskID)
+        do {
+            try await generationManager.reset(taskID: taskID)
+        } catch {
+            await reportError(error)
+        }
         await resumeLocalAudioPreview()
         let sessionID = await connectionManager.disconnect(
             fallbackSessionID: fallbackSessionID
@@ -699,7 +711,7 @@ private extension XmaxRealtimeManager {
         guard await connectionManager.currentSessionID == sessionID else {
             return
         }
-        _ = await reportError(error)
+        await reportError(error)
         await beginTermination(
             finalState: .error,
             fallbackSessionID: sessionID
@@ -722,6 +734,7 @@ private extension XmaxRealtimeManager {
         }
     }
 
+    @discardableResult
     func reportError(_ error: any Error) async -> XmaxError {
         let xmaxError = XmaxError.from(error)
         if let errorListener {
@@ -734,7 +747,7 @@ private extension XmaxRealtimeManager {
         do {
             try await mediaController.setLocalAudioPreviewEnabled(true)
         } catch {
-            _ = await reportError(error)
+            await reportError(error)
         }
     }
 }

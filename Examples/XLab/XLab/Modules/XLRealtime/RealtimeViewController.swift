@@ -49,7 +49,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var localMediaOperationTask: Task<Void, Never>?
     private var generationOperationTask: Task<Void, Never>?
     private var touchAnimationPreparationTask: Task<Void, Never>?
-    private var stateListenerTask: Task<Void, Never>?
+    private var realtimeListenerTask: Task<Void, Never>?
     private var mediaCleanupTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
@@ -153,6 +153,16 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         return topBar
     }()
 
+    private lazy var realtimeErrorAlert: UIAlertController = {
+        let alert = UIAlertController(
+            title: "实时服务异常",
+            message: nil,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        return alert
+    }()
+
     private lazy var loadingOverlay = RealtimeLoadingOverlay()
 
     init(localInput: RealtimeLocalInput? = nil) {
@@ -184,7 +194,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         configureKeyboardDismissal()
         observeNotifications()
         setPreviewDisplayed(false)
-        observeRealtimeState()
+        observeRealtimeEvents()
         startLocalMedia()
     }
 
@@ -300,18 +310,30 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         return true
     }
 
-    private func observeRealtimeState() {
+    private func observeRealtimeEvents() {
         let pendingCleanup = mediaCleanupTask
         let realtimeManager = realtimeManager
-        stateListenerTask?.cancel()
-        stateListenerTask = Task { @MainActor [weak self] in
+        realtimeListenerTask?.cancel()
+        realtimeListenerTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await pendingCleanup?.value
             guard !Task.isCancelled else { return }
+            await realtimeManager.setErrorListener { [weak self] error in
+                self?.presentRealtimeError(error)
+            }
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
             }
         }
+    }
+
+    private func presentRealtimeError(_ error: XmaxError) {
+        guard error.code != .cancelled,
+              presentedViewController == nil else {
+            return
+        }
+        realtimeErrorAlert.message = error.localizedDescription
+        present(realtimeErrorAlert, animated: true)
     }
 
     private func renderRealtimeState(_ state: RealtimeState) {
@@ -522,7 +544,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 isTouchAnimationGenerationRequested = false
                 controlPanelView.setGenerationActive(false)
                 renderPreviewLoadingState()
-                showGenerationError(error)
+                XLToast.show(error.localizedDescription, in: view)
             }
         }
     }
@@ -668,12 +690,14 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func startLocalMedia() {
         let input = localInput
         let pendingCleanup = mediaCleanupTask
+        let pendingRealtimeListener = realtimeListenerTask
         localMediaOperationTask?.cancel()
         localMediaOperationTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
             await pendingCleanup?.value
+            await pendingRealtimeListener?.value
             guard !Task.isCancelled else { return }
             if input == nil {
                 await realtimeManager.setCameraPreviewReadyListener {
@@ -689,7 +713,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     await stopLocalMediaStream(for: input)
                     return
                 }
-                try displayLocalPreview(stream)
+                guard displayLocalPreview(stream) else {
+                    await stopLocalMediaStream(for: input)
+                    return
+                }
                 if input != nil {
                     setPreviewDisplayed(true)
                 }
@@ -699,7 +726,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     return
                 }
                 await stopLocalMediaStream(for: input)
-                showLocalMediaError(error)
             }
         }
     }
@@ -726,12 +752,14 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func displayLocalPreview(
         _ stream: RealtimeMediaStream
-    ) throws {
+    ) -> Bool {
         guard let videoTrack = stream.videoTrack else {
-            throw RealtimeDemoError.localPreviewUnavailable
+            assertionFailure("Realtime media stream has no video track")
+            return false
         }
         localMediaStream = stream
         previewView.displayLocal(videoTrack)
+        return true
     }
 
     private func stopLocalMedia(
@@ -751,9 +779,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         generationOperationTask = nil
         touchAnimationPreparationTask?.cancel()
         touchAnimationPreparationTask = nil
-        let pendingStateListener = stateListenerTask
-        pendingStateListener?.cancel()
-        stateListenerTask = nil
+        let pendingRealtimeListener = realtimeListenerTask
+        pendingRealtimeListener?.cancel()
+        realtimeListenerTask = nil
         isGenerationRequested = false
         isTouchAnimationGenerationRequested = false
         controlPanelView.setGenerationActive(false)
@@ -771,7 +799,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let realtimeManager = realtimeManager
         mediaCleanupTask = Task { [localInput] in
             await previousCleanup?.value
-            await pendingStateListener?.value
+            await pendingRealtimeListener?.value
+            await realtimeManager.setErrorListener(nil)
             await realtimeManager.setStateListener(nil)
             await realtimeManager.setCameraPreviewReadyListener(nil)
             await pendingLocalMediaOperation?.value
@@ -804,7 +833,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
         isSuspendedForBackground = false
         setPreviewDisplayed(false)
-        observeRealtimeState()
+        observeRealtimeEvents()
         startLocalMedia()
     }
 
@@ -869,7 +898,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     await stopLocalMediaStream(for: input)
                     return
                 }
-                try displayLocalPreview(stream)
+                guard displayLocalPreview(stream) else {
+                    await stopLocalMediaStream(for: input)
+                    return
+                }
                 setPreviewDisplayed(true)
 
                 if restartsTouchAnimation {
@@ -886,7 +918,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 guard !Task.isCancelled else { return }
                 await stopLocalMediaStream(for: input)
                 renderPreviewLoadingState()
-                showLocalMediaError(error)
             }
         }
     }
@@ -916,9 +947,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     matching: selectedReferenceID
                 )
             }
-            showGenerationError(
-                message: "本地媒体尚未准备好，请稍后重试。"
-            )
+            XLToast.show("本地媒体尚未准备好，请稍后重试。", in: view)
             return
         }
 
@@ -961,7 +990,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                         matching: selectedReferenceID
                     )
                 }
-                showGenerationError(error)
             }
         }
     }
@@ -983,34 +1011,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await realtimeManager.stopGeneration()
             await realtimeManager.disconnect()
         }
-    }
-
-    private func showGenerationError(_ error: any Error) {
-        showGenerationError(message: error.localizedDescription)
-    }
-
-    private func showGenerationError(message: String) {
-        guard presentedViewController == nil else { return }
-        let alert = UIAlertController(
-            title: "实时生成失败",
-            message: message,
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
-        present(alert, animated: true)
-    }
-
-    private func showLocalMediaError(_ error: any Error) {
-        guard presentedViewController == nil else {
-            return
-        }
-        let alert = UIAlertController(
-            title: "本地媒体读取失败",
-            message: error.localizedDescription,
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
-        present(alert, animated: true)
     }
 
     @objc func keyboardWillShow(_ notification: Notification) {
@@ -1085,19 +1085,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             defer {
                 cameraActionBar.setSwitchCameraEnabled(true)
             }
-            do {
-                let stream = try await realtimeManager.switchCamera()
-                guard !Task.isCancelled else {
-                    return
-                }
-                localMediaStream = stream
-                previewView.updateLocal(stream.videoTrack)
-            } catch {
-                guard !Task.isCancelled else {
-                    return
-                }
-                showLocalMediaError(error)
+            guard let stream = try? await realtimeManager.switchCamera(),
+                  !Task.isCancelled else {
+                return
             }
+            localMediaStream = stream
+            previewView.updateLocal(stream.videoTrack)
         }
     }
 
@@ -1211,7 +1204,6 @@ extension RealtimeViewController: PHPickerViewControllerDelegate {
 private enum RealtimeDemoError: LocalizedError {
     case connectionTransitioning
     case imageEncodingFailed
-    case localPreviewUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -1219,8 +1211,6 @@ private enum RealtimeDemoError: LocalizedError {
             return "实时连接正在切换状态，请稍后重试。"
         case .imageEncodingFailed:
             return "图片处理失败，请重新选择图片。"
-        case .localPreviewUnavailable:
-            return "本地预览尚未准备好，请重试。"
         }
     }
 }

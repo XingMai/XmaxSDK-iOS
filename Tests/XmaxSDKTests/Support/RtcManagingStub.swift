@@ -49,7 +49,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let subscribeRemoteVideoError: (any Error)?
     private let subscribeRemoteAudioError: (any Error)?
     private let joinRoomError: (any Error)?
-    private let sendRoomMessageError: (any Error)?
+    private var sendRoomMessageError: (any Error)?
     private let joinRoomHandler: JoinRoomHandler?
     private let leaveRoomHandler: LeaveRoomHandler?
     private let bindLocalVideoError: (any Error)?
@@ -320,10 +320,18 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     }
 
     func sendRoomMessage(_ message: String) throws {
-        try record(
-            .sendRoomMessage(message),
-            error: sendRoomMessageError
-        )
+        try lock.withLock {
+            storedCalls.append(.sendRoomMessage(message))
+            if let sendRoomMessageError {
+                throw sendRoomMessageError
+            }
+        }
+    }
+
+    func setSendRoomMessageError(_ error: (any Error)?) {
+        lock.withLock {
+            sendRoomMessageError = error
+        }
     }
 
     func setEventListener(_ listener: (any RtcEventListener)?) {

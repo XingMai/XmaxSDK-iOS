@@ -97,7 +97,8 @@ protocol StreamControlling: Sendable {
     ///
     /// - Parameter taskID: 需要停止的生成任务标识；传入空字符串时停止
     ///   当前任务。
-    func stopGeneration(taskID: String) async
+    /// - Throws: RTC 停止信令发送失败时抛出错误。
+    func stopGeneration(taskID: String) async throws
 
     /// 发送生成任务的交互轨迹。
     ///

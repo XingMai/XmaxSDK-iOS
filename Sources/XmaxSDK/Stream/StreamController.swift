@@ -116,7 +116,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             return confirmation
         } catch {
             confirmation.cancel()
-            await stopGeneration(taskID: taskID)
+            try? await stopGeneration(taskID: taskID)
             throw XmaxError.from(error)
         }
     }
@@ -133,9 +133,9 @@ final class StreamController: StreamControlling, RtcEventListener,
         )
     }
 
-    func stopGeneration(taskID: String) async {
+    func stopGeneration(taskID: String) async throws {
         let stoppedTaskID = await stopStreamGeneration(taskID: taskID)
-        await roomController.stopGeneration(taskID: stoppedTaskID)
+        try await roomController.stopGeneration(taskID: stoppedTaskID)
     }
 
     func sendTracks(
