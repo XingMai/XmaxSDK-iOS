@@ -61,7 +61,7 @@ final class VideoControllerTests: XCTestCase {
         XCTAssertFalse(rtcManager.calls.contains(.startExternalAudioSource))
     }
 
-    func testRestartAndStopForwardLifecycleAndReleaseAudio() async throws {
+    func testStopForwardsLifecycleAndReleasesAudio() async throws {
         let rtcManager = RtcManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
@@ -78,37 +78,14 @@ final class VideoControllerTests: XCTestCase {
             videoFormat: nil
         )
 
-        try await manager.restartForGeneration()
         await manager.stopLocalVideoStream()
 
-        XCTAssertEqual(Array(source.calls.suffix(2)), [.restart(0), .stop])
+        XCTAssertEqual(source.calls.last, .stop)
         XCTAssertTrue(rtcManager.calls.contains(.stopExternalAudioSource))
         XCTAssertFalse(rtcManager.calls.contains(.unbindLocalVideo))
         XCTAssertNil(manager.currentTrack)
     }
 
-    func testRestartUsesPausedPreviewMediaCheckpoint() async throws {
-        let rtcManager = RtcManagingStub()
-        let source = MediaSourceControllingStub(
-            configuration: MediaSourceConfiguration(
-                videoFormat: videoFormat,
-                hasAudio: false
-            ),
-            pauseMediaTimeUs: 875_000
-        )
-        let manager = makeManager(
-            rtcManager: rtcManager,
-            mediaSourceController: source
-        )
-        _ = try await manager.createLocalVideoStream(
-            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
-            videoFormat: nil
-        )
-        _ = await manager.pauseVideoPreview()
-        try await manager.restartForGeneration()
-
-        XCTAssertTrue(source.calls.contains(.restart(875_000)))
-    }
 }
 
 private extension VideoControllerTests {

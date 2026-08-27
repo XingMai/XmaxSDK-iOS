@@ -1,7 +1,6 @@
 import Foundation
 
 typealias RealtimeGenerationValidity = @Sendable () throws -> Void
-typealias RealtimeGenerationStartedHandler = @Sendable () async throws -> Void
 
 /// 协调生成信令、远端结果确认、条件更新和轨迹交互。
 actor XmaxRealtimeGenerationManager {
@@ -30,8 +29,7 @@ actor XmaxRealtimeGenerationManager {
     func start(
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext?,
-        ensureCurrent: @escaping RealtimeGenerationValidity,
-        onGenerationStarted: @escaping RealtimeGenerationStartedHandler
+        ensureCurrent: @escaping RealtimeGenerationValidity
     ) async throws -> String {
         guard let resolvedContext = context ?? currentContext else {
             throw XmaxError(
@@ -48,7 +46,6 @@ actor XmaxRealtimeGenerationManager {
             context: resolvedContext
         )
         do {
-            try await onGenerationStarted()
             try await withTaskCancellationHandler {
                 try await confirmation.value
             } onCancel: {

@@ -18,7 +18,6 @@ final class VideoController: @unchecked Sendable {
 
     // 本地资源
     private var activeTrack: RealtimeVideoTrack?
-    private var generationMediaTimeUs: Int64?
 
     @MainActor
     convenience init(
@@ -83,32 +82,6 @@ final class VideoController: @unchecked Sendable {
         )
     }
 
-    /// 从暂停预览对应的文件时间重新开始音视频循环。
-    func restartForGeneration() async throws {
-        let mediaTimeUs = stateLock.withLock { () -> Int64? in
-            guard activeTrack != nil else { return nil }
-            return generationMediaTimeUs ?? 0
-        }
-        guard let mediaTimeUs else {
-            return
-        }
-        try await mediaSourceController.restart(from: mediaTimeUs)
-    }
-
-    /// 将文件视频播放器暂停在当前显示位置。
-    func pauseVideoPreview() async -> VideoPreviewResume {
-        guard currentTrack != nil else {
-            return {}
-        }
-        let mediaTimeUs = await mediaSourceController.pause()
-        stateLock.withLock {
-            generationMediaTimeUs = mediaTimeUs
-        }
-        return { [weak self] in
-            await self?.mediaSourceController.resumePreviewIfNeeded()
-        }
-    }
-
     /// 启用或暂停本地文件视频的音频预览。
     func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
         guard currentTrack != nil else {
@@ -126,7 +99,6 @@ final class VideoController: @unchecked Sendable {
             let track = activeTrack
             let hasAudio = track != nil && mediaSourceController.hasAudio
             activeTrack = nil
-            generationMediaTimeUs = nil
             return (track, hasAudio)
         }
         await mediaSourceController.stop()

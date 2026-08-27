@@ -120,24 +120,12 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前来源不是文件视频时忽略。
     func stopLocalVideoStream() async
 
-    /// 将文件视频的本地显示和 RTC 帧输出暂停在最近输出的一帧。
-    ///
-    /// - Returns: 恢复本次预览暂停的异步操作；当前来源不是文件视频时
-    ///   返回空操作。
-    func pauseVideoPreview() async -> VideoPreviewResume
-
     /// 启用或暂停文件视频的本地音频预览，不影响 RTC 音频推流。
     ///
     /// - Parameter enabled: `true` 表示播放本地预览音频；
     ///   `false` 表示立即清空缓冲并保持静音。
     /// - Throws: 本地音频播放缓冲清理失败时抛出错误。
     func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws
-
-    /// 在新一轮生成开始时从暂停预览对应的位置重新播放当前文件媒体；
-    /// 当前来源不是文件视频时忽略。
-    ///
-    /// - Throws: 文件媒体时间线或音视频解码器重新启动失败时抛出错误。
-    func restartForGeneration() async throws
 
     /// 判断指定媒体流是否由当前活动媒体来源持有。
     ///

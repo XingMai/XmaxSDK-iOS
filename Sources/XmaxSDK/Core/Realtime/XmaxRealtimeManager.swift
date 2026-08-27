@@ -25,7 +25,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // 运行状态
     private var state = RealtimeState(connectionState: .idle)
-    private var localVideoPreviewResume: VideoPreviewResume?
     private var terminationOperation: TerminationOperation?
     private var terminationFinalState: RealtimeConnectionState?
 
@@ -472,10 +471,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func startGeneration(context: RealtimeContext?) async throws {
-        try await performStartGeneration(
-            context: context,
-            preparedPreviewResume: nil
-        )
+        try await performStartGeneration(context: context)
     }
 
     func startGeneration(
@@ -507,26 +503,19 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             return remoteStream
         }
 
-        let resumeVideoPreview = await mediaController.pauseVideoPreview()
-        localVideoPreviewResume = resumeVideoPreview
         do {
             try await mediaController.setLocalAudioPreviewEnabled(false)
             let remoteStream = try await connect(localStream: localStream)
-            try await performStartGeneration(
-                context: context,
-                preparedPreviewResume: resumeVideoPreview
-            )
+            try await performStartGeneration(context: context)
             return remoteStream
         } catch {
-            await resumeLocalVideoPreview()
             await resumeLocalAudioPreview()
             throw error
         }
     }
 
     private func performStartGeneration(
-        context: RealtimeContext?,
-        preparedPreviewResume: VideoPreviewResume?
+        context: RealtimeContext?
     ) async throws {
         let sessionID = await connectionManager.currentSessionID
         guard !sessionID.isEmpty,
@@ -556,13 +545,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         let version = operationVersion.current
-        let resumeVideoPreview: VideoPreviewResume
-        if let preparedPreviewResume {
-            resumeVideoPreview = preparedPreviewResume
-        } else {
-            resumeVideoPreview = await mediaController.pauseVideoPreview()
-        }
-        localVideoPreviewResume = resumeVideoPreview
         do {
             try await mediaController.setLocalAudioPreviewEnabled(false)
             let taskID = try await generationManager.start(
@@ -575,9 +557,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                             message: "Realtime connection was cancelled"
                         )
                     }
-                },
-                onGenerationStarted: { [mediaController] in
-                    try await mediaController.restartForGeneration()
                 }
             )
             guard operationVersion.isCurrent(version),
@@ -594,9 +573,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     taskID: taskID
                 )
             )
-            await resumeLocalVideoPreview()
         } catch {
-            await resumeLocalVideoPreview()
             await resumeLocalAudioPreview()
             throw await reportError(error)
         }
@@ -612,7 +589,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let version = operationVersion.current
         let wasGenerating = state.connectionState == .generating
-        await resumeLocalVideoPreview()
         do {
             try await generationManager.stop(taskID: state.taskID ?? "")
         } catch {
@@ -687,7 +663,6 @@ private extension XmaxRealtimeManager {
         operationID: UUID,
         taskID: String
     ) async {
-        await resumeLocalVideoPreview()
         do {
             try await generationManager.reset(taskID: taskID)
         } catch {
@@ -730,12 +705,6 @@ private extension XmaxRealtimeManager {
             return
         }
         await beginTermination(finalState: .error)
-    }
-
-    func resumeLocalVideoPreview() async {
-        let resume = localVideoPreviewResume
-        localVideoPreviewResume = nil
-        await resume?()
     }
 
     func ensureOperation(_ version: UInt64) throws {

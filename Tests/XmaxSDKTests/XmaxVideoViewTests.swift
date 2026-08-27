@@ -136,27 +136,6 @@ final class XmaxVideoViewTests: XCTestCase {
         XCTAssertEqual(image.size, CGSize(width: 2, height: 2))
     }
 
-    func testPlayerFreezeFrameCoversAndRestoresPlayerPreview() throws {
-        let view = XmaxVideoView()
-        let imageView = try XCTUnwrap(
-            view.subviews.compactMap { $0 as? UIImageView }.first
-        )
-
-        try view.displayPlayerFreezeFrame(
-            makeNV12Frame(timestampUs: 0),
-            contentMode: .fit
-        )
-
-        XCTAssertFalse(imageView.isHidden)
-        XCTAssertNotNil(imageView.image)
-        XCTAssertEqual(imageView.contentMode, .scaleAspectFit)
-
-        view.clearPlayerFreezeFrame()
-
-        XCTAssertTrue(imageView.isHidden)
-        XCTAssertNil(imageView.image)
-    }
-
 }
 
 private extension XmaxVideoViewTests {

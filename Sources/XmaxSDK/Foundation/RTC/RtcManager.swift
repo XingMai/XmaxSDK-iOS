@@ -217,10 +217,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 engine.setAudioSourceType(.external),
                 operation: "setAudioSourceType"
             )
-            try checkResult(
-                engine.startAudioCapture(),
-                operation: "startAudioCapture"
-            )
         }
     }
 

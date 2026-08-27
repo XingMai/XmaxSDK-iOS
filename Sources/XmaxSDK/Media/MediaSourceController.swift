@@ -95,36 +95,6 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
     }
 
-    func restart(from mediaTimeUs: Int64) async throws {
-        let preparedMedia = try stateLock.withLock { () -> PreparedMedia in
-            guard isRunning, let preparedMedia else {
-                throw XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Start the media source before restarting it"
-                )
-            }
-            return preparedMedia
-        }
-
-        do {
-            let resolvedMediaTimeUs = min(
-                max(mediaTimeUs, 0),
-                preparedMedia.metadata.durationUs - 1
-            )
-            try await playerController.restart(from: resolvedMediaTimeUs)
-        } catch {
-            throw XmaxError.from(error)
-        }
-    }
-
-    func pause() async -> Int64? {
-        await playerController.pause()
-    }
-
-    func resumePreviewIfNeeded() async {
-        await playerController.resumePreviewIfNeeded()
-    }
-
     func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
         guard hasAudio else {
             return

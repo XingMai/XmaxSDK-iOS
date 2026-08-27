@@ -222,7 +222,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testVideoGenerationRestartsFileTimelineAfterStartSignal() async throws {
+    func testVideoGenerationKeepsTimelineRunningAndControlsAudio() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalVideoStream(
             fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
@@ -236,7 +236,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        await waitForVideoRestart(components.videoSource)
         let startEvent = try XCTUnwrap(
             decodedEvents(components.rtcManager).first {
                 $0["event"] as? String == "start"
@@ -252,15 +251,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         try await startTask.value
 
-        XCTAssertTrue(components.videoSource.calls.contains(.restart(0)))
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(false)
         ))
         XCTAssertFalse(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(true)
-        ))
-        XCTAssertTrue(components.videoSource.calls.contains(
-            .resumePreviewIfNeeded
         ))
         XCTAssertTrue(components.rtcManager.calls.contains(.publishLocalAudio))
         XCTAssertTrue(components.rtcManager.calls.contains(
@@ -271,12 +266,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         ))
 
         await components.manager.stopGeneration()
-        XCTAssertEqual(
-            components.videoSource.calls.filter {
-                $0 == .resumePreviewIfNeeded
-            }.count,
-            1
-        )
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(true)
         ))
@@ -309,7 +298,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        await waitForVideoRestart(components.videoSource)
         let startEvent = try XCTUnwrap(
             decodedEvents(components.rtcManager).first {
                 $0["event"] as? String == "start"
@@ -330,14 +318,13 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertTrue(
             components.sessionService.calls.contains(.createSession(.x2_0))
         )
-        XCTAssertTrue(components.videoSource.calls.contains(.restart(0)))
 
         await components.manager.stopGeneration()
         await components.manager.disconnect()
         try await components.manager.stopLocalVideoStream()
     }
 
-    func testGenerationEntryResumesVideoOutputWhenConnectionFails()
+    func testGenerationEntryRestoresLocalAudioWhenConnectionFails()
         async throws {
         let components = makeComponents(
             sessionCreateError: XmaxError(
@@ -359,10 +346,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             XCTAssertEqual((error as? XmaxError)?.code, .sessionError)
         }
 
-        XCTAssertTrue(components.videoSource.calls.contains(.pause))
-        XCTAssertTrue(components.videoSource.calls.contains(
-            .resumePreviewIfNeeded
-        ))
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioPreviewEnabled(false)
         ))
@@ -760,18 +743,6 @@ private extension XmaxRealtimeManagerTests {
             await Task.yield()
         }
         XCTFail("Timed out waiting for room event: \(event)")
-    }
-
-    func waitForVideoRestart(
-        _ videoSource: MediaSourceControllingStub
-    ) async {
-        for _ in 0..<1_000 {
-            if videoSource.calls.contains(.restart(0)) {
-                return
-            }
-            await Task.yield()
-        }
-        XCTFail("Timed out waiting for video timeline restart")
     }
 
     func decodedEvents(

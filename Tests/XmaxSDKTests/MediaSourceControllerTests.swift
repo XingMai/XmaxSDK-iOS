@@ -39,8 +39,7 @@ final class MediaSourceControllerTests: XCTestCase {
         XCTAssertTrue(components.controller.hasAudio)
     }
 
-    func testStartPauseRestartAndStopUseSinglePlayerTimeline()
-        async throws {
+    func testStartAndStopUseSinglePlayerTimeline() async throws {
         let components = makeComponents(hasAudio: true)
         _ = try await components.controller.prepare(
             fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
@@ -48,15 +47,10 @@ final class MediaSourceControllerTests: XCTestCase {
         )
 
         try await components.controller.start()
-        let checkpoint = await components.controller.pause()
-        try await components.controller.restart(from: 750_000)
         await components.controller.stop()
 
-        XCTAssertEqual(checkpoint, 625_000)
-        XCTAssertEqual(Array(components.player.calls.suffix(4)), [
+        XCTAssertEqual(Array(components.player.calls.suffix(2)), [
             .start,
-            .pause,
-            .restart(750_000),
             .stop
         ])
         XCTAssertFalse(components.controller.hasAudio)
@@ -157,9 +151,6 @@ private enum VideoPlayerControllingCall: Equatable {
         hasAudio: Bool
     )
     case start
-    case pause
-    case restart(Int64)
-    case resumePreviewIfNeeded
     case setLocalAudioPreviewEnabled(Bool)
     case attachPreview
     case detachPreview
@@ -192,19 +183,6 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
 
     func start() throws {
         calls.append(.start)
-    }
-
-    func pause() -> Int64? {
-        calls.append(.pause)
-        return 625_000
-    }
-
-    func restart(from mediaTimeUs: Int64) async throws {
-        calls.append(.restart(mediaTimeUs))
-    }
-
-    func resumePreviewIfNeeded() {
-        calls.append(.resumePreviewIfNeeded)
     }
 
     func setLocalAudioPreviewEnabled(_ enabled: Bool) {

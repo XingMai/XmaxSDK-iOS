@@ -3,19 +3,15 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeGenerationManagerTests: XCTestCase {
-    func testStartSendsSignalRestartsMediaAndWaitsForMatchingSei() async throws {
+    func testStartSendsSignalAndWaitsForMatchingSei() async throws {
         let components = try await makeComponents()
-        let restartCounter = GenerationInvocationCounter()
         let context = RealtimeContext(prompt: "first prompt")
 
         let startTask = Task {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: context,
-                ensureCurrent: {},
-                onGenerationStarted: {
-                    restartCounter.increment()
-                }
+                ensureCurrent: {}
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
@@ -27,7 +23,6 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         let taskID = try await startTask.value
 
         XCTAssertEqual(taskID, "task-fixed")
-        XCTAssertEqual(restartCounter.value, 1)
         XCTAssertEqual(components.remoteStreams.values, [remoteStream])
         let startEvent = try XCTUnwrap(
             decodedEvents(components.rtcManager).first {
@@ -50,8 +45,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             _ = try await components.manager.start(
                 videoFormat: videoFormat,
                 context: RealtimeContext(prompt: "prompt"),
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
             XCTFail("Expected generation start to time out")
         } catch {
@@ -80,8 +74,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: RealtimeContext(prompt: "first"),
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
@@ -119,8 +112,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: RealtimeContext(prompt: "prompt"),
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
@@ -148,8 +140,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: RealtimeContext(prompt: "prompt"),
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
@@ -197,8 +188,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             _ = try await components.manager.start(
                 videoFormat: videoFormat,
                 context: nil,
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
             XCTFail("Expected first generation to require context")
         } catch {
@@ -221,8 +211,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: RealtimeContext(prompt: "cached prompt"),
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
@@ -237,8 +226,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: nil,
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
         }
         await waitForEventCount(
@@ -257,8 +245,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             _ = try await components.manager.start(
                 videoFormat: videoFormat,
                 context: nil,
-                ensureCurrent: {},
-                onGenerationStarted: {}
+                ensureCurrent: {}
             )
             XCTFail("Expected reset to clear cached context")
         } catch {
@@ -416,23 +403,6 @@ private final class RemoteStreamRecorder: @unchecked Sendable {
     func append(_ stream: RemoteStream?) {
         lock.withLock {
             storedValues.append(stream)
-        }
-    }
-}
-
-private final class GenerationInvocationCounter: @unchecked Sendable {
-
-    // 并发状态
-    private let lock = NSLock()
-    private var storedValue = 0
-
-    var value: Int {
-        lock.withLock { storedValue }
-    }
-
-    func increment() {
-        lock.withLock {
-            storedValue += 1
         }
     }
 }

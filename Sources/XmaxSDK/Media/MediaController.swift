@@ -210,28 +210,12 @@ actor MediaController: MediaControlling {
         await stopSource(ifKindIs: .video)
     }
 
-    /// 将文件视频的本地显示暂停在最近输出的一帧。
-    func pauseVideoPreview() async -> VideoPreviewResume {
-        guard activeSource?.kind == .video, let videoController else {
-            return {}
-        }
-        return await videoController.pauseVideoPreview()
-    }
-
     /// 启用或暂停文件视频的本地音频预览。
     func setLocalAudioPreviewEnabled(_ enabled: Bool) async throws {
         guard activeSource?.kind == .video, let videoController else {
             return
         }
         try await videoController.setLocalAudioPreviewEnabled(enabled)
-    }
-
-    /// 视频来源在新一轮生成开始时从预览暂停位置重新播放。
-    func restartForGeneration() async throws {
-        guard activeSource?.kind == .video else {
-            return
-        }
-        try await requiredVideoController().restartForGeneration()
     }
 
     /// 在当前相机来源空闲时切换前置或后置摄像头。

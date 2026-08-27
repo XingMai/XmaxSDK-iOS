@@ -1,8 +1,6 @@
 import Foundation
 import UIKit
 
-typealias VideoPreviewResume = @Sendable () async -> Void
-
 /// 定义本地视频文件准备、循环播放和重新起播能力。
 protocol MediaSourceControlling: Sendable {
 
@@ -17,17 +15,6 @@ protocol MediaSourceControlling: Sendable {
 
     /// 从文件起点开始循环输出音视频帧。
     func start() async throws
-
-    /// 为新一轮生成从指定文件时间重新建立同步时间线。
-    ///
-    /// - Parameter mediaTimeUs: 音频和视频共同使用的文件内起播时间。
-    func restart(from mediaTimeUs: Int64) async throws
-
-    /// 暂停本地播放器并返回当前文件时间检查点。
-    func pause() async -> Int64?
-
-    /// 解除本地静态帧冻结，并在需要时恢复播放器。
-    func resumePreviewIfNeeded() async
 
     /// 启用或暂停本地音频预览，不影响 RTC 音频帧输出。
     ///

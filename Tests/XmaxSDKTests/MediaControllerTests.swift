@@ -240,7 +240,7 @@ final class MediaControllerTests: XCTestCase {
         )
     }
 
-    func testVideoSourceOwnsAudioLifecycleAndRestartsForGeneration() async throws {
+    func testVideoSourceOwnsAudioLifecycle() async throws {
         let rtcManager = RtcManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
@@ -261,13 +261,10 @@ final class MediaControllerTests: XCTestCase {
             fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
             videoFormat: nil
         )
-        try await manager.restartForGeneration()
-
         let hasAudio = await manager.hasAudio
         let ownsStream = await manager.owns(stream)
         XCTAssertTrue(hasAudio)
         XCTAssertTrue(ownsStream)
-        XCTAssertTrue(source.calls.contains(.restart(0)))
 
         await manager.stopLocalVideoStream()
         let hasAudioAfterStop = await manager.hasAudio

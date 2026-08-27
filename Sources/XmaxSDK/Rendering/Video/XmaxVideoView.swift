@@ -162,17 +162,6 @@ extension XmaxVideoView {
         imageView.isHidden = true
     }
 
-    func displayPlayerFreezeFrame(
-        _ frame: VideoFrame,
-        contentMode: VideoContentMode
-    ) throws {
-        try displayImageFrame(frame, contentMode: contentMode)
-    }
-
-    func clearPlayerFreezeFrame() {
-        clearImageFrame()
-    }
-
     func displayPlayer(
         _ player: AVPlayer,
         contentMode: VideoContentMode
@@ -196,7 +185,6 @@ extension XmaxVideoView {
         guard playerLayer?.player === player else {
             return
         }
-        clearPlayerFreezeFrame()
         playerLayer?.player = nil
         playerLayer?.removeFromSuperlayer()
         playerLayer = nil

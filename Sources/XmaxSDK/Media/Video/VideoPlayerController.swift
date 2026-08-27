@@ -23,18 +23,6 @@ protocol VideoPlayerControlling: Sendable {
     @MainActor
     func start() throws
 
-    /// 暂停播放器并返回当前文件时间检查点。
-    @MainActor
-    func pause() -> Int64?
-
-    /// 从指定文件时间重新播放并输出 RTC 音视频帧。
-    @MainActor
-    func restart(from mediaTimeUs: Int64) async throws
-
-    /// 解除静态帧冻结，并在需要时恢复播放器。
-    @MainActor
-    func resumePreviewIfNeeded()
-
     /// 启用或暂停系统播放器的本地音频。
     @MainActor
     func setLocalAudioPreviewEnabled(_ enabled: Bool)
@@ -92,15 +80,11 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
     private var outputHeight = 0
     private var outputRotation = VideoRotation.rotation0
     private var frameRate = 0
-    private var previewContentMode = VideoContentMode.fill
 
     // 运行状态
     private var isConfigured = false
     private var isFrameConversionPending = false
     private var isPlaying = false
-    private var isPreviewFrozen = false
-    private var lastVideoFrame: VideoFrame?
-    private var frozenVideoFrame: VideoFrame?
 
     init(
         videoFrameListener: @escaping MediaVideoFrameListener,
@@ -176,50 +160,6 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
         isPlaying = true
     }
 
-    /// 暂停播放器并返回当前文件时间检查点。
-    func pause() -> Int64? {
-        guard isConfigured else {
-            return nil
-        }
-        player.pause()
-        isPlaying = false
-        isPreviewFrozen = true
-        frozenVideoFrame = lastVideoFrame
-        displayFrozenPreviewIfPossible()
-        return Self.microseconds(from: player.currentTime())
-    }
-
-    /// 从指定文件时间重新播放，继续向 RTC 输出音视频帧。
-    func restart(from mediaTimeUs: Int64) async throws {
-        guard isConfigured, let playerItem else {
-            throw Self.mediaError("Configure the video player before restarting it")
-        }
-        let duration = try await playerItem.asset.load(.duration)
-        let durationUs = max(Self.microseconds(from: duration) ?? 0, 1)
-        let resolvedTimeUs = min(max(mediaTimeUs, 0), durationUs - 1)
-        let time = CMTime(value: resolvedTimeUs, timescale: 1_000_000)
-        await seek(to: time)
-        audioTap?.reset()
-        startDisplayLink()
-        player.play()
-        isPlaying = true
-    }
-
-    /// 解除静态帧冻结；播放器尚未运行时同时恢复播放。
-    func resumePreviewIfNeeded() {
-        guard isConfigured else {
-            return
-        }
-        isPreviewFrozen = false
-        frozenVideoFrame = nil
-        previewView?.clearPlayerFreezeFrame()
-        if !isPlaying {
-            startDisplayLink()
-            player.play()
-            isPlaying = true
-        }
-    }
-
     /// 设置本地播放器静音状态，不影响前置音频 Tap 的 RTC 帧输出。
     func setLocalAudioPreviewEnabled(_ enabled: Bool) {
         player.isMuted = !enabled
@@ -237,13 +177,7 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
             )
         }
         previewView = videoView
-        previewContentMode = contentMode
         videoView.displayPlayer(player, contentMode: contentMode)
-        if isPreviewFrozen {
-            displayFrozenPreviewIfPossible()
-        } else {
-            videoView.clearPlayerFreezeFrame()
-        }
     }
 
     /// 从 SDK 视频视图解除 AVPlayerLayer。
@@ -269,7 +203,6 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
             self.endObserver = nil
         }
         player.pause()
-        previewView?.clearPlayerFreezeFrame()
         player.replaceCurrentItem(with: nil)
         playerItem = nil
         videoOutput = nil
@@ -279,10 +212,6 @@ final class VideoPlayerController: NSObject, VideoPlayerControlling {
         outputHeight = 0
         outputRotation = .rotation0
         frameRate = 0
-        previewContentMode = .fill
-        isPreviewFrozen = false
-        lastVideoFrame = nil
-        frozenVideoFrame = nil
     }
 }
 
@@ -393,9 +322,6 @@ private extension VideoPlayerController {
                     rotation: rotation,
                     timestampUs: timestampUs
                 )
-                Task { @MainActor [weak self] in
-                    self?.recordConvertedFrame(frame)
-                }
                 try self?.videoFrameListener(frame)
             } catch {
                 self?.errorListener(XmaxError.from(error))
@@ -404,44 +330,6 @@ private extension VideoPlayerController {
                 self?.isFrameConversionPending = false
             }
         }
-    }
-
-    func recordConvertedFrame(_ frame: VideoFrame) {
-        lastVideoFrame = frame
-        guard isPreviewFrozen, !isPlaying else {
-            return
-        }
-        frozenVideoFrame = frame
-        displayFrozenPreviewIfPossible()
-    }
-
-    func displayFrozenPreviewIfPossible() {
-        guard isPreviewFrozen,
-              let frozenVideoFrame,
-              let previewView else {
-            return
-        }
-        do {
-            try previewView.displayPlayerFreezeFrame(
-                frozenVideoFrame,
-                contentMode: previewContentMode
-            )
-        } catch {
-            errorListener(XmaxError.from(error))
-        }
-    }
-
-    static func microseconds(from time: CMTime) -> Int64? {
-        guard time.isValid, time.isNumeric else {
-            return nil
-        }
-        let seconds = time.seconds
-        guard seconds.isFinite,
-              seconds >= 0,
-              seconds <= Double(Int64.max) / 1_000_000 else {
-            return nil
-        }
-        return Int64((seconds * 1_000_000).rounded())
     }
 
     static func mediaError(_ message: String) -> XmaxError {
