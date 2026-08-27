@@ -504,7 +504,9 @@ XmaxVideoView
 AVSampleBufferDisplayLayer
 ```
 
-插帧只在 iOS 26 及以上且 `VTLowLatencyFrameInterpolationConfiguration` 接受
-实际视频尺寸时开启，不额外硬编码像素面积阈值。初始化配置不受支持时，SDK
-自动回退到原帧直通并通过错误监听器提示；接入方运行时显式开启不受支持的
-现有流时抛出同一类错误。关闭插帧始终成功，并清理帧处理器和待输出帧。
+插帧只在 iOS 26 及以上、`MediaService` 判定实际视频尺寸不超过 100 万像素，且
+`VTLowLatencyFrameInterpolationConfiguration` 接受该尺寸时开启。100 万像素
+边界兼容旧版约 90 万像素的 32 对齐规格，包括 `704 × 1280`、`992 × 992` 和
+`1120 × 840`，但会拒绝 `1120 × 1120`。初始化配置不受支持时，SDK 自动回退
+到原帧直通并通过错误监听器提示；接入方运行时显式开启不受支持的现有流时抛出
+同一类错误。关闭插帧始终成功，并清理帧处理器和待输出帧。

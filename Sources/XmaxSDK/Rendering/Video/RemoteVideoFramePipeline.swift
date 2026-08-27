@@ -5,6 +5,10 @@ import Foundation
 
 /// 串行处理远端解码帧，并在可用时插入一个中间帧。
 actor RemoteVideoFramePipeline {
+    typealias FrameInterpolationSupportChecker = @Sendable (
+        _ size: CGSize
+    ) -> Bool
+
     typealias OutputListener = @Sendable (
         _ frame: DecodedVideoFrame,
         _ outputToken: UUID
@@ -13,6 +17,8 @@ actor RemoteVideoFramePipeline {
     // 事件监听
     private let outputListener: OutputListener
     private let errorListener: XmaxErrorListener
+    private let frameInterpolationSupportChecker:
+        FrameInterpolationSupportChecker
 
     // 帧处理资源
     private var interpolationManager:
@@ -29,11 +35,17 @@ actor RemoteVideoFramePipeline {
     init(
         interpolationEnabled: Bool,
         outputToken: UUID,
+        frameInterpolationSupportChecker:
+            @escaping FrameInterpolationSupportChecker = {
+                FrameInterpolationSupport.supports(size: $0)
+            },
         outputListener: @escaping OutputListener,
         errorListener: @escaping XmaxErrorListener
     ) {
         self.interpolationEnabled = interpolationEnabled
         self.outputToken = outputToken
+        self.frameInterpolationSupportChecker =
+            frameInterpolationSupportChecker
         self.outputListener = outputListener
         self.errorListener = errorListener
     }
@@ -65,7 +77,7 @@ actor RemoteVideoFramePipeline {
                 throw Self.unsupportedError(videoSize: videoSize)
             }
             if let videoSize,
-               !FrameInterpolationSupport.supports(size: videoSize) {
+               !frameInterpolationSupportChecker(videoSize) {
                 throw Self.unsupportedError(videoSize: videoSize)
             }
         }
@@ -147,7 +159,7 @@ private extension RemoteVideoFramePipeline {
         }
 
         let signature = FrameSignature(frame)
-        guard FrameInterpolationSupport.supports(size: signature.size) else {
+        guard frameInterpolationSupportChecker(signature.size) else {
             disableAfterFailure(Self.unsupportedError(videoSize: signature.size))
             return [passthrough(frame, duration: sourceDuration)]
         }

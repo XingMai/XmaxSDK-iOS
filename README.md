@@ -46,9 +46,10 @@ try await realtime.setFrameInterpolationEnabled(false)
 
 接入方可以通过 `isFrameInterpolationSupported` 查询当前设备的全局能力，或通过
 `XmaxClient.createMediaService().supportsFrameInterpolation(for:)` 检查指定
-视频尺寸。初始化时请求开启但实际尺寸不受支持，SDK 会继续无插帧播放并通过
-错误监听器上报 `FRAME_INTERPOLATION_UNSUPPORTED`；运行时显式开启失败则同时
-抛出该错误。
+视频尺寸。`MediaService` 将插帧输入限制在 100 万像素以内，以兼容旧版约
+90 万像素的 32 对齐规格；初始化时请求开启但实际尺寸不受支持，SDK 会继续
+无插帧播放并通过错误监听器上报 `FRAME_INTERPOLATION_UNSUPPORTED`；运行时
+显式开启失败则同时抛出该错误。
 
 ## CocoaPods 本地开发
 

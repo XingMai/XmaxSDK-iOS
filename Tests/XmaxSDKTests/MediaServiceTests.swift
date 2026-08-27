@@ -58,6 +58,21 @@ final class MediaServiceTests: XCTestCase {
         ))
     }
 
+    func testFrameInterpolationVideoSizeUsesAlignedLegacyPixelLimit() {
+        XCTAssertTrue(MediaService.supportsFrameInterpolationSize(
+            CGSize(width: 704, height: 1_280)
+        ))
+        XCTAssertTrue(MediaService.supportsFrameInterpolationSize(
+            CGSize(width: 992, height: 992)
+        ))
+        XCTAssertTrue(MediaService.supportsFrameInterpolationSize(
+            CGSize(width: 1_120, height: 840)
+        ))
+        XCTAssertFalse(MediaService.supportsFrameInterpolationSize(
+            CGSize(width: 1_120, height: 1_120)
+        ))
+    }
+
 #if targetEnvironment(simulator)
     func testFrameInterpolationIsUnavailableInSimulator() {
         XCTAssertFalse(

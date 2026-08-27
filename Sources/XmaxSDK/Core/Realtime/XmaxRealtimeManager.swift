@@ -43,11 +43,15 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let errorHandler = RealtimeErrorHandler()
         let rtcManager = RtcManager()
+        let mediaService = MediaService()
 
         let renderController = RenderController(
             rtcManager: rtcManager,
             frameInterpolationEnabled:
                 options.isFrameInterpolationEnabled,
+            frameInterpolationSupportChecker: {
+                mediaService.supportsFrameInterpolation(for: $0)
+            },
             errorListener: { errorHandler.forward($0) }
         )
 
@@ -91,7 +95,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.streamController = streamController
         self.mediaController = mediaController
         self.renderController = renderController
-        mediaService = MediaService()
+        self.mediaService = mediaService
         self.connectionManager = connectionManager
         self.errorHandler = errorHandler
         self.generationManager = generationManager

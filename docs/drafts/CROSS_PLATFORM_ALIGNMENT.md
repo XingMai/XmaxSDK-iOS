@@ -439,7 +439,8 @@ iOS 设计：
 - [x] `MediaServicing` 支持检查当前系统、设备与指定分辨率的组合是否可插帧。
 - [x] 远端视频始终使用 RTC VideoSink 和 SDK 自渲染，关闭插帧时原帧直通。
 - [x] iOS 26 使用 `VTFrameProcessor` 在相邻帧间插入一帧，不实现 x4 模式。
-- [x] 不硬编码像素面积阈值，以 VideoToolbox 对实际宽高创建配置的结果为准。
+- [x] `MediaService` 以 100 万像素作为兼容旧版约 90 万像素对齐规格的业务
+  上限；Foundation 只通过 VideoToolbox 校验平台能力，不持有业务阈值。
 - [x] 初始化配置不受支持时自动关闭插帧、继续普通播放并回调
   `FRAME_INTERPOLATION_UNSUPPORTED`。
 - [x] 运行时显式开启不受支持的已有流时保持原状态，并回调和抛出同一错误。

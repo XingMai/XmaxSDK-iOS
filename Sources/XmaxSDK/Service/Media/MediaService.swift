@@ -8,6 +8,9 @@ final class MediaService: MediaServicing, Sendable {
     private static let maximumModelPixels = 1_280_000
     private static let modelSizeAlignment = 32
 
+    // 插帧约束
+    private static let maximumFrameInterpolationPixels = 1_000_000
+
     func resolveModelInputSize(_ size: CGSize) throws -> CGSize {
         let size = try validatedSize(size)
         let pixels = Double(size.width) * Double(size.height)
@@ -40,11 +43,36 @@ final class MediaService: MediaServicing, Sendable {
     }
 
     func supportsFrameInterpolation(for size: CGSize) -> Bool {
-        FrameInterpolationSupport.supports(size: size)
+        guard Self.supportsFrameInterpolationSize(size) else {
+            return false
+        }
+        return FrameInterpolationSupport.supports(size: size)
+    }
+
+    static func supportsFrameInterpolationSize(_ size: CGSize) -> Bool {
+        guard let width = integralDimension(size.width),
+              let height = integralDimension(size.height) else {
+            return false
+        }
+        let (pixelCount, overflow) = width.multipliedReportingOverflow(
+            by: height
+        )
+        return !overflow && pixelCount <= maximumFrameInterpolationPixels
     }
 }
 
 private extension MediaService {
+    static func integralDimension(_ value: CGFloat) -> Int? {
+        guard value.isFinite,
+              value > 0,
+              value <= CGFloat(Int.max) else {
+            return nil
+        }
+        let roundedValue = value.rounded()
+        guard roundedValue == value else { return nil }
+        return Int(roundedValue)
+    }
+
     func validatedSize(_ size: CGSize) throws -> CGSize {
         guard size.width.isFinite,
               size.height.isFinite,

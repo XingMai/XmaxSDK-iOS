@@ -12,10 +12,14 @@ final class RenderController: RenderControlling {
 
     // 远端帧处理
     private let initialFrameInterpolationEnabled: Bool
+    private let frameInterpolationSupportChecker:
+        RemoteVideoFramePipeline.FrameInterpolationSupportChecker
     private var renderingToken = UUID()
     private lazy var remoteFramePipeline = RemoteVideoFramePipeline(
         interpolationEnabled: initialFrameInterpolationEnabled,
         outputToken: renderingToken,
+        frameInterpolationSupportChecker:
+            frameInterpolationSupportChecker,
         outputListener: { [weak self] frame, outputToken in
             await self?.displayRemoteFrame(
                 frame,
@@ -36,10 +40,17 @@ final class RenderController: RenderControlling {
     init(
         rtcManager: any RtcManaging,
         frameInterpolationEnabled: Bool = false,
+        frameInterpolationSupportChecker:
+            @escaping RemoteVideoFramePipeline
+                .FrameInterpolationSupportChecker = {
+                    FrameInterpolationSupport.supports(size: $0)
+                },
         errorListener: @escaping XmaxErrorListener = { _ in }
     ) {
         self.rtcManager = rtcManager
         initialFrameInterpolationEnabled = frameInterpolationEnabled
+        self.frameInterpolationSupportChecker =
+            frameInterpolationSupportChecker
         self.errorListener = errorListener
     }
 
