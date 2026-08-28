@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name = 'XmaxSDK'
-  spec.version = '0.1.0'
+  spec.version = '1.0.0'
   spec.summary = 'Xmax realtime generation SDK for iOS.'
   spec.description = <<-DESC
     XmaxSDK provides the native iOS APIs for Xmax realtime generation.
@@ -10,7 +10,7 @@ Pod::Spec.new do |spec|
 
   spec.homepage = 'https://xmax.ai'
   spec.license = { type: 'MIT', file: 'LICENSE' }
-  spec.author = { 'XMAX.AI PTE.LTD' => 'sdk@xmax.ai' }
+  spec.author = { 'XMAX.AI PTE. LTD.' => 'sdk@xmax.ai' }
   spec.source = {
     git: 'https://github.com/XingMai/XmaxSDK-iOS.git',
     tag: spec.version.to_s

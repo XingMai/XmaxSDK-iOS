@@ -23,7 +23,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private let trajectoryStyle: RealtimeTrajectoryStyle
     private let realtimeManager: any XmaxRealtimeManaging
     private var localMediaStream: RealtimeMediaStream?
-    private var remoteRealtimeStream: RealtimeMediaStream?
     private var selectedReference: RealtimeReferenceCatalog.Item?
     private var currentGenerationContext: RealtimeContext?
     private var isGenerationRequested = false
@@ -42,7 +41,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     // 参考图状态
     private var referencePickerDestination: ReferencePickerDestination?
     private var promptReference: RealtimeReferenceCatalog.Item?
-    private var isPickingReference = false
     private var referenceUploadRequestIDs: [String: UUID] = [:]
 
     // 本地素材选择
@@ -533,7 +531,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func presentReferencePhotoPicker(
         destination: ReferencePickerDestination
     ) {
-        guard !isPickingReference, presentedViewController == nil else {
+        guard referencePickerDestination == nil,
+              presentedViewController == nil else {
             return
         }
 
@@ -550,17 +549,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         picker.presentationController?.delegate = self
     }
 
-    func beginReferencePicking() {
-        isPickingReference = true
-    }
-
     func finishReferencePicking(
         localURL: URL?,
         error: (any Error)? = nil
     ) {
         let destination = referencePickerDestination
         referencePickerDestination = nil
-        isPickingReference = false
 
         if error != nil {
             XLToast.show("读取照片失败，请重试", in: view)
@@ -867,11 +861,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             do {
                 let stream = try await createLocalMediaStream(for: input)
                 guard !Task.isCancelled else {
-                    await stopLocalMediaStream(for: input)
+                    await realtimeManager.close()
                     return
                 }
                 guard displayLocalPreview(stream) else {
-                    await stopLocalMediaStream(for: input)
+                    await realtimeManager.close()
                     return
                 }
                 if input != nil {
@@ -882,7 +876,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 guard !Task.isCancelled else {
                     return
                 }
-                await stopLocalMediaStream(for: input)
+                await realtimeManager.close()
             }
         }
     }
@@ -955,7 +949,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         touchAnimationReferencePath = nil
 
         localMediaStream = nil
-        remoteRealtimeStream = nil
 
         controlPanelView.setGenerationActive(false)
         controlPanelView.clearReferenceSelection()
@@ -1000,21 +993,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         startLocalMedia()
     }
 
-    private func stopLocalMediaStream(
-        for input: RealtimeLocalInput?
-    ) async {
-        switch input {
-        case .image:
-            try? await realtimeManager.stopLocalImageStream()
-        case .video:
-            try? await realtimeManager.stopLocalVideoStream()
-        case nil:
-            try? await realtimeManager.stopLocalCameraStream()
-        }
-    }
-
     private func replaceLocalMedia(with input: RealtimeLocalInput) {
-        let previousInput = localInput
         let pendingLocalOperation = localMediaOperationTask
         pendingLocalOperation?.cancel()
         let pendingGenerationOperation = generationOperationTask
@@ -1036,7 +1015,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         currentGenerationContext = nil
         touchAnimationReferencePath = nil
         localMediaStream = nil
-        remoteRealtimeStream = nil
         previewView.displayLocal(nil)
         setPreviewDisplayed(false)
 
@@ -1048,8 +1026,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await pendingTouchAnimationPreparation?.value
             guard !Task.isCancelled else { return }
 
-            await realtimeManager.disconnect()
-            await stopLocalMediaStream(for: previousInput)
+            await realtimeManager.close()
             guard !Task.isCancelled else { return }
 
             localInput = input
@@ -1057,11 +1034,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             do {
                 let stream = try await createLocalMediaStream(for: input)
                 guard !Task.isCancelled else {
-                    await stopLocalMediaStream(for: input)
+                    await realtimeManager.close()
                     return
                 }
                 guard displayLocalPreview(stream) else {
-                    await stopLocalMediaStream(for: input)
+                    await realtimeManager.close()
                     return
                 }
                 setPreviewDisplayed(true)
@@ -1078,7 +1055,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                await stopLocalMediaStream(for: input)
+                await realtimeManager.close()
                 renderPreviewLoadingState()
             }
         }
@@ -1128,7 +1105,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     await realtimeManager.disconnect()
                     return
                 }
-                remoteRealtimeStream = remoteStream
                 previewView.prepareRealtime(remoteStream.videoTrack)
                 previewView.showRealtime()
                 loadingOverlay.hideLoading()
@@ -1143,7 +1119,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     currentGenerationContext = nil
                 }
                 loadingOverlay.hideLoading()
-                remoteRealtimeStream = nil
                 previewView.displayLocal(localMediaStream.videoTrack)
                 await realtimeManager.disconnect()
                 if let selectedReferenceID {
@@ -1163,7 +1138,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         controlPanelView.setGenerationActive(false)
         currentGenerationContext = nil
         loadingOverlay.hideLoading()
-        remoteRealtimeStream = nil
         previewView.displayLocal(localMediaStream?.videoTrack)
         let previousOperation = generationOperationTask
         previousOperation?.cancel()

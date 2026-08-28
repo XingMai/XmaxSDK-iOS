@@ -19,6 +19,7 @@
 		F10000000000000000000002 /* RealtimeViewController+Notification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* RealtimeViewController+Notification.swift */; };
 		F10000000000000000000003 /* RealtimeViewController+Picker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RealtimeViewController+Picker.swift */; };
 		F10000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */; };
+		F10000000000000000000005 /* RealtimeConst.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* RealtimeConst.swift */; };
 		F11000000000000000000001 /* RealtimeCameraSwitchButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */; };
 		F11000000000000000000002 /* RealtimeControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000002 /* RealtimeControlPanelView.swift */; };
 		F11000000000000000000003 /* RealtimeLoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000003 /* RealtimeLoadingOverlay.swift */; };
@@ -50,6 +51,7 @@
 		F20000000000000000000002 /* RealtimeViewController+Notification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+Notification.swift"; sourceTree = "<group>"; };
 		F20000000000000000000003 /* RealtimeViewController+Picker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+Picker.swift"; sourceTree = "<group>"; };
 		F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+CustomTrajectory.swift"; sourceTree = "<group>"; };
+		F20000000000000000000005 /* RealtimeConst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeConst.swift; sourceTree = "<group>"; };
 		F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraSwitchButton.swift; sourceTree = "<group>"; };
 		F21000000000000000000002 /* RealtimeControlPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeControlPanelView.swift; sourceTree = "<group>"; };
 		F21000000000000000000003 /* RealtimeLoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeLoadingOverlay.swift; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 				F20000000000000000000002 /* RealtimeViewController+Notification.swift */,
 				F20000000000000000000003 /* RealtimeViewController+Picker.swift */,
 				F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */,
+				F20000000000000000000005 /* RealtimeConst.swift */,
 				C00000000000000000000006 /* Model */,
 				C00000000000000000000007 /* Service */,
 				C00000000000000000000005 /* View */,
@@ -337,6 +340,7 @@
 				F10000000000000000000002 /* RealtimeViewController+Notification.swift in Sources */,
 				F10000000000000000000003 /* RealtimeViewController+Picker.swift in Sources */,
 				F10000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift in Sources */,
+				F10000000000000000000005 /* RealtimeConst.swift in Sources */,
 				F11000000000000000000001 /* RealtimeCameraSwitchButton.swift in Sources */,
 				F11000000000000000000002 /* RealtimeControlPanelView.swift in Sources */,
 				F11000000000000000000003 /* RealtimeLoadingOverlay.swift in Sources */,
@@ -389,7 +393,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = XLab/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -410,7 +414,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = XLab/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

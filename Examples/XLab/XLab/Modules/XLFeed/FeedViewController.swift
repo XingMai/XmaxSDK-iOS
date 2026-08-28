@@ -564,7 +564,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         divider.translatesAutoresizingMaskIntoConstraints = false
         divider.backgroundColor = .white.withAlphaComponent(0.09)
         let copyright = makeFeedLabel(
-            "Copyright © 2026 XMAX.AI PTE.LTD All rights reserved.",
+            "Copyright © 2026 XMAX.AI PTE. LTD. All rights reserved.",
             size: 9,
             color: .white.withAlphaComponent(0.31)
         )

@@ -13,8 +13,6 @@ extension RealtimeViewController: PHPickerViewControllerDelegate,
             finishReferencePicking(localURL: nil)
             return
         }
-        beginReferencePicking()
-
         let provider = result.itemProvider
         let typeIdentifier = provider.registeredTypeIdentifiers.first {
             UTType($0)?.conforms(to: .image) == true
