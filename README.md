@@ -227,8 +227,8 @@ generated video frames. It is enabled by default and can be changed at runtime:
 try await realtime.setFrameInterpolationEnabled(false)
 ```
 
-Check device support through `isFrameInterpolationSupported`, or check a
-specific video size with `client.createMediaService().supportsFrameInterpolation(for:)`.
+Check whether the current device supports interpolation for a specific video
+size with `client.createMediaService().supportsFrameInterpolation(for:)`.
 
 ## Logging
 

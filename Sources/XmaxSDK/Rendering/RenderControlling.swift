@@ -11,9 +11,6 @@ protocol RenderControlling: AnyObject, Sendable {
     /// 当前远端视频插帧是否处于开启状态。
     var isFrameInterpolationEnabled: Bool { get async }
 
-    /// 当前设备是否具备远端视频插帧能力。
-    var isFrameInterpolationSupported: Bool { get }
-
     /// 更新当前需要渲染的远端 RTC 视频流。
     func setRemoteStream(_ stream: RemoteStream?) throws
 

@@ -182,19 +182,6 @@ actor MediaController: MediaControlling {
         }
     }
 
-    /// 保留本地视频轨道并替换相机采集参数。
-    func replaceLocalCameraStream(
-        videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
-    ) async throws -> RealtimeMediaStream {
-        try await updateCameraSource {
-            try await self.cameraController.replaceLocalCameraStream(
-                videoFormat: videoFormat,
-                position: position
-            )
-        }
-    }
-
     /// 停止相机媒体来源并释放 RTC Engine。
     func stopLocalCameraStream() async {
         await stopSource(ifKindIs: .camera)
@@ -314,35 +301,6 @@ private extension MediaController {
                 await rtcManager.destroy()
                 activeSource = nil
             }
-            throw XmaxError.from(error)
-        }
-    }
-
-    func updateCameraSource(
-        operation body: @escaping @Sendable () async throws ->
-            RealtimeMediaStream
-    ) async throws -> RealtimeMediaStream {
-        guard let activeSource, activeSource.kind == .camera else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Create a local camera stream before updating it"
-            )
-        }
-        try ensureNoOperationInProgress()
-
-        let sourceID = activeSource.id
-        let operation = makeMediaOperation(sourceID: sourceID) {
-            try await body()
-        }
-        mediaOperation = operation
-
-        do {
-            let stream = try await operation.task.value
-            try ensureCreationActive(sourceID: sourceID)
-            clearMediaOperation(id: operation.id)
-            return stream
-        } catch {
-            clearMediaOperation(id: operation.id)
             throw XmaxError.from(error)
         }
     }

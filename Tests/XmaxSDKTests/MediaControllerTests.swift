@@ -63,42 +63,6 @@ final class MediaControllerTests: XCTestCase {
         }
     }
 
-    func testReplaceReusesRTCAndCurrentTrack() async throws {
-        let rtcManager = RtcManagingStub()
-        let mediaService = MediaServicingStub(
-            resolvedSize: CGSize(width: 1_024, height: 768)
-        )
-        let manager = makeManager(
-            rtcManager: rtcManager,
-            mediaService: mediaService
-        )
-        let originalStream = try await manager.createLocalCameraStream(
-            videoFormat: RealtimeVideoFormat(
-                width: 1_024,
-                height: 768,
-                fps: 24
-            ),
-            position: .front
-        )
-
-        let replacedStream = try await manager.replaceLocalCameraStream(
-            videoFormat: RealtimeVideoFormat(
-                width: 1_280,
-                height: 720,
-                fps: 30
-            ),
-            position: .back
-        )
-
-        XCTAssertTrue(originalStream.videoTrack === replacedStream.videoTrack)
-        XCTAssertEqual(replacedStream.videoTrack?.position, .back)
-        XCTAssertEqual(
-            rtcManager.calls.filter { $0 == .initialize }.count,
-            1
-        )
-        XCTAssertFalse(rtcManager.calls.contains(.destroy))
-    }
-
     func testStopReleasesCameraPreviewOwnershipAndRTC() async throws {
         let rtcManager = RtcManagingStub()
         let manager = makeManager(rtcManager: rtcManager)

@@ -174,8 +174,8 @@ Harmony：
   create 和 replace 变体。
 - 更换图片或视频来源由接入方显式执行 disconnect、stop、create，并按需
   重新 connect；SDK 不隐藏跨连接生命周期的复合操作。
-- 相机保留 `replaceLocalCameraStream()`，用于保持相机 Track 语义下更新
-  采集格式或位置，不扩展到图片和视频来源。
+- 相机位置通过 `switchCamera()` 切换；需要更新采集格式时，由接入方显式执行
+  stop 后 create，与图片和视频来源保持一致。
 
 iOS：
 

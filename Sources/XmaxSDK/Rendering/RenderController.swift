@@ -80,10 +80,6 @@ final class RenderController: RenderControlling {
         }
     }
 
-    nonisolated var isFrameInterpolationSupported: Bool {
-        FrameInterpolationSupport.isSupported
-    }
-
     func setRemoteStream(_ stream: RemoteStream?) throws {
         let previousStream = remoteStream
         if let previousStream, previousStream != stream {

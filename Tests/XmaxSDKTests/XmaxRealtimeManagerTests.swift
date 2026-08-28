@@ -272,50 +272,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
     }
 
-    func testConnectedCameraReplacementUpdatesEncoderConfig() async throws {
-        let components = makeComponents()
-        let localStream = try await components.manager.createLocalCameraStream(
-            videoFormat: videoFormat,
-            position: .front
-        )
-        _ = try await components.manager.connect(localStream: localStream)
-
-        _ = try await components.manager.replaceLocalCameraStream(
-            videoFormat: RealtimeVideoFormat(
-                width: 1_280,
-                height: 720,
-                fps: 30
-            ),
-            position: .back
-        )
-
-        let configurations = components.rtcManager.calls.compactMap {
-            call -> VideoEncodingConfiguration? in
-            guard case .configureVideoEncoding(let configuration) = call else {
-                return nil
-            }
-            return configuration
-        }
-        XCTAssertEqual(
-            configurations,
-            [
-                VideoEncodingConfiguration(
-                    width: videoFormat.width,
-                    height: videoFormat.height,
-                    frameRate: videoFormat.fps
-                ),
-                VideoEncodingConfiguration(
-                    width: videoFormat.width,
-                    height: videoFormat.height,
-                    frameRate: 30
-                )
-            ]
-        )
-
-        await components.manager.disconnect()
-        try await components.manager.stopLocalCameraStream()
-    }
-
     func testConnectedIdleCameraSwitchKeepsConnection() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(

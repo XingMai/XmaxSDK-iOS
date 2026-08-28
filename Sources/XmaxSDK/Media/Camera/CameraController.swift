@@ -79,38 +79,6 @@ final class CameraController: @unchecked Sendable {
         )
     }
 
-    /// 保留本地视频轨道并重新启动指定摄像头的采集。
-    func replaceLocalCameraStream(
-        videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
-    ) async throws -> RealtimeMediaStream {
-        guard let track = currentTrack else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Create a local camera stream before replacing it"
-            )
-        }
-
-        do {
-            let resolvedFormat = try resolveVideoFormat(videoFormat)
-            try rtcManager.stopVideoCapture()
-            try rtcManager.switchCamera(to: position)
-            try rtcManager.startVideoCapture(
-                width: resolvedFormat.width,
-                height: resolvedFormat.height,
-                frameRate: resolvedFormat.fps
-            )
-            track.updateVideoFormat(resolvedFormat)
-            track.updatePosition(position)
-            return RealtimeMediaStream(
-                id: StreamID.local.rawValue,
-                videoTrack: track
-            )
-        } catch {
-            throw XmaxError.from(error)
-        }
-    }
-
     /// 停止相机采集并释放本地预览绑定。
     func stopLocalCameraStream() async {
         let track = stateLock.withLock { () -> RealtimeVideoTrack? in

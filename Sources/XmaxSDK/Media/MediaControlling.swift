@@ -30,19 +30,6 @@ protocol MediaControlling: Actor, InteractionControlling {
         position: CameraPosition
     ) async throws -> RealtimeMediaStream
 
-    /// 使用新的采集参数更新当前相机媒体流。
-    ///
-    /// - Parameters:
-    ///   - videoFormat: 更新后相机采集使用的目标视频格式。
-    ///   - position: 更新后启用的摄像头位置。
-    /// - Returns: 包含更新后本地相机视频轨道的媒体流。
-    /// - Throws: 当前活动来源不是相机、存在并发媒体操作，或相机采集
-    ///   配置失败时抛出错误。
-    func replaceLocalCameraStream(
-        videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
-    ) async throws -> RealtimeMediaStream
-
     /// 停止并释放当前本地相机媒体流、预览绑定和 RTC 资源；
     /// 当前来源不是相机时忽略。
     func stopLocalCameraStream() async

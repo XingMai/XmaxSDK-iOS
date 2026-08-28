@@ -132,12 +132,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    var isFrameInterpolationSupported: Bool {
-        get async {
-            await renderController.isFrameInterpolationSupported
-        }
-    }
-
     func setStateListener(_ listener: RealtimeStateListener?) async {
         stateListener = listener
         if let listener {
@@ -219,44 +213,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 position: position
             )
             await reconcileFrameInterpolation(for: stream)
-            return stream
-        } catch {
-            throw await reportError(error)
-        }
-    }
-
-    func replaceLocalCameraStream(
-        videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
-    ) async throws -> RealtimeMediaStream {
-        guard state.connectionState != .connecting,
-              state.connectionState != .disconnecting else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Local camera update is unavailable while " +
-                        "realtime is transitioning"
-                )
-            )
-        }
-
-        let hasConnection = await connectionManager.currentSessionID != ""
-        if hasConnection {
-            await stopGeneration()
-        }
-
-        do {
-            let stream = try await mediaController.replaceLocalCameraStream(
-                videoFormat: videoFormat,
-                position: position
-            )
-            await reconcileFrameInterpolation(for: stream)
-            if hasConnection {
-                if let videoFormat = stream.videoTrack?.videoFormat {
-                    try streamController.setVideoEncoderConfig(videoFormat)
-                }
-                await synchronizeConnectionAfterCameraUpdate(stream)
-            }
             return stream
         } catch {
             throw await reportError(error)
@@ -758,21 +714,6 @@ private extension XmaxRealtimeManager {
                     "\(videoFormat.width) × \(videoFormat.height) video"
             )
         )
-    }
-
-    func synchronizeConnectionAfterCameraUpdate(
-        _ stream: RealtimeMediaStream
-    ) async {
-        do {
-            try streamController.setLocalAudioEnabled(
-                await mediaController.hasAudio
-            )
-        } catch {
-            await reportError(error)
-        }
-        if let videoFormat = stream.videoTrack?.videoFormat {
-            await connectionManager.updateRemoteVideoFormat(videoFormat)
-        }
     }
 
     func beginTermination(
