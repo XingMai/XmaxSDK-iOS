@@ -617,6 +617,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         let version = operationVersion.current
+        var startedTaskID = ""
         do {
             await mediaController.setLocalAudioPreviewMuted(true)
             let taskID = try await generationManager.start(
@@ -631,6 +632,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     }
                 }
             )
+            startedTaskID = taskID
+            try await renderController.waitUntilRemoteFrameReady()
+            try streamController.activateRemoteAudio()
             guard operationVersion.isCurrent(version),
                   await connectionManager.currentSessionID == sessionID else {
                 throw XmaxError(
@@ -646,6 +650,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             )
         } catch {
+            if !startedTaskID.isEmpty {
+                try? await generationManager.stop(taskID: startedTaskID)
+            }
             await unmuteLocalAudioPreview()
             throw await reportError(error)
         }

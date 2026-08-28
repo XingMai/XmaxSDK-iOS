@@ -85,6 +85,11 @@ protocol StreamControlling: Sendable {
         context: RealtimeContext
     ) async throws -> Task<Void, any Error>
 
+    /// 在远端首帧已经可显示后订阅当前生成流的音频。
+    ///
+    /// - Throws: 当前生成流尚未确认，或 RTC 音量和订阅配置失败时抛出错误。
+    func activateRemoteAudio() throws
+
     /// 发送生成条件变更信令。
     ///
     /// - Parameters:

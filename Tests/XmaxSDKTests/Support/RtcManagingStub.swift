@@ -1,4 +1,6 @@
 import Foundation
+import CoreMedia
+import CoreVideo
 import UIKit
 @testable import XmaxSDK
 
@@ -64,6 +66,9 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private weak var storedQualityListener: (any RtcQualityListener)?
     private var storedCameraPreviewReadyListener:
         RtcCameraPreviewReadyListener?
+    private var storedRemoteVideoFrameStream: RemoteStream?
+    private var storedRemoteVideoFrameListener:
+        RtcRemoteVideoFrameListener?
 
     init(
         initializationError: (any Error)? = nil,
@@ -316,6 +321,13 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
             if let setRemoteVideoFrameListenerError {
                 throw setRemoteVideoFrameListenerError
             }
+            if let listener {
+                storedRemoteVideoFrameStream = stream
+                storedRemoteVideoFrameListener = listener
+            } else if storedRemoteVideoFrameStream == stream {
+                storedRemoteVideoFrameStream = nil
+                storedRemoteVideoFrameListener = nil
+            }
         }
     }
 
@@ -415,6 +427,42 @@ extension RtcManagingStub {
         listener?.onSeiMessageReceived(
             stream: stream,
             message: message
+        )
+    }
+
+    func emitRemoteVideoFrame(
+        width: Int = 16,
+        height: Int = 16,
+        presentationTimeStamp: CMTime = .zero
+    ) throws {
+        let listener = lock.withLock { storedRemoteVideoFrameListener }
+        guard let listener else {
+            throw XmaxError(
+                code: .internalError,
+                message: "Remote video frame listener is unavailable"
+            )
+        }
+
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_32BGRA,
+            nil,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else {
+            throw XmaxError(
+                code: .internalError,
+                message: "Failed to create a remote test video frame"
+            )
+        }
+        listener(
+            DecodedVideoFrame(
+                pixelBuffer: pixelBuffer,
+                presentationTimeStamp: presentationTimeStamp
+            )
         )
     }
 }

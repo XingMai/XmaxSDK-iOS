@@ -264,6 +264,13 @@ final class StreamControllerTests: XCTestCase {
 
         XCTAssertEqual(receivedStreams.count, 1)
         XCTAssertEqual(receivedStreams[0], matchingStream)
+        XCTAssertFalse(rtcManager.calls.contains(
+            .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: true
+            )
+        ))
+        try controller.activateRemoteAudio()
         XCTAssertTrue(rtcManager.calls.contains(
             .setRemoteAudioVolume(100, userID: "bot-user")
         ))
@@ -308,6 +315,7 @@ final class StreamControllerTests: XCTestCase {
             message: "task-id"
         )
         try await confirmation.value
+        try controller.activateRemoteAudio()
 
         let volumeIndex = try XCTUnwrap(rtcManager.calls.firstIndex(
             of: .setRemoteAudioVolume(35, userID: "bot-user")
@@ -375,6 +383,42 @@ final class StreamControllerTests: XCTestCase {
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
         }
+    }
+
+    @MainActor
+    func testStoppingStaleGenerationDoesNotClearCurrentRemoteStream() async throws {
+        var receivedStreams: [RemoteStream?] = []
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(
+            rtcManager: rtcManager,
+            remoteStreamListener: { stream in
+                receivedStreams.append(stream)
+            }
+        )
+        try controller.configureRoom(
+            roomID: "room-id",
+            botName: "bot-user"
+        )
+        let confirmation = try controller.beginGenerationConfirmation(
+            taskID: "current-task"
+        )
+        let currentStream = RemoteStream(
+            roomID: "room-id",
+            userID: "bot-user"
+        )
+        rtcManager.emitSeiMessage(
+            stream: currentStream,
+            message: "current-task"
+        )
+        try await confirmation.value
+
+        let stoppedTaskID = await controller.stopStreamGeneration(
+            taskID: "stale-task"
+        )
+
+        XCTAssertTrue(stoppedTaskID.isEmpty)
+        XCTAssertEqual(receivedStreams.count, 1)
+        XCTAssertEqual(receivedStreams[0], currentStream)
     }
 
     @MainActor

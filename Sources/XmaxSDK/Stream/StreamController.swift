@@ -147,6 +147,22 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
+    func activateRemoteAudio() throws {
+        try operationLock.withLock {
+            let remoteStream: RemoteStream? = stateLock.withLock {
+                guard state.generationTask != nil else { return nil }
+                return state.activeRemoteStream
+            }
+            guard let remoteStream else {
+                throw XmaxError(
+                    code: .rtcError,
+                    message: "Remote generation audio stream is unavailable"
+                )
+            }
+            try subscribeRemoteAudio(userID: remoteStream.userID)
+        }
+    }
+
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -161,6 +177,9 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     func stopGeneration(taskID: String) async throws {
         let stoppedTaskID = await stopStreamGeneration(taskID: taskID)
+        guard taskID.isEmpty || !stoppedTaskID.isEmpty else {
+            return
+        }
         try await roomController.stopGeneration(taskID: stoppedTaskID)
     }
 
@@ -384,16 +403,12 @@ final class StreamController: StreamControlling, RtcEventListener,
         taskID: String,
         reason: String = "Realtime generation start cancelled"
     ) async -> String {
-        let result = operationLock.withLock { () -> StopResult in
+        let result = operationLock.withLock { () -> StopResult? in
             let currentTaskID = stateLock.withLock {
                 state.generationTask?.id ?? ""
             }
             guard taskID.isEmpty || taskID == currentTaskID else {
-                return StopResult(
-                    taskID: "",
-                    waiter: nil,
-                    remoteAudioUserIDs: []
-                )
+                return nil
             }
 
             let stoppedState = stateLock.withLock { () -> (
@@ -414,6 +429,9 @@ final class StreamController: StreamControlling, RtcEventListener,
                 waiter: stoppedState.0,
                 remoteAudioUserIDs: stoppedState.1
             )
+        }
+        guard let result else {
+            return ""
         }
 
         reject(
@@ -525,7 +543,6 @@ final class StreamController: StreamControlling, RtcEventListener,
 
         do {
             try remoteStreamListener(stream)
-            try subscribeRemoteAudio(userID: stream.userID)
             stateLock.withLock {
                 if state.generationTask?.id == waiter.taskID {
                     state.activeRemoteStream = stream

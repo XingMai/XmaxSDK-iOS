@@ -4,6 +4,19 @@ import XCTest
 
 @MainActor
 final class RenderControllerTests: XCTestCase {
+    func testSettingStreamBeforeAttachStartsRemoteFrameDelivery() throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(rtcManager: rtcManager)
+        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+
+        try controller.setRemoteStream(stream)
+
+        XCTAssertEqual(
+            rtcManager.calls,
+            [.setRemoteVideoFrameListener(stream, enabled: true)]
+        )
+    }
+
     func testSettingStreamAfterAttachStartsRemoteFrameDelivery() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
@@ -78,12 +91,43 @@ final class RenderControllerTests: XCTestCase {
 
         XCTAssertEqual(
             rtcManager.calls,
-            [
-                .setRemoteVideoFrameListener(stream, enabled: true),
-                .setRemoteVideoFrameListener(stream, enabled: false),
-                .setRemoteVideoFrameListener(stream, enabled: true)
-            ]
+            [.setRemoteVideoFrameListener(stream, enabled: true)]
         )
+    }
+
+    func testRemoteFrameReadyWaitsForProcessedFrame() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(
+            rtcManager: rtcManager,
+            remoteFrameReadyTimeoutNanoseconds: 1_000_000_000
+        )
+        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        try controller.setRemoteStream(stream)
+
+        let readiness = Task {
+            try await controller.waitUntilRemoteFrameReady()
+        }
+        try rtcManager.emitRemoteVideoFrame()
+
+        try await readiness.value
+    }
+
+    func testRemoteFrameReadyTimesOutWithoutFrame() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(
+            rtcManager: rtcManager,
+            remoteFrameReadyTimeoutNanoseconds: 0
+        )
+        try controller.setRemoteStream(
+            RemoteStream(roomID: "room-id", userID: "bot-user")
+        )
+
+        do {
+            try await controller.waitUntilRemoteFrameReady()
+            XCTFail("Expected remote first frame wait to time out")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .timeout)
+        }
     }
 
     func testUpdatingContentModeDoesNotRegisterRemoteFramesAgain() throws {

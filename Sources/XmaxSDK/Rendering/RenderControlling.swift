@@ -40,6 +40,11 @@ protocol RenderControlling: AnyObject, Sendable {
         videoFormat: RealtimeVideoFormat?
     ) async throws
 
+    /// 等待当前远端流产生第一张已经完成处理、可立即提交显示的视频帧。
+    ///
+    /// - Throws: 等待被取消、远端流被重置或首帧等待超时时抛出错误。
+    func waitUntilRemoteFrameReady() async throws
+
     /// 注销远端轨道的所有渲染绑定并重置远端画面。
     func resetRemoteTrack(_ track: RealtimeVideoTrack?) throws
 }

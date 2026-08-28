@@ -37,6 +37,13 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             ),
             message: taskID
         )
+        XCTAssertFalse(components.rtcManager.calls.contains(
+            .subscribeRemoteAudio(
+                userID: "bot-user",
+                subscribe: true
+            )
+        ))
+        try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
         XCTAssertTrue(components.rtcManager.calls.contains(
@@ -284,6 +291,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             ),
             message: taskID
         )
+        try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
         let generatingState = await components.manager.currentState
@@ -337,6 +345,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             ),
             message: taskID
         )
+        try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
         XCTAssertTrue(components.videoSource.calls.contains(
@@ -399,6 +408,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             ),
             message: taskID
         )
+        try components.rtcManager.emitRemoteVideoFrame()
 
         let remoteStream = try await startTask.value
 
@@ -556,6 +566,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             ),
             message: taskID
         )
+        try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
         let expectedError = XmaxError(
             code: .rtcError,

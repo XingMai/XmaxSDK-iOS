@@ -4,6 +4,19 @@ import UIKit
 @MainActor
 final class RenderController: RenderControlling {
 
+    private final class RemoteFrameReadyWaiter {
+        let continuation:
+            AsyncThrowingStream<Void, any Error>.Continuation
+        var timeoutTask: Task<Void, Never>?
+
+        init(
+            continuation:
+                AsyncThrowingStream<Void, any Error>.Continuation
+        ) {
+            self.continuation = continuation
+        }
+    }
+
     // 基础层组件
     private let rtcManager: any RtcManaging
 
@@ -14,6 +27,7 @@ final class RenderController: RenderControlling {
     private let initialFrameInterpolationEnabled: Bool
     private let frameInterpolationSupportChecker:
         RemoteVideoFramePipeline.FrameInterpolationSupportChecker
+    private let remoteFrameReadyTimeoutNanoseconds: UInt64
     private var renderingToken = UUID()
     private lazy var remoteFramePipeline = RemoteVideoFramePipeline(
         interpolationEnabled: initialFrameInterpolationEnabled,
@@ -36,6 +50,9 @@ final class RenderController: RenderControlling {
     private var activeRemoteFrameStream: RemoteStream?
     private weak var remoteView: XmaxVideoView?
     private var remoteContentMode = VideoContentMode.fill
+    private var latestRemoteFrame: DecodedVideoFrame?
+    private var remoteFrameReadyWaiters:
+        [UUID: RemoteFrameReadyWaiter] = [:]
 
     init(
         rtcManager: any RtcManaging,
@@ -45,12 +62,15 @@ final class RenderController: RenderControlling {
                 .FrameInterpolationSupportChecker = {
                     FrameInterpolationSupport.supports(size: $0)
                 },
+        remoteFrameReadyTimeoutNanoseconds: UInt64 = 3_000_000_000,
         errorListener: @escaping XmaxErrorListener = { _ in }
     ) {
         self.rtcManager = rtcManager
         initialFrameInterpolationEnabled = frameInterpolationEnabled
         self.frameInterpolationSupportChecker =
             frameInterpolationSupportChecker
+        self.remoteFrameReadyTimeoutNanoseconds =
+            remoteFrameReadyTimeoutNanoseconds
         self.errorListener = errorListener
     }
 
@@ -121,14 +141,88 @@ final class RenderController: RenderControlling {
         _ enabled: Bool,
         videoFormat: RealtimeVideoFormat?
     ) async throws {
-        renderingToken = UUID()
+        let outputToken = UUID()
         try await remoteFramePipeline.setFrameInterpolationEnabled(
             enabled,
             videoSize: videoFormat.map {
                 CGSize(width: $0.width, height: $0.height)
             },
-            outputToken: renderingToken
+            outputToken: outputToken
         )
+        finishAllRemoteFrameReadyWaiters(
+            error: Self.remoteFrameWaitCancelledError()
+        )
+        latestRemoteFrame = nil
+        renderingToken = outputToken
+    }
+
+    func waitUntilRemoteFrameReady() async throws {
+        guard remoteStream != nil else {
+            throw XmaxError(
+                code: .rtcError,
+                message: "Remote video stream is unavailable"
+            )
+        }
+        if latestRemoteFrame != nil {
+            return
+        }
+
+        let waiterID = UUID()
+        let activeToken = renderingToken
+        var continuation:
+            AsyncThrowingStream<Void, any Error>.Continuation?
+        let stream = AsyncThrowingStream<Void, any Error> {
+            continuation = $0
+        }
+        guard let continuation else {
+            throw XmaxError(
+                code: .internalError,
+                message: "Failed to create remote first frame waiter"
+            )
+        }
+        let waiter = RemoteFrameReadyWaiter(continuation: continuation)
+        remoteFrameReadyWaiters[waiterID] = waiter
+        waiter.timeoutTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(
+                    nanoseconds: remoteFrameReadyTimeoutNanoseconds
+                )
+            } catch {
+                return
+            }
+            finishRemoteFrameReadyWaiter(
+                waiterID,
+                error: XmaxError(
+                    code: .timeout,
+                    message: "Remote video first frame timed out"
+                )
+            )
+        }
+
+        try await withTaskCancellationHandler {
+            guard activeToken == renderingToken,
+                  remoteStream != nil else {
+                finishRemoteFrameReadyWaiter(
+                    waiterID,
+                    error: Self.remoteFrameWaitCancelledError()
+                )
+                throw Self.remoteFrameWaitCancelledError()
+            }
+            if latestRemoteFrame != nil {
+                finishRemoteFrameReadyWaiter(waiterID)
+            }
+            for try await _ in stream {
+                return
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.finishRemoteFrameReadyWaiter(
+                    waiterID,
+                    error: Self.remoteFrameWaitCancelledError()
+                )
+            }
+        }
     }
 
     func resetRemoteTrack(_ track: RealtimeVideoTrack?) throws {
@@ -152,24 +246,25 @@ private extension RenderController {
             )
         }
         if let remoteView, remoteView !== videoView,
-           let remoteStream {
-            try deactivateRemoteFrames(for: remoteStream)
+           remoteStream != nil {
             remoteView.clearDecodedVideoPreview()
         }
 
         remoteView = videoView
         remoteContentMode = contentMode
         videoView.prepareDecodedVideoPreview(contentMode: contentMode)
+        if let latestRemoteFrame {
+            videoView.displayRemoteVideoFrame(
+                latestRemoteFrame,
+                contentMode: contentMode
+            )
+        }
         try activateRemoteFramesIfReady(reportsError: true)
     }
 
     func detachRemoteVideo() throws {
-        if let remoteStream {
-            try deactivateRemoteFrames(for: remoteStream)
-        }
         remoteView?.clearDecodedVideoPreview()
         self.remoteView = nil
-        refreshRenderingToken()
     }
 
     func resetRemoteVideo() throws {
@@ -186,7 +281,7 @@ private extension RenderController {
     }
 
     func activateRemoteFramesIfReady(reportsError: Bool) throws {
-        guard let remoteStream, remoteView != nil else { return }
+        guard let remoteStream else { return }
         guard activeRemoteFrameStream != remoteStream else { return }
         do {
             try rtcManager.setRemoteVideoFrameListener(
@@ -213,6 +308,10 @@ private extension RenderController {
     }
 
     func refreshRenderingToken() {
+        finishAllRemoteFrameReadyWaiters(
+            error: Self.remoteFrameWaitCancelledError()
+        )
+        latestRemoteFrame = nil
         renderingToken = UUID()
         let token = renderingToken
         Task { [remoteFramePipeline] in
@@ -224,10 +323,46 @@ private extension RenderController {
         _ frame: DecodedVideoFrame,
         outputToken: UUID
     ) {
-        guard outputToken == renderingToken, let remoteView else { return }
-        remoteView.displayRemoteVideoFrame(
-            frame,
-            contentMode: remoteContentMode
+        guard outputToken == renderingToken else { return }
+        latestRemoteFrame = frame
+        finishAllRemoteFrameReadyWaiters()
+        if let remoteView {
+            remoteView.displayRemoteVideoFrame(
+                frame,
+                contentMode: remoteContentMode
+            )
+        }
+    }
+
+    func finishRemoteFrameReadyWaiter(
+        _ waiterID: UUID,
+        error: XmaxError? = nil
+    ) {
+        guard let waiter = remoteFrameReadyWaiters.removeValue(
+            forKey: waiterID
+        ) else {
+            return
+        }
+        waiter.timeoutTask?.cancel()
+        if let error {
+            waiter.continuation.finish(throwing: error)
+        } else {
+            waiter.continuation.yield()
+            waiter.continuation.finish()
+        }
+    }
+
+    func finishAllRemoteFrameReadyWaiters(error: XmaxError? = nil) {
+        let waiterIDs = Array(remoteFrameReadyWaiters.keys)
+        for waiterID in waiterIDs {
+            finishRemoteFrameReadyWaiter(waiterID, error: error)
+        }
+    }
+
+    static func remoteFrameWaitCancelledError() -> XmaxError {
+        XmaxError(
+            code: .cancelled,
+            message: "Remote video first frame wait was cancelled"
         )
     }
 }
