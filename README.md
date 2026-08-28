@@ -111,6 +111,13 @@ let localStream = try await realtime.createLocalCameraStream(
 The realtime manager can also create local streams from image data,
 `UIImage`, image files, and video files.
 
+Bind the local stream to an `XmaxVideoView` to display the input preview:
+
+```swift
+let localVideoView = XmaxVideoView(videoContentMode: .fill)
+localVideoView.track = localStream.videoTrack
+```
+
 ### Start generation
 
 ```swift
@@ -128,11 +135,12 @@ reusing the current connection.
 
 ### Display video
 
-Use `XmaxVideoView` to display either a local or remote video track:
+Bind the remote stream to another `XmaxVideoView` to display the generated
+video:
 
 ```swift
-let videoView = XmaxVideoView(videoContentMode: .fill)
-videoView.track = remoteStream.videoTrack
+let remoteVideoView = XmaxVideoView(videoContentMode: .fill)
+remoteVideoView.track = remoteStream.videoTrack
 ```
 
 `XmaxVideoView` also supports trajectory interaction over the generated video.
