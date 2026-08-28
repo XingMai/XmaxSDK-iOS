@@ -1251,12 +1251,14 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
 
         cameraActionBar.setSwitchCameraEnabled(false)
+        previewView.setCameraSwitchTransitionActive(true)
         localMediaOperationTask?.cancel()
         localMediaOperationTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
             defer {
+                previewView.setCameraSwitchTransitionActive(false)
                 cameraActionBar.setSwitchCameraEnabled(true)
             }
             guard let stream = try? await realtimeManager.switchCamera(),
