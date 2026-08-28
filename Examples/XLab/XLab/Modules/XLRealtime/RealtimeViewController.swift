@@ -493,6 +493,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         switch state.connectionState {
         case .connecting, .connected:
             if isGenerationRequested {
+                previewView.hideRealtime()
                 loadingOverlay.startLoading()
             }
         case .generating:

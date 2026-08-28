@@ -78,6 +78,13 @@ public protocol XmaxRealtimeManaging: Sendable {
     func stopLocalCameraStream() async throws
 
     /// 切换前后置摄像头。
+    ///
+    /// 生成过程中调用时，SDK 会停止当前生成、切换摄像头，并使用缓存的生成
+    /// 条件恢复生成；RTC 连接保持不变。连接或生成正在启动时不可切换。
+    ///
+    /// - Returns: 复用原视频轨道并更新摄像头位置后的本地媒体流。
+    /// - Throws: 当前没有摄像头流、实时流程正在启动，或摄像头切换及生成恢复
+    ///   失败时抛出错误。
     func switchCamera() async throws -> RealtimeMediaStream
 
     /// 从编码后的图片数据创建持续输出帧的媒体流。

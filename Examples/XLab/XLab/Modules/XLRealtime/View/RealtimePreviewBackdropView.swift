@@ -98,10 +98,14 @@ final class RealtimePreviewBackdropView: UIView {
         }
     }
 
-    private func clearRealtime() {
+    func hideRealtime() {
         remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
+    }
+
+    private func clearRealtime() {
+        hideRealtime()
         remoteVideoView.track = nil
     }
 }

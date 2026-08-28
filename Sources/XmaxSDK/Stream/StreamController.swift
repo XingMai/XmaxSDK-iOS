@@ -33,6 +33,10 @@ final class StreamController: StreamControlling, RtcEventListener,
     // 运行状态
     private var state = State()
 
+    var hasGenerationTask: Bool {
+        stateLock.withLock { state.generationTask != nil }
+    }
+
     convenience init(
         rtcManager: any RtcManaging,
         errorListener: @escaping XmaxErrorListener = { _ in },

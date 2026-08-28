@@ -437,6 +437,11 @@ _ = try await realtime.connect(localStream: stream)
 try await realtime.replaceLocalCameraStream(videoFormat: format)
 ```
 
+`switchCamera()` 在没有生成任务时直接复用当前相机 Track 切换镜头。生成已经
+开始时，SDK 会保留 RTC 连接，依次停止当前生成、切换镜头，并使用缓存条件重新
+开始生成。生成任务正在启动、尚未进入 `.generating` 时拒绝切换，避免新旧任务
+与摄像头帧交叉。
+
 不为 Data、UIImage、图片文件和视频文件分别增加 replace 变体。更换图片或
 视频来源由接入方明确控制 disconnect、stop、create 和 connect 生命周期。
 

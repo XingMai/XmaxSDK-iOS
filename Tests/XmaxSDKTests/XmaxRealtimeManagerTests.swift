@@ -264,6 +264,165 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
+    func testConnectedIdleCameraSwitchKeepsConnection() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+
+        let switchedStream = try await components.manager.switchCamera()
+
+        XCTAssertEqual(switchedStream.videoTrack?.position, .back)
+        XCTAssertEqual(
+            components.rtcManager.calls.filter {
+                if case .joinRoom = $0 { return true }
+                return false
+            }.count,
+            1
+        )
+        XCTAssertFalse(components.rtcManager.calls.contains(.leaveRoom))
+        XCTAssertTrue(decodedEvents(components.rtcManager).isEmpty)
+
+        await components.manager.disconnect()
+        try await components.manager.stopLocalCameraStream()
+    }
+
+    func testCameraSwitchIsRejectedWhileGenerationIsStarting() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+        let startTask = Task {
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "prompt")
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+
+        do {
+            _ = try await components.manager.switchCamera()
+            XCTFail("Expected camera switching to be rejected")
+        } catch {
+            XCTAssertEqual(
+                error as? XmaxError,
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Camera switching is unavailable while " +
+                        "realtime generation is starting"
+                )
+            )
+        }
+        XCTAssertFalse(components.rtcManager.calls.contains(
+            .switchCamera(.back)
+        ))
+
+        let taskID = try XCTUnwrap(
+            decodedEvents(components.rtcManager).first {
+                $0["event"] as? String == "start"
+            }?["uid"] as? String
+        )
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: taskID
+        )
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await startTask.value
+
+        await components.manager.stopGeneration()
+        await components.manager.disconnect()
+        try await components.manager.stopLocalCameraStream()
+    }
+
+    func testGeneratingCameraSwitchRestartsWithoutReconnect() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+        let firstStartTask = Task {
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "prompt")
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        let firstTaskID = try XCTUnwrap(
+            decodedEvents(components.rtcManager).first {
+                $0["event"] as? String == "start"
+            }?["uid"] as? String
+        )
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: firstTaskID
+        )
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await firstStartTask.value
+
+        let switchTask = Task {
+            try await components.manager.switchCamera()
+        }
+        await waitForEventCount(
+            "start",
+            count: 2,
+            rtcManager: components.rtcManager
+        )
+        let startEvents = decodedEvents(components.rtcManager).filter {
+            $0["event"] as? String == "start"
+        }
+        let restartedTaskID = try XCTUnwrap(
+            startEvents.last?["uid"] as? String
+        )
+        XCTAssertNotEqual(restartedTaskID, firstTaskID)
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(
+                roomID: "room-id",
+                userID: "bot-user"
+            ),
+            message: restartedTaskID
+        )
+        try components.rtcManager.emitRemoteVideoFrame()
+
+        let switchedStream = try await switchTask.value
+        let state = await components.manager.currentState
+        XCTAssertEqual(switchedStream.videoTrack?.position, .back)
+        XCTAssertEqual(state.connectionState, .generating)
+        XCTAssertEqual(state.taskID, restartedTaskID)
+        XCTAssertEqual(
+            decodedEvents(components.rtcManager).filter {
+                $0["event"] as? String == "stop"
+            }.count,
+            1
+        )
+        XCTAssertEqual(
+            components.sessionService.calls.filter {
+                $0 == .createSession(.x2_0)
+            }.count,
+            1
+        )
+        XCTAssertEqual(
+            components.rtcManager.calls.filter {
+                if case .joinRoom = $0 { return true }
+                return false
+            }.count,
+            1
+        )
+        XCTAssertFalse(components.rtcManager.calls.contains(.leaveRoom))
+
+        await components.manager.stopGeneration()
+        await components.manager.disconnect()
+        try await components.manager.stopLocalCameraStream()
+    }
+
     func testGenerationLifecycleTransitionsAndUpdatesCondition() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
@@ -853,6 +1012,25 @@ private extension XmaxRealtimeManagerTests {
             await Task.yield()
         }
         XCTFail("Timed out waiting for room event: \(event)")
+    }
+
+    func waitForEventCount(
+        _ event: String,
+        count: Int,
+        rtcManager: RtcManagingStub
+    ) async {
+        for _ in 0..<1_000 {
+            let matchingEvents = decodedEvents(rtcManager).filter {
+                $0["event"] as? String == event
+            }
+            if matchingEvents.count >= count {
+                return
+            }
+            await Task.yield()
+        }
+        XCTFail(
+            "Timed out waiting for room event: \(event), count: \(count)"
+        )
     }
 
     func decodedEvents(

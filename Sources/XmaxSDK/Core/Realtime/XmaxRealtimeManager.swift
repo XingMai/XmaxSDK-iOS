@@ -278,22 +278,43 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func switchCamera() async throws -> RealtimeMediaStream {
-        guard state.connectionState != .connecting else {
+        guard state.connectionState != .connecting,
+              state.connectionState != .disconnecting else {
             throw await reportError(
                 XmaxError(
                     code: .invalidConfiguration,
                     message: "Camera switching is unavailable while realtime " +
-                        "is connecting"
+                        "is transitioning"
                 )
             )
         }
+
+        let wasGenerating = state.connectionState == .generating
+        guard wasGenerating || !streamController.hasGenerationTask else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Camera switching is unavailable while " +
+                        "realtime generation is starting"
+                )
+            )
+        }
+
+        if wasGenerating {
+            await stopGeneration()
+        }
+
+        let stream: RealtimeMediaStream
         do {
-            let stream = try await mediaController.switchCamera()
-            await reconcileFrameInterpolation(for: stream)
-            return stream
+            stream = try await mediaController.switchCamera()
         } catch {
             throw await reportError(error)
         }
+        await reconcileFrameInterpolation(for: stream)
+        if wasGenerating {
+            try await performStartGeneration(context: nil)
+        }
+        return stream
     }
 
     func createLocalImageStream(

@@ -3,6 +3,9 @@ import Foundation
 /// 定义传输层向 Core 暴露的统一能力。
 protocol StreamControlling: Sendable {
 
+    /// 当前是否存在正在启动或已经运行的生成任务。
+    var hasGenerationTask: Bool { get }
+
     /// 设置实时视频编码器配置。
     ///
     /// - Parameter videoFormat: RTC 视频编码使用的宽度、高度和帧率。
