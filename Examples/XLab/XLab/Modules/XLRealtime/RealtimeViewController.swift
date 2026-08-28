@@ -10,20 +10,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         case prompt
     }
 
-    // 本地配置
-    private static let apiKeyStorageKey = "xlab.realtime.apiKey"
-    private static let touchAnimationPrompt = "让画面自然动起来"
-    private static let filePreviewTopOffset: CGFloat = 68
-    private static let defaultLocalAudioVolume: Float = 0.45
-    private static let defaultRemoteAudioVolume: Float = 1
-    private static var cameraVideoFormat: RealtimeVideoFormat {
-        if #available(iOS 26.0, *) {
-            RealtimeVideoFormat(width: 704, height: 1280, fps: 24)
-        } else {
-            RealtimeVideoFormat(width: 832, height: 1472, fps: 24)
-        }
-    }
-
     private static var initialFrameInterpolationEnabled: Bool {
         if #available(iOS 26.0, *) {
             true
@@ -46,8 +32,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var isSuspendedForBackground = false
 
     // 音频状态
-    private var localAudioVolume = defaultLocalAudioVolume
-    private var remoteAudioVolume = defaultRemoteAudioVolume
+    private var localAudioVolume = RealtimeConst.defaultLocalAudioVolume
+    private var remoteAudioVolume = RealtimeConst.defaultRemoteAudioVolume
     private var isAudioMuted = false
 
     // 触控动图
@@ -367,7 +353,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 make.top.equalToSuperview()
             } else {
                 make.top.equalTo(view.safeAreaLayoutGuide)
-                    .offset(Self.filePreviewTopOffset)
+                    .offset(RealtimeConst.mediaPreviewTopInset)
             }
         }
 
@@ -527,7 +513,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private static func makeRealtimeManager() -> any XmaxRealtimeManaging {
         let apiKey = UserDefaults.standard.string(
-            forKey: Self.apiKeyStorageKey
+            forKey: RealtimeConst.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
             configuration: XmaxConfiguration(
@@ -694,7 +680,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 touchAnimationPreparationTask = nil
                 startGeneration(
                     context: RealtimeContext(
-                        prompt: Self.touchAnimationPrompt,
+                        prompt: RealtimeConst.defaultTouchAnimationPrompt,
                         referencePath: referencePath
                     ),
                     selectedReferenceID: nil,
@@ -726,7 +712,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             throw RealtimeDemoError.imageEncodingFailed
         }
         let apiKey = UserDefaults.standard.string(
-            forKey: Self.apiKeyStorageKey
+            forKey: RealtimeConst.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
             configuration: XmaxConfiguration(
@@ -758,7 +744,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         renderReference(reference)
 
         let apiKey = UserDefaults.standard.string(
-            forKey: Self.apiKeyStorageKey
+            forKey: RealtimeConst.apiKeyStorageKey
         ) ?? ""
         let fileURL = reference.iconURL
         referenceUploadTasks[reference.id] = Task { [weak self, reference] in
@@ -915,7 +901,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             )
         case nil:
             return try await realtimeManager.createLocalCameraStream(
-                videoFormat: Self.cameraVideoFormat,
+                videoFormat: RealtimeConst.cameraVideoFormat,
                 position: .front
             )
         }
