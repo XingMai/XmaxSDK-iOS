@@ -755,8 +755,7 @@ private extension XmaxRealtimeManager {
             XmaxError(
                 code: .frameInterpolationUnsupported,
                 message: "Frame interpolation is unavailable for " +
-                    "\(videoFormat.width) × \(videoFormat.height) video; " +
-                    "the stream will continue without interpolation"
+                    "\(videoFormat.width) × \(videoFormat.height) video"
             )
         )
     }
