@@ -346,7 +346,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isMovingFromParent || navigationController?.isBeingDismissed == true {
-            stopLocalMedia()
+            closeRealtime()
         }
     }
 
@@ -933,7 +933,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         return true
     }
 
-    private func stopLocalMedia(
+    private func closeRealtime(
         cancelsReferenceUploads: Bool = true
     ) {
         if cancelsReferenceUploads {
@@ -941,52 +941,57 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             referenceUploadTasks.removeAll()
             referenceUploadRequestIDs.removeAll()
         }
+
         let previousCleanup = mediaCleanupTask
         let pendingLocalMediaOperation = localMediaOperationTask
+        let pendingGenerationOperation = generationOperationTask
+        let pendingRealtimeListener = realtimeListenerTask
+
         pendingLocalMediaOperation?.cancel()
         localMediaOperationTask = nil
-        let pendingGenerationOperation = generationOperationTask
+
         pendingGenerationOperation?.cancel()
         generationOperationTask = nil
+
         touchAnimationPreparationTask?.cancel()
         touchAnimationPreparationTask = nil
+
         frameInterpolationTask?.cancel()
         frameInterpolationTask = nil
-        let pendingRealtimeListener = realtimeListenerTask
+
         pendingRealtimeListener?.cancel()
         realtimeListenerTask = nil
+
         isGenerationRequested = false
         isTouchAnimationGenerationRequested = false
-        controlPanelView.setGenerationActive(false)
-        controlPanelView.clearReferenceSelection()
         selectedReference = nil
         currentGenerationContext = nil
         touchAnimationReferencePath = nil
+
         localMediaStream = nil
         remoteRealtimeStream = nil
+
+        controlPanelView.setGenerationActive(false)
+        controlPanelView.clearReferenceSelection()
         cameraActionBar.setSwitchCameraEnabled(false)
         loadingOverlay.hideLoading()
         hasDisplayedPreview = false
         controlPanelView.isUserInteractionEnabled = false
         previewView.displayLocal(nil)
+
         let realtimeManager = realtimeManager
-        mediaCleanupTask = Task { [localInput] in
+        mediaCleanupTask = Task {
             await previousCleanup?.value
             await pendingRealtimeListener?.value
+
             await realtimeManager.setErrorListener(nil)
             await realtimeManager.setStateListener(nil)
             await realtimeManager.setCameraPreviewReadyListener(nil)
+
             await pendingLocalMediaOperation?.value
             await pendingGenerationOperation?.value
-            await realtimeManager.disconnect()
-            switch localInput {
-            case .image:
-                try? await realtimeManager.stopLocalImageStream()
-            case .video:
-                try? await realtimeManager.stopLocalVideoStream()
-            case nil:
-                try? await realtimeManager.stopLocalCameraStream()
-            }
+
+            await realtimeManager.close()
         }
     }
 
@@ -994,7 +999,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         guard !isSuspendedForBackground else { return }
         isSuspendedForBackground = true
         view.endEditing(true)
-        stopLocalMedia(cancelsReferenceUploads: false)
+        closeRealtime(cancelsReferenceUploads: false)
     }
 
     func resumeRealtimeAfterBackgroundIfNeeded() {

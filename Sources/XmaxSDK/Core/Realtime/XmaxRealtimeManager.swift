@@ -25,6 +25,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // 并发控制
     private let operationVersion = RealtimeOperationVersion()
+    private var closeTask: Task<Void, Never>?
 
     // 事件监听
     private var stateListener: RealtimeStateListener?
@@ -563,6 +564,24 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await beginTermination(finalState: .disconnected)
     }
 
+    func close() async {
+        if let closeTask {
+            await closeTask.value
+            return
+        }
+
+        operationVersion.advance()
+        let task = Task { [weak self] in
+            guard let self else {
+                return
+            }
+            await self.releaseRealtimeResources()
+        }
+        closeTask = task
+        await task.value
+        closeTask = nil
+    }
+
     func startGeneration(context: RealtimeContext?) async throws {
         try await performStartGeneration(context: context)
     }
@@ -788,6 +807,12 @@ private extension XmaxRealtimeManager {
         await task.value
     }
 
+    func releaseRealtimeResources() async {
+        await mediaController.setLocalAudioPreviewMuted(true)
+        await disconnect()
+        await mediaController.stopLocalStream()
+    }
+
     func performTermination(
         operationID: UUID,
         taskID: String
@@ -860,6 +885,9 @@ private extension XmaxRealtimeManager {
     }
 
     func unmuteLocalAudioPreview() async {
+        guard closeTask == nil else {
+            return
+        }
         await mediaController.setLocalAudioPreviewMuted(false)
     }
 

@@ -210,6 +210,14 @@ actor MediaController: MediaControlling {
         await stopSource(ifKindIs: .video)
     }
 
+    /// 停止当前媒体来源并释放 RTC Engine。
+    func stopLocalStream() async {
+        guard let activeSource else {
+            return
+        }
+        await stopSource(ifKindIs: activeSource.kind)
+    }
+
     /// 静音或恢复文件视频的本地音频预览。
     func setLocalAudioPreviewMuted(_ muted: Bool) async {
         guard activeSource?.kind == .video, let videoController else {

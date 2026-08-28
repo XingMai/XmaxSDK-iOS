@@ -149,6 +149,30 @@ final class MediaControllerTests: XCTestCase {
         )
     }
 
+    func testStopLocalStreamReleasesCurrentSourceAndRTC() async throws {
+        let rtcManager = RtcManagingStub()
+        let manager = makeManager(rtcManager: rtcManager)
+        let stream = try await manager.createLocalCameraStream(
+            videoFormat: RealtimeVideoFormat(
+                width: 1_024,
+                height: 768,
+                fps: 30
+            ),
+            position: .front
+        )
+
+        await manager.stopLocalStream()
+
+        let currentTrack = await manager.currentTrack
+        let ownsStream = await manager.owns(stream)
+        XCTAssertNil(currentTrack)
+        XCTAssertFalse(ownsStream)
+        XCTAssertEqual(
+            Array(rtcManager.calls.suffix(3)),
+            [.unbindLocalVideo, .stopVideoCapture, .destroy]
+        )
+    }
+
     func testCreateRejectsAnotherActiveLocalMediaSource() async throws {
         let manager = makeManager()
         _ = try await manager.createLocalCameraStream(

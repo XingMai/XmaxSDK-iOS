@@ -120,6 +120,10 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前来源不是文件视频时忽略。
     func stopLocalVideoStream() async
 
+    /// 停止并释放当前本地媒体流、预览绑定和 RTC Engine；
+    /// 没有活动来源时忽略。
+    func stopLocalStream() async
+
     /// 静音或恢复文件视频的本地音频预览，不影响播放时间轴和 RTC 音频推流。
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；

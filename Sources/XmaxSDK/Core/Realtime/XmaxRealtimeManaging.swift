@@ -128,6 +128,11 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 断开实时连接并保留当前本地媒体预览。
     func disconnect() async
 
+    /// 关闭当前实时生命周期并释放连接、本地媒体和 RTC Engine。
+    ///
+    /// 关闭期间重复调用会等待同一个释放任务；关闭完成后仍可重新创建本地流。
+    func close() async
+
     /// 开始生成，生成中再次调用时更新当前条件。
     func startGeneration(context: RealtimeContext?) async throws
 

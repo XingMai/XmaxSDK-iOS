@@ -220,6 +220,58 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
+    func testCloseDisconnectsAndReleasesLocalMediaAndRTC() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+
+        await components.manager.close()
+
+        let state = await components.manager.currentState
+        let stillOwnsLocalStream = await components.mediaController.owns(
+            localStream
+        )
+        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertFalse(stillOwnsLocalStream)
+        XCTAssertEqual(
+            components.sessionService.calls.filter {
+                $0 == .closeSession("session-id")
+            }.count,
+            1
+        )
+        XCTAssertEqual(
+            components.rtcManager.calls.filter { $0 == .destroy }.count,
+            1
+        )
+    }
+
+    func testRepeatedCloseReusesSingleReleaseOperation() async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await components.manager.connect(localStream: localStream)
+
+        async let firstClose: Void = components.manager.close()
+        async let secondClose: Void = components.manager.close()
+        _ = await (firstClose, secondClose)
+
+        XCTAssertEqual(
+            components.sessionService.calls.filter {
+                $0 == .closeSession("session-id")
+            }.count,
+            1
+        )
+        XCTAssertEqual(
+            components.rtcManager.calls.filter { $0 == .destroy }.count,
+            1
+        )
+    }
+
     func testConnectedCameraReplacementUpdatesEncoderConfig() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
