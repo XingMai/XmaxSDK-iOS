@@ -21,7 +21,6 @@ Pod::Spec.new do |spec|
   spec.module_name = 'XmaxSDK'
   spec.static_framework = true
   spec.source_files = 'Sources/XmaxSDK/**/*.swift'
-  spec.preserve_paths = 'THIRD_PARTY_NOTICES.md'
 
   spec.dependency 'VolcEngineRTC/Core', '3.60.106.600'
   spec.dependency 'VolcEngineRTC/RealXBase', '3.60.106.600'

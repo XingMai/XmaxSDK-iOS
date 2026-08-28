@@ -1,7 +1,17 @@
-# XmaxSDK for iOS
+<h1 align="center">XmaxSDK for iOS</h1>
 
-XmaxSDK provides native iOS APIs for building real-time interactive video
-generation experiences powered by Xmax AI.
+<p align="center">
+  <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-15.0%2B-000000" alt="iOS 15.0+"></a>
+  <a href="https://www.swift.org/"><img src="https://img.shields.io/badge/Swift-6.0-F05138" alt="Swift 6.0"></a>
+  <a href="https://platform.xmaxai.com/"><img src="https://img.shields.io/badge/Realtime-AI-FF9500" alt="Realtime AI"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT License"></a>
+</p>
+
+Native iOS SDK, providing access to Xmax real-time interactive video generation models. It enables low-latency, high-fidelity video transformations using live video streams, reference images, and user interactions. With just a few lines of code, developers can seamlessly integrate cutting-edge features directly into their apps, such as real-time character replacement, virtual try-on, and mixed-reality companions, and so on.
+
+<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
+
+<br>
 
 ## Features
 
@@ -21,10 +31,13 @@ generation experiences powered by Xmax AI.
 
 - iOS 15.0 or later
 - Swift 6
-- CocoaPods
+- Xcode 26 or later for CocoaPods source integration
+- Xcode 27 or later for the prebuilt 1.0.0 XCFramework
 - An Xmax API key
 
 ## Installation
+
+### CocoaPods
 
 XmaxSDK is distributed directly from this GitHub repository through
 CocoaPods. Add the required spec sources and XmaxSDK dependency to your
@@ -65,6 +78,52 @@ Open the generated `.xcworkspace` file to build your application.
 Static framework linkage is currently required so that the Objective-C
 QCloudCOSXML dependency is exposed as a module that XmaxSDK can import from
 Swift.
+
+### Manual
+
+Download
+[`XmaxSDK-1.0.0.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.0/XmaxSDK-1.0.0.zip),
+extract `XmaxSDK.xcframework`, then download the exact third-party dependencies
+used by this release:
+
+- [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip):
+  use `VolcEngineRTC.xcframework`, `RealXBase.xcframework`, and
+  `RTCFFmpeg.xcframework` from the downloaded archive.
+- [Tencent Cloud COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/tree/6.5.7):
+  use `QCloudCOSXML.framework` and `QCloudCore.framework`. The repository's
+  `package.sh` script can be used to build the manual integration artifacts.
+
+Add the frameworks to the application target under **Frameworks, Libraries,
+and Embedded Content** using the following settings:
+
+| Framework | Embed setting |
+| --- | --- |
+| `XmaxSDK.xcframework` | Do Not Embed |
+| `QCloudCOSXML.framework` | Do Not Embed |
+| `QCloudCore.framework` | Do Not Embed |
+| `VolcEngineRTC.xcframework` | Embed & Sign |
+| `RealXBase.xcframework` | Embed & Sign |
+| `RTCFFmpeg.xcframework` | Embed & Sign |
+
+The XmaxSDK and COS binaries are static. The three VolcEngine binaries are
+dynamic and must be embedded and signed by the application target.
+
+Also complete the following configuration:
+
+1. Set **Swift Language Version** to **Swift 6**.
+2. Add `-ObjC` to **Other Linker Flags**.
+3. Link `Accelerate.framework`, `CoreMedia.framework`,
+   `CoreTelephony.framework`, `SystemConfiguration.framework`, `libz.tbd`,
+   and `libc++.tbd`.
+4. Add the COS `PrivacyInfo.xcprivacy` file to the application target.
+5. Confirm that every XCFramework contains a slice for the target platform
+   and architecture. Apple silicon simulator builds require an `arm64`
+   simulator slice.
+
+Only `QCloudCOSXML.framework` and `QCloudCore.framework` are required for COS.
+Do not add `QCloudTrack.framework`, `COSBeaconAPI_Base.framework`, or QimeiSDK.
+The third-party frameworks must be present when importing XmaxSDK because its
+stable Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
 
 ## Privacy Permissions
 
@@ -188,25 +247,27 @@ let client = XmaxClient(configuration: configuration)
 Logging configuration is process-wide and shared by all `XmaxClient`
 instances.
 
+## Example Project
+
+A runnable example is available in
+[`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab).
+Open `XLab.xcworkspace` after installing its CocoaPods dependencies to explore
+the SDK features shown above.
+
+<p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
+
+<br>
+
 ## Dependencies
 
-XmaxSDK 1.0.0 uses the following official third-party dependencies:
-
-- [VolcEngineRTC](https://docs.volcengine.com/docs/6348/1181844?lang=zh) `3.60.106.600`
-- [QCloudCOSXML/Transfer](https://github.com/tencentyun/qcloud-sdk-ios/tree/6.5.7) `6.5.7`
-
-These dependencies are downloaded from their official CocoaPods sources and
-are not redistributed by this repository.
-
-For COS integration, XmaxSDK only uses `QCloudCOSXML.framework` and
-`QCloudCore.framework` through the Beacon-free `QCloudCore/WithoutMTA`
-subspec. QCloudTrack, COSBeaconAPI_Base, and QimeiSDK are not required.
+- VolcEngineRTC provides real-time audio and video communication.
+- Tencent Cloud COS provides media file upload and download capabilities.
 
 ## Distribution
 
 - CocoaPods source distribution is supported.
+- Manual XCFramework distribution is available through GitHub Releases.
 - Swift Package Manager is not supported in version 1.0.0.
-- A prebuilt XCFramework is not included in version 1.0.0.
 
 ## Feedback
 
