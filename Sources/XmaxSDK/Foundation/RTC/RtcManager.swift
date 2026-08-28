@@ -184,6 +184,17 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 engine.switchCamera(RtcVideoConverter.convertCameraID(position)),
                 operation: "switchCamera"
             )
+            // 修正火山内部采集在 iOS 27 上倒置的后置摄像头画面。
+            let captureRotation: ByteRTCVideoRotation
+            if #available(iOS 27.0, *), position == .back {
+                captureRotation = .rotation180
+            } else {
+                captureRotation = .rotation0
+            }
+            try checkResult(
+                engine.setVideoCapture(captureRotation),
+                operation: "setVideoCaptureRotation"
+            )
             let mirrorType = RtcVideoConverter.convertMirrorType(position)
             try checkResult(
                 engine.setLocalVideoMirrorType(mirrorType),
