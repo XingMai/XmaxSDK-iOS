@@ -424,7 +424,7 @@ private extension VideoPlayerController {
                     outputWidth: configuration.outputWidth,
                     outputHeight: configuration.outputHeight,
                     rotation: configuration.rotation,
-                    timestampUs: monotonicTimestampUs()
+                    timestampUs: Int64(target / 1_000)
                 )
                 try await sleep(untilNanoseconds: target)
                 try handler(frame)
@@ -558,7 +558,7 @@ private extension VideoPlayerController {
             try handler(
                 AudioFrame(
                     data: packet.data,
-                    timestampUs: monotonicTimestampUs()
+                    timestampUs: Int64(target / 1_000)
                 )
             )
         }
@@ -587,10 +587,6 @@ private extension VideoPlayerController {
             throw mediaError("The decoded PCM data could not be read")
         }
         return data
-    }
-
-    nonisolated static func monotonicTimestampUs() -> Int64 {
-        Int64(DispatchTime.now().uptimeNanoseconds / 1_000)
     }
 
     nonisolated static func sleep(untilNanoseconds target: UInt64) async throws {
