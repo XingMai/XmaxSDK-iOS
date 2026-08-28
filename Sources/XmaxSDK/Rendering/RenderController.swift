@@ -62,7 +62,7 @@ final class RenderController: RenderControlling {
                 .FrameInterpolationSupportChecker = {
                     FrameInterpolationSupport.supports(size: $0)
                 },
-        remoteFrameReadyTimeoutNanoseconds: UInt64 = 3_000_000_000,
+        remoteFrameReadyTimeoutNanoseconds: UInt64 = 10_000_000_000,
         errorListener: @escaping XmaxErrorListener = { _ in }
     ) {
         self.rtcManager = rtcManager

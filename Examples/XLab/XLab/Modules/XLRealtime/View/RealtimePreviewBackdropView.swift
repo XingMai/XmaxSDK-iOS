@@ -34,6 +34,9 @@ final class RealtimePreviewBackdropView: UIView {
         return view
     }()
 
+    // 远端显示状态
+    private var remoteVisibilityVersion: UInt64 = 0
+
     // 摄像头切换动画
     private lazy var cameraSwitchBlurView: UIVisualEffectView = {
         let view = UIVisualEffectView(effect: nil)
@@ -97,6 +100,7 @@ final class RealtimePreviewBackdropView: UIView {
     }
 
     func prepareRealtime(_ track: RealtimeVideoTrack?) {
+        remoteVisibilityVersion &+= 1
         remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
@@ -108,6 +112,7 @@ final class RealtimePreviewBackdropView: UIView {
         guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
             return
         }
+        remoteVisibilityVersion &+= 1
         remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.isHidden = false
         UIView.animate(
@@ -120,9 +125,40 @@ final class RealtimePreviewBackdropView: UIView {
     }
 
     func hideRealtime() {
+        remoteVisibilityVersion &+= 1
         remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.alpha = 0
         remoteVideoView.isHidden = true
+    }
+
+    func transitionToLocal(_ track: RealtimeVideoTrack?) async {
+        updateLocal(track)
+        remoteVisibilityVersion &+= 1
+        let version = remoteVisibilityVersion
+        remoteVideoView.layer.removeAllAnimations()
+
+        guard !remoteVideoView.isHidden,
+              remoteVideoView.alpha > 0 else {
+            remoteVideoView.alpha = 0
+            remoteVideoView.isHidden = true
+            remoteVideoView.track = nil
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            CATransaction.setCompletionBlock { [weak self] in
+                if let self,
+                   version == self.remoteVisibilityVersion {
+                    self.remoteVideoView.isHidden = true
+                    self.remoteVideoView.track = nil
+                }
+                continuation.resume()
+            }
+            remoteVideoView.alpha = 0
+            CATransaction.commit()
+        }
     }
 
     func setCameraSwitchTransitionActive(_ isActive: Bool) {

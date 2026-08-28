@@ -1138,11 +1138,15 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         controlPanelView.setGenerationActive(false)
         currentGenerationContext = nil
         loadingOverlay.hideLoading()
-        previewView.displayLocal(localMediaStream?.videoTrack)
         let previousOperation = generationOperationTask
         previousOperation?.cancel()
-        generationOperationTask = Task { [realtimeManager] in
+        generationOperationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await previewView.transitionToLocal(
+                localMediaStream?.videoTrack
+            )
             await previousOperation?.value
+            guard !Task.isCancelled else { return }
             await realtimeManager.disconnect()
         }
     }
