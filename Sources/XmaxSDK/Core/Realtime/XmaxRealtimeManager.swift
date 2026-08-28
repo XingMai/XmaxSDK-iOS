@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// 实时生成业务公共入口，统一编排本地媒体、连接、生成和状态通知。
 actor XmaxRealtimeManager: XmaxRealtimeManaging {
@@ -302,6 +305,24 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             throw await reportError(error)
         }
     }
+
+#if canImport(UIKit)
+    /// 从 UIKit 图片创建持续输出帧的媒体流。
+    ///
+    /// - Parameters:
+    ///   - image: 用作本地输入的 UIKit 图片。
+    ///   - videoFormat: 输出视频规格；传入 `nil` 时根据图片原始尺寸生成。
+    func createLocalImageStream(
+        image: UIImage,
+        videoFormat: RealtimeVideoFormat?
+    ) async throws -> RealtimeMediaStream {
+        let decodedImage = try ImageManager().decode(image)
+        return try await createLocalImageStream(
+            decodedImage: decodedImage,
+            videoFormat: videoFormat
+        )
+    }
+#endif
 
     func createLocalImageStream(
         decodedImage: any DecodedImage,
