@@ -313,6 +313,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
         await reconcileFrameInterpolation(for: stream)
         if wasGenerating {
+            try await Task.sleep(nanoseconds: 500_000_000)
             try await performStartGeneration(context: nil)
         }
         return stream

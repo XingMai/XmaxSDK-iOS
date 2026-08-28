@@ -130,6 +130,22 @@ final class RenderControllerTests: XCTestCase {
         }
     }
 
+    func testCancelledRemoteFrameWaitDoesNotReportMissingStream() async {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(rtcManager: rtcManager)
+        let readiness = Task {
+            try await controller.waitUntilRemoteFrameReady()
+        }
+        readiness.cancel()
+
+        do {
+            try await readiness.value
+            XCTFail("Expected remote frame wait to be cancelled")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+    }
+
     func testUpdatingContentModeDoesNotRegisterRemoteFramesAgain() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)

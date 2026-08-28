@@ -423,6 +423,13 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let switchTask = Task {
             try await components.manager.switchCamera()
         }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(
+            decodedEvents(components.rtcManager).filter {
+                $0["event"] as? String == "start"
+            }.count,
+            1
+        )
         await waitForEventCount(
             "start",
             count: 2,

@@ -157,6 +157,9 @@ final class RenderController: RenderControlling {
     }
 
     func waitUntilRemoteFrameReady() async throws {
+        guard !Task.isCancelled else {
+            throw Self.remoteFrameWaitCancelledError()
+        }
         guard remoteStream != nil else {
             throw XmaxError(
                 code: .rtcError,
