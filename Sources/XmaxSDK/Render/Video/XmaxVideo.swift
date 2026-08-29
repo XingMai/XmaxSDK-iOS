@@ -33,9 +33,9 @@ public struct XmaxVideo: UIViewRepresentable {
     public func makeUIView(context: Context) -> XmaxVideoView {
         let view = XmaxVideoView(
             track: track,
-            videoContentMode: videoContentMode
+            videoContentMode: videoContentMode,
+            isInteractionEnabled: isInteractionEnabled
         )
-        view.isInteractionEnabled = isInteractionEnabled
         return view
     }
 

@@ -87,13 +87,17 @@ final class XmaxPublicAPITests: XCTestCase {
 
     @MainActor
     func testPublicVideoViewAcceptsRealtimeTrackAndContentMode() {
-        let view = XmaxVideoView(videoContentMode: .fit)
+        let view = XmaxVideoView(
+            videoContentMode: .fit,
+            isInteractionEnabled: false
+        )
 
         view.track = nil
         view.videoContentMode = .fill
 
         XCTAssertNil(view.track)
         XCTAssertEqual(view.videoContentMode, .fill)
+        XCTAssertFalse(view.isInteractionEnabled)
     }
 
     @MainActor

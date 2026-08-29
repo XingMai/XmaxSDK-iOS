@@ -99,12 +99,15 @@ public final class XmaxVideoView: UIView {
     /// - Parameters:
     ///   - track: 需要显示的视频轨道；可以稍后设置。
     ///   - videoContentMode: 视频内容显示模式。
+    ///   - isInteractionEnabled: 是否允许在远端视频上进行轨迹交互。
     public init(
         track: RealtimeVideoTrack? = nil,
-        videoContentMode: VideoContentMode = .fill
+        videoContentMode: VideoContentMode = .fill,
+        isInteractionEnabled: Bool = true
     ) {
         self.track = track
         self.videoContentMode = videoContentMode
+        self.isInteractionEnabled = isInteractionEnabled
         super.init(frame: .zero)
         configureView()
     }
@@ -391,7 +394,7 @@ extension XmaxVideoView {
         XmaxLogger.error(
             "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription,
-            category: "Rendering"
+            category: "Render"
         )
     }
 

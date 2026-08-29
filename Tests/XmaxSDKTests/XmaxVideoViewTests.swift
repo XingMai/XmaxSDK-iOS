@@ -11,8 +11,15 @@ final class XmaxVideoViewTests: XCTestCase {
 
         XCTAssertTrue(view.track === track)
         XCTAssertEqual(view.videoContentMode, .fill)
+        XCTAssertTrue(view.isInteractionEnabled)
         XCTAssertEqual(view.backgroundColor, .black)
         XCTAssertTrue(view.clipsToBounds)
+    }
+
+    func testInitializationAcceptsInteractionState() {
+        let view = XmaxVideoView(isInteractionEnabled: false)
+
+        XCTAssertFalse(view.isInteractionEnabled)
     }
 
     func testMovingIntoWindowBindsTrackWithContentMode() {

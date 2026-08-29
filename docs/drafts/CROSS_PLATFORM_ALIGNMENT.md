@@ -117,7 +117,7 @@ iOS：
 
 - [x] 重命名 Audio、Image、MediaFileMetadata、Permission、RTC 和 Storage 基础能力。
 - [x] 将进程级 RTC Engine 资源管理器重命名为 `RtcEngineManager`。
-- [x] 同步 Core、Service、Media、Stream、Rendering 和测试代码引用。
+- [x] 同步 Core、Service、Media、Stream、Render 和测试代码引用。
 - [x] 真机 SDK 测试目标编译通过。
 
 Harmony：
