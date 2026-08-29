@@ -76,7 +76,7 @@ final class RealtimePromptReferenceButton: UIControl {
         }
         addImageView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.size.equalTo(14)
+            make.size.equalTo(12)
         }
         overlayView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
@@ -86,7 +86,7 @@ final class RealtimePromptReferenceButton: UIControl {
         }
         retryImageView.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.size.equalTo(16)
+            make.size.equalTo(14)
         }
     }
 
@@ -135,7 +135,7 @@ final class RealtimePromptReferenceButton: UIControl {
                 options: [
                     .processor(
                         DownsamplingImageProcessor(
-                            size: CGSize(width: 48, height: 48)
+                            size: CGSize(width: 42, height: 42)
                         )
                     ),
                     .scaleFactor(max(traitCollection.displayScale, 1)),

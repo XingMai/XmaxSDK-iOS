@@ -1,5 +1,6 @@
 import PhotosUI
 import SnapKit
+import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 import XmaxSDK
@@ -169,6 +170,26 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         contentStack.addArrangedSubview(
             makeSectionHeader(title: "SDK FEATURES", subtitle: "更多能力与接入示例")
         )
+        contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
+        let swiftUICard = FeedFeatureCardView(
+            category: "SDK UI / SWIFTUI",
+            watermark: "UI",
+            accentColor: FeedPalette.indigo,
+            iconName: "swift",
+            iconLabel: "SWIFTUI",
+            title: "SwiftUI 实时页面",
+            subtitle: "使用 SwiftUI 接入实时视频生成。",
+            tags: ["SWIFTUI", "XMAXVIDEO", "REALTIME"],
+            highlightedTag: "SWIFTUI"
+        )
+        swiftUICard.isUserInteractionEnabled = true
+        swiftUICard.addGestureRecognizer(
+            UITapGestureRecognizer(
+                target: self,
+                action: #selector(openSwiftUIRealtime)
+            )
+        )
+        contentStack.addArrangedSubview(swiftUICard)
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let customTrajectoryCard = FeedFeatureCardView(
             category: "SDK RENDERING / TRAJECTORY",
@@ -615,6 +636,16 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
 
     @objc private func openRealtime() {
         navigationController?.pushViewController(RealtimeViewController(), animated: true)
+    }
+
+    @objc private func openSwiftUIRealtime() {
+        let view = RealtimeView { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
+        let viewController = UIHostingController(rootView: view)
+        viewController.view.backgroundColor = .black
+        viewController.overrideUserInterfaceStyle = .dark
+        navigationController?.pushViewController(viewController, animated: true)
     }
 }
 

@@ -1,21 +1,22 @@
+import Combine
 import UIKit
 import XmaxSDK
 
-enum RealtimeReferenceUploadState {
+enum RealtimeReferenceUploadState: Equatable {
     case ready
     case uploading
     case failed
 }
 
 struct RealtimeReferenceCatalog: Decodable {
-    final class Item: Decodable {
+    final class Item: Decodable, ObservableObject {
         let id: String
         let categoryID: String
         let title: String
         let iconURL: URL
         let prompt: String
-        var referencePath: String?
-        var uploadState: RealtimeReferenceUploadState
+        @Published var referencePath: String?
+        @Published var uploadState: RealtimeReferenceUploadState
 
         var context: RealtimeContext? {
             guard uploadState == .ready,

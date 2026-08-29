@@ -17,47 +17,11 @@ final class RealtimeControlPanelView: UIView {
         static let rowSpacing: CGFloat = 4
         static let referenceHeight: CGFloat = 50
         static let instructionHeight: CGFloat = 40
-        static let promptInputHeight: CGFloat = 50
+        static let promptInputHeight: CGFloat = 40
         static let bottomSpacing: CGFloat = 10
     }
 
-    private enum Content {
-        case references(categoryID: String)
-        case instruction
-        case prompt
-    }
-
-    private struct Category {
-        let id: String
-        let name: String
-        let content: Content
-    }
-
-    private static let categories = [
-        Category(
-            id: "charx",
-            name: "换形象",
-            content: .references(categoryID: "charx")
-        ),
-        Category(
-            id: "clothx",
-            name: "换装",
-            content: .references(categoryID: "clothx")
-        ),
-        Category(
-            id: "vibex",
-            name: "换风格",
-            content: .references(categoryID: "vibex")
-        ),
-        Category(
-            id: "dimx",
-            name: "虚拟召唤",
-            content: .references(categoryID: "dimx")
-        ),
-        Category(id: "mox", name: "触控动图", content: .instruction),
-        Category(id: "free", name: "自由", content: .prompt)
-    ]
-    private let categories: [Category]
+    private let categories: [RealtimeCategory]
     private var referencesByCategory = Dictionary(
         grouping: RealtimeReferenceCatalog.load().items,
         by: \.categoryID
@@ -157,12 +121,12 @@ final class RealtimeControlPanelView: UIView {
     }()
 
     init(initialMode: InitialMode = .standard) {
-        categories = Self.categories
+        categories = RealtimeCategory.all
         switch initialMode {
         case .standard:
             selectedCategoryIndex = 0
         case .touchAnimation:
-            selectedCategoryIndex = Self.categories.firstIndex {
+            selectedCategoryIndex = RealtimeCategory.all.firstIndex {
                 $0.id == "mox"
             } ?? 0
         }

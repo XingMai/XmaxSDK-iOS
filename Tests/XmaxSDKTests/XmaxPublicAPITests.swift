@@ -97,6 +97,19 @@ final class XmaxPublicAPITests: XCTestCase {
     }
 
     @MainActor
+    func testPublicSwiftUIVideoAcceptsTrackAndDisplayOptions() {
+        let video = XmaxVideo(
+            track: nil,
+            videoContentMode: .fit,
+            isInteractionEnabled: false
+        )
+
+        XCTAssertNil(video.track)
+        XCTAssertEqual(video.videoContentMode, .fit)
+        XCTAssertFalse(video.isInteractionEnabled)
+    }
+
+    @MainActor
     func testClientCreatesPublicMediaService() {
         let client = XmaxClient(
             configuration: XmaxConfiguration(apiKey: "test-key")

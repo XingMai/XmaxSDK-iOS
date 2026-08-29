@@ -4,6 +4,7 @@ import SnapKit
 enum FeedPalette {
     static let mint = UIColor.feed(rgb: 0x8EF0C8)
     static let blue = UIColor.feed(rgb: 0x78A9FF)
+    static let indigo = UIColor.feed(rgb: 0x8B8DFF)
     static let purple = UIColor.feed(rgb: 0xC9A3FF)
     static let pink = UIColor.feed(rgb: 0xFF8FD8)
     static let orange = UIColor.feed(rgb: 0xF5B86C)
@@ -654,9 +655,12 @@ final class FeedFeatureCardView: FeedCardView {
         iconTile.layer.cornerRadius = 14
         iconTile.layer.borderWidth = 1
         iconTile.layer.borderColor = accentColor.withAlphaComponent(0.28).cgColor
-        let icon = UIImageView(image: UIImage(named: iconName))
+        let iconImage = UIImage(named: iconName)
+            ?? UIImage(systemName: iconName)?.withRenderingMode(.alwaysTemplate)
+        let icon = UIImageView(image: iconImage)
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.contentMode = .scaleAspectFit
+        icon.tintColor = accentColor
         let iconCaption = makeFeedLabel(iconLabel, size: 6, weight: .bold, color: accentColor, letterSpacing: 0.5)
         iconCaption.textAlignment = .center
         iconTile.addSubview(icon)

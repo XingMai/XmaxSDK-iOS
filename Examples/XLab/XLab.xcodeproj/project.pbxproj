@@ -32,6 +32,11 @@
 		F1100000000000000000000A /* RealtimeReferenceCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000A /* RealtimeReferenceCatalog.swift */; };
 		F1100000000000000000000B /* RealtimeMediaPickerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000B /* RealtimeMediaPickerButton.swift */; };
 		F1100000000000000000000C /* RealtimeLocalMediaPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000C /* RealtimeLocalMediaPicker.swift */; };
+		F1100000000000000000000D /* RealtimeCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000D /* RealtimeCategory.swift */; };
+		F1100000000000000000000E /* RealtimeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000E /* RealtimeView.swift */; };
+		F1100000000000000000000F /* RealtimeReferenceFileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000F /* RealtimeReferenceFileImporter.swift */; };
+		F11000000000000000000010 /* RealtimeReferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000010 /* RealtimeReferenceStore.swift */; };
+		F11000000000000000000011 /* RealtimeReferencePhotoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -64,6 +69,11 @@
 		F2100000000000000000000A /* RealtimeReferenceCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceCatalog.swift; sourceTree = "<group>"; };
 		F2100000000000000000000B /* RealtimeMediaPickerButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeMediaPickerButton.swift; sourceTree = "<group>"; };
 		F2100000000000000000000C /* RealtimeLocalMediaPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeLocalMediaPicker.swift; sourceTree = "<group>"; };
+		F2100000000000000000000D /* RealtimeCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCategory.swift; sourceTree = "<group>"; };
+		F2100000000000000000000E /* RealtimeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeView.swift; sourceTree = "<group>"; };
+		F2100000000000000000000F /* RealtimeReferenceFileImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceFileImporter.swift; sourceTree = "<group>"; };
+		F21000000000000000000010 /* RealtimeReferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceStore.swift; sourceTree = "<group>"; };
+		F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferencePhotoPicker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,16 +149,38 @@
 		C00000000000000000000002 /* XLRealtime */ = {
 			isa = PBXGroup;
 			children = (
+				F20000000000000000000005 /* RealtimeConst.swift */,
+				F2100000000000000000000D /* RealtimeCategory.swift */,
+				F21000000000000000000009 /* RealtimeLocalInput.swift */,
+				F2100000000000000000000A /* RealtimeReferenceCatalog.swift */,
+				F2100000000000000000000F /* RealtimeReferenceFileImporter.swift */,
+				C00000000000000000000008 /* UIKit */,
+				C00000000000000000000009 /* SwiftUI */,
+			);
+			path = XLRealtime;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000008 /* UIKit */ = {
+			isa = PBXGroup;
+			children = (
 				F20000000000000000000001 /* RealtimeViewController.swift */,
 				F20000000000000000000002 /* RealtimeViewController+Notification.swift */,
 				F20000000000000000000003 /* RealtimeViewController+Picker.swift */,
 				F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */,
-				F20000000000000000000005 /* RealtimeConst.swift */,
-				C00000000000000000000006 /* Model */,
 				C00000000000000000000007 /* Service */,
 				C00000000000000000000005 /* View */,
 			);
-			path = XLRealtime;
+			path = UIKit;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000009 /* SwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				F2100000000000000000000E /* RealtimeView.swift */,
+				F21000000000000000000010 /* RealtimeReferenceStore.swift */,
+				F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */,
+			);
+			path = SwiftUI;
 			sourceTree = "<group>";
 		};
 		C00000000000000000000003 /* XLFeed */ = {
@@ -182,15 +214,6 @@
 				F21000000000000000000008 /* RealtimeReferenceListView.swift */,
 			);
 			path = View;
-			sourceTree = "<group>";
-		};
-		C00000000000000000000006 /* Model */ = {
-			isa = PBXGroup;
-			children = (
-				F21000000000000000000009 /* RealtimeLocalInput.swift */,
-				F2100000000000000000000A /* RealtimeReferenceCatalog.swift */,
-			);
-			path = Model;
 			sourceTree = "<group>";
 		};
 		C00000000000000000000007 /* Service */ = {
@@ -353,6 +376,11 @@
 				F1100000000000000000000A /* RealtimeReferenceCatalog.swift in Sources */,
 				F1100000000000000000000B /* RealtimeMediaPickerButton.swift in Sources */,
 				F1100000000000000000000C /* RealtimeLocalMediaPicker.swift in Sources */,
+				F1100000000000000000000D /* RealtimeCategory.swift in Sources */,
+				F1100000000000000000000E /* RealtimeView.swift in Sources */,
+				F1100000000000000000000F /* RealtimeReferenceFileImporter.swift in Sources */,
+				F11000000000000000000010 /* RealtimeReferenceStore.swift in Sources */,
+				F11000000000000000000011 /* RealtimeReferencePhotoPicker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

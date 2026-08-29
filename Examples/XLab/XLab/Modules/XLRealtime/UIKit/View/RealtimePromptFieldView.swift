@@ -29,7 +29,7 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
 
     private lazy var submitControl = RealtimePromptCircleView(
         imageName: "realtime_prompt_submit",
-        imageSize: CGSize(width: 13, height: 14),
+        imageSize: CGSize(width: 11, height: 12),
         backgroundColor: .feed(rgb: 0xFF2E88)
     )
 
@@ -66,13 +66,13 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
         }
         referenceButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.size.equalTo(32)
+            make.size.equalTo(28)
         }
         submitControl.snp.makeConstraints { make in
             make.leading.equalTo(referenceButton.snp.trailing).offset(8)
             make.trailing.equalToSuperview().offset(-8)
             make.centerY.equalToSuperview()
-            make.size.equalTo(32)
+            make.size.equalTo(28)
         }
         updateState()
     }
@@ -150,7 +150,7 @@ private final class RealtimePromptCircleView: UIControl {
         self.imageSize = imageSize
         super.init(frame: .zero)
         self.backgroundColor = backgroundColor
-        layer.cornerRadius = 16
+        layer.cornerRadius = 14
         clipsToBounds = true
 
         addSubview(imageView)
