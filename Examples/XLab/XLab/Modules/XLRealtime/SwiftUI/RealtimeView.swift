@@ -14,37 +14,52 @@ struct RealtimeView: View {
     // 页面操作
     private let onBack: @MainActor () -> Void
 
+    // 应用状态
+    @Environment(\.scenePhase) private var scenePhase
+
     // 参考图资源
     @StateObject private var referenceStore = RealtimeReferenceStore()
 
+    // 实时资源
+    @StateObject private var realtimeSession = RealtimeSessionController()
+
     // 页面状态
     @State private var selectedCategoryID: String
-    @State private var isBackCameraSelected = false
-    @State private var isFrameInterpolationEnabled: Bool
     @State private var isReferencePickerPresented = false
     @State private var referencePickerDestination: ReferencePickerDestination?
+    @State private var isSuspendedForBackground = false
     @State private var prompt = ""
+    @FocusState private var isPromptFieldFocused: Bool
 
     init(onBack: @escaping @MainActor () -> Void) {
         self.onBack = onBack
         _selectedCategoryID = State(
             initialValue: RealtimeCategory.all.first?.id ?? ""
         )
-        let initialFrameInterpolationEnabled: Bool
-        if #available(iOS 26.0, *) {
-            initialFrameInterpolationEnabled = true
-        } else {
-            initialFrameInterpolationEnabled = false
-        }
-        _isFrameInterpolationEnabled = State(
-            initialValue: initialFrameInterpolationEnabled
-        )
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            XmaxVideo(track: nil)
+            XmaxVideo(
+                track: realtimeSession.localVideoTrack,
+                isInteractionEnabled: false
+            )
                 .ignoresSafeArea()
+                .simultaneousGesture(
+                    TapGesture().onEnded(dismissPromptKeyboard)
+                )
+
+            XmaxVideo(track: realtimeSession.remoteVideoTrack)
+                .ignoresSafeArea()
+                .opacity(realtimeSession.isRemoteVideoVisible ? 1 : 0)
+                .allowsHitTesting(realtimeSession.isRemoteVideoVisible)
+                .simultaneousGesture(
+                    TapGesture().onEnded(dismissPromptKeyboard)
+                )
+
+            RealtimeLoadingView(isLoading: realtimeSession.isLoading)
+                .ignoresSafeArea()
+
             topControls
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -59,22 +74,50 @@ struct RealtimeView: View {
         .alert(
             "提示",
             isPresented: Binding(
-                get: { referenceStore.errorMessage != nil },
+                get: {
+                    referenceStore.errorMessage != nil
+                        || realtimeSession.errorMessage != nil
+                },
                 set: { isPresented in
                     if !isPresented {
                         referenceStore.clearError()
+                        realtimeSession.clearError()
                     }
                 }
             )
         ) {
             Button("确定", role: .cancel) {
                 referenceStore.clearError()
+                realtimeSession.clearError()
             }
         } message: {
-            Text(referenceStore.errorMessage ?? "")
+            Text(
+                referenceStore.errorMessage
+                    ?? realtimeSession.errorMessage
+                    ?? ""
+            )
+        }
+        .task {
+            realtimeSession.start()
+        }
+        .onAppear {
+            referenceStore.onSelectedContextChanged = { context in
+                if let context {
+                    realtimeSession.startGeneration(context: context)
+                } else {
+                    realtimeSession.stopGeneration()
+                }
+            }
         }
         .onDisappear {
+            isSuspendedForBackground = false
+            dismissPromptKeyboard()
+            referenceStore.onSelectedContextChanged = nil
             referenceStore.cancelUploads()
+            realtimeSession.close()
+        }
+        .onChange(of: scenePhase) { phase in
+            handleScenePhase(phase)
         }
         .background(Color.black)
         .preferredColorScheme(.dark)
@@ -101,22 +144,30 @@ private extension RealtimeView {
                     title: "翻转",
                     image: Image("realtime_camera_rotate"),
                     isActive: false,
-                    isHorizontallyFlipped: isBackCameraSelected
+                    isHorizontallyFlipped:
+                        realtimeSession.isBackCameraSelected
                 ) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isBackCameraSelected.toggle()
-                    }
+                    realtimeSession.switchCamera()
                 }
+                .disabled(
+                    !realtimeSession.isPreviewReady
+                        || realtimeSession.isCameraSwitching
+                )
 
                 RealtimeActionButton(
                     title: "插帧",
                     image: Image(systemName: "bolt.fill"),
-                    isActive: isFrameInterpolationEnabled
+                    isActive:
+                        realtimeSession.isFrameInterpolationEnabled
                 ) {
-                    isFrameInterpolationEnabled.toggle()
+                    realtimeSession.setFrameInterpolationEnabled(
+                        !realtimeSession.isFrameInterpolationEnabled
+                    )
                 }
                 .accessibilityValue(
-                    isFrameInterpolationEnabled ? "已开启" : "已关闭"
+                    realtimeSession.isFrameInterpolationEnabled
+                        ? "已开启"
+                        : "已关闭"
                 )
             }
             .frame(width: 58, height: 124)
@@ -134,6 +185,8 @@ private extension RealtimeView {
         }
         .padding(.top, 6)
         .padding(.bottom, 10)
+        .disabled(!realtimeSession.isPreviewReady)
+        .opacity(realtimeSession.isPreviewReady ? 1 : 0.55)
         .background(
             Color(red: 16 / 255, green: 16 / 255, blue: 16 / 255)
                 .ignoresSafeArea(edges: .bottom)
@@ -142,11 +195,30 @@ private extension RealtimeView {
 
     var categoryRow: some View {
         HStack(spacing: 11) {
-            Image(systemName: "nosign")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(.white.opacity(0.5))
-                .frame(width: 28, height: 36)
-                .accessibilityLabel("停止生成")
+            Button {
+                referenceStore.clearSelection(
+                    notifiesContextChange: false
+                )
+                realtimeSession.stopGeneration()
+            } label: {
+                Image(systemName: "nosign")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(
+                        .white.opacity(
+                            realtimeSession.isGenerationRequested
+                                ? 1
+                                : 0.5
+                        )
+                    )
+                    .frame(width: 28, height: 36)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("停止生成")
+            .disabled(!realtimeSession.isGenerationRequested)
+            .animation(
+                .easeInOut(duration: 0.3),
+                value: realtimeSession.isGenerationRequested
+            )
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
@@ -207,7 +279,9 @@ private extension RealtimeView {
         case let .references(categoryID):
             referenceList(categoryID: categoryID)
         case .instruction:
-            Button("点击开始生成") {}
+            Button("点击开始生成") {
+                startTouchAnimationGeneration()
+            }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
                 .frame(maxWidth: .infinity)
@@ -223,6 +297,7 @@ private extension RealtimeView {
                 TextField("输入你想要的效果", text: $prompt)
                     .textInputAutocapitalization(.never)
                     .submitLabel(.send)
+                    .focused($isPromptFieldFocused)
                     .font(.system(size: 14))
                     .padding(.leading, 11)
                     .padding(.trailing, 10)
@@ -244,7 +319,7 @@ private extension RealtimeView {
                 .accessibilityLabel(promptReferenceAccessibilityLabel)
 
                 Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    submitPrompt()
                 } label: {
                     Image("realtime_prompt_submit")
                         .resizable()
@@ -387,12 +462,97 @@ private extension RealtimeView {
         }
     }
 
+    func startTouchAnimationGeneration() {
+        guard !realtimeSession.isGenerationRequested else { return }
+        referenceStore.clearSelection(notifiesContextChange: false)
+        realtimeSession.startGeneration(
+            context: RealtimeContext(
+                prompt: RealtimeConst.defaultTouchAnimationPrompt
+            )
+        )
+    }
+
+    func submitPrompt() {
+        let normalizedPrompt = prompt.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard canSubmitPrompt else { return }
+
+        dismissPromptKeyboard()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        referenceStore.clearSelection(notifiesContextChange: false)
+        realtimeSession.startGeneration(
+            context: RealtimeContext(
+                prompt: normalizedPrompt,
+                referencePath: referenceStore.promptReference?.referencePath
+            )
+        )
+    }
+
+    func dismissPromptKeyboard() {
+        isPromptFieldFocused = false
+    }
+
+    func handleScenePhase(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            guard !isSuspendedForBackground else { return }
+            isSuspendedForBackground = true
+            dismissPromptKeyboard()
+            referenceStore.clearSelection(notifiesContextChange: false)
+            realtimeSession.close()
+        case .active:
+            guard isSuspendedForBackground else { return }
+            isSuspendedForBackground = false
+            realtimeSession.start()
+        case .inactive:
+            break
+        @unknown default:
+            break
+        }
+    }
+
     func categoryButtonWidth(_ title: String) -> CGFloat {
         let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
         let textWidth = (title as NSString).size(
             withAttributes: [.font: font]
         ).width
         return ceil(textWidth) + 10
+    }
+}
+
+private struct RealtimeLoadingView: UIViewRepresentable {
+    let isLoading: Bool
+
+    func makeUIView(context: Context) -> RealtimeLoadingOverlay {
+        let view = RealtimeLoadingOverlay()
+        render(isLoading, in: view)
+        return view
+    }
+
+    func updateUIView(
+        _ view: RealtimeLoadingOverlay,
+        context: Context
+    ) {
+        render(isLoading, in: view)
+    }
+
+    static func dismantleUIView(
+        _ view: RealtimeLoadingOverlay,
+        coordinator: Void
+    ) {
+        view.hideLoading()
+    }
+
+    private func render(
+        _ isLoading: Bool,
+        in view: RealtimeLoadingOverlay
+    ) {
+        if isLoading {
+            view.startLoading()
+        } else {
+            view.hideLoading()
+        }
     }
 }
 

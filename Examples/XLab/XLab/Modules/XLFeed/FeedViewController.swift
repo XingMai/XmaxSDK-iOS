@@ -174,7 +174,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         let swiftUICard = FeedFeatureCardView(
             category: "SDK UI / SWIFTUI",
             watermark: "UI",
-            accentColor: FeedPalette.indigo,
+            accentColor: FeedPalette.red,
             iconName: "swift",
             iconLabel: "SWIFTUI",
             title: "SwiftUI 实时页面",

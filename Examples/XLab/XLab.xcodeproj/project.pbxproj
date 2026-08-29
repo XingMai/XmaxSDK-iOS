@@ -37,6 +37,7 @@
 		F1100000000000000000000F /* RealtimeReferenceFileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2100000000000000000000F /* RealtimeReferenceFileImporter.swift */; };
 		F11000000000000000000010 /* RealtimeReferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000010 /* RealtimeReferenceStore.swift */; };
 		F11000000000000000000011 /* RealtimeReferencePhotoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */; };
+		F11000000000000000000012 /* RealtimeSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000012 /* RealtimeSessionController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -74,6 +75,7 @@
 		F2100000000000000000000F /* RealtimeReferenceFileImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceFileImporter.swift; sourceTree = "<group>"; };
 		F21000000000000000000010 /* RealtimeReferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceStore.swift; sourceTree = "<group>"; };
 		F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferencePhotoPicker.swift; sourceTree = "<group>"; };
+		F21000000000000000000012 /* RealtimeSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeSessionController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 				F21000000000000000000009 /* RealtimeLocalInput.swift */,
 				F2100000000000000000000A /* RealtimeReferenceCatalog.swift */,
 				F2100000000000000000000F /* RealtimeReferenceFileImporter.swift */,
+				F21000000000000000000003 /* RealtimeLoadingOverlay.swift */,
 				C00000000000000000000008 /* UIKit */,
 				C00000000000000000000009 /* SwiftUI */,
 			);
@@ -177,6 +180,7 @@
 			isa = PBXGroup;
 			children = (
 				F2100000000000000000000E /* RealtimeView.swift */,
+				F21000000000000000000012 /* RealtimeSessionController.swift */,
 				F21000000000000000000010 /* RealtimeReferenceStore.swift */,
 				F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */,
 			);
@@ -206,7 +210,6 @@
 				F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */,
 				F2100000000000000000000B /* RealtimeMediaPickerButton.swift */,
 				F21000000000000000000002 /* RealtimeControlPanelView.swift */,
-				F21000000000000000000003 /* RealtimeLoadingOverlay.swift */,
 				F21000000000000000000004 /* RealtimePreviewBackdropView.swift */,
 				F21000000000000000000005 /* RealtimePromptFieldView.swift */,
 				F21000000000000000000006 /* RealtimePromptKeyboardView.swift */,
@@ -381,6 +384,7 @@
 				F1100000000000000000000F /* RealtimeReferenceFileImporter.swift in Sources */,
 				F11000000000000000000010 /* RealtimeReferenceStore.swift in Sources */,
 				F11000000000000000000011 /* RealtimeReferencePhotoPicker.swift in Sources */,
+				F11000000000000000000012 /* RealtimeSessionController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -5,6 +5,9 @@ import XmaxSDK
 @MainActor
 final class RealtimeReferenceStore: ObservableObject {
 
+    // 参考图事件
+    var onSelectedContextChanged: ((RealtimeContext?) -> Void)?
+
     // 参考图数据
     @Published private(set) var referencesByCategory: [
         String: [RealtimeReferenceCatalog.Item]
@@ -65,9 +68,20 @@ final class RealtimeReferenceStore: ObservableObject {
             startUpload(reference)
             return
         }
-        selectedReferenceID = selectedReferenceID == reference.id
-            ? nil
-            : reference.id
+        if selectedReferenceID == reference.id {
+            selectedReferenceID = nil
+            onSelectedContextChanged?(nil)
+        } else {
+            selectedReferenceID = reference.id
+            onSelectedContextChanged?(reference.context)
+        }
+    }
+
+    func clearSelection(notifiesContextChange: Bool = true) {
+        selectedReferenceID = nil
+        if notifiesContextChange {
+            onSelectedContextChanged?(nil)
+        }
     }
 
     func handlePromptReferenceAction() -> Bool {
@@ -162,6 +176,9 @@ final class RealtimeReferenceStore: ObservableObject {
         case let .success(remoteURL):
             reference.referencePath = remoteURL.absoluteString
             reference.uploadState = .ready
+            if selectedReferenceID == reference.id {
+                onSelectedContextChanged?(reference.context)
+            }
         case .failure:
             reference.uploadState = .failed
             errorMessage = "参考图上传失败，点击图片可重试"

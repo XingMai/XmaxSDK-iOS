@@ -4,7 +4,7 @@ import SnapKit
 enum FeedPalette {
     static let mint = UIColor.feed(rgb: 0x8EF0C8)
     static let blue = UIColor.feed(rgb: 0x78A9FF)
-    static let indigo = UIColor.feed(rgb: 0x8B8DFF)
+    static let red = UIColor.feed(rgb: 0xFF6B6B)
     static let purple = UIColor.feed(rgb: 0xC9A3FF)
     static let pink = UIColor.feed(rgb: 0xFF8FD8)
     static let orange = UIColor.feed(rgb: 0xF5B86C)
