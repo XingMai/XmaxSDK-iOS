@@ -32,7 +32,7 @@ Native iOS SDK, providing access to Xmax real-time interactive video generation 
 - iOS 15.0 or later
 - Swift 6
 - Xcode 26 or later for CocoaPods source integration
-- Xcode 27 or later for the prebuilt 1.0.0 XCFramework
+- Xcode 27 or later for the prebuilt 1.0.1 XCFramework
 - An Xmax API key
 
 ## Installation
@@ -54,7 +54,7 @@ use_frameworks! :linkage => :static
 target 'YourApp' do
   pod 'XmaxSDK',
       :git => 'https://github.com/XingMai/XmaxSDK-iOS.git',
-      :tag => '1.0.0'
+      :tag => '1.0.1'
 end
 
 post_install do |installer|
@@ -82,7 +82,7 @@ Swift.
 ### Manual
 
 Download
-[`XmaxSDK-1.0.0.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.0/XmaxSDK-1.0.0.zip),
+[`XmaxSDK-1.0.1.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.1/XmaxSDK-1.0.1.zip),
 extract `XmaxSDK.xcframework`, then download the exact third-party dependencies
 used by this release:
 
@@ -267,7 +267,7 @@ the SDK features shown above.
 
 - CocoaPods source distribution is supported.
 - Manual XCFramework distribution is available through GitHub Releases.
-- Swift Package Manager is not supported in version 1.0.0.
+- Swift Package Manager is not supported in version 1.0.1.
 
 ## Feedback
 
