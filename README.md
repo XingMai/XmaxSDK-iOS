@@ -7,7 +7,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT License"></a>
 </p>
 
-Native iOS SDK, providing access to Xmax real-time interactive video generation models. It enables low-latency, high-fidelity video transformations using live video streams, reference images, and user interactions. With just a few lines of code, developers can seamlessly integrate cutting-edge features directly into their apps, such as real-time character replacement, virtual try-on, and mixed-reality companions, and so on.
+Native iOS SDK, providing access to Xmax real-time interactive video generation models. It enables low-latency, high-fidelity video transformations using live video streams, reference images, and user interactions. With just a few lines of code, developers can seamlessly integrate cutting-edge features directly into their apps, such as real-time character swap, virtual try-on, mixed-reality companions, and so on.
 
 <p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
 
