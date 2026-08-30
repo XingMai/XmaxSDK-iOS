@@ -3,7 +3,7 @@ source 'https://cdn.cocoapods.org/'
 
 platform :ios, '15.0'
 
-use_frameworks!
+use_frameworks! :linkage => :static
 
 target 'XLab' do
   pod 'XmaxSDK', path: '../..', testspecs: ['Tests']

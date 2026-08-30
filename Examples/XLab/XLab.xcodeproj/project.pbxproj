@@ -163,30 +163,6 @@
 			path = XLRealtime;
 			sourceTree = "<group>";
 		};
-		C00000000000000000000008 /* UIKit */ = {
-			isa = PBXGroup;
-			children = (
-				F20000000000000000000001 /* RealtimeViewController.swift */,
-				F20000000000000000000002 /* RealtimeViewController+Notification.swift */,
-				F20000000000000000000003 /* RealtimeViewController+Picker.swift */,
-				F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */,
-				C00000000000000000000007 /* Service */,
-				C00000000000000000000005 /* View */,
-			);
-			path = UIKit;
-			sourceTree = "<group>";
-		};
-		C00000000000000000000009 /* SwiftUI */ = {
-			isa = PBXGroup;
-			children = (
-				F2100000000000000000000E /* RealtimeView.swift */,
-				F21000000000000000000012 /* RealtimeSessionController.swift */,
-				F21000000000000000000010 /* RealtimeReferenceStore.swift */,
-				F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */,
-			);
-			path = SwiftUI;
-			sourceTree = "<group>";
-		};
 		C00000000000000000000003 /* XLFeed */ = {
 			isa = PBXGroup;
 			children = (
@@ -227,6 +203,30 @@
 			path = Service;
 			sourceTree = "<group>";
 		};
+		C00000000000000000000008 /* UIKit */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000001 /* RealtimeViewController.swift */,
+				F20000000000000000000002 /* RealtimeViewController+Notification.swift */,
+				F20000000000000000000003 /* RealtimeViewController+Picker.swift */,
+				F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */,
+				C00000000000000000000007 /* Service */,
+				C00000000000000000000005 /* View */,
+			);
+			path = UIKit;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000009 /* SwiftUI */ = {
+			isa = PBXGroup;
+			children = (
+				F2100000000000000000000E /* RealtimeView.swift */,
+				F21000000000000000000012 /* RealtimeSessionController.swift */,
+				F21000000000000000000010 /* RealtimeReferenceStore.swift */,
+				F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */,
+			);
+			path = SwiftUI;
+			sourceTree = "<group>";
+		};
 		C30000000000000000000001 /* Components */ = {
 			isa = PBXGroup;
 			children = (
@@ -255,6 +255,7 @@
 				300000000000000000000001 /* Frameworks */,
 				D40000000000000000000001 /* Resources */,
 				2A4254CA27D2399F36026A10 /* [CP] Embed Pods Frameworks */,
+				46A68A9A7F59FAF56DFE5352 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -325,6 +326,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-XLab/Pods-XLab-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		46A68A9A7F59FAF56DFE5352 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-XLab/Pods-XLab-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-XLab/Pods-XLab-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-XLab/Pods-XLab-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		9DBD7F7DDA9E9905BA581F7A /* [CP] Check Pods Manifest.lock */ = {
