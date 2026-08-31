@@ -58,7 +58,7 @@ use_frameworks! :linkage => :static
 target 'YourApp' do
   pod 'XmaxSDK',
       :git => 'https://github.com/XingMai/XmaxSDK-iOS.git',
-      :tag => '1.0.1'
+      :tag => '1.0.2'
 end
 
 post_install do |installer|
@@ -85,7 +85,7 @@ dependency is exposed as a module that XmaxSDK can import from Swift.
 ### Manual
 
 Download
-[`XmaxSDK-1.0.1.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.1/XmaxSDK-1.0.1.zip),
+[`XmaxSDK-1.0.2.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.2/XmaxSDK-1.0.2.zip),
 extract `XmaxSDK.xcframework`, and download the exact third-party dependencies used
 by this release:
 
@@ -403,7 +403,7 @@ trajectory rendering.
 
 - CocoaPods source distribution is supported.
 - Manual XCFramework distribution is available through GitHub Releases.
-- Swift Package Manager is not supported in version 1.0.1.
+- Swift Package Manager is not supported in version 1.0.2.
 
 ## Feedback
 

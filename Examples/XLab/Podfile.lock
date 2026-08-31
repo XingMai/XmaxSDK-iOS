@@ -7,12 +7,12 @@ PODS:
   - VolcEngineRTC/Core (3.60.106.600)
   - VolcEngineRTC/RealXBase (3.60.106.600)
   - VolcEngineRTC/RTCFFmpeg (3.60.106.600)
-  - XmaxSDK (1.0.1):
+  - XmaxSDK (1.0.2):
     - QCloudCOSXML/Transfer (= 6.5.7)
     - VolcEngineRTC/Core (= 3.60.106.600)
     - VolcEngineRTC/RealXBase (= 3.60.106.600)
     - VolcEngineRTC/RTCFFmpeg (= 3.60.106.600)
-  - XmaxSDK/Tests (1.0.1):
+  - XmaxSDK/Tests (1.0.2):
     - QCloudCOSXML/Transfer (= 6.5.7)
     - VolcEngineRTC/Core (= 3.60.106.600)
     - VolcEngineRTC/RealXBase (= 3.60.106.600)
@@ -43,7 +43,7 @@ SPEC CHECKSUMS:
   QCloudCOSXML: 35ef870a55a58d193eeb62c37c8904630740480e
   SnapKit: d612e99e678a2d3b95bf60b0705ed0a35c03484a
   VolcEngineRTC: 3dae32878b5edec218ddea722e90934e55fabb1e
-  XmaxSDK: 1a73d1e3f57c2cec5d775692712079692d3e04b5
+  XmaxSDK: ab209cd3043ca8919ebae6db8f1b1d3524c0fb96
 
 PODFILE CHECKSUM: ed82cbd05bf30a352319abbb9794c5d8bb5cd67f
 
