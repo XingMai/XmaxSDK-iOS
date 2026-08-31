@@ -26,6 +26,8 @@
 	<string>Copyright © 2026 XMAX.AI PTE. LTD. All rights reserved.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>XLab 需要使用麦克风创建实时音频输入。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>XLab 需要将录制的生成视频保存到系统相册。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

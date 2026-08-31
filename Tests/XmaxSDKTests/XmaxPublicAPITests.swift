@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreMedia
 import Foundation
 import UIKit
 import XCTest
@@ -31,6 +32,26 @@ final class XmaxPublicAPITests: XCTestCase {
 
         XCTAssertEqual(manager.options.model, .x2_0)
         XCTAssertTrue(manager.options.isFrameInterpolationEnabled)
+    }
+
+    @MainActor
+    func testPublicRemoteVideoFrameListenerIsAvailable() async {
+        let client = XmaxClient(
+            configuration: XmaxConfiguration(apiKey: "test-key")
+        )
+        let manager = client.createRealtimeManager(
+            options: RealtimeConfiguration(model: .x2_0)
+        )
+        let listener: RealtimeVideoFrameListener = { frame in
+            _ = frame.pixelBuffer
+            _ = frame.presentationTimeStamp
+            _ = frame.duration
+        }
+
+        await manager.setRemoteVideoFrameListener(listener)
+        await manager.setRemoteVideoFrameListener(nil)
+
+        XCTAssertNotNil(listener)
     }
 
     func testPublicRealtimeCameraModelsAreConstructible() throws {

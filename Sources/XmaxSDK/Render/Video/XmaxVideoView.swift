@@ -256,7 +256,7 @@ extension XmaxVideoView {
     }
 
     func displayRemoteVideoFrame(
-        _ frame: DecodedVideoFrame,
+        _ frame: RealtimeVideoFrame,
         contentMode: VideoContentMode
     ) {
         if decodedVideoLayer == nil {

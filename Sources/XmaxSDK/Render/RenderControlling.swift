@@ -14,6 +14,11 @@ protocol RenderControlling: AnyObject, Sendable {
     /// 更新当前需要渲染的远端 RTC 视频流。
     func setRemoteStream(_ stream: RemoteStream?) throws
 
+    /// 设置远端最终视频帧监听器。
+    func setRemoteVideoFrameListener(
+        _ listener: RealtimeVideoFrameListener?
+    )
+
     /// 为远端视频轨道注册画面和轨迹交互绑定。
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,

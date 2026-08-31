@@ -10,7 +10,7 @@ actor RemoteVideoFramePipeline {
     ) -> Bool
 
     typealias OutputListener = @Sendable (
-        _ frame: DecodedVideoFrame,
+        _ frame: RealtimeVideoFrame,
         _ outputToken: UUID
     ) async -> Void
 
@@ -23,7 +23,7 @@ actor RemoteVideoFramePipeline {
     // 帧处理资源
     private var interpolationManager:
         (any FrameInterpolationManaging)?
-    private var pendingFrame: DecodedVideoFrame?
+    private var pendingFrame: RealtimeVideoFrame?
     private var drainTask: Task<Void, Never>?
 
     // 运行状态
@@ -54,7 +54,7 @@ actor RemoteVideoFramePipeline {
         interpolationEnabled
     }
 
-    func enqueue(_ frame: DecodedVideoFrame) {
+    func enqueue(_ frame: RealtimeVideoFrame) {
         pendingFrame = frame
         guard drainTask == nil else { return }
         let activeGeneration = generation
@@ -96,7 +96,7 @@ private extension RemoteVideoFramePipeline {
         let height: Int
         let pixelFormat: OSType
 
-        init(_ frame: DecodedVideoFrame) {
+        init(_ frame: RealtimeVideoFrame) {
             width = CVPixelBufferGetWidth(frame.pixelBuffer)
             height = CVPixelBufferGetHeight(frame.pixelBuffer)
             pixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
@@ -151,9 +151,9 @@ private extension RemoteVideoFramePipeline {
     }
 
     func process(
-        _ frame: DecodedVideoFrame,
+        _ frame: RealtimeVideoFrame,
         sourceDuration: CMTime
-    ) async -> [DecodedVideoFrame] {
+    ) async -> [RealtimeVideoFrame] {
         guard interpolationEnabled else {
             return [passthrough(frame, duration: sourceDuration)]
         }
@@ -193,7 +193,7 @@ private extension RemoteVideoFramePipeline {
     }
 
     func makeInterpolationManager(
-        _ frame: DecodedVideoFrame
+        _ frame: RealtimeVideoFrame
     ) throws -> (any FrameInterpolationManaging)? {
 #if targetEnvironment(simulator)
         nil
@@ -214,10 +214,10 @@ private extension RemoteVideoFramePipeline {
     }
 
     func passthrough(
-        _ frame: DecodedVideoFrame,
+        _ frame: RealtimeVideoFrame,
         duration: CMTime
-    ) -> DecodedVideoFrame {
-        DecodedVideoFrame(
+    ) -> RealtimeVideoFrame {
+        RealtimeVideoFrame(
             pixelBuffer: frame.pixelBuffer,
             presentationTimeStamp: frame.presentationTimeStamp,
             duration: duration

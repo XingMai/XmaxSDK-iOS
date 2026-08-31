@@ -42,6 +42,18 @@ public protocol XmaxRealtimeManaging: Sendable {
     ) async
 
 
+    /// 设置远端最终视频帧监听器。
+    ///
+    /// 监听器接收完成可选插帧处理、即将用于画面显示的视频帧。回调由 SDK
+    /// 内部串行队列触发，不会阻塞主线程；调用方应快速转交帧数据，避免在
+    /// 回调中执行耗时编码。传入 `nil` 时清除监听器。
+    ///
+    /// - Parameter listener: 远端最终视频帧回调。
+    func setRemoteVideoFrameListener(
+        _ listener: RealtimeVideoFrameListener?
+    ) async
+
+
     /// 设置网络质量监听器。
     ///
     /// - Parameter listener: 上下行网络质量回调；传入 `nil` 时清除监听器。

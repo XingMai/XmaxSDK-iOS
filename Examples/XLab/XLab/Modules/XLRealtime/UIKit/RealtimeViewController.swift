@@ -1,3 +1,4 @@
+import Photos
 import PhotosUI
 import SnapKit
 import UIKit
@@ -35,6 +36,16 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var remoteAudioVolume = RealtimeConst.defaultRemoteAudioVolume
     private var isAudioMuted = false
 
+    // 录制资源
+    private lazy var videoRecorder = RealtimeVideoRecorder { [weak self] error in
+        Task { @MainActor [weak self] in
+            self?.handleRecordingFailure(error)
+        }
+    }
+
+    // 录制状态
+    private var recordingButtonState = RealtimeRecordingButtonState.idle
+
     // 触控动图
     private var touchAnimationReferencePath: String?
 
@@ -55,6 +66,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var localAudioVolumeTask: Task<Void, Never>?
     private var remoteAudioVolumeTask: Task<Void, Never>?
     private var frameInterpolationTask: Task<Void, Never>?
+    private var recordingOperationTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
     // 布局约束
@@ -162,7 +174,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private lazy var mediaTopBar: RealtimeMediaTopBar = {
         let topBar = RealtimeMediaTopBar(
-            showsMute: localInput?.kind == .video
+            showsVideoControls: localInput?.kind == .video
         )
         topBar.isHidden = localInput == nil
         topBar.onOpenGallery = { [weak self] in
@@ -170,6 +182,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
         topBar.onOpenAudioVolume = { [weak self] sourceView in
             self?.presentAudioVolumeMenu(from: sourceView)
+        }
+        topBar.onToggleRecording = { [weak self] in
+            self?.toggleRecording()
         }
         topBar.onMuteChanged = { [weak self] muted in
             self?.setAudioMuted(muted)
@@ -272,6 +287,120 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
     }
 
+    private func toggleRecording() {
+        switch recordingButtonState {
+        case .idle:
+            startRecording()
+        case .recording:
+            stopRecordingAndSave()
+        case .preparing, .saving:
+            break
+        }
+    }
+
+    private func startRecording() {
+        guard isGenerationRequested else {
+            XLToast.show("请先开始视频生成。", in: view)
+            return
+        }
+
+        setRecordingButtonState(.preparing)
+        let videoRecorder = videoRecorder
+        recordingOperationTask?.cancel()
+        recordingOperationTask = Task { @MainActor [weak self] in
+            do {
+                try await Self.ensurePhotoLibraryAccess()
+                try Task.checkCancellation()
+                try videoRecorder.start()
+                guard !Task.isCancelled else {
+                    _ = try? await videoRecorder.stop()
+                    return
+                }
+                guard let self else { return }
+                setRecordingButtonState(.recording)
+            } catch is CancellationError {
+                self?.setRecordingButtonState(.idle)
+            } catch {
+                guard let self else { return }
+                setRecordingButtonState(.idle)
+                XLToast.show(error.localizedDescription, in: view)
+            }
+        }
+    }
+
+    private func stopRecordingAndSave() {
+        guard recordingButtonState == .recording else { return }
+        setRecordingButtonState(.saving)
+        let videoRecorder = videoRecorder
+        recordingOperationTask = Task { @MainActor [weak self] in
+            do {
+                let outputURL = try await videoRecorder.stop()
+                defer { try? FileManager.default.removeItem(at: outputURL) }
+                try await Self.saveVideoToPhotoLibrary(outputURL)
+                guard let self else { return }
+                setRecordingButtonState(.idle)
+                XLToast.show("视频已保存到相册。", in: view)
+            } catch {
+                guard let self else { return }
+                setRecordingButtonState(.idle)
+                XLToast.show(error.localizedDescription, in: view)
+            }
+        }
+    }
+
+    private func handleRecordingFailure(
+        _ error: RealtimeVideoRecorder.RecorderError
+    ) {
+        guard recordingButtonState == .recording else { return }
+        setRecordingButtonState(.idle)
+        XLToast.show(error.localizedDescription, in: view)
+    }
+
+    private func setRecordingButtonState(
+        _ state: RealtimeRecordingButtonState
+    ) {
+        recordingButtonState = state
+        mediaTopBar.setRecordingState(state)
+    }
+
+    private nonisolated static func ensurePhotoLibraryAccess() async throws {
+        let currentStatus = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        let status: PHAuthorizationStatus
+        if currentStatus == .notDetermined {
+            status = await withCheckedContinuation { continuation in
+                PHPhotoLibrary.requestAuthorization(for: .addOnly) {
+                    continuation.resume(returning: $0)
+                }
+            }
+        } else {
+            status = currentStatus
+        }
+        guard status == .authorized || status == .limited else {
+            throw RealtimeDemoError.photoLibraryPermissionDenied
+        }
+    }
+
+    private nonisolated static func saveVideoToPhotoLibrary(
+        _ fileURL: URL
+    ) async throws {
+        try await ensurePhotoLibraryAccess()
+        try await withCheckedThrowingContinuation { continuation in
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(
+                    atFileURL: fileURL
+                )
+            } completionHandler: { succeeded, error in
+                if succeeded {
+                    continuation.resume()
+                } else {
+                    continuation.resume(
+                        throwing: error ?? RealtimeDemoError.videoSaveFailed
+                    )
+                }
+            }
+        }
+    }
+
     private lazy var realtimeErrorAlert: UIAlertController = {
         let alert = UIAlertController(
             title: "实时服务异常",
@@ -338,6 +467,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         localAudioVolumeTask?.cancel()
         remoteAudioVolumeTask?.cancel()
         frameInterpolationTask?.cancel()
+        recordingOperationTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -438,6 +568,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func observeRealtimeEvents() {
         let pendingCleanup = mediaCleanupTask
         let realtimeManager = realtimeManager
+        let videoRecorder = videoRecorder
         realtimeListenerTask?.cancel()
         realtimeListenerTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -448,6 +579,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             }
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
+            }
+            await realtimeManager.setRemoteVideoFrameListener { frame in
+                videoRecorder.append(frame)
             }
         }
     }
@@ -485,6 +619,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             previewView.showRealtime()
             loadingOverlay.hideLoading()
         case .idle, .disconnecting, .disconnected, .error:
+            if recordingButtonState == .recording {
+                stopRecordingAndSave()
+            } else if recordingButtonState == .preparing {
+                recordingOperationTask?.cancel()
+                setRecordingButtonState(.idle)
+            }
             renderPreviewLoadingState()
         }
     }
@@ -916,6 +1056,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func closeRealtime(
         cancelsReferenceUploads: Bool = true
     ) {
+        if recordingButtonState == .recording {
+            stopRecordingAndSave()
+        } else if recordingButtonState == .preparing {
+            recordingOperationTask?.cancel()
+            setRecordingButtonState(.idle)
+        }
         if cancelsReferenceUploads {
             referenceUploadTasks.values.forEach { $0.cancel() }
             referenceUploadTasks.removeAll()
@@ -966,6 +1112,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await realtimeManager.setErrorListener(nil)
             await realtimeManager.setStateListener(nil)
             await realtimeManager.setCameraPreviewReadyListener(nil)
+            await realtimeManager.setRemoteVideoFrameListener(nil)
 
             await pendingLocalMediaOperation?.value
             await pendingGenerationOperation?.value
@@ -994,6 +1141,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func replaceLocalMedia(with input: RealtimeLocalInput) {
+        if recordingButtonState == .recording {
+            stopRecordingAndSave()
+        }
         let pendingLocalOperation = localMediaOperationTask
         pendingLocalOperation?.cancel()
         let pendingGenerationOperation = generationOperationTask
@@ -1131,6 +1281,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func disconnectGeneration() {
+        if recordingButtonState == .recording {
+            stopRecordingAndSave()
+        }
         touchAnimationPreparationTask?.cancel()
         touchAnimationPreparationTask = nil
         isGenerationRequested = false
@@ -1262,6 +1415,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 private enum RealtimeDemoError: LocalizedError {
     case connectionTransitioning
     case imageEncodingFailed
+    case photoLibraryPermissionDenied
+    case videoSaveFailed
 
     var errorDescription: String? {
         switch self {
@@ -1269,6 +1424,11 @@ private enum RealtimeDemoError: LocalizedError {
             return "实时连接正在切换状态，请稍后重试。"
         case .imageEncodingFailed:
             return "图片处理失败，请重新选择图片。"
+        case .photoLibraryPermissionDenied:
+            return "没有相册写入权限，请在系统设置中允许 XLab " +
+                "添加照片。"
+        case .videoSaveFailed:
+            return "视频保存失败，请稍后重试。"
         }
     }
 }

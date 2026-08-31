@@ -3,7 +3,7 @@ import Foundation
 
 /// 接收一帧 RTC 远端解码视频数据的监听器。
 typealias RtcRemoteVideoFrameListener = @Sendable (
-    _ frame: DecodedVideoFrame
+    _ frame: RealtimeVideoFrame
 ) -> Void
 
 /// 将火山 RTC 远端解码帧转换为 SDK 中性帧模型。
@@ -24,7 +24,7 @@ final class RtcRemoteVideoSink: NSObject,
             return
         }
         frameListener(
-            DecodedVideoFrame(
+            RealtimeVideoFrame(
                 pixelBuffer: pixelBuffer,
                 presentationTimeStamp: videoFrame.timestamp
             )

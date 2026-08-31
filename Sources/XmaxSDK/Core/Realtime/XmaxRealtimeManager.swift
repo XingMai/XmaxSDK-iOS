@@ -152,6 +152,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await mediaController.setCameraPreviewReadyListener(listener)
     }
 
+    func setRemoteVideoFrameListener(
+        _ listener: RealtimeVideoFrameListener?
+    ) async {
+        await renderController.setRemoteVideoFrameListener(listener)
+    }
+
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {

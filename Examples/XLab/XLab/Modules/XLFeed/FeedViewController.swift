@@ -259,15 +259,29 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     @objc private func selectLocalVideo() {
+        guard validateAPIKey() else { return }
         presentMediaPicker(for: .video)
     }
 
     @objc private func selectLocalImage() {
+        guard validateAPIKey() else { return }
         presentMediaPicker(for: .image)
     }
 
     @objc private func selectCustomTrajectoryImage() {
+        guard validateAPIKey() else { return }
         presentMediaPicker(for: .customTrajectoryImage)
+    }
+
+    private func validateAPIKey() -> Bool {
+        let apiKey = UserDefaults.standard.string(
+            forKey: RealtimeConst.apiKeyStorageKey
+        )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !apiKey.isEmpty else {
+            XLToast.show("请先输入 API Key", in: view)
+            return false
+        }
+        return true
     }
 
     private func presentMediaPicker(for kind: MediaSelectionKind) {
@@ -631,14 +645,17 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     @objc private func openStorage() {
+        guard validateAPIKey() else { return }
         navigationController?.pushViewController(StorageViewController(), animated: true)
     }
 
     @objc private func openRealtime() {
+        guard validateAPIKey() else { return }
         navigationController?.pushViewController(RealtimeViewController(), animated: true)
     }
 
     @objc private func openSwiftUIRealtime() {
+        guard validateAPIKey() else { return }
         let view = RealtimeView { [weak self] in
             self?.navigationController?.popViewController(animated: true)
         }

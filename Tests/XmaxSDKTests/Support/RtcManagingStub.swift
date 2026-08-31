@@ -430,11 +430,12 @@ extension RtcManagingStub {
         )
     }
 
+    @discardableResult
     func emitRemoteVideoFrame(
         width: Int = 16,
         height: Int = 16,
         presentationTimeStamp: CMTime = .zero
-    ) throws {
+    ) throws -> CVPixelBuffer {
         let listener = lock.withLock { storedRemoteVideoFrameListener }
         guard let listener else {
             throw XmaxError(
@@ -459,11 +460,12 @@ extension RtcManagingStub {
             )
         }
         listener(
-            DecodedVideoFrame(
+            RealtimeVideoFrame(
                 pixelBuffer: pixelBuffer,
                 presentationTimeStamp: presentationTimeStamp
             )
         )
+        return pixelBuffer
     }
 }
 

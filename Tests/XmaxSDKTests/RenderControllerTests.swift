@@ -1,3 +1,4 @@
+import CoreMedia
 import UIKit
 import XCTest
 @testable import XmaxSDK
@@ -110,6 +111,48 @@ final class RenderControllerTests: XCTestCase {
         try rtcManager.emitRemoteVideoFrame()
 
         try await readiness.value
+    }
+
+    func testRemoteFrameListenerReceivesFinalFrameWithoutView() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(rtcManager: rtcManager)
+        let recorder = RemoteVideoFrameRecorder()
+        let timestamp = CMTime(value: 42, timescale: 1_000)
+        controller.setRemoteVideoFrameListener { frame in
+            recorder.record(frame)
+        }
+        try controller.setRemoteStream(
+            RemoteStream(roomID: "room-id", userID: "bot-user")
+        )
+
+        let pixelBuffer = try rtcManager.emitRemoteVideoFrame(
+            presentationTimeStamp: timestamp
+        )
+
+        let frame = try await waitForRemoteVideoFrame(recorder)
+        XCTAssertTrue(frame.pixelBuffer === pixelBuffer)
+        XCTAssertEqual(frame.presentationTimeStamp, timestamp)
+        XCTAssertEqual(frame.duration, CMTime(value: 1, timescale: 24))
+    }
+
+    func testClearingRemoteFrameListenerStopsDelivery() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(rtcManager: rtcManager)
+        let recorder = RemoteVideoFrameRecorder()
+        controller.setRemoteVideoFrameListener { frame in
+            recorder.record(frame)
+        }
+        controller.setRemoteVideoFrameListener(nil)
+        try controller.setRemoteStream(
+            RemoteStream(roomID: "room-id", userID: "bot-user")
+        )
+
+        try rtcManager.emitRemoteVideoFrame()
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        XCTAssertNil(recorder.firstFrame)
     }
 
     func testRemoteFrameReadyTimesOutWithoutFrame() async throws {
@@ -268,7 +311,38 @@ private final class RenderErrorRecorder: @unchecked Sendable {
     }
 }
 
+private final class RemoteVideoFrameRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var frames: [RealtimeVideoFrame] = []
+
+    var firstFrame: RealtimeVideoFrame? {
+        lock.withLock { frames.first }
+    }
+
+    func record(_ frame: RealtimeVideoFrame) {
+        lock.withLock {
+            frames.append(frame)
+        }
+    }
+}
+
 private extension RenderControllerTests {
+    func waitForRemoteVideoFrame(
+        _ recorder: RemoteVideoFrameRecorder
+    ) async throws -> RealtimeVideoFrame {
+        for _ in 0..<1_000 {
+            if let frame = recorder.firstFrame {
+                return frame
+            }
+            await Task.yield()
+        }
+        XCTFail("Timed out waiting for a remote video frame")
+        throw XmaxError(
+            code: .timeout,
+            message: "Remote video frame callback timed out"
+        )
+    }
+
     func registerRemoteTrack(
         with controller: RenderController
     ) throws -> (

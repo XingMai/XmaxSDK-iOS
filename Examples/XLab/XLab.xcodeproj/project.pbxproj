@@ -38,6 +38,7 @@
 		F11000000000000000000010 /* RealtimeReferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000010 /* RealtimeReferenceStore.swift */; };
 		F11000000000000000000011 /* RealtimeReferencePhotoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */; };
 		F11000000000000000000012 /* RealtimeSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000012 /* RealtimeSessionController.swift */; };
+		F11000000000000000000013 /* RealtimeVideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000013 /* RealtimeVideoRecorder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +77,7 @@
 		F21000000000000000000010 /* RealtimeReferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferenceStore.swift; sourceTree = "<group>"; };
 		F21000000000000000000011 /* RealtimeReferencePhotoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeReferencePhotoPicker.swift; sourceTree = "<group>"; };
 		F21000000000000000000012 /* RealtimeSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeSessionController.swift; sourceTree = "<group>"; };
+		F21000000000000000000013 /* RealtimeVideoRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeVideoRecorder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -199,6 +201,7 @@
 			isa = PBXGroup;
 			children = (
 				F2100000000000000000000C /* RealtimeLocalMediaPicker.swift */,
+				F21000000000000000000013 /* RealtimeVideoRecorder.swift */,
 			);
 			path = Service;
 			sourceTree = "<group>";
@@ -403,6 +406,7 @@
 				F11000000000000000000010 /* RealtimeReferenceStore.swift in Sources */,
 				F11000000000000000000011 /* RealtimeReferencePhotoPicker.swift in Sources */,
 				F11000000000000000000012 /* RealtimeSessionController.swift in Sources */,
+				F11000000000000000000013 /* RealtimeVideoRecorder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

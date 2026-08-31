@@ -28,6 +28,7 @@ final class RenderController: RenderControlling {
     private let frameInterpolationSupportChecker:
         RemoteVideoFramePipeline.FrameInterpolationSupportChecker
     private let remoteFrameReadyTimeoutNanoseconds: UInt64
+    private let remoteVideoFrameDispatcher = RealtimeVideoFrameDispatcher()
     private var renderingToken = UUID()
     private lazy var remoteFramePipeline = RemoteVideoFramePipeline(
         interpolationEnabled: initialFrameInterpolationEnabled,
@@ -50,7 +51,7 @@ final class RenderController: RenderControlling {
     private var activeRemoteFrameStream: RemoteStream?
     private weak var remoteView: XmaxVideoView?
     private var remoteContentMode = VideoContentMode.fill
-    private var latestRemoteFrame: DecodedVideoFrame?
+    private var latestRemoteFrame: RealtimeVideoFrame?
     private var remoteFrameReadyWaiters:
         [UUID: RemoteFrameReadyWaiter] = [:]
 
@@ -93,6 +94,12 @@ final class RenderController: RenderControlling {
             return
         }
         try activateRemoteFramesIfReady(reportsError: false)
+    }
+
+    func setRemoteVideoFrameListener(
+        _ listener: RealtimeVideoFrameListener?
+    ) {
+        remoteVideoFrameDispatcher.setListener(listener)
     }
 
     func registerRemoteTrack(
@@ -148,6 +155,7 @@ final class RenderController: RenderControlling {
         finishAllRemoteFrameReadyWaiters(
             error: Self.remoteFrameWaitCancelledError()
         )
+        remoteVideoFrameDispatcher.invalidatePendingFrames()
         latestRemoteFrame = nil
         renderingToken = outputToken
     }
@@ -311,6 +319,7 @@ private extension RenderController {
             error: Self.remoteFrameWaitCancelledError()
         )
         latestRemoteFrame = nil
+        remoteVideoFrameDispatcher.invalidatePendingFrames()
         renderingToken = UUID()
         let token = renderingToken
         Task { [remoteFramePipeline] in
@@ -319,12 +328,13 @@ private extension RenderController {
     }
 
     func displayRemoteFrame(
-        _ frame: DecodedVideoFrame,
+        _ frame: RealtimeVideoFrame,
         outputToken: UUID
     ) {
         guard outputToken == renderingToken else { return }
         latestRemoteFrame = frame
         finishAllRemoteFrameReadyWaiters()
+        remoteVideoFrameDispatcher.dispatch(frame)
         if let remoteView {
             remoteView.displayRemoteVideoFrame(
                 frame,

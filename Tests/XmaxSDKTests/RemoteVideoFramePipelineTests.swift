@@ -5,7 +5,7 @@ import XCTest
 
 final class RemoteVideoFramePipelineTests: XCTestCase {
     func testDisabledPipelinePassesThroughRemoteFrame() async throws {
-        let recorder = DecodedVideoFrameRecorder()
+        let recorder = RealtimeVideoFrameRecorder()
         let token = UUID()
         let pipeline = RemoteVideoFramePipeline(
             interpolationEnabled: false,
@@ -18,7 +18,7 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
         let pixelBuffer = try makePixelBuffer(width: 16, height: 16)
 
         await pipeline.enqueue(
-            DecodedVideoFrame(
+            RealtimeVideoFrame(
                 pixelBuffer: pixelBuffer,
                 presentationTimeStamp: .zero
             )
@@ -56,15 +56,15 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
 #endif
 }
 
-private actor DecodedVideoFrameRecorder {
+private actor RealtimeVideoFrameRecorder {
     struct Output: @unchecked Sendable {
-        let frame: DecodedVideoFrame
+        let frame: RealtimeVideoFrame
         let token: UUID
     }
 
     private var outputs: [Output] = []
 
-    func record(_ frame: DecodedVideoFrame, token: UUID) {
+    func record(_ frame: RealtimeVideoFrame, token: UUID) {
         outputs.append(Output(frame: frame, token: token))
     }
 
@@ -92,8 +92,8 @@ private extension RemoteVideoFramePipelineTests {
     }
 
     func waitForOutput(
-        _ recorder: DecodedVideoFrameRecorder
-    ) async throws -> DecodedVideoFrameRecorder.Output {
+        _ recorder: RealtimeVideoFrameRecorder
+    ) async throws -> RealtimeVideoFrameRecorder.Output {
         for _ in 0..<1_000 {
             if let output = await recorder.firstOutput {
                 return output

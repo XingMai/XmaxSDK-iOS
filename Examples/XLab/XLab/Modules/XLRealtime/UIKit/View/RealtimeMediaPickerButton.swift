@@ -1,6 +1,13 @@
 import SnapKit
 import UIKit
 
+enum RealtimeRecordingButtonState {
+    case idle
+    case preparing
+    case recording
+    case saving
+}
+
 final class RealtimeMediaTopBar: UIView {
     private enum Layout {
         static let itemWidth: CGFloat = 48
@@ -8,14 +15,35 @@ final class RealtimeMediaTopBar: UIView {
         static let iconSize: CGFloat = 17
     }
 
+    // 事件监听
     var onOpenGallery: (() -> Void)?
+    var onToggleRecording: (() -> Void)?
     var onOpenAudioVolume: ((UIView) -> Void)?
     var onMuteChanged: ((Bool) -> Void)?
     var onFrameInterpolationChanged: ((Bool) -> Void)?
 
-    private let showsMute: Bool
+    // 显示配置
+    private let showsVideoControls: Bool
+
+    // 运行状态
     private var isMuted = false
     private var isFrameInterpolationEnabled = false
+
+    // 界面组件
+    private lazy var recordingButton: RealtimeMediaActionButton = {
+        let button = makeActionButton(
+            title: "录制",
+            systemName: "record.circle",
+            accessibilityLabel: "开始录制生成视频"
+        )
+        button.accessibilityValue = "未录制"
+        button.addTarget(
+            self,
+            action: #selector(toggleRecording),
+            for: .touchUpInside
+        )
+        return button
+    }()
 
     private lazy var audioVolumeButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
@@ -82,7 +110,8 @@ final class RealtimeMediaTopBar: UIView {
 
     private lazy var stackView: UIStackView = {
         var buttons: [UIView] = []
-        if showsMute {
+        if showsVideoControls {
+            buttons.append(recordingButton)
             buttons.append(audioVolumeButton)
             buttons.append(muteButton)
         }
@@ -97,8 +126,8 @@ final class RealtimeMediaTopBar: UIView {
         return stackView
     }()
 
-    init(showsMute: Bool) {
-        self.showsMute = showsMute
+    init(showsVideoControls: Bool) {
+        self.showsVideoControls = showsVideoControls
         super.init(frame: .zero)
 
         addSubview(stackView)
@@ -113,7 +142,7 @@ final class RealtimeMediaTopBar: UIView {
 
     override var intrinsicContentSize: CGSize {
         CGSize(
-            width: CGFloat(showsMute ? 4 : 2) * Layout.itemWidth,
+            width: CGFloat(showsVideoControls ? 5 : 2) * Layout.itemWidth,
             height: Layout.height
         )
     }
@@ -150,6 +179,47 @@ final class RealtimeMediaTopBar: UIView {
         renderMuteState()
     }
 
+    func setRecordingState(_ state: RealtimeRecordingButtonState) {
+        switch state {
+        case .idle:
+            recordingButton.setContent(
+                title: "录制",
+                image: makeSymbolImage(systemName: "record.circle")
+            )
+            recordingButton.setTintColor(.white)
+            recordingButton.isEnabled = true
+            recordingButton.accessibilityLabel = "开始录制生成视频"
+            recordingButton.accessibilityValue = "未录制"
+        case .preparing:
+            recordingButton.setContent(
+                title: "准备",
+                image: makeSymbolImage(systemName: "hourglass")
+            )
+            recordingButton.setTintColor(.systemOrange)
+            recordingButton.isEnabled = false
+            recordingButton.accessibilityLabel = "正在准备视频录制"
+            recordingButton.accessibilityValue = "正在准备"
+        case .recording:
+            recordingButton.setContent(
+                title: "停止",
+                image: makeSymbolImage(systemName: "stop.circle.fill")
+            )
+            recordingButton.setTintColor(.systemRed)
+            recordingButton.isEnabled = true
+            recordingButton.accessibilityLabel = "停止录制并保存视频"
+            recordingButton.accessibilityValue = "正在录制"
+        case .saving:
+            recordingButton.setContent(
+                title: "保存",
+                image: makeSymbolImage(systemName: "hourglass")
+            )
+            recordingButton.setTintColor(.systemOrange)
+            recordingButton.isEnabled = false
+            recordingButton.accessibilityLabel = "正在保存录制视频"
+            recordingButton.accessibilityValue = "正在保存"
+        }
+    }
+
     func setFrameInterpolationEnabled(_ enabled: Bool) {
         isFrameInterpolationEnabled = enabled
         frameInterpolationButton.setActive(enabled)
@@ -176,6 +246,10 @@ final class RealtimeMediaTopBar: UIView {
 
     @objc private func openAudioVolume() {
         onOpenAudioVolume?(audioVolumeButton)
+    }
+
+    @objc private func toggleRecording() {
+        onToggleRecording?()
     }
 
     @objc private func toggleFrameInterpolation() {
@@ -388,8 +462,20 @@ private final class RealtimeMediaActionButton: UIControl {
         }
     }
 
+    func setTintColor(_ color: UIColor) {
+        iconView.tintColor = color
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            alpha = isEnabled ? 1 : 0.55
+            accessibilityTraits = isEnabled ? .button : [.button, .notEnabled]
+        }
+    }
+
     override var isHighlighted: Bool {
         didSet {
+            guard isEnabled else { return }
             alpha = isHighlighted ? 0.55 : 1
         }
     }

@@ -26,7 +26,7 @@ final class FrameInterpolationManager:
     private var previousSourceFrame: VTFrameProcessorFrame?
     private var lastNormalizedTimeStamp: CMTime?
 
-    init(frame: DecodedVideoFrame) throws {
+    init(frame: RealtimeVideoFrame) throws {
         sourceWidth = CVPixelBufferGetWidth(frame.pixelBuffer)
         sourceHeight = CVPixelBufferGetHeight(frame.pixelBuffer)
         sourcePixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
@@ -73,7 +73,7 @@ final class FrameInterpolationManager:
         processor.endSession()
     }
 
-    func matches(_ frame: DecodedVideoFrame) -> Bool {
+    func matches(_ frame: RealtimeVideoFrame) -> Bool {
         CVPixelBufferGetWidth(frame.pixelBuffer) == sourceWidth &&
             CVPixelBufferGetHeight(frame.pixelBuffer) == sourceHeight &&
             CVPixelBufferGetPixelFormatType(frame.pixelBuffer) ==
@@ -81,9 +81,9 @@ final class FrameInterpolationManager:
     }
 
     func process(
-        _ frame: DecodedVideoFrame,
+        _ frame: RealtimeVideoFrame,
         sourceDuration: CMTime
-    ) async throws -> [DecodedVideoFrame] {
+    ) async throws -> [RealtimeVideoFrame] {
         let timeStamp = normalizedTimeStamp(
             frame.presentationTimeStamp,
             duration: sourceDuration
@@ -103,7 +103,7 @@ final class FrameInterpolationManager:
         guard let previousSourceFrame else {
             self.previousSourceFrame = sourceFrame
             return [
-                DecodedVideoFrame(
+                RealtimeVideoFrame(
                     pixelBuffer: sourcePixelBuffer,
                     presentationTimeStamp: timeStamp,
                     duration: sourceDuration
@@ -142,12 +142,12 @@ final class FrameInterpolationManager:
 
         let outputDuration = sourceDuration.divided(by: 2)
         return [
-            DecodedVideoFrame(
+            RealtimeVideoFrame(
                 pixelBuffer: destinationFrame.buffer,
                 presentationTimeStamp: interpolationTimeStamp,
                 duration: outputDuration
             ),
-            DecodedVideoFrame(
+            RealtimeVideoFrame(
                 pixelBuffer: sourcePixelBuffer,
                 presentationTimeStamp: timeStamp,
                 duration: outputDuration

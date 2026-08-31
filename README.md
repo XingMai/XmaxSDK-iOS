@@ -262,6 +262,32 @@ In SwiftUI, render the generated track with `XmaxVideo`:
 XmaxVideo(track: remoteStream.videoTrack)
 ```
 
+To record or process the generated output outside the SDK, register a final-frame
+listener before starting generation:
+
+```swift
+await realtime.setRemoteVideoFrameListener { frame in
+    recorder.append(
+        pixelBuffer: frame.pixelBuffer,
+        presentationTimeStamp: frame.presentationTimeStamp,
+        duration: frame.duration
+    )
+}
+```
+
+The listener receives the frames accepted by the final render pipeline, after
+optional frame interpolation, on a dedicated serial background queue. Frame time
+stamps do not necessarily start at zero, so a recorder should rebase its output
+timeline to the first received frame. Transfer each frame to the recording pipeline
+quickly and avoid synchronous encoding in the callback. This API currently exposes
+video frames only; generated audio is not included.
+
+Clear the listener when frame delivery is no longer required:
+
+```swift
+await realtime.setRemoteVideoFrameListener(nil)
+```
+
 To update an active generation task, submit a new context containing the revised
 prompt or reference image:
 
