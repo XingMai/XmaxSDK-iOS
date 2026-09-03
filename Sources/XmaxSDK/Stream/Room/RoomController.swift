@@ -112,7 +112,8 @@ actor RoomController: RoomControlling {
                 taskID: taskID,
                 videoFormat: videoFormat,
                 context: context
-            )
+            ),
+            severity: .fatal
         )
     }
 
@@ -127,7 +128,8 @@ actor RoomController: RoomControlling {
                 taskID: taskID,
                 videoFormat: videoFormat,
                 context: context
-            )
+            ),
+            severity: .recoverable
         )
     }
 
@@ -141,7 +143,8 @@ actor RoomController: RoomControlling {
             RoomEvent.stop(
                 userID: userID,
                 taskID: taskID
-            )
+            ),
+            severity: .recoverable
         )
     }
 
@@ -158,7 +161,8 @@ actor RoomController: RoomControlling {
                 userID: try requireUserID(),
                 taskID: taskID,
                 points: points
-            )
+            ),
+            severity: .recoverable
         )
     }
 }
@@ -195,8 +199,15 @@ private extension RoomController {
         }
     }
 
-    func send(_ message: String) throws {
-        try rtcManager.sendRoomMessage(message)
+    func send(
+        _ message: String,
+        severity: XmaxErrorSeverity
+    ) throws {
+        do {
+            try rtcManager.sendRoomMessage(message)
+        } catch {
+            throw XmaxError.from(error).withSeverity(severity)
+        }
         XmaxLogger.debug(
             category: "Room",
             message: formatSignalLog(message)

@@ -56,14 +56,27 @@ public enum XmaxErrorCode: String, CaseIterable, Sendable {
     case timeout = "TIMEOUT"
 }
 
+/// 描述 SDK 错误对当前操作或实时生命周期的影响程度。
+public enum XmaxErrorSeverity: String, CaseIterable, Sendable {
+
+    /// 当前操作未完成，但 SDK 仍可继续使用或维持现有实时流程。
+    case recoverable = "RECOVERABLE"
+
+    /// 当前实时流程无法继续，需要接入方感知并进行恢复或退出处理。
+    case fatal = "FATAL"
+}
+
 /// 表示 SDK 抛出或回调给接入方的统一错误。
 public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
 
     /// SDK 统一错误码。
     public let code: XmaxErrorCode
 
-    /// 面向接入方的错误原因。
+    /// 面向接入方的可读错误说明。
     public let message: String
+
+    /// 错误对当前操作或实时生命周期的影响程度。
+    public let severity: XmaxErrorSeverity
 
     /// Xmax API 返回的业务错误码；非 API 业务错误时为空。
     public let apiCode: Int?
@@ -75,17 +88,20 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
     ///
     /// - Parameters:
     ///   - code: SDK 统一错误码。
-    ///   - message: 面向接入方的错误原因。
+    ///   - message: 面向接入方的可读错误说明。
+    ///   - severity: 错误影响程度；省略时根据 `code` 提供默认值。
     ///   - apiCode: Xmax API 返回的可选业务错误码。
     ///   - httpStatus: 可选的 HTTP 响应状态码。
     public init(
         code: XmaxErrorCode,
         message: String,
+        severity: XmaxErrorSeverity? = nil,
         apiCode: Int? = nil,
         httpStatus: Int? = nil
     ) {
         self.code = code
         self.message = message
+        self.severity = severity ?? Self.defaultSeverity(for: code)
         self.apiCode = apiCode
         self.httpStatus = httpStatus
     }
@@ -112,5 +128,45 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
             code: .internalError,
             message: message
         )
+    }
+}
+
+extension XmaxError {
+    /// 保留原错误信息并更新影响程度。
+    func withSeverity(_ severity: XmaxErrorSeverity) -> XmaxError {
+        XmaxError(
+            code: code,
+            message: message,
+            severity: severity,
+            apiCode: apiCode,
+            httpStatus: httpStatus
+        )
+    }
+}
+
+private extension XmaxError {
+    static func defaultSeverity(
+        for code: XmaxErrorCode
+    ) -> XmaxErrorSeverity {
+        switch code {
+        case .invalidAPIKey,
+             .invalidConfiguration,
+             .frameInterpolationUnsupported,
+             .cameraPermissionDenied,
+             .microphonePermissionDenied,
+             .cancelled:
+            .recoverable
+        case .internalError,
+             .networkError,
+             .apiError,
+             .sessionError,
+             .rtcError,
+             .mediaError,
+             .uploadError,
+             .downloadError,
+             .unsafeImage,
+             .timeout:
+            .fatal
+        }
     }
 }

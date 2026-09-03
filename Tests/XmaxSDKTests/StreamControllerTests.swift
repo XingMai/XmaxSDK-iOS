@@ -129,12 +129,12 @@ final class StreamControllerTests: XCTestCase {
 
     @MainActor
     func testRemoteVideoSubscriptionFailureReportsError() throws {
-        let expectedError = XmaxError(
+        let subscriptionError = XmaxError(
             code: .rtcError,
             message: "subscribe failed"
         )
         let rtcManager = RtcManagingStub(
-            subscribeRemoteVideoError: expectedError
+            subscribeRemoteVideoError: subscriptionError
         )
         let receivedErrors = StreamErrorRecorder()
         let controller = StreamController(
@@ -151,7 +151,10 @@ final class StreamControllerTests: XCTestCase {
             published: true
         )
 
-        XCTAssertEqual(receivedErrors.values, [expectedError])
+        XCTAssertEqual(
+            receivedErrors.values,
+            [subscriptionError]
+        )
     }
 
     @MainActor

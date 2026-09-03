@@ -22,6 +22,17 @@ final class RealtimeErrorHandler: @unchecked Sendable {
     }
 
     func report(_ error: XmaxError) async {
+        XmaxLogger.error(
+            category: "Realtime",
+            message: "实时服务错误 (Realtime Service Error)\n" +
+                "├─ 错误码：\(error.code.rawValue)\n" +
+                "├─ 级别：\(error.severity.rawValue)\n" +
+                "└─ 信息：\(error.message)"
+        )
+        guard error.severity == .fatal else {
+            return
+        }
+
         let listener = lock.withLock { listener }
         if let listener {
             await listener(error)

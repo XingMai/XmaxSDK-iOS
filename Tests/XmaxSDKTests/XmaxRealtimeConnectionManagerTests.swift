@@ -143,12 +143,12 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
     }
 
     func testConnectionFailureRollsBackRoomAndClosesSession() async {
-        let expectedError = XmaxError(
+        let publicationError = XmaxError(
             code: .rtcError,
             message: "publish failed"
         )
         let rtcManager = RtcManagingStub(
-            publishLocalVideoError: expectedError
+            publishLocalVideoError: publicationError
         )
         let sessionService = RealtimeSessionServicingStub(session: session)
         let components = makeManager(
@@ -166,7 +166,10 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             )
             XCTFail("Expected local publication to fail")
         } catch {
-            XCTAssertEqual(error as? XmaxError, expectedError)
+            XCTAssertEqual(
+                error as? XmaxError,
+                publicationError
+            )
         }
 
         XCTAssertEqual(

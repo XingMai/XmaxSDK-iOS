@@ -90,7 +90,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(components.rtcManager.calls.last, .destroy)
     }
 
-    func testUnsupportedInitialFrameInterpolationDoesNotStopStreamCreation()
+    func testUnsupportedInitialFrameInterpolationDoesNotReportFatalError()
         async throws {
         let components = makeComponents(
             frameInterpolationEnabled: true,
@@ -109,10 +109,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertNotNil(stream.videoTrack)
         XCTAssertFalse(interpolationEnabled)
-        XCTAssertEqual(
-            receivedErrors.map(\.code),
-            [.frameInterpolationUnsupported]
-        )
+        XCTAssertTrue(receivedErrors.isEmpty)
         try await components.manager.stopLocalCameraStream()
     }
 
@@ -695,12 +692,16 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         _ = try await components.manager.connect(localStream: localStream)
         let expectedError = XmaxError(
             code: .sessionError,
-            message: "session closed"
+            message: "session closed",
+            severity: .fatal
         )
 
         await components.sessionService.failHeartbeat(
             sessionID: "session-id",
-            error: expectedError
+            error: XmaxError(
+                code: .sessionError,
+                message: "session closed"
+            )
         )
 
         let state = await components.manager.currentState
@@ -710,7 +711,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testStopGenerationFailureReportsError() async throws {
+    func testStopGenerationFailureDoesNotReportFatalError() async throws {
         let components = makeComponents()
         var receivedErrors: [XmaxError] = []
         await components.manager.setErrorListener { error in
@@ -742,15 +743,15 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
-        let expectedError = XmaxError(
+        let signalingError = XmaxError(
             code: .rtcError,
             message: "sendRoomMessage failed: -1"
         )
-        components.rtcManager.setSendRoomMessageError(expectedError)
+        components.rtcManager.setSendRoomMessageError(signalingError)
 
         await components.manager.stopGeneration()
 
-        XCTAssertEqual(receivedErrors, [expectedError])
+        XCTAssertTrue(receivedErrors.isEmpty)
         await components.manager.disconnect()
         try await components.manager.stopLocalCameraStream()
     }
@@ -840,7 +841,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 .invalidConfiguration
             )
         }
-        XCTAssertEqual(receivedError?.code, .invalidConfiguration)
+        XCTAssertNil(receivedError)
     }
 
     func testQualityListenersReceiveRtcEvents() async {

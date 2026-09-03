@@ -184,7 +184,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try Self.validateAudioVolume(volume)
             try streamController.setRemoteAudioVolume(volume)
         } catch {
-            throw await reportError(error)
+            throw await reportError(
+                XmaxError.from(error).withSeverity(.recoverable)
+            )
         }
     }
 
@@ -196,7 +198,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 videoFormat: videoFormat
             )
         } catch {
-            throw await reportError(error)
+            throw await reportError(
+                XmaxError.from(error).withSeverity(.recoverable)
+            )
         }
     }
 
@@ -621,7 +625,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             throw await reportError(
                 XmaxError(
                     code: .rtcError,
-                    message: "Realtime connection is not open"
+                    message: "Realtime connection is not open",
+                    severity: .recoverable
                 )
             )
         }
@@ -738,7 +743,8 @@ private extension XmaxRealtimeManager {
             XmaxError(
                 code: .frameInterpolationUnsupported,
                 message: "Frame interpolation is unavailable for " +
-                    "\(videoFormat.width) × \(videoFormat.height) video"
+                    "\(videoFormat.width) × \(videoFormat.height) video",
+                severity: .recoverable
             )
         )
     }
@@ -797,10 +803,8 @@ private extension XmaxRealtimeManager {
         do {
             sessionID = try await connectionManager.disconnect()
         } catch {
-            XmaxLogger.error(
-                category: "Realtime",
-                message: "关闭实时会话失败 (Failed to Close Realtime Session)\n" +
-                    "└─ 原因：\(ErrorMessageFormatter.format(error))"
+            await errorHandler.report(
+                XmaxError.from(error).withSeverity(.recoverable)
             )
         }
         await unmuteLocalAudioPreview()
@@ -826,7 +830,9 @@ private extension XmaxRealtimeManager {
         guard await connectionManager.currentSessionID == sessionID else {
             return
         }
-        await reportError(error)
+        await errorHandler.report(
+            error.withSeverity(.fatal)
+        )
         guard await connectionManager.currentSessionID == sessionID else {
             return
         }

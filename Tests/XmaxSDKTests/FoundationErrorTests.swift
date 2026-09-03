@@ -28,6 +28,59 @@ final class FoundationErrorTests: XCTestCase {
         )
     }
 
+    func testDefaultSeverityUsesErrorCode() {
+        let recoverableError = XmaxError(
+            code: .invalidConfiguration,
+            message: "Invalid state"
+        )
+        let fatalError = XmaxError(
+            code: .rtcError,
+            message: "RTC failed"
+        )
+
+        XCTAssertEqual(recoverableError.severity, .recoverable)
+        XCTAssertEqual(fatalError.severity, .fatal)
+    }
+
+    func testUpdatingSeverityPreservesOriginalErrorDetails() {
+        let error = XmaxError(
+            code: .rtcError,
+            message: "send failed",
+            apiCode: 1003,
+            httpStatus: 500
+        ).withSeverity(.recoverable)
+
+        XCTAssertEqual(error.code, .rtcError)
+        XCTAssertEqual(error.message, "send failed")
+        XCTAssertEqual(error.severity, .recoverable)
+        XCTAssertEqual(error.apiCode, 1003)
+        XCTAssertEqual(error.httpStatus, 500)
+    }
+
+    @MainActor
+    func testRealtimeErrorHandlerOnlyNotifiesFatalErrors() async {
+        let handler = RealtimeErrorHandler()
+        var receivedErrors: [XmaxError] = []
+        handler.setListener { error in
+            receivedErrors.append(error)
+        }
+        let recoverableError = XmaxError(
+            code: .rtcError,
+            message: "Stop signal failed",
+            severity: .recoverable
+        )
+        let fatalError = XmaxError(
+            code: .rtcError,
+            message: "RTC connection failed",
+            severity: .fatal
+        )
+
+        await handler.report(recoverableError)
+        await handler.report(fatalError)
+
+        XCTAssertEqual(receivedErrors, [fatalError])
+    }
+
     func testFormatterIncludesXmaxErrorDetails() {
         let error = XmaxError(
             code: .apiError,

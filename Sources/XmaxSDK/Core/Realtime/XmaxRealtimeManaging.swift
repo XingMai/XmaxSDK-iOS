@@ -26,9 +26,12 @@ public protocol XmaxRealtimeManaging: Sendable {
     ) async
 
 
-    /// 设置实时错误监听器。
+    /// 设置致命实时错误监听器。
     ///
-    /// - Parameter listener: 实时错误回调；传入 `nil` 时清除监听器。
+    /// SDK 会记录所有实时错误，但只有导致当前实时流程无法继续的致命错误会
+    /// 触发该监听器。可恢复错误仍会通过对应异步接口抛出。
+    ///
+    /// - Parameter listener: 致命实时错误回调；传入 `nil` 时清除监听器。
     func setErrorListener(
         _ listener: RealtimeErrorListener?
     ) async

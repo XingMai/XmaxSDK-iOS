@@ -156,6 +156,44 @@ final class RoomControllerTests: XCTestCase {
         await controller.leave()
     }
 
+    func testGenerationSignalFailuresExposeSeverity() async throws {
+        let rtcManager = RtcManagingStub(
+            sendRoomMessageError: XmaxError(
+                code: .rtcError,
+                message: "send failed"
+            )
+        )
+        let controller = RoomController(rtcManager: rtcManager)
+        try await controller.join(
+            connection: connection,
+            ensureActive: {}
+        )
+        let format = RealtimeVideoFormat(
+            width: 720,
+            height: 1280,
+            fps: 24
+        )
+
+        do {
+            try await controller.startGeneration(
+                taskID: "task-id",
+                videoFormat: format,
+                context: RealtimeContext(prompt: "prompt")
+            )
+            XCTFail("Expected start signal to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.severity, .fatal)
+        }
+
+        do {
+            try await controller.stopGeneration(taskID: "task-id")
+            XCTFail("Expected stop signal to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.severity, .recoverable)
+        }
+        await controller.leave()
+    }
+
     func testGenerationSignalRequiresJoinedRoom() async {
         let rtcManager = RtcManagingStub()
         let controller = RoomController(rtcManager: rtcManager)

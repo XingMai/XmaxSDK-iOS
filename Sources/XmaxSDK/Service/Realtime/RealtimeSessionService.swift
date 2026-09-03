@@ -69,10 +69,14 @@ final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendabl
     }
 
     func closeSession(sessionID: String) async throws {
-        _ = try await apiService.delete(
-            "/session/\(sessionID)",
-            as: EmptyResponse.self
-        )
+        do {
+            _ = try await apiService.delete(
+                "/session/\(sessionID)",
+                as: EmptyResponse.self
+            )
+        } catch {
+            throw XmaxError.from(error).withSeverity(.recoverable)
+        }
     }
 }
 
@@ -188,7 +192,7 @@ private extension RealtimeSessionService {
                 }
                 await context.onFailure(
                     context.sessionID,
-                    XmaxError.from(error)
+                    XmaxError.from(error).withSeverity(.fatal)
                 )
                 return
             }
