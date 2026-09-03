@@ -40,19 +40,11 @@ struct RealtimeView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            XmaxVideo(
-                track: realtimeSession.localVideoTrack,
-                isInteractionEnabled: false
+            XmaxRealtimeVideo(
+                localTrack: realtimeSession.localVideoTrack,
+                remoteTrack: realtimeSession.remoteVideoTrack
             )
                 .ignoresSafeArea()
-                .simultaneousGesture(
-                    TapGesture().onEnded(dismissPromptKeyboard)
-                )
-
-            XmaxVideo(track: realtimeSession.remoteVideoTrack)
-                .ignoresSafeArea()
-                .opacity(realtimeSession.isRemoteVideoVisible ? 1 : 0)
-                .allowsHitTesting(realtimeSession.isRemoteVideoVisible)
                 .simultaneousGesture(
                     TapGesture().onEnded(dismissPromptKeyboard)
                 )

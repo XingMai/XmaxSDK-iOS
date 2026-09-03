@@ -12,7 +12,6 @@ final class RealtimeSessionController: ObservableObject {
     // 实时状态
     @Published private(set) var isPreviewReady = false
     @Published private(set) var isGenerationRequested = false
-    @Published private(set) var isRemoteVideoVisible = false
     @Published private(set) var isLoading = true
 
     // 设备状态
@@ -137,14 +136,13 @@ final class RealtimeSessionController: ObservableObject {
                     return
                 }
                 remoteVideoTrack = remoteStream.videoTrack
-                isRemoteVideoVisible = true
                 isLoading = false
             } catch is CancellationError {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
                 isGenerationRequested = false
-                isRemoteVideoVisible = false
+                remoteVideoTrack = nil
                 isLoading = false
                 await realtimeManager.disconnect()
             }
@@ -152,10 +150,10 @@ final class RealtimeSessionController: ObservableObject {
     }
 
     func stopGeneration() {
-        guard isGenerationRequested || isRemoteVideoVisible else { return }
+        guard isGenerationRequested || remoteVideoTrack != nil else { return }
 
         isGenerationRequested = false
-        isRemoteVideoVisible = false
+        remoteVideoTrack = nil
         isLoading = !isPreviewReady
 
         let previousTask = generationTask
@@ -172,8 +170,9 @@ final class RealtimeSessionController: ObservableObject {
         guard localMediaStream != nil, !isCameraSwitching else { return }
 
         isCameraSwitching = true
+        let retainedRemoteVideoTrack = remoteVideoTrack
         if isGenerationRequested {
-            isRemoteVideoVisible = false
+            remoteVideoTrack = nil
             isLoading = true
         }
         cameraSwitchTask?.cancel()
@@ -186,7 +185,10 @@ final class RealtimeSessionController: ObservableObject {
                 localMediaStream = stream
                 localVideoTrack = stream.videoTrack
                 isBackCameraSelected.toggle()
-                if !isGenerationRequested {
+                if isGenerationRequested {
+                    remoteVideoTrack = retainedRemoteVideoTrack
+                    isLoading = false
+                } else {
                     isLoading = !isPreviewReady
                 }
             } catch is CancellationError {
@@ -241,7 +243,6 @@ final class RealtimeSessionController: ObservableObject {
         remoteVideoTrack = nil
         isPreviewReady = false
         isGenerationRequested = false
-        isRemoteVideoVisible = false
         isLoading = false
         isBackCameraSelected = false
         isCameraSwitching = false
@@ -263,23 +264,22 @@ final class RealtimeSessionController: ObservableObject {
         switch state.connectionState {
         case .connecting, .connected:
             if isGenerationRequested {
-                isRemoteVideoVisible = false
+                remoteVideoTrack = nil
                 isLoading = true
             }
         case .generating:
             guard isGenerationRequested else { return }
             if remoteVideoTrack != nil {
-                isRemoteVideoVisible = true
                 isLoading = false
             }
         case .idle, .disconnecting, .disconnected:
             if !isGenerationRequested {
-                isRemoteVideoVisible = false
+                remoteVideoTrack = nil
                 isLoading = !isPreviewReady
             }
         case .error:
             isGenerationRequested = false
-            isRemoteVideoVisible = false
+            remoteVideoTrack = nil
             isLoading = !isPreviewReady
         }
     }

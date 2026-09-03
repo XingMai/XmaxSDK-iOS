@@ -65,6 +65,7 @@ public final class XmaxVideoView: UIView {
     private var attachedTrajectoryBinding: TrajectoryBinding?
     private var customTrajectoryRenderer:
         (any TrajectoryEffectRendering)?
+    var frameDisplayHandler: (() -> Void)?
 
     // 视频预览
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
@@ -161,6 +162,7 @@ extension XmaxVideoView {
         imageView.isHidden = false
         bringSubviewToFront(imageView)
         bringSubviewToFront(trajectoryOverlayView)
+        frameDisplayHandler?()
     }
 
     func clearImageFrame() {
@@ -247,6 +249,7 @@ extension XmaxVideoView {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
             decodedVideoLayer.enqueue(sampleBuffer)
+            frameDisplayHandler?()
         } catch {
             Self.logRenderingFailure(
                 title: "显示本地视频帧失败 (Failed to Display Local Video Frame)",
@@ -311,6 +314,7 @@ extension XmaxVideoView {
         }
         decodedVideoLayer.enqueue(sampleBuffer)
         nextDecodedVideoPresentationTime = presentationTime + duration
+        frameDisplayHandler?()
     }
 
     func clearDecodedVideoPreview() {

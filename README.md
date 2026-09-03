@@ -26,7 +26,7 @@ directly into their apps.
 - Multi-touch trajectory input for controlling subject movement in generated video
   streams
 - Image and video transfer through Xmax-managed object storage
-- Native Swift 6 APIs with async/await support
+- Swift 6 APIs with async/await support
 - SwiftUI ready
 
 ## Requirements
@@ -212,23 +212,22 @@ Only one local input stream may be active at a time.
 
 ### Preview the input
 
-In UIKit, bind the local stream to an `XmaxVideoView`:
+In UIKit, bind the local stream to an `XmaxRealtimeVideoView`:
 
 ```swift
-let localVideoView = XmaxVideoView(
-    track: localStream.videoTrack,
-    videoContentMode: .fill,
-    isInteractionEnabled: false
+let realtimeVideoView = XmaxRealtimeVideoView(
+    localTrack: localStream.videoTrack,
+    videoContentMode: .fill
 )
 ```
 
-In SwiftUI, render the same track with `XmaxVideo`:
+In SwiftUI, render local and remote tracks with `XmaxRealtimeVideo`:
 
 ```swift
-XmaxVideo(
-    track: localStream.videoTrack,
-    videoContentMode: .fill,
-    isInteractionEnabled: false
+XmaxRealtimeVideo(
+    localTrack: localStream.videoTrack,
+    remoteTrack: remoteVideoTrack,
+    videoContentMode: .fill
 )
 ```
 
@@ -247,20 +246,21 @@ let remoteStream = try await realtime.startGeneration(
 )
 ```
 
-In UIKit, render the generated output with a separate `XmaxVideoView`:
+In UIKit, assign the generated track to the same realtime video view:
 
 ```swift
-let remoteVideoView = XmaxVideoView(
-    track: remoteStream.videoTrack,
-    videoContentMode: .fill
-)
+realtimeVideoView.remoteTrack = remoteStream.videoTrack
 ```
 
-In SwiftUI, render the generated track with `XmaxVideo`:
+In SwiftUI, update the remote track used by `XmaxRealtimeVideo`:
 
 ```swift
-XmaxVideo(track: remoteStream.videoTrack)
+remoteVideoTrack = remoteStream.videoTrack
 ```
+
+`XmaxRealtimeVideoView` and `XmaxRealtimeVideo` keep the local preview active
+under the generated output, wait for the first remote frame before showing it,
+and restore the local preview when `remoteTrack` becomes `nil`.
 
 To record or process the generated output outside the SDK, register a final-frame
 listener before starting generation:
@@ -315,23 +315,24 @@ resources and should be called when the realtime workflow is no longer required.
 
 ## Touch Interaction
 
-During an active generation task, `XmaxVideoView` and `XmaxVideo` capture
-multi-touch trajectories over the generated video and submit them to the active
-task. The host application does not need to implement gesture tracking or coordinate
-conversion.
+During an active generation task, `XmaxRealtimeVideoView` and
+`XmaxRealtimeVideo` capture multi-touch trajectories over the generated video and
+submit them to the active task. The host application does not need to implement
+gesture tracking or coordinate conversion.
 
 Trajectory interaction is enabled by default. In UIKit, disable it when touch input
 must be handled by the surrounding user interface:
 
 ```swift
-remoteVideoView.isInteractionEnabled = false
+realtimeVideoView.isInteractionEnabled = false
 ```
 
-In SwiftUI, set `isInteractionEnabled` when constructing `XmaxVideo`:
+In SwiftUI, set `isInteractionEnabled` when constructing `XmaxRealtimeVideo`:
 
 ```swift
-XmaxVideo(
-    track: remoteStream.videoTrack,
+XmaxRealtimeVideo(
+    localTrack: localStream.videoTrack,
+    remoteTrack: remoteVideoTrack,
     isInteractionEnabled: false
 )
 ```

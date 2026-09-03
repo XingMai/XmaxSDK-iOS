@@ -17,25 +17,14 @@ final class RealtimePreviewBackdropView: UIView {
     // 媒体视图
     private let videoViewportView = UIView()
 
-    private lazy var localVideoView: XmaxVideoView = {
-        let view = XmaxVideoView()
-        view.videoContentMode = videoContentMode
-        view.isHidden = true
-        return view
-    }()
-
-    private lazy var remoteVideoView: XmaxVideoView = {
-        let view = XmaxVideoView()
-        view.videoContentMode = videoContentMode
+    private lazy var realtimeVideoView: XmaxRealtimeVideoView = {
+        let view = XmaxRealtimeVideoView(
+            videoContentMode: videoContentMode
+        )
         view.trajectoryRenderer = trajectoryRenderer
         view.backgroundColor = .feed(rgb: 0x101010)
-        view.alpha = 0
-        view.isHidden = true
         return view
     }()
-
-    // 远端显示状态
-    private var remoteVisibilityVersion: UInt64 = 0
 
     // 摄像头切换动画
     private lazy var cameraSwitchBlurView: UIVisualEffectView = {
@@ -69,9 +58,8 @@ final class RealtimePreviewBackdropView: UIView {
 
         videoViewportView.clipsToBounds = true
         addSubview(videoViewportView)
-        videoViewportView.addSubview(localVideoView)
+        videoViewportView.addSubview(realtimeVideoView)
         videoViewportView.addSubview(cameraSwitchBlurView)
-        videoViewportView.addSubview(remoteVideoView)
     }
 
     required init?(coder: NSCoder) {
@@ -82,83 +70,26 @@ final class RealtimePreviewBackdropView: UIView {
         super.layoutSubviews()
         videoViewportView.frame = bounds
         let contentFrame = videoViewportView.bounds
-        localVideoView.frame = contentFrame
+        realtimeVideoView.frame = contentFrame
         cameraSwitchBlurView.frame = contentFrame
-        remoteVideoView.frame = contentFrame
-        localVideoView.layoutIfNeeded()
-        remoteVideoView.layoutIfNeeded()
+        realtimeVideoView.layoutIfNeeded()
     }
 
     func displayLocal(_ track: RealtimeVideoTrack?) {
         updateLocal(track)
-        clearRealtime()
+        realtimeVideoView.remoteTrack = nil
     }
 
     func updateLocal(_ track: RealtimeVideoTrack?) {
-        localVideoView.isHidden = false
-        localVideoView.track = track
+        realtimeVideoView.localTrack = track
     }
 
-    func prepareRealtime(_ track: RealtimeVideoTrack?) {
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.alpha = 0
-        remoteVideoView.isHidden = true
-        remoteVideoView.track = track
-    }
-
-    func showRealtime() {
-        guard remoteVideoView.track != nil else { return }
-        guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
-            return
-        }
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.isHidden = false
-        UIView.animate(
-            withDuration: 0.3,
-            delay: 0,
-            options: [.beginFromCurrentState, .curveEaseInOut]
-        ) {
-            self.remoteVideoView.alpha = 1
-        }
+    func displayRealtime(_ track: RealtimeVideoTrack?) {
+        realtimeVideoView.remoteTrack = track
     }
 
     func hideRealtime() {
-        remoteVisibilityVersion &+= 1
-        remoteVideoView.layer.removeAllAnimations()
-        remoteVideoView.alpha = 0
-        remoteVideoView.isHidden = true
-    }
-
-    func transitionToLocal(_ track: RealtimeVideoTrack?) async {
-        updateLocal(track)
-        remoteVisibilityVersion &+= 1
-        let version = remoteVisibilityVersion
-        remoteVideoView.layer.removeAllAnimations()
-
-        guard !remoteVideoView.isHidden,
-              remoteVideoView.alpha > 0 else {
-            remoteVideoView.alpha = 0
-            remoteVideoView.isHidden = true
-            remoteVideoView.track = nil
-            return
-        }
-
-        await withCheckedContinuation { continuation in
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            CATransaction.setCompletionBlock { [weak self] in
-                if let self,
-                   version == self.remoteVisibilityVersion {
-                    self.remoteVideoView.isHidden = true
-                    self.remoteVideoView.track = nil
-                }
-                continuation.resume()
-            }
-            remoteVideoView.alpha = 0
-            CATransaction.commit()
-        }
+        realtimeVideoView.remoteTrack = nil
     }
 
     func setCameraSwitchTransitionActive(_ isActive: Bool) {
@@ -170,11 +101,6 @@ final class RealtimePreviewBackdropView: UIView {
             finishCameraSwitchTransitionIfReady()
         }
     }
-
-    private func clearRealtime() {
-        hideRealtime()
-        remoteVideoView.track = nil
-    }
 }
 
 private extension RealtimePreviewBackdropView {
@@ -184,11 +110,11 @@ private extension RealtimePreviewBackdropView {
         hasCompletedCameraSwitchFlip = false
         hideRealtime()
 
-        localVideoView.layer.removeAllAnimations()
+        realtimeVideoView.layer.removeAllAnimations()
         cameraSwitchBlurView.layer.removeAllAnimations()
         cameraSwitchBlurView.isHidden = false
         UIView.performWithoutAnimation {
-            localVideoView.layer.transform = CATransform3DIdentity
+            realtimeVideoView.layer.transform = CATransform3DIdentity
             cameraSwitchBlurView.layer.transform = CATransform3DIdentity
             cameraSwitchBlurView.alpha = 1
             cameraSwitchBlurView.effect = nil
@@ -227,7 +153,7 @@ private extension RealtimePreviewBackdropView {
             delay: 0,
             options: [.beginFromCurrentState, .curveEaseInOut]
         ) {
-            self.localVideoView.layer.transform = flipTransform
+            self.realtimeVideoView.layer.transform = flipTransform
             self.cameraSwitchBlurView.layer.transform = flipTransform
         } completion: { [weak self] _ in
             guard let self,
@@ -235,7 +161,7 @@ private extension RealtimePreviewBackdropView {
                 return
             }
             UIView.performWithoutAnimation {
-                self.localVideoView.layer.transform = CATransform3DIdentity
+                self.realtimeVideoView.layer.transform = CATransform3DIdentity
                 self.cameraSwitchBlurView.layer.transform =
                     CATransform3DIdentity
             }
