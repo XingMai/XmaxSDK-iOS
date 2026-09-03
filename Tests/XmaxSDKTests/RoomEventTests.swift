@@ -22,6 +22,7 @@ final class RoomEventTests: XCTestCase {
         XCTAssertEqual(event["event"] as? String, "start")
         XCTAssertEqual(event["user_id"] as? String, "user-id")
         XCTAssertEqual(event["uid"] as? String, "task-id")
+        try assertRuntime(in: event)
         let params = try XCTUnwrap(event["params"] as? [String: Any])
         XCTAssertEqual(params["model"] as? String, "default")
         XCTAssertEqual(params["size"] as? [Int], [720, 1280])
@@ -66,6 +67,7 @@ final class RoomEventTests: XCTestCase {
 
         XCTAssertEqual(event["event"] as? String, "change_condition")
         XCTAssertNil(event["condition_version"])
+        try assertRuntime(in: event)
     }
 
     func testStopTracksAndHeartbeatEventsMatchRoomProtocol() throws {
@@ -96,10 +98,21 @@ final class RoomEventTests: XCTestCase {
         )
         XCTAssertEqual(heartbeat["event"] as? String, "heartbeat")
         XCTAssertEqual(heartbeat["user_id"] as? String, "user-id")
+        try assertRuntime(in: stop)
+        try assertRuntime(in: tracks)
+        try assertRuntime(in: heartbeat)
     }
 }
 
 private extension RoomEventTests {
+    func assertRuntime(in event: [String: Any]) throws {
+        let runtime = try XCTUnwrap(event["runtime"] as? [String: String])
+        XCTAssertEqual(runtime["platform"], "ios")
+        XCTAssertEqual(runtime["sdk_version"], XmaxSDKInfo.version)
+        XCTAssertFalse(runtime["os_version", default: ""].isEmpty)
+        XCTAssertFalse(runtime["device_model", default: ""].isEmpty)
+    }
+
     func decode(_ message: String) throws -> [String: Any] {
         let data = try XCTUnwrap(message.data(using: .utf8))
         return try XCTUnwrap(

@@ -265,11 +265,11 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 "abcdefghijklmnopqrstuvwxyz0123456789-_"
         )
 
-        XCTAssertTrue(first.hasPrefix("task-"))
-        XCTAssertEqual(first.count, 27)
+        XCTAssertTrue(first.hasPrefix("task-ios-"))
+        XCTAssertEqual(first.count, 31)
         XCTAssertNotEqual(first, second)
         XCTAssertTrue(
-            first.dropFirst(5).unicodeScalars.allSatisfy {
+            first.dropFirst(9).unicodeScalars.allSatisfy {
                 allowed.contains($0)
             }
         )
