@@ -755,7 +755,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testDisconnectFailureReportsError() async throws {
+    func testDisconnectSessionCleanupFailureDoesNotReportError() async throws {
         let expectedError = XmaxError(
             code: .networkError,
             message: "close session failed"
@@ -773,7 +773,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         await components.manager.disconnect()
 
-        XCTAssertEqual(receivedErrors, [expectedError])
+        XCTAssertTrue(receivedErrors.isEmpty)
         let state = await components.manager.currentState
         XCTAssertEqual(state.connectionState, .disconnected)
         XCTAssertEqual(state.sessionID, "session-id")

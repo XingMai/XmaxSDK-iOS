@@ -797,7 +797,11 @@ private extension XmaxRealtimeManager {
         do {
             sessionID = try await connectionManager.disconnect()
         } catch {
-            await reportError(error)
+            XmaxLogger.error(
+                category: "Realtime",
+                message: "关闭实时会话失败 (Failed to Close Realtime Session)\n" +
+                    "└─ 原因：\(ErrorMessageFormatter.format(error))"
+            )
         }
         await unmuteLocalAudioPreview()
         guard terminationOperation?.id == operationID else {
