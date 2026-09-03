@@ -51,7 +51,7 @@ final class RealtimeSessionController: ObservableObject {
         let client = XmaxClient(
             configuration: XmaxConfiguration(
                 apiKey: apiKey,
-                loggerOptions: .business
+                loggerOptions: [.business, .performance]
             )
         )
         realtimeManager = client.createRealtimeManager(

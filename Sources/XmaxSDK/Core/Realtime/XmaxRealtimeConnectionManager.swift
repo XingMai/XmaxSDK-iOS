@@ -21,6 +21,9 @@ actor XmaxRealtimeConnectionManager {
     // 传输层组件
     private let streamController: any StreamControlling
 
+    // 耗时统计
+    private let timing: RealtimeTiming
+
     // 连接资源
     private var activeRemoteTrack: RealtimeVideoTrack?
     private var activeSession: RealtimeSession?
@@ -29,12 +32,14 @@ actor XmaxRealtimeConnectionManager {
         sessionService: any RealtimeSessionServicing,
         interactionController: any InteractionControlling,
         renderController: any RenderControlling,
-        streamController: any StreamControlling
+        streamController: any StreamControlling,
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.sessionService = sessionService
         self.interactionController = interactionController
         self.renderController = renderController
         self.streamController = streamController
+        self.timing = timing
     }
 
     var currentSessionID: String {
@@ -69,11 +74,14 @@ actor XmaxRealtimeConnectionManager {
         isCurrent: @escaping RealtimeConnectionValidity,
         onHeartbeatFailure: @escaping RealtimeConnectionHeartbeatFailureHandler
     ) async throws -> RealtimeMediaStream {
+        timing.beginConnection()
         var session: RealtimeSession?
         var sessionActivated = false
 
         do {
+            timing.beginSessionCreation()
             session = try await sessionService.createSession(model: model)
+            timing.finishSessionCreation()
             try Self.ensureCurrent(isCurrent)
             guard let session,
                   let connection = session.connection else {
@@ -107,6 +115,7 @@ actor XmaxRealtimeConnectionManager {
             activeRemoteTrack = remoteTrack
             sessionActivated = true
             try Self.ensureCurrent(isCurrent)
+            timing.finishConnection()
 
             return RealtimeMediaStream(
                 id: StreamID.remote.rawValue,

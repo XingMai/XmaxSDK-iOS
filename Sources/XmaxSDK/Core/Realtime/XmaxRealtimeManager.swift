@@ -25,6 +25,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     private let connectionManager: XmaxRealtimeConnectionManager
     private let errorHandler: RealtimeErrorHandler
     private let generationManager: XmaxRealtimeGenerationManager
+    private let timing: RealtimeTiming
 
     // 并发控制
     private let operationVersion = RealtimeOperationVersion()
@@ -48,6 +49,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let errorHandler = RealtimeErrorHandler()
         let rtcManager = RtcManager()
         let mediaService = MediaService()
+        let timing = RealtimeTiming()
 
         let renderController = RenderController(
             rtcManager: rtcManager,
@@ -64,7 +66,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             errorListener: { errorHandler.forward($0) },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
-            }
+            },
+            timing: timing
         )
 
         let mediaController = MediaController(
@@ -88,7 +91,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             sessionService: RealtimeSessionService(apiService: apiService),
             interactionController: mediaController,
             renderController: renderController,
-            streamController: streamController
+            streamController: streamController,
+            timing: timing
         )
 
         let generationManager = XmaxRealtimeGenerationManager(
@@ -103,6 +107,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.connectionManager = connectionManager
         self.errorHandler = errorHandler
         self.generationManager = generationManager
+        self.timing = timing
     }
 
     init(
@@ -113,7 +118,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         mediaService: any MediaServicing = MediaService(),
         connectionManager: XmaxRealtimeConnectionManager,
         errorHandler: RealtimeErrorHandler,
-        generationManager: XmaxRealtimeGenerationManager
+        generationManager: XmaxRealtimeGenerationManager,
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.options = options
         self.streamController = streamController
@@ -123,6 +129,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.connectionManager = connectionManager
         self.errorHandler = errorHandler
         self.generationManager = generationManager
+        self.timing = timing
     }
 
     var currentState: RealtimeState {
@@ -571,7 +578,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func startGeneration(context: RealtimeContext?) async throws {
-        try await performStartGeneration(context: context)
+        let measuresStartup = state.connectionState == .connected
+        if measuresStartup {
+            timing.begin()
+        }
+        do {
+            try await performStartGeneration(context: context)
+        } catch {
+            if measuresStartup {
+                timing.finishFailure(error)
+            }
+            throw error
+        }
     }
 
     func startGeneration(
@@ -599,16 +617,35 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     )
                 )
             }
-            try await startGeneration(context: context)
-            return remoteStream
+            let measuresStartup = state.connectionState == .connected
+            if measuresStartup {
+                timing.begin()
+            }
+            do {
+                try await performStartGeneration(context: context)
+                return remoteStream
+            } catch {
+                if measuresStartup {
+                    timing.finishFailure(error)
+                }
+                throw error
+            }
         }
 
+        let measuresStartup = state.connectionState != .connecting &&
+            state.connectionState != .disconnecting
+        if measuresStartup {
+            timing.begin()
+        }
         do {
             await mediaController.setLocalAudioPreviewMuted(true)
             let remoteStream = try await connect(localStream: localStream)
             try await performStartGeneration(context: context)
             return remoteStream
         } catch {
+            if measuresStartup {
+                timing.finishFailure(error)
+            }
             await unmuteLocalAudioPreview()
             throw error
         }
@@ -678,6 +715,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     taskID: taskID
                 )
             )
+            timing.finish(taskID: taskID)
         } catch {
             if !startedTaskID.isEmpty {
                 try? await generationManager.stop(taskID: startedTaskID)

@@ -662,7 +662,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let client = XmaxClient(
             configuration: XmaxConfiguration(
                 apiKey: apiKey,
-                loggerOptions: .business
+                loggerOptions: [.business, .performance]
             )
         )
         return client.createRealtimeManager(

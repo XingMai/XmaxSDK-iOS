@@ -9,21 +9,30 @@ actor RoomController: RoomControlling {
     // 传输层组件
     private let heartbeat: RoomHeartbeat
 
+    // 耗时统计
+    private let timing: RealtimeTiming
+
     // 房间资源
     private var state = State.idle
     private var leaveOperation: LeaveOperation?
 
-    init(rtcManager: any RtcManaging) {
+    init(
+        rtcManager: any RtcManaging,
+        timing: RealtimeTiming = RealtimeTiming()
+    ) {
         self.rtcManager = rtcManager
         heartbeat = RoomHeartbeat(rtcManager: rtcManager)
+        self.timing = timing
     }
 
     init(
         rtcManager: any RtcManaging,
-        heartbeat: RoomHeartbeat
+        heartbeat: RoomHeartbeat,
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.rtcManager = rtcManager
         self.heartbeat = heartbeat
+        self.timing = timing
     }
 
     func join(
@@ -47,6 +56,7 @@ actor RoomController: RoomControlling {
         heartbeat.stop()
 
         do {
+            timing.beginRoomJoin()
             try await rtcManager.joinRoom(
                 configuration: RoomJoinConfiguration(
                     roomID: connection.roomID,
@@ -54,6 +64,7 @@ actor RoomController: RoomControlling {
                     token: connection.token
                 )
             )
+            timing.finishRoomJoin()
             try ensureActive()
             guard case .joining(let currentID) = state,
                   currentID == operationID,

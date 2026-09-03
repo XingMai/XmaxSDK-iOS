@@ -23,6 +23,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     // 生成配置
     private let generationTiming: StreamGenerationTiming
 
+    // 耗时统计
+    private let timing: RealtimeTiming
+
     // 音频配置
     private var remoteAudioVolume = 100
 
@@ -41,16 +44,21 @@ final class StreamController: StreamControlling, RtcEventListener,
         rtcManager: any RtcManaging,
         errorListener: @escaping XmaxErrorListener = { _ in },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in },
-        generationTiming: StreamGenerationTiming = .live
+        generationTiming: StreamGenerationTiming = .live,
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.init(
             rtcManager: rtcManager,
-            roomController: RoomController(rtcManager: rtcManager),
+            roomController: RoomController(
+                rtcManager: rtcManager,
+                timing: timing
+            ),
             encodingController: EncodingController(rtcManager: rtcManager),
             qualityController: QualityController(rtcManager: rtcManager),
             errorListener: errorListener,
             remoteStreamListener: remoteStreamListener,
-            generationTiming: generationTiming
+            generationTiming: generationTiming,
+            timing: timing
         )
     }
 
@@ -61,7 +69,8 @@ final class StreamController: StreamControlling, RtcEventListener,
         qualityController: any QualityControlling,
         errorListener: @escaping XmaxErrorListener = { _ in },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in },
-        generationTiming: StreamGenerationTiming = .live
+        generationTiming: StreamGenerationTiming = .live,
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.rtcManager = rtcManager
         self.roomController = roomController
@@ -70,6 +79,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         self.errorListener = errorListener
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
+        self.timing = timing
         rtcManager.setEventListener(self)
     }
 
@@ -136,6 +146,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         videoFormat: RealtimeVideoFormat,
         context: RealtimeContext
     ) async throws -> Task<Void, any Error> {
+        timing.beginSignal(taskID: taskID)
         let confirmation = try beginGenerationConfirmation(taskID: taskID)
         do {
             try await roomController.startGeneration(
@@ -143,6 +154,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 videoFormat: videoFormat,
                 context: context
             )
+            timing.finishSignal(taskID: taskID)
             return confirmation
         } catch {
             confirmation.cancel()
@@ -544,6 +556,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         guard let waiter else {
             return
         }
+        timing.matchSEI(taskID: waiter.taskID)
 
         do {
             try remoteStreamListener(stream)

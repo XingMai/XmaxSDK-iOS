@@ -92,7 +92,8 @@ final class ApiService: ApiServicing, Sendable {
                 statusCode: httpResponse.statusCode,
                 bodyByteCount: data.count,
                 durationMs: Self.durationMs(since: startedAt),
-                successful: false
+                successful: false,
+                responseBody: data
             )
             if let xmaxError = error as? XmaxError {
                 throw xmaxError

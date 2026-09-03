@@ -247,7 +247,7 @@ final class ApiServiceTests: XCTestCase {
         }
     }
 
-    func testResponseLogDoesNotContainResponseBody() {
+    func testResponseLogOmitsResponseBodyWhenNotProvided() {
         let message = ApiLogger.responseMessage(
             method: .post,
             path: "/session",
@@ -263,6 +263,30 @@ final class ApiServiceTests: XCTestCase {
                 "├─ 状态：400\n" +
                 "├─ 耗时：20 ms\n" +
                 "└─ 响应：128 bytes"
+        )
+    }
+
+    func testResponseLogContainsFailureResponseBody() {
+        let body = Data(
+            #"{"success":false,"message":"busy"}"#.utf8
+        )
+        let message = ApiLogger.responseMessage(
+            method: .post,
+            path: "/session",
+            statusCode: 503,
+            bodyByteCount: body.count,
+            durationMs: 20,
+            responseBody: body
+        )
+
+        XCTAssertTrue(
+            message.contains(
+                "└─ 正文：\n" +
+                    "   {\n" +
+                    "     \"message\" : \"busy\",\n" +
+                    "     \"success\" : false\n" +
+                    "   }"
+            )
         )
     }
 
