@@ -45,62 +45,65 @@ enum XmaxLogger {
 
     /// 输出调试日志。
     static func debug(
-        _ message: @autoclosure () -> String,
         category: String? = nil,
+        message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .debug,
-            message: message,
             category: category,
+            message: message,
             option: option
         )
     }
 
     /// 输出普通信息日志。
     static func info(
-        _ message: @autoclosure () -> String,
         category: String? = nil,
+        message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .info,
-            message: message,
             category: category,
+            message: message,
             option: option
         )
     }
 
     /// 输出警告日志。
     static func warn(
-        _ message: @autoclosure () -> String,
         category: String? = nil,
+        message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .warning,
-            message: message,
             category: category,
+            message: message,
             option: option
         )
     }
 
     /// 输出错误日志。
     static func error(
-        _ message: @autoclosure () -> String,
         category: String? = nil,
+        message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .error,
-            message: message,
             category: category,
+            message: message,
             option: option
         )
     }
 
     /// 为日志的每一行添加统一前缀。
-    static func formattedMessage(_ message: String, category: String? = nil) -> String {
+    static func formattedMessage(
+        category: String? = nil,
+        message: String
+    ) -> String {
         let normalizedCategory = category?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let prefix: String
@@ -118,15 +121,18 @@ enum XmaxLogger {
 
     private static func write(
         level: Level,
-        message: () -> String,
         category: String?,
+        message: () -> String,
         option: XmaxLoggerOption
     ) {
         guard state.isEnabled(option) else {
             return
         }
 
-        let formatted = formattedMessage(message(), category: category)
+        let formatted = formattedMessage(
+            category: category,
+            message: message()
+        )
         switch level {
         case .debug:
             logger.debug("\(formatted, privacy: .public)")

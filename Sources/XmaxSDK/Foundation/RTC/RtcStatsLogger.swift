@@ -9,16 +9,16 @@ enum RtcStatsLogger {
 
     static func logLocalStreamStats(_ stats: ByteRTCLocalStreamStats) {
         XmaxLogger.debug(
-            localStreamStatsMessage(stats),
             category: category,
+            message: localStreamStatsMessage(stats),
             option: .performance
         )
     }
 
     static func logRemoteStreamStats(_ stats: ByteRTCRemoteStreamStats) {
         XmaxLogger.debug(
-            remoteStreamStatsMessage(stats),
             category: category,
+            message: remoteStreamStatsMessage(stats),
             option: .performance
         )
     }
@@ -28,19 +28,19 @@ enum RtcStatsLogger {
         remoteQualities: [ByteRTCNetworkQualityStats]
     ) {
         XmaxLogger.debug(
-            networkQualityMessage(
+            category: category,
+            message: networkQualityMessage(
                 localQuality: localQuality,
                 remoteQualities: remoteQualities
             ),
-            category: category,
             option: .performance
         )
     }
 
     static func logSystemStats(_ stats: ByteRTCSysStats) {
         XmaxLogger.debug(
-            systemStatsMessage(stats),
             category: category,
+            message: systemStatsMessage(stats),
             option: .performance
         )
     }
@@ -50,8 +50,8 @@ enum RtcStatsLogger {
         data: ByteRTCSourceWantedData
     ) {
         XmaxLogger.debug(
-            performanceAlarmMessage(reason: reason, data: data),
             category: category,
+            message: performanceAlarmMessage(reason: reason, data: data),
             option: .performance
         )
     }

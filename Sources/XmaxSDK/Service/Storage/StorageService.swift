@@ -272,12 +272,12 @@ private extension StorageService {
                 mediaType: mediaType
             )
             XmaxLogger.info(
-                "开始上传 (Upload Started)\n" +
+                category: "Storage",
+                message: "开始上传 (Upload Started)\n" +
                     "├─ 类型：\(mediaType.rawValue)\n" +
                     "├─ 分辨率：\(resolution)\n" +
                     "├─ 大小：\(formatByteCount(byteCount))\n" +
-                    "└─ 安全检测：\(checksSafety)",
-                category: "Storage"
+                    "└─ 安全检测：\(checksSafety)"
             )
 
             let temporary = try await fetchStorageConfiguration()
@@ -308,10 +308,10 @@ private extension StorageService {
             }
 
             XmaxLogger.info(
-                "上传完成 (Upload Completed)\n" +
+                category: "Storage",
+                message: "上传完成 (Upload Completed)\n" +
                     "├─ 地址：\(result.url.absoluteString)\n" +
-                    "└─ 耗时：\(formatDuration(since: startedAt))",
-                category: "Storage"
+                    "└─ 耗时：\(formatDuration(since: startedAt))"
             )
             return result
         } catch let error as XmaxError {
@@ -650,11 +650,11 @@ private extension StorageService {
 
     func logUploadFailure(_ error: XmaxError, startedAt: Date) {
         XmaxLogger.error(
-            "上传失败 (Upload Failed)\n" +
+            category: "Storage",
+            message: "上传失败 (Upload Failed)\n" +
                 "├─ 错误码：\(error.code.rawValue)\n" +
                 "├─ 原因：\(error.message)\n" +
-                "└─ 耗时：\(formatDuration(since: startedAt))",
-            category: "Storage"
+                "└─ 耗时：\(formatDuration(since: startedAt))"
         )
     }
 

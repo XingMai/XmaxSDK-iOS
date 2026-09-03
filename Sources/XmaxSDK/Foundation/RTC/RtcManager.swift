@@ -1019,8 +1019,8 @@ private extension RtcManager {
     ) {
         guard let decodedMessage = String(data: message, encoding: .utf8) else {
             XmaxLogger.warn(
-                "收到无法解码的 RTC SEI 消息 (Failed to Decode Incoming RTC SEI Message)",
-                category: "RTC"
+                category: "RTC",
+                message: "收到无法解码的 RTC SEI 消息 (Failed to Decode Incoming RTC SEI Message)"
             )
             return
         }

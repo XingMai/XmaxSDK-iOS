@@ -224,9 +224,9 @@ private extension CameraController {
         error: any Error
     ) {
         XmaxLogger.error(
-            "\(title)\n└─ 原因：" +
-                (error as NSError).localizedDescription,
-            category: "Realtime"
+            category: "Realtime",
+            message: "\(title)\n└─ 原因：" +
+                (error as NSError).localizedDescription
         )
     }
 }

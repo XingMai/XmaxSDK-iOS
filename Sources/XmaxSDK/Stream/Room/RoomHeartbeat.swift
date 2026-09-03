@@ -80,9 +80,9 @@ private extension RoomHeartbeat {
                     return
                 }
                 XmaxLogger.error(
-                    "发送 RTC 房间心跳失败 (Failed to Send RTC Room Heartbeat)\n└─ 原因：" +
-                        (error as NSError).localizedDescription,
-                    category: "Room"
+                    category: "Room",
+                    message: "发送 RTC 房间心跳失败 (Failed to Send RTC Room Heartbeat)\n└─ 原因：" +
+                        (error as NSError).localizedDescription
                 )
             }
         }

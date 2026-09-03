@@ -20,9 +20,9 @@ enum ApiLogger {
             durationMs: durationMs
         )
         if successful {
-            XmaxLogger.debug(message, category: "API")
+            XmaxLogger.debug(category: "API", message: message)
         } else {
-            XmaxLogger.error(message, category: "API")
+            XmaxLogger.error(category: "API", message: message)
         }
     }
 
@@ -34,10 +34,10 @@ enum ApiLogger {
         durationMs: Int
     ) {
         XmaxLogger.error(
-            "\(method.rawValue) \(path) 失败 (Request Failed)\n" +
+            category: "API",
+            message: "\(method.rawValue) \(path) 失败 (Request Failed)\n" +
                 "├─ 耗时：\(durationMs) ms\n" +
-                "└─ 原因：\(ErrorMessageFormatter.format(error))",
-            category: "API"
+                "└─ 原因：\(ErrorMessageFormatter.format(error))"
         )
     }
 

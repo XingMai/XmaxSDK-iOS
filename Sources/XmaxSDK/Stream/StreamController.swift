@@ -737,10 +737,10 @@ private extension StreamController {
             try remoteStreamListener(nil)
         } catch {
             XmaxLogger.error(
-                "清理 RTC 远端生成流失败 (Failed to Clean Up RTC Remote Generation Stream)\n" +
+                category: "Stream",
+                message: "清理 RTC 远端生成流失败 (Failed to Clean Up RTC Remote Generation Stream)\n" +
                     "└─ 原因：" +
-                    (error as NSError).localizedDescription,
-                category: "Stream"
+                    (error as NSError).localizedDescription
             )
         }
     }
@@ -753,10 +753,10 @@ private extension StreamController {
             }
         } catch {
             XmaxLogger.error(
-                "回滚 RTC 本地视频发布失败 (Failed to Roll Back RTC Local Video Publication)\n" +
+                category: "Stream",
+                message: "回滚 RTC 本地视频发布失败 (Failed to Roll Back RTC Local Video Publication)\n" +
                     "└─ 原因：" +
-                    (error as NSError).localizedDescription,
-                category: "Stream"
+                    (error as NSError).localizedDescription
             )
         }
     }
@@ -769,9 +769,9 @@ private extension StreamController {
             try action()
         } catch {
             XmaxLogger.error(
-                "\(title)\n└─ 原因：" +
-                    (error as NSError).localizedDescription,
-                category: "Stream"
+                category: "Stream",
+                message: "\(title)\n└─ 原因：" +
+                    (error as NSError).localizedDescription
             )
         }
     }

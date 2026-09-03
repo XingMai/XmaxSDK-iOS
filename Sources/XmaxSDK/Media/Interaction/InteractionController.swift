@@ -91,11 +91,11 @@ private extension InteractionController {
                 break
             } catch {
                 XmaxLogger.warn(
-                    "发送交互轨迹失败，已丢弃当前采样帧 " +
+                    category: "Interaction",
+                    message: "发送交互轨迹失败，已丢弃当前采样帧 " +
                         "(Failed to Send Interaction Trajectory; Current Sample Dropped)\n" +
                         "└─ 原因：" +
-                        (error as NSError).localizedDescription,
-                    category: "Interaction"
+                        (error as NSError).localizedDescription
                 )
             }
         }

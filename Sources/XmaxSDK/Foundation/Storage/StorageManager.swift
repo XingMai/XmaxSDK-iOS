@@ -398,12 +398,12 @@ private final class StorageUploadOperation: @unchecked Sendable {
             if let error {
                 let platformError = error as NSError
                 XmaxLogger.error(
-                    "上传失败 (Upload Failed)\n" +
+                    category: "Storage",
+                    message: "上传失败 (Upload Failed)\n" +
                         "├─ 错误域：\(platformError.domain)\n" +
                         "├─ 错误码：\(platformError.code)\n" +
                         "├─ 错误信息：\(platformError.localizedDescription)\n" +
-                        "└─ 耗时：\(formatDuration())",
-                    category: "Storage"
+                        "└─ 耗时：\(formatDuration())"
                 )
                 finish(.failure(XmaxError(
                     code: .uploadError,

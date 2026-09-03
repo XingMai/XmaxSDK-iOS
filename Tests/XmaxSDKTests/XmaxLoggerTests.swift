@@ -5,8 +5,8 @@ final class XmaxLoggerTests: XCTestCase {
     func testFormattedMessagePrefixesEveryLine() {
         XCTAssertEqual(
             XmaxLogger.formattedMessage(
-                "Upload started\nUpload finished",
-                category: "Storage"
+                category: "Storage",
+                message: "Upload started\nUpload finished"
             ),
             "[Xmax][Storage] Upload started\n[Xmax][Storage] Upload finished"
         )
@@ -14,7 +14,7 @@ final class XmaxLoggerTests: XCTestCase {
 
     func testFormattedMessageOmitsEmptyCategory() {
         XCTAssertEqual(
-            XmaxLogger.formattedMessage("Ready", category: "  "),
+            XmaxLogger.formattedMessage(category: "  ", message: "Ready"),
             "[Xmax] Ready"
         )
     }

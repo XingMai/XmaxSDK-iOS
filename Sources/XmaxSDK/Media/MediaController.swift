@@ -344,11 +344,11 @@ private extension MediaController {
             } catch {
                 if !Self.isCancelled(error) {
                     XmaxLogger.error(
-                        "等待本地媒体操作结束失败 " +
+                        category: "Realtime",
+                        message: "等待本地媒体操作结束失败 " +
                             "(Failed to Await Local Media Operation Completion)\n" +
                             "└─ 原因：" +
-                            (error as NSError).localizedDescription,
-                        category: "Realtime"
+                            (error as NSError).localizedDescription
                     )
                 }
             }

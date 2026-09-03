@@ -198,8 +198,8 @@ private extension RoomController {
     func send(_ message: String) throws {
         try rtcManager.sendRoomMessage(message)
         XmaxLogger.debug(
-            formatSignalLog(message),
-            category: "Room"
+            category: "Room",
+            message: formatSignalLog(message)
         )
     }
 
