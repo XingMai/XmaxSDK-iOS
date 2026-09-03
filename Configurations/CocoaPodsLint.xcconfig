@@ -1,0 +1,4 @@
+// CocoaPods lint builds a generated app without the Example Podfile's post_install.
+// Keep legacy third-party podspec settings compatible with current Xcode simulators.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] =
+IPHONEOS_DEPLOYMENT_TARGET = 15.0

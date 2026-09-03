@@ -85,7 +85,7 @@ dependency is exposed as a module that XmaxSDK can import from Swift.
 ### Manual
 
 Download
-[`XmaxSDK-1.0.2.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.2/XmaxSDK-1.0.2.zip),
+[`XmaxSDK-1.0.2.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.2/XmaxSDK-1.0.2.xcframework.zip),
 extract `XmaxSDK.xcframework`, and download the exact third-party dependencies used
 by this release:
 

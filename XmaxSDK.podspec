@@ -22,6 +22,12 @@ Pod::Spec.new do |spec|
   spec.static_framework = true
   spec.source_files = 'Sources/XmaxSDK/**/*.swift'
 
+  # QCloudCOSXML 6.5.7 excludes arm64 for every consumer simulator target.
+  # Its sources build on arm64, so undo that legacy setting for Apple silicon.
+  spec.user_target_xcconfig = {
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => ''
+  }
+
   spec.dependency 'VolcEngineRTC/Core', '3.60.106.600'
   spec.dependency 'VolcEngineRTC/RealXBase', '3.60.106.600'
   spec.dependency 'VolcEngineRTC/RTCFFmpeg', '3.60.106.600'
