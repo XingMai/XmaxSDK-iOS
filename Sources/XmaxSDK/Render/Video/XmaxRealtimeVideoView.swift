@@ -57,9 +57,6 @@ public final class XmaxRealtimeVideoView: UIView {
         isInteractionEnabled: isInteractionEnabled
     )
 
-    // 远端显示状态
-    private var remoteTrackVersion: UInt64 = 0
-
     /// 创建实时视频容器。
     ///
     /// - Parameters:
@@ -115,8 +112,6 @@ private extension XmaxRealtimeVideoView {
     }
 
     func updateRemoteTrack() {
-        remoteTrackVersion &+= 1
-        let version = remoteTrackVersion
         remoteVideoView.frameDisplayHandler = nil
         remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.alpha = 0
@@ -126,7 +121,6 @@ private extension XmaxRealtimeVideoView {
         guard let remoteTrack else { return }
         remoteVideoView.frameDisplayHandler = { [weak self, weak remoteTrack] in
             guard let self,
-                  version == remoteTrackVersion,
                   self.remoteTrack === remoteTrack else {
                 return
             }
