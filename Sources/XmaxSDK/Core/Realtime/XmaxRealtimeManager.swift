@@ -29,13 +29,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // 并发控制
     private let operationVersion = RealtimeOperationVersion()
-    private var closeTask: Task<Void, Never>?
 
-    // 事件监听
+    // 状态管理
+    private var state = RealtimeState(connectionState: .idle)
     private var stateListener: RealtimeStateListener?
 
-    // 运行状态
-    private var state = RealtimeState(connectionState: .idle)
+    // 关闭管理
+    private var closeTask: Task<Void, Never>?
     private var terminationOperation: TerminationOperation?
     private var terminationFinalState: RealtimeConnectionState?
 
@@ -914,29 +914,5 @@ private extension XmaxRealtimeManager {
                 message: "Audio volume must be between 0 and 1"
             )
         }
-    }
-}
-
-/// 提供可从同步有效性回调读取的连接生命周期版本。
-private final class RealtimeOperationVersion: @unchecked Sendable {
-
-    // 并发状态
-    private let lock = NSLock()
-    private var value: UInt64 = 0
-
-    var current: UInt64 {
-        lock.withLock { value }
-    }
-
-    @discardableResult
-    func advance() -> UInt64 {
-        lock.withLock {
-            value &+= 1
-            return value
-        }
-    }
-
-    func isCurrent(_ version: UInt64) -> Bool {
-        lock.withLock { value == version }
     }
 }
