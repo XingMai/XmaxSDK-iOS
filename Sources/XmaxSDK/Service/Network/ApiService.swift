@@ -179,6 +179,11 @@ private extension ApiService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "X-Api-Key")
+        let runtime = RuntimeInfo.current
+        request.setValue(runtime.platform, forHTTPHeaderField: "X-Platform")
+        request.setValue(runtime.osVersion, forHTTPHeaderField: "X-OS-Version")
+        request.setValue(runtime.sdkVersion, forHTTPHeaderField: "X-SDK-Version")
+        request.setValue(runtime.deviceModel, forHTTPHeaderField: "X-Device-Model")
         return request
     }
 

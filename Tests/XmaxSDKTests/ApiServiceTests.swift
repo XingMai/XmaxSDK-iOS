@@ -37,6 +37,22 @@ final class ApiServiceTests: XCTestCase {
             request.value(forHTTPHeaderField: "Accept"),
             "application/json"
         )
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "X-Platform"),
+            RuntimeInfo.current.platform
+        )
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "X-OS-Version"),
+            RuntimeInfo.current.osVersion
+        )
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "X-SDK-Version"),
+            RuntimeInfo.current.sdkVersion
+        )
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "X-Device-Model"),
+            RuntimeInfo.current.deviceModel
+        )
         XCTAssertNil(request.httpBody)
     }
 

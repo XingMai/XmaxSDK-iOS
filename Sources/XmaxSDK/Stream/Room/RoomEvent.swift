@@ -1,30 +1,7 @@
 import Foundation
-import Darwin
 
 /// 生成 SDK 与 RTC 房间之间传输的结构化事件消息。
 enum RoomEvent {
-    /// 描述 SDK 发送房间信令时的运行环境。
-    struct Runtime: Encodable, Sendable {
-        let platform: String
-        let osVersion: String
-        let sdkVersion: String
-        let deviceModel: String
-
-        static let current = Runtime(
-            platform: "ios",
-            osVersion: currentOSVersion(),
-            sdkVersion: XmaxSDKInfo.version,
-            deviceModel: currentDeviceModel()
-        )
-
-        enum CodingKeys: String, CodingKey {
-            case platform
-            case osVersion = "os_version"
-            case sdkVersion = "sdk_version"
-            case deviceModel = "device_model"
-        }
-    }
-
     static func start(
         userID: String,
         taskID: String,
@@ -108,7 +85,7 @@ private extension RoomEvent {
 
     struct Envelope<Payload: Encodable>: Encodable {
         let payload: Payload
-        let runtime: Runtime
+        let runtime: RuntimeInfo
 
         func encode(to encoder: Encoder) throws {
             try payload.encode(to: encoder)
@@ -205,40 +182,6 @@ private extension RoomEvent {
         enum CodingKeys: String, CodingKey {
             case event
             case userID = "user_id"
-        }
-    }
-}
-
-private extension RoomEvent.Runtime {
-    static func currentOSVersion() -> String {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        var components = [
-            String(version.majorVersion),
-            String(version.minorVersion)
-        ]
-        if version.patchVersion > 0 {
-            components.append(String(version.patchVersion))
-        }
-        return components.joined(separator: ".")
-    }
-
-    static func currentDeviceModel() -> String {
-        if let simulatorModel = ProcessInfo.processInfo.environment[
-            "SIMULATOR_MODEL_IDENTIFIER"
-        ], !simulatorModel.isEmpty {
-            return simulatorModel
-        }
-
-        var systemInfo = utsname()
-        guard uname(&systemInfo) == 0 else {
-            return "unknown"
-        }
-        let capacity = MemoryLayout.size(ofValue: systemInfo.machine)
-        return withUnsafePointer(to: &systemInfo.machine) { pointer in
-            pointer.withMemoryRebound(
-                to: CChar.self,
-                capacity: capacity
-            ) { String(cString: $0) }
         }
     }
 }
