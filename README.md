@@ -92,9 +92,9 @@ by this release:
 - [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip):
   use `VolcEngineRTC.xcframework`, `RealXBase.xcframework`, and
   `RTCFFmpeg.xcframework` from the downloaded archive.
-- [Tencent Cloud COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/tree/6.5.7):
-  use `QCloudCOSXML.framework` and `QCloudCore.framework`. The repository's
-  `package.sh` script can be used to build the manual integration artifacts.
+- [Tencent Cloud COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/releases/download/6.5.7/QCloudCOSXML-6.5.7.zip):
+  use `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` from the official
+  release archive.
 
 Add the frameworks to the application target under **Frameworks, Libraries, and
 Embedded Content** using the following settings:
@@ -102,8 +102,8 @@ Embedded Content** using the following settings:
 | Framework | Embed setting |
 | --- | --- |
 | `XmaxSDK.xcframework` | Do Not Embed |
-| `QCloudCOSXML.framework` | Do Not Embed |
-| `QCloudCore.framework` | Do Not Embed |
+| `QCloudCOSXML.xcframework` | Do Not Embed |
+| `QCloudCore.xcframework` | Do Not Embed |
 | `VolcEngineRTC.xcframework` | Embed & Sign |
 | `RealXBase.xcframework` | Embed & Sign |
 | `RTCFFmpeg.xcframework` | Embed & Sign |
@@ -118,12 +118,14 @@ Complete the following configuration:
 3. Link `Accelerate.framework`, `CoreMedia.framework`,
    `CoreTelephony.framework`, `SystemConfiguration.framework`, `libz.tbd`,
    and `libc++.tbd`.
-4. Add the COS `PrivacyInfo.xcprivacy` file to the application target.
+4. Add the COS
+   [`PrivacyInfo.xcprivacy`](https://github.com/tencentyun/qcloud-sdk-ios/blob/6.5.7/QCloudCOSXML/PrivacyInfo.xcprivacy)
+   file to the application target.
 5. Confirm that every XCFramework contains a slice for the target platform and
    architecture. Apple silicon simulator builds require an `arm64` simulator slice.
 
-Only `QCloudCOSXML.framework` and `QCloudCore.framework` are required for COS.
-Do not add `QCloudTrack.framework`, `COSBeaconAPI_Base.framework`, or QimeiSDK.
+Only `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` are required for COS.
+Do not add `QCloudTrack.xcframework`, `COSBeaconAPI_Base.xcframework`, or QimeiSDK.
 The third-party frameworks must be present when importing XmaxSDK because its stable
 Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
 
