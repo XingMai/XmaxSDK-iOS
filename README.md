@@ -39,9 +39,7 @@ straightforward to integrate our generation models.
       <strong>Character Swapping</strong>
     </td>
     <td width="64%" valign="middle">
-      Replace anyone in your live camera feed or video with a designated avatar or
-      celebrity in real-time. The new character perfectly mirrors the original
-      person's expressions, gaze, and movements for a flawless identity swap.
+      Replace anyone in your live feed with a designated avatar in real-time.
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
