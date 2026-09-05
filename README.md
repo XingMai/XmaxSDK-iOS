@@ -26,6 +26,8 @@ communication, video-to-video (V2V) generation, and in-app rendering. It ingests
 camera feeds, pre-recorded video, or still images and streams them to our cloud AI
 engine over a low-latency connection. The SDK then receives the generated video
 stream, applies on-device enhancement, and renders the output directly in your app.
+By encapsulating this workflow behind simple API calls, XmaxSDK makes real-time video
+generation effortless to integrate.
 
 <br>
 
