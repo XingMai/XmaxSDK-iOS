@@ -1,53 +1,47 @@
+<p align="right">
+  <strong>简体中文</strong> | <a href="./README.en.md">English</a>
+</p>
+
 <p align="center">
-  <img src="./docs/images/brand/xmax-sdk.png" alt="XmaxSDK — Realtime Interactive Video Generation" width="880">
+  <img src="./docs/images/brand/xmax-sdk.png" alt="XmaxSDK — 实时交互视频生成" width="880">
 </p>
 
 <p align="center">
   <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-15.0%2B-007AFF" alt="iOS 15.0+"></a>
   <a href="https://www.swift.org/"><img src="https://img.shields.io/badge/Swift-6.0-F05138" alt="Swift 6.0"></a>
-  <a href="https://platform.xmaxai.com/"><img src="https://img.shields.io/badge/Realtime-AI-FF9500" alt="Realtime AI"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT License"></a>
+  <a href="https://platform.xmaxai.com/"><img src="https://img.shields.io/badge/Realtime-AI-FF9500" alt="实时 AI"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT 许可证"></a>
 </p>
 
-Native iOS SDK, providing access to the real-time interactive video generation
-models from Xmax AI. It supports low latency, high fidelity video transformations
-driven by live video streams, reference images, and user interactions. With just a
-few lines of code, developers can integrate features such as real-time character
-swap, virtual try-on, mixed reality companions, and interactive image animation
-directly into their apps.
+XmaxSDK 是原生 iOS SDK，可接入 Xmax AI 的实时交互视频生成模型。SDK 支持以实时视频流、参考图和用户交互驱动低延迟、高保真的视频变换。只需几行代码，即可在应用中集成实时角色替换、虚拟试穿、混合现实伙伴和交互式图像动画等能力。
 
-<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
+<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab 实时生成演示" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab 首页演示" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab 存储演示" width="33%" /></p>
 
 <br>
 
-## Features
+## 功能特性
 
-- Real-time video generation from live camera streams, still images, and local video
-  files, guided by prompts, reference images, and user interactions
-- In-application rendering of local media input and generated output
-- Multi-touch trajectory input for controlling subject movement in generated video
-  streams
-- Image and video transfer through Xmax-managed object storage
-- Swift 6 APIs with async/await support
-- SwiftUI ready
+- 以提示词、参考图和用户交互为引导，从实时相机画面、静态图片和本地视频文件生成实时视频
+- 在应用内渲染本地媒体输入与生成结果
+- 支持多点触控轨迹输入，控制生成视频中主体的运动
+- 通过 Xmax 托管的对象存储传输图片和视频
+- 提供支持 async/await 的 Swift 6 API
+- 支持 SwiftUI
 
-## Requirements
+## 环境要求
 
-- iOS 15.0 or later
+- iOS 15.0 或更高版本
 - Swift 6
-- An Xmax API key
+- Xmax API Key
 
 > [!WARNING]
-> Do not commit an Xmax API key to version control. Supply credentials securely at
-> runtime, or use a temporary key issued by the Xmax API. See
-> [Authentication](https://platform.xmaxai.com/docs/authentication) for details.
+> 请勿将 Xmax API Key 提交到版本控制系统。请在运行时安全地提供凭证，或使用 Xmax API 签发的临时 Key。详情参阅[身份认证](https://platform.xmaxai.com/docs/authentication)。
 
-## Installation
+## 安装
 
 ### CocoaPods
 
-XmaxSDK is distributed directly from this GitHub repository through CocoaPods. Add
-the required spec sources and XmaxSDK dependency to the application's `Podfile`:
+XmaxSDK 通过 CocoaPods 直接从本 GitHub 仓库分发。请在应用的 `Podfile` 中添加所需的 Specs 源和 XmaxSDK 依赖：
 
 ```ruby
 source 'https://github.com/volcengine/volcengine-specs.git'
@@ -73,35 +67,26 @@ post_install do |installer|
 end
 ```
 
-Install the dependencies:
+安装依赖：
 
 ```bash
 pod install --repo-update
 ```
 
-Open the generated `.xcworkspace` file to build the application.
+打开生成的 `.xcworkspace` 文件并构建应用。
 
-Static framework linkage is required so that the Objective-C `QCloudCOSXML`
-dependency is exposed as a module that XmaxSDK can import from Swift.
+必须使用静态 Framework 链接，以便将 Objective-C `QCloudCOSXML` 依赖暴露为 Swift 可导入的模块。
 
-### Manual
+### 手动集成
 
-Download
-[`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip),
-extract `XmaxSDK.xcframework`, and download the exact third-party dependencies used
-by this release:
+下载 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip)，解压得到 `XmaxSDK.xcframework`，并下载本版本使用的精确第三方依赖：
 
-- [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip):
-  use `VolcEngineRTC.xcframework`, `RealXBase.xcframework`, and
-  `RTCFFmpeg.xcframework` from the downloaded archive.
-- [Tencent Cloud COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/releases/download/6.5.7/QCloudCOSXML-6.5.7.zip):
-  use `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` from the official
-  release archive.
+- [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip)：使用下载包中的 `VolcEngineRTC.xcframework`、`RealXBase.xcframework` 和 `RTCFFmpeg.xcframework`。
+- [腾讯云 COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/releases/download/6.5.7/QCloudCOSXML-6.5.7.zip)：使用官方发布包中的 `QCloudCOSXML.xcframework` 和 `QCloudCore.xcframework`。
 
-Add the frameworks to the application target under **Frameworks, Libraries, and
-Embedded Content** using the following settings:
+在应用 Target 的 **Frameworks, Libraries, and Embedded Content** 中添加这些 Framework，并采用以下嵌入设置：
 
-| Framework | Embed setting |
+| Framework | 嵌入设置 |
 | --- | --- |
 | `XmaxSDK.xcframework` | Do Not Embed |
 | `QCloudCOSXML.xcframework` | Do Not Embed |
@@ -110,51 +95,39 @@ Embedded Content** using the following settings:
 | `RealXBase.xcframework` | Embed & Sign |
 | `RTCFFmpeg.xcframework` | Embed & Sign |
 
-The XmaxSDK and COS binaries are static. The three VolcEngine binaries are dynamic
-and must be embedded and signed by the application target.
+XmaxSDK 和 COS 二进制文件为静态 Framework。三个 VolcEngine 二进制文件为动态 Framework，必须由应用 Target 嵌入并签名。
 
-Complete the following configuration:
+完成以下配置：
 
-1. Set **Swift Language Version** to **Swift 6**.
-2. Add `-ObjC` to **Other Linker Flags**.
-3. Link `Accelerate.framework`, `CoreMedia.framework`,
-   `CoreTelephony.framework`, `SystemConfiguration.framework`, `libz.tbd`,
-   and `libc++.tbd`.
-4. Add the COS
-   [`PrivacyInfo.xcprivacy`](https://github.com/tencentyun/qcloud-sdk-ios/blob/6.5.7/QCloudCOSXML/PrivacyInfo.xcprivacy)
-   file to the application target.
-5. Confirm that every XCFramework contains a slice for the target platform and
-   architecture. Apple silicon simulator builds require an `arm64` simulator slice.
+1. 将 **Swift Language Version** 设为 **Swift 6**。
+2. 在 **Other Linker Flags** 中添加 `-ObjC`。
+3. 链接 `Accelerate.framework`、`CoreMedia.framework`、`CoreTelephony.framework`、`SystemConfiguration.framework`、`libz.tbd` 和 `libc++.tbd`。
+4. 将 COS 的 [`PrivacyInfo.xcprivacy`](https://github.com/tencentyun/qcloud-sdk-ios/blob/6.5.7/QCloudCOSXML/PrivacyInfo.xcprivacy) 文件添加到应用 Target。
+5. 确认每个 XCFramework 都包含目标平台和架构对应的 Slice。Apple 芯片上的模拟器构建需要 `arm64` 模拟器 Slice。
 
-Only `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` are required for COS.
-Do not add `QCloudTrack.xcframework`, `COSBeaconAPI_Base.xcframework`, or QimeiSDK.
-The third-party frameworks must be present when importing XmaxSDK because its stable
-Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
+COS 只需要 `QCloudCOSXML.xcframework` 和 `QCloudCore.xcframework`。请勿添加 `QCloudTrack.xcframework`、`COSBeaconAPI_Base.xcframework` 或 QimeiSDK。导入 XmaxSDK 时必须存在第三方 Framework，因为它的稳定 Swift 模块接口会导入 `QCloudCOSXML` 和 `VolcEngineRTC`。
 
-## Privacy Permissions
+## 隐私权限
 
-For camera-based input, provide a camera usage description in the application's
-`Info.plist`:
+使用相机输入时，请在应用的 `Info.plist` 中提供相机用途说明：
 
 ```xml
 <key>NSCameraUsageDescription</key>
-<string>This app uses the camera for real-time video input.</string>
+<string>此应用使用相机提供实时视频输入。</string>
 ```
 
-If a local video input contains audio, also provide a microphone usage description:
+如果本地视频输入包含音频，还需要提供麦克风用途说明：
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
-<string>This app uses the microphone for real-time audio input.</string>
+<string>此应用使用麦克风提供实时音频输入。</string>
 ```
 
-Replace these descriptions with text appropriate for the application. XmaxSDK checks
-and requests the required runtime permissions when a local media stream is created.
-If permission is unavailable, the SDK reports an `XmaxError`.
+请根据应用实际用途修改这些说明。创建本地媒体流时，XmaxSDK 会检查并请求所需的运行时权限。如果权限不可用，SDK 会报告 `XmaxError`。
 
-## Getting Started
+## 快速开始
 
-### Create a client
+### 创建客户端
 
 ```swift
 import XmaxSDK
@@ -168,10 +141,9 @@ let realtime = client.createRealtimeManager(
 )
 ```
 
-Realtime operations use Swift Concurrency and should be invoked from a
-lifecycle-aware `Task` owned by the host application.
+实时操作使用 Swift Concurrency，应在宿主应用中由生命周期明确的 `Task` 调用。
 
-Connection-state and error listeners may be registered on the realtime manager:
+可以在实时管理器上注册连接状态和错误监听器：
 
 ```swift
 await realtime.setStateListener { state in
@@ -186,9 +158,9 @@ await realtime.setErrorListener { error in
 }
 ```
 
-### Create an input stream
+### 创建输入流
 
-After camera permission has been granted, create a live camera stream:
+获得相机权限后，创建实时相机流：
 
 ```swift
 let localStream = try await realtime.createLocalCameraStream(
@@ -201,7 +173,7 @@ let localStream = try await realtime.createLocalCameraStream(
 )
 ```
 
-Still images and local video files can also be used as input sources:
+也可以使用静态图片或本地视频文件作为输入源：
 
 ```swift
 let imageStream = try await realtime.createLocalImageStream(
@@ -212,11 +184,11 @@ let videoStream = try await realtime.createLocalVideoStream(
 )
 ```
 
-Only one local input stream may be active at a time.
+同一时间只能有一个本地输入流处于活动状态。
 
-### Preview the input
+### 预览输入
 
-In UIKit, bind the local stream to an `XmaxRealtimeVideoView`:
+在 UIKit 中，将本地流绑定到 `XmaxRealtimeVideoView`：
 
 ```swift
 let realtimeVideoView = XmaxRealtimeVideoView(
@@ -225,7 +197,7 @@ let realtimeVideoView = XmaxRealtimeVideoView(
 )
 ```
 
-In SwiftUI, render local and remote tracks with `XmaxRealtimeVideo`:
+在 SwiftUI 中，使用 `XmaxRealtimeVideo` 渲染本地和远端轨道：
 
 ```swift
 XmaxRealtimeVideo(
@@ -235,10 +207,9 @@ XmaxRealtimeVideo(
 )
 ```
 
-### Start generation
+### 开始生成
 
-Construct a `RealtimeContext` with a prompt and, when applicable, a remote reference
-image URL:
+使用提示词和可选的远程参考图 URL 构建 `RealtimeContext`：
 
 ```swift
 let remoteStream = try await realtime.startGeneration(
@@ -250,24 +221,21 @@ let remoteStream = try await realtime.startGeneration(
 )
 ```
 
-In UIKit, assign the generated track to the same realtime video view:
+在 UIKit 中，将生成轨道赋给同一个实时视频视图：
 
 ```swift
 realtimeVideoView.remoteTrack = remoteStream.videoTrack
 ```
 
-In SwiftUI, update the remote track used by `XmaxRealtimeVideo`:
+在 SwiftUI 中，更新 `XmaxRealtimeVideo` 使用的远端轨道：
 
 ```swift
 remoteVideoTrack = remoteStream.videoTrack
 ```
 
-`XmaxRealtimeVideoView` and `XmaxRealtimeVideo` keep the local preview active
-under the generated output, wait for the first remote frame before showing it,
-and restore the local preview when `remoteTrack` becomes `nil`.
+`XmaxRealtimeVideoView` 和 `XmaxRealtimeVideo` 会在生成结果下方保持本地预览；收到首个远端帧后才显示生成结果；当 `remoteTrack` 变为 `nil` 时恢复本地预览。
 
-To record or process the generated output outside the SDK, register a final-frame
-listener before starting generation:
+如果需要在 SDK 外录制或处理生成结果，请在开始生成前注册最终帧监听器：
 
 ```swift
 await realtime.setRemoteVideoFrameListener { frame in
@@ -279,21 +247,15 @@ await realtime.setRemoteVideoFrameListener { frame in
 }
 ```
 
-The listener receives the frames accepted by the final render pipeline, after
-optional frame interpolation, on a dedicated serial background queue. Frame time
-stamps do not necessarily start at zero, so a recorder should rebase its output
-timeline to the first received frame. Transfer each frame to the recording pipeline
-quickly and avoid synchronous encoding in the callback. This API currently exposes
-video frames only; generated audio is not included.
+监听器会在专用的串行后台队列中接收最终渲染管线接受的帧，包括可选帧插值处理后的结果。帧时间戳不一定从零开始，因此录制器应以收到的第一帧为基准重设输出时间线。请快速将每帧转交给录制管线，避免在回调中进行同步编码。此 API 当前只提供视频帧，不包含生成音频。
 
-Clear the listener when frame delivery is no longer required:
+不再需要帧回调时，请清除监听器：
 
 ```swift
 await realtime.setRemoteVideoFrameListener(nil)
 ```
 
-To update an active generation task, submit a new context containing the revised
-prompt or reference image:
+如需更新正在运行的生成任务，请提交包含新提示词或参考图的 Context：
 
 ```swift
 try await realtime.startGeneration(
@@ -304,7 +266,7 @@ try await realtime.startGeneration(
 )
 ```
 
-### Stop and release resources
+### 停止并释放资源
 
 ```swift
 await realtime.stopGeneration()
@@ -312,26 +274,19 @@ await realtime.disconnect()
 await realtime.close()
 ```
 
-`stopGeneration()` terminates the active generation task while retaining the
-remote connection and local preview. `disconnect()` closes the remote session
-while preserving the local preview. `close()` releases all local media and RTC
-resources and should be called when the realtime workflow is no longer required.
+`stopGeneration()` 会终止当前生成任务，同时保留远端连接和本地预览。`disconnect()` 会关闭远端会话，同时保留本地预览。`close()` 会释放所有本地媒体和 RTC 资源；实时工作流不再需要时应调用该方法。
 
-## Touch Interaction
+## 触控交互
 
-During an active generation task, `XmaxRealtimeVideoView` and
-`XmaxRealtimeVideo` capture multi-touch trajectories over the generated video and
-submit them to the active task. The host application does not need to implement
-gesture tracking or coordinate conversion.
+在生成任务运行期间，`XmaxRealtimeVideoView` 和 `XmaxRealtimeVideo` 会捕获生成视频上的多点触控轨迹，并将其提交给当前任务。宿主应用无需自行实现手势追踪或坐标转换。
 
-Trajectory interaction is enabled by default. In UIKit, disable it when touch input
-must be handled by the surrounding user interface:
+轨迹交互默认启用。在 UIKit 中，如果触控输入需要由外围界面处理，可将其关闭：
 
 ```swift
 realtimeVideoView.isInteractionEnabled = false
 ```
 
-In SwiftUI, set `isInteractionEnabled` when constructing `XmaxRealtimeVideo`:
+在 SwiftUI 中，构造 `XmaxRealtimeVideo` 时设置 `isInteractionEnabled`：
 
 ```swift
 XmaxRealtimeVideo(
@@ -341,10 +296,9 @@ XmaxRealtimeVideo(
 )
 ```
 
-## Reference Image Upload
+## 上传参考图
 
-`RealtimeContext.referencePath` requires a remote image URL. To use an on-device
-image, upload it through the storage manager and supply the resulting URL:
+`RealtimeContext.referencePath` 需要远程图片 URL。如需使用设备上的图片，请通过存储管理器上传，并提供返回的 URL：
 
 ```swift
 let storage = try client.createStorageManager()
@@ -357,26 +311,21 @@ let uploaded = try await storage.uploadImage(
 let referenceImageURL = uploaded.url.absoluteString
 ```
 
-The storage manager uses temporary credentials obtained from Xmax. Tencent Cloud
-credentials are not embedded in the host application.
+存储管理器使用从 Xmax 获取的临时凭证。宿主应用中不会嵌入腾讯云凭证。
 
-## Frame Interpolation
+## 帧插值
 
-On supported devices running iOS 26 or later, XmaxSDK can interpolate remote
-generated video frames. Frame interpolation is enabled by default and can be changed
-at runtime:
+在运行 iOS 26 或更高版本的受支持设备上，XmaxSDK 可以对远端生成视频帧进行插值。帧插值默认启用，可在运行时修改：
 
 ```swift
 try await realtime.setFrameInterpolationEnabled(false)
 ```
 
-Check whether the current device supports interpolation for a specific video size
-with `client.createMediaService().supportsFrameInterpolation(for:)`.
+使用 `client.createMediaService().supportsFrameInterpolation(for:)` 检查当前设备是否支持指定视频尺寸的帧插值。
 
-## Logging
+## 日志
 
-SDK logging is disabled by default. Enable business logs, performance logs, or both
-when creating the client:
+SDK 日志默认关闭。创建客户端时，可以启用业务日志、性能日志或两者同时启用：
 
 ```swift
 let configuration = XmaxConfiguration(
@@ -387,35 +336,29 @@ let configuration = XmaxConfiguration(
 let client = XmaxClient(configuration: configuration)
 ```
 
-Logging configuration is process-wide and shared by all `XmaxClient` instances.
+日志配置在进程范围内生效，并由所有 `XmaxClient` 实例共享。
 
-## Example Project
+## 示例工程
 
-A runnable reference application with UIKit and SwiftUI implementations is available
-in [`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab).
-The application demonstrates realtime generation with camera, image, and local
-video inputs, together with custom prompts, reference image selection, and
-trajectory rendering.
+[`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab) 提供了同时包含 UIKit 和 SwiftUI 实现的可运行示例应用。该应用演示了使用相机、图片和本地视频输入进行实时生成，以及自定义提示词、参考图选择和轨迹渲染。
 
-<p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
+<p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab 首页" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK 功能" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab 存储服务" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab 实时生成" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab 轨迹生成" width="20%" /></p>
 
-## Dependencies
+## 依赖
 
-- VolcEngine RTC SDK for iOS provides real-time audio and video communication.
-- Tencent Cloud COS SDK provides image and video transfer through object storage.
+- VolcEngine RTC SDK for iOS 提供实时音视频通信能力。
+- 腾讯云 COS SDK 提供通过对象存储传输图片和视频的能力。
 
-## Distribution
+## 分发方式
 
-- CocoaPods source distribution is supported.
-- Manual XCFramework distribution is available through GitHub Releases.
-- Swift Package Manager is not supported in version 1.0.3.
+- 支持通过 CocoaPods 源码分发。
+- 可通过 GitHub Releases 手动集成 XCFramework。
+- 版本 1.0.3 暂不支持 Swift Package Manager。
 
-## Feedback
+## 反馈
 
-For bug reports and feature requests, use
-[GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
-questions and technical support, contact [sdk@xmax.ai](mailto:sdk@xmax.ai).
+如需报告 Bug 或提出功能建议，请使用 [GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues)。如有接入问题或需要技术支持，请联系 [sdk@xmax.ai](mailto:sdk@xmax.ai)。
 
-## License
+## 许可证
 
-XmaxSDK is available under the terms of the [MIT License](LICENSE).
+XmaxSDK 基于 [MIT License](LICENSE) 发布。
