@@ -223,9 +223,9 @@ the camera stream and throws an `XmaxError` if permission is unavailable.
 
 #### Generate and display video
 
-The following UIKit example previews the camera, starts generation, and displays
-the result in the same view. Run it in a main-actor async context, using an API key
-supplied securely at runtime (`apiKey`) and your preview container (`containerView`).
+The following UIKit example creates a camera stream, starts generation, and binds
+the output to a video view. Run it in a main-actor async context, using an API key
+supplied securely at runtime (`apiKey`).
 
 ```swift
 import UIKit
@@ -247,9 +247,6 @@ let videoView = XmaxRealtimeVideoView(
     localTrack: localStream.videoTrack,
     videoContentMode: .fill
 )
-videoView.frame = containerView.bounds
-videoView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-containerView.addSubview(videoView)
 
 let remoteStream = try await realtime.startGeneration(
     localStream: localStream,
@@ -282,13 +279,11 @@ See the [SwiftUI guide](./docs/usage.md#swiftui) for state binding and the
 
 #### Clean up
 
-Keep the realtime manager and video view available for cleanup. When leaving the
-generation screen, cancel its owning task and release the connection and media
-resources:
+Keep the realtime manager available for cleanup. When leaving the generation
+screen, cancel its owning task and release the connection and media resources:
 
 ```swift
 await realtime.close()
-videoView.removeFromSuperview()
 ```
 
 Handle errors from throwing calls and clean up if startup fails. For image and
