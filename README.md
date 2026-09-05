@@ -59,8 +59,8 @@ straightforward to integrate our generation models.
       <strong>Virtual Try-On</strong>
     </td>
     <td width="60%" valign="middle">
-      Change outfits seamlessly in real time while preserving the wearer's body shape
-      and movement and maintaining a natural-looking fit.
+      Seamlessly change outfits, preserving exact body shape, natural motion, and an
+      authentic fit.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
