@@ -65,10 +65,8 @@ straightforward to integrate our generation models.
       <strong>Video Restyling</strong>
     </td>
     <td width="64%" valign="middle">
-      Re-render the artistic style of your entire frame in real-time, seamlessly
-      unifying both the subject and the background. Whether it is cyberpunk, classic
-      oil painting, or anime, the world before you transforms instantly into an
-      immersive visual stream.
+      Reimagine the world around you in any artistic style, creating an immersive
+      visual experience.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/video-restyling.gif. -->
