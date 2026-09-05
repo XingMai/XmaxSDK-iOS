@@ -35,12 +35,21 @@ straightforward to integrate our generation models.
 
 ### Character Swapping
 
-Place a generated character into a live camera stream while preserving the continuity
-of the performance. This capability is designed for live streaming, video
-communication, and interactive entertainment, where the generated character must
-remain responsive throughout the session.
-
-<!-- Add the character swapping demo at docs/images/use-cases/character-swapping.gif. -->
+<table>
+  <tr>
+    <td width="34%" align="center" valign="middle">
+      <img src="./docs/images/use-cases/character-swapping.gif" alt="Character swapping from a live camera feed" width="260">
+      <br>
+      <sub>Live camera input → generated character stream</sub>
+    </td>
+    <td width="66%" valign="middle">
+      Place a generated character into a live camera stream while preserving the
+      continuity of the performance. This capability is designed for live streaming,
+      video communication, and interactive entertainment, where the generated
+      character must remain responsive throughout the session.
+    </td>
+  </tr>
+</table>
 
 <br>
 
