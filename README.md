@@ -307,22 +307,16 @@ trajectory rendering.
 
 <p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
 
-<br>
-
 ## Third-party dependencies
 
 - VolcEngine RTC SDK for iOS provides real-time audio and video communication.
 - Tencent Cloud COS SDK provides image and video transfer through object storage.
-
-<br>
 
 ## Contact us
 
 For bug reports and feature requests, use
 [GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
 questions and technical support, contact [sdk@xmax.ai](mailto:sdk@xmax.ai).
-
-<br>
 
 ## License
 
