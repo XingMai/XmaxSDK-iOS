@@ -29,6 +29,12 @@ generated video stream, applies on-device video enhancement, and renders the res
 directly in the application. The entire workflow is encapsulated behind a single API
 call, making real-time video generation straightforward to integrate.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/architecture/realtime-pipeline-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./docs/images/architecture/realtime-pipeline-light.svg">
+  <img src="./docs/images/architecture/realtime-pipeline-light.svg" alt="XmaxSDK realtime generation pipeline">
+</picture>
+
 <br>
 
 ## What you can build with XmaxSDK
