@@ -69,8 +69,10 @@ straightforward to integrate our generation models.
       <strong>Video Restyling</strong>
     </td>
     <td width="58%" valign="middle">
-      Apply cinematic, animated, illustrated, or branded visual styles while
-      preserving the motion and structure of the source video.
+      Re-render the artistic style of your entire frame in real-time, seamlessly
+      unifying both the subject and the background. Whether it is cyberpunk, classic
+      oil painting, or anime, the world before you transforms instantly into an
+      immersive visual stream.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/video-restyling.gif. -->
