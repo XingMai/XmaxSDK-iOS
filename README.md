@@ -122,7 +122,7 @@ integrating real-time video generation is seamless and intuitive.
 
 ## Why XmaxSDK?
 
-| Low latency | Low cost | High fidelity |
+| <img src="./docs/images/why/low-latency.svg" alt="Low latency" width="36"><br>Low latency | <img src="./docs/images/why/low-cost.svg" alt="Low cost" width="36"><br>Low cost | <img src="./docs/images/why/high-fidelity.svg" alt="High fidelity" width="36"><br>High fidelity |
 | --- | --- | --- |
 | The video pipeline is optimized for continuous realtime interaction, keeping input, generation, and visual feedback closely connected. | Start, update, and stop generation tasks on demand, with rendering, interaction, and storage built in to reduce runtime and integration costs. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
 
