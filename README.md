@@ -56,8 +56,9 @@ straightforward to integrate our generation models.
       <strong>Virtual Try-On</strong>
     </td>
     <td width="58%" valign="middle">
-      Let shoppers preview apparel, accessories, makeup, or eyewear from a camera
-      feed, video, or image before purchase.
+      Switch your clothing seamlessly in milliseconds without any post-editing. The
+      model automatically adapts to your body movements and environmental lighting,
+      letting the new outfits flow naturally with your every move.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
