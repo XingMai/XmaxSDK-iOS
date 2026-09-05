@@ -95,10 +95,8 @@ straightforward to integrate our generation models.
       <strong>Live Photo</strong>
     </td>
     <td width="60%" valign="middle">
-      Gently drag any static subject or live camera feed across your touchscreen to
-      instantly bring it to life. By simply sketching a motion trajectory, the
-      model predicts and generates a continuous video flow in real-time, letting you
-      animate with an intuitive touch.
+      Bring images or live camera feeds to life by drawing motion trajectories on the
+      screen.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/live-photo.gif. -->
