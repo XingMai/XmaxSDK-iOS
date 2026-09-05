@@ -9,11 +9,12 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT License"></a>
 </p>
 
-XmaxSDK is a native iOS SDK that provides access to Xmax's real-time interactive
-video generation models. It supports low-latency, low-cost, and high-fidelity video
-transformations conditioned on reference images, text prompts, and user interactions.
-Through a concise Swift API, developers can integrate capabilities such as real-time
-character swapping, virtual try-on, and mixed-reality companions into iOS applications.
+XmaxSDK is a native iOS SDK that provides direct access to Xmax's real-time,
+interactive video generation models. Built for low latency, cost efficiency, and high
+fidelity, it enables video transformations conditioned on reference images, text
+prompts, and user interactions. With concise Swift APIs, developers can integrate
+capabilities such as real-time character swapping, virtual try-on, or AI companions
+into iOS applications.
 
 <p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
 
