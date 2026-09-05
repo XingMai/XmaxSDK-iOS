@@ -122,7 +122,7 @@ integrating real-time video generation is seamless and intuitive.
 
 ## Why XmaxSDK?
 
-| <img src="./docs/images/why/low-latency.svg" alt="Low latency" width="36"><br>Low latency | <img src="./docs/images/why/low-cost.svg" alt="Low cost" width="36"><br>Low cost | <img src="./docs/images/why/high-fidelity.svg" alt="High fidelity" width="36"><br>High fidelity |
+| <img src="./docs/images/why/low-latency.svg" alt="Low latency" width="36"><br>Low latency | <img src="./docs/images/why/low-cost.svg" alt="Cost efficiency" width="36"><br>Cost efficiency | <img src="./docs/images/why/high-fidelity.svg" alt="High fidelity" width="36"><br>High fidelity |
 | --- | --- | --- |
 | End-to-end latency is measured in <strong><ins>hundreds of milliseconds</ins></strong>. Changes to generation conditions and interaction controls are reflected in the generated stream almost immediately. | Start, update, and stop generation tasks on demand, with rendering, interaction, and storage built in to reduce runtime and integration costs. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
 
