@@ -83,8 +83,8 @@ straightforward to integrate our generation models.
       <strong>AI Companions</strong>
     </td>
     <td width="60%" valign="middle">
-      Summon AI companions into your camera feed and interact with them through
-      gestures in real time.
+      Summon virtual characters into your live camera feed and interact with them
+      through gestures.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/ai-companions.gif. -->
