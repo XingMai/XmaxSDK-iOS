@@ -35,16 +35,16 @@ straightforward to integrate our generation models.
 
 <table>
   <tr>
-    <th width="20%" align="left">Use Case</th>
-    <th width="64%" align="left">Description</th>
-    <th width="16%" align="center">Demo</th>
+    <th width="20%" align="left"><small>Use Case</small></th>
+    <th width="64%" align="left"><small>Description</small></th>
+    <th width="16%" align="center"><small>Demo</small></th>
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>Character Swapping</strong>
+      <small><strong>Character Swapping</strong></small>
     </td>
     <td width="64%" valign="middle">
-      Replace anyone in your live feed with a designated avatar in real-time.
+      <small>Replace anyone in your live feed with a designated avatar in real-time.</small>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -56,10 +56,10 @@ straightforward to integrate our generation models.
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>Virtual Try-On</strong>
+      <small><strong>Virtual Try-On</strong></small>
     </td>
     <td width="64%" valign="middle">
-      Change outfits seamlessly in real time without post-editing.
+      <small>Change outfits seamlessly in real time without post-editing.</small>
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
@@ -67,11 +67,11 @@ straightforward to integrate our generation models.
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>Video Restyling</strong>
+      <small><strong>Video Restyling</strong></small>
     </td>
     <td width="64%" valign="middle">
-      Reimagine the world around you in any artistic style, creating an immersive
-      visual experience.
+      <small>Reimagine the world around you in any artistic style, creating an
+      immersive visual experience.</small>
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/video-restyling.gif. -->
@@ -79,13 +79,13 @@ straightforward to integrate our generation models.
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>AI Companions</strong>
+      <small><strong>AI Companions</strong></small>
     </td>
     <td width="64%" valign="middle">
-      Summon virtual creatures directly into the physical world right in front of
-      your camera. They seamlessly blend into your real environment and respond
+      <small>Summon virtual creatures directly into the physical world right in front
+      of your camera. They seamlessly blend into your real environment and respond
       instantly to your gestures, allowing you to pet, play, and interact with them
-      in real-time.
+      in real-time.</small>
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/ai-companions.gif. -->
@@ -93,13 +93,13 @@ straightforward to integrate our generation models.
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>Live Photo</strong>
+      <small><strong>Live Photo</strong></small>
     </td>
     <td width="64%" valign="middle">
-      Gently drag any static subject or live camera feed across your touchscreen to
-      instantly bring it to life. By simply sketching a motion trajectory, the model
-      predicts and generates a continuous video flow in real-time, letting you animate
-      with an intuitive touch.
+      <small>Gently drag any static subject or live camera feed across your touchscreen
+      to instantly bring it to life. By simply sketching a motion trajectory, the
+      model predicts and generates a continuous video flow in real-time, letting you
+      animate with an intuitive touch.</small>
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/live-photo.gif. -->
