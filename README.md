@@ -15,6 +15,8 @@ transformations conditioned on reference images, text prompts, and user interact
 Through a concise Swift API, developers can integrate capabilities such as real-time
 character swapping, virtual try-on, and mixed-reality companions into iOS applications.
 
+<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
+
 <br>
 
 ## What XmaxSDK does
@@ -38,11 +40,7 @@ of the performance. This capability is designed for live streaming, video
 communication, and interactive entertainment, where the generated character must
 remain responsive throughout the session.
 
-<p align="center">
-  <img src="./docs/images/xlab/generation-demo.gif" alt="Character swapping demo" width="640">
-</p>
-
-<p align="center"><sub>Live camera input → generated character stream</sub></p>
+<!-- Add the character swapping demo at docs/images/use-cases/character-swapping.gif. -->
 
 <br>
 
@@ -72,11 +70,7 @@ Bring generated characters into the user's camera view as responsive virtual
 companions. Reference images and text prompts define their appearance, while
 real-time generation enables social, entertainment, and mixed-reality experiences.
 
-<p align="center">
-  <img src="./docs/images/xlab/storage-demo.gif" alt="Virtual companion demo" width="640">
-</p>
-
-<p align="center"><sub>Reference image → generated companion experience</sub></p>
+<!-- Add the virtual companion demo at docs/images/use-cases/virtual-companions.gif. -->
 
 <br>
 
@@ -86,11 +80,7 @@ Create personalized animated wallpaper content from an image. XmaxSDK converts
 multi-touch trajectories into spatial control signals, allowing users to direct
 subject motion and create dynamic backgrounds that respond to their interactions.
 
-<p align="center">
-  <img src="./docs/images/xlab/index-demo.gif" alt="Dynamic wallpaper interaction demo" width="640">
-</p>
-
-<p align="center"><sub>Image input → touch-directed motion</sub></p>
+<!-- Add the dynamic wallpaper demo at docs/images/use-cases/dynamic-wallpapers.gif. -->
 
 <br>
 
