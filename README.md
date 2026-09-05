@@ -92,14 +92,16 @@ straightforward to integrate our generation models.
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>Dynamic Wallpapers</strong>
+      <strong>Live Photo</strong>
     </td>
     <td width="58%" valign="middle">
-      Turn images into animated backgrounds whose subjects respond to user-defined
-      touch trajectories.
+      Gently drag any static subject or live camera feed across your touchscreen to
+      instantly bring it to life. By simply sketching a motion trajectory, the model
+      predicts and generates a continuous video flow in real-time, letting you animate
+      with an intuitive touch.
     </td>
     <td width="22%" align="center" valign="middle">
-      <!-- Add docs/images/use-cases/dynamic-wallpapers.gif. -->
+      <!-- Add docs/images/use-cases/live-photo.gif. -->
     </td>
   </tr>
 </table>
