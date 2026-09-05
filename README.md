@@ -1,5 +1,6 @@
 <p align="right">
   <img src="./docs/images/language/zh-active.svg" alt="简体中文" height="28">
+  &nbsp;&nbsp;
   <a href="./README.en.md"><img src="./docs/images/language/en.svg" alt="English" height="28"></a>
 </p>
 
