@@ -83,10 +83,8 @@ straightforward to integrate our generation models.
       <strong>AI Companions</strong>
     </td>
     <td width="60%" valign="middle">
-      Summon virtual creatures directly into the physical world right in front of
-      your camera. They seamlessly blend into your real environment and respond
-      instantly to your gestures, allowing you to pet, play, and interact with them
-      in real-time.
+      Summon AI companions into your camera feed and interact with them through
+      gestures in real time.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/ai-companions.gif. -->
