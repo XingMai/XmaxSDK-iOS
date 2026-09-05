@@ -41,7 +41,7 @@ straightforward to integrate our generation models.
       and interactive entertainment.
     </td>
     <td width="22%" align="center" valign="middle">
-      <a href="./docs/videos/use-cases/character-swapping.mp4">
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
         <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the character swapping demo" width="140">
         <br>
         <sub>▶ Play demo</sub>
