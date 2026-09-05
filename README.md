@@ -21,7 +21,11 @@ character swapping, virtual try-on, and mixed-reality companions into iOS applic
 
 ## What you can build with XmaxSDK
 
-XmaxSDK brings the input, transport, generation, and rendering capabilities required for realtime video generation into one API. Input can come from a live camera, still image, or local video. Prompts and reference images define the generation direction, while touch gestures continuously shape movement in the result.
+XmaxSDK provides a unified pipeline for media acquisition, transport, generation,
+and rendering. It accepts live camera streams, still images, and prerecorded videos
+as source media. Generation is conditioned on text prompts and reference images,
+while touch trajectories provide real-time spatial control over subject motion in
+the generated output.
 
 ### Transform video as it plays
 
