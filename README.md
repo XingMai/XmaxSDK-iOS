@@ -201,11 +201,6 @@ Install the dependencies:
 pod install --repo-update
 ```
 
-Open the generated `.xcworkspace` file to build the application.
-
-Static framework linkage is required so that the Objective-C `QCloudCOSXML`
-dependency is exposed as a module that XmaxSDK can import from Swift.
-
 #### Manual
 
 Download
