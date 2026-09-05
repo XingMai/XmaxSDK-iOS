@@ -38,14 +38,14 @@ straightforward to integrate our generation models.
     <td width="20%" valign="middle">
       <strong>Character Swapping</strong>
     </td>
-    <td width="58%" valign="middle">
+    <td width="64%" valign="middle">
       Replace anyone in your live camera feed or video with a designated avatar or
       celebrity in real-time. The new character perfectly mirrors the original
       person's expressions, gaze, and movements for a flawless identity swap.
     </td>
-    <td width="22%" align="center" valign="middle">
+    <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
-        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the character swapping demo" width="140">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the character swapping demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -55,12 +55,12 @@ straightforward to integrate our generation models.
     <td width="20%" valign="middle">
       <strong>Virtual Try-On</strong>
     </td>
-    <td width="58%" valign="middle">
+    <td width="64%" valign="middle">
       Switch your clothing seamlessly in milliseconds without any post-editing. The
       model automatically adapts to your body movements and environmental lighting,
       letting the new outfits flow naturally with your every move.
     </td>
-    <td width="22%" align="center" valign="middle">
+    <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
     </td>
   </tr>
@@ -68,13 +68,13 @@ straightforward to integrate our generation models.
     <td width="20%" valign="middle">
       <strong>Video Restyling</strong>
     </td>
-    <td width="58%" valign="middle">
+    <td width="64%" valign="middle">
       Re-render the artistic style of your entire frame in real-time, seamlessly
       unifying both the subject and the background. Whether it is cyberpunk, classic
       oil painting, or anime, the world before you transforms instantly into an
       immersive visual stream.
     </td>
-    <td width="22%" align="center" valign="middle">
+    <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/video-restyling.gif. -->
     </td>
   </tr>
@@ -82,13 +82,13 @@ straightforward to integrate our generation models.
     <td width="20%" valign="middle">
       <strong>Virtual Companions</strong>
     </td>
-    <td width="58%" valign="middle">
+    <td width="64%" valign="middle">
       Summon virtual creatures directly into the physical world right in front of
       your camera. They seamlessly blend into your real environment and respond
       instantly to your gestures, allowing you to pet, play, and interact with them
       in real-time.
     </td>
-    <td width="22%" align="center" valign="middle">
+    <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-companions.gif. -->
     </td>
   </tr>
@@ -96,13 +96,13 @@ straightforward to integrate our generation models.
     <td width="20%" valign="middle">
       <strong>Live Photo</strong>
     </td>
-    <td width="58%" valign="middle">
+    <td width="64%" valign="middle">
       Gently drag any static subject or live camera feed across your touchscreen to
       instantly bring it to life. By simply sketching a motion trajectory, the model
       predicts and generates a continuous video flow in real-time, letting you animate
       with an intuitive touch.
     </td>
-    <td width="22%" align="center" valign="middle">
+    <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/live-photo.gif. -->
     </td>
   </tr>
