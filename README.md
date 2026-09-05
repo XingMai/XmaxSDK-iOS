@@ -35,10 +35,12 @@ straightforward to integrate our generation models.
 
 <table>
   <tr>
-    <td width="78%" valign="middle">
-      <strong>Character Swapping.</strong> Replace a participant in a live camera
-      stream with a generated character for live broadcasting, video communication,
-      and interactive entertainment.
+    <td width="20%" valign="middle">
+      <strong>Character Swapping</strong>
+    </td>
+    <td width="58%" valign="middle">
+      Replace a participant in a live camera stream with a generated character for
+      live broadcasting, video communication, and interactive entertainment.
     </td>
     <td width="22%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -49,37 +51,48 @@ straightforward to integrate our generation models.
     </td>
   </tr>
   <tr>
-    <td width="78%" valign="middle">
-      <strong>Virtual Try-On.</strong> Let shoppers preview apparel, accessories,
-      makeup, or eyewear from a camera feed, video, or image before purchase.
+    <td width="20%" valign="middle">
+      <strong>Virtual Try-On</strong>
+    </td>
+    <td width="58%" valign="middle">
+      Let shoppers preview apparel, accessories, makeup, or eyewear from a camera
+      feed, video, or image before purchase.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
     </td>
   </tr>
   <tr>
-    <td width="78%" valign="middle">
-      <strong>Video Restyling.</strong> Apply cinematic, animated, illustrated, or
-      branded visual styles while preserving the motion and structure of the source
-      video.
+    <td width="20%" valign="middle">
+      <strong>Video Restyling</strong>
+    </td>
+    <td width="58%" valign="middle">
+      Apply cinematic, animated, illustrated, or branded visual styles while
+      preserving the motion and structure of the source video.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/video-restyling.gif. -->
     </td>
   </tr>
   <tr>
-    <td width="78%" valign="middle">
-      <strong>Virtual Companions.</strong> Bring generated characters into live camera
-      experiences for social, entertainment, and mixed-reality applications.
+    <td width="20%" valign="middle">
+      <strong>Virtual Companions</strong>
+    </td>
+    <td width="58%" valign="middle">
+      Bring generated characters into live camera experiences for social,
+      entertainment, and mixed-reality applications.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-companions.gif. -->
     </td>
   </tr>
   <tr>
-    <td width="78%" valign="middle">
-      <strong>Dynamic Wallpapers.</strong> Turn images into animated backgrounds whose
-      subjects respond to user-defined touch trajectories.
+    <td width="20%" valign="middle">
+      <strong>Dynamic Wallpapers</strong>
+    </td>
+    <td width="58%" valign="middle">
+      Turn images into animated backgrounds whose subjects respond to user-defined
+      touch trajectories.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/dynamic-wallpapers.gif. -->
