@@ -21,7 +21,7 @@ character swapping, virtual try-on, and mixed-reality companions into iOS applic
 
 ## What XmaxSDK does
 
-**XmaxSDK** gives an end-to-end pipeline covering media capture, low-latency video
+XmaxSDK gives an end-to-end pipeline covering media capture, low-latency video
 communication, frame-by-frame cloud generation, and in-app rendering. Whether
 processing live camera feeds, pre-recorded video, or still images, the SDK streams
 input to our cloud AI engine, applies on-device enhancement to the generated video,
