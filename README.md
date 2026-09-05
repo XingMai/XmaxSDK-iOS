@@ -54,9 +54,7 @@ straightforward to integrate our generation models.
       <strong>Virtual Try-On</strong>
     </td>
     <td width="64%" valign="middle">
-      Switch your clothing seamlessly in milliseconds without any post-editing. The
-      model automatically adapts to your body movements and environmental lighting,
-      letting the new outfits flow naturally with your every move.
+      Change outfits seamlessly in real time without post-editing.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
