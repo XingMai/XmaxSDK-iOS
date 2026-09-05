@@ -41,7 +41,11 @@ straightforward to integrate our generation models.
       and interactive entertainment.
     </td>
     <td width="22%" align="center" valign="middle">
-      <video src="./docs/videos/use-cases/character-swapping.mp4" width="180" controls playsinline></video>
+      <a href="./docs/videos/use-cases/character-swapping.mp4">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the character swapping demo" width="140">
+        <br>
+        <sub>▶ Play demo</sub>
+      </a>
     </td>
   </tr>
   <tr>
