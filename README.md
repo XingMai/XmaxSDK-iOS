@@ -74,8 +74,7 @@ integrating real-time video generation is seamless and intuitive.
       <strong>Video Restyling</strong>
     </td>
     <td width="60%" valign="middle">
-      Reimagine the world around you in any artistic style, creating an immersive
-      visual experience.
+      Reimagine your world in any style with an immersive visual experience.
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
