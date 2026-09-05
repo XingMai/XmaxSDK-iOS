@@ -19,13 +19,19 @@ character swapping, virtual try-on, and mixed-reality companions into iOS applic
 
 <br>
 
-## What you can build with XmaxSDK
+## What XmaxSDK does
 
-XmaxSDK provides a unified pipeline for media acquisition, transport, generation,
-and rendering. It accepts live camera streams, still images, and prerecorded videos
-as source media. Generation is conditioned on text prompts and reference images,
-while touch trajectories provide real-time spatial control over subject motion in
-the generated output.
+XmaxSDK provides an end-to-end pipeline for media acquisition, real-time video
+communication, video-to-video (V2V) generation, and in-app rendering. It accepts
+live camera feeds, prerecorded video, or still images as input and transmits them to
+our cloud model service over a low-latency connection. The SDK then receives the
+generated video stream, applies on-device video enhancement, and renders the result
+directly in the application. The entire workflow is encapsulated behind a single API
+call, making real-time video generation straightforward to integrate.
+
+<br>
+
+## What you can build with XmaxSDK
 
 ### Transform video as it plays
 
