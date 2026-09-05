@@ -124,7 +124,7 @@ integrating real-time video generation is seamless and intuitive.
 
 | <img src="./docs/images/why/low-latency.svg" alt="Low latency" width="36"><br>Low latency | <img src="./docs/images/why/low-cost.svg" alt="Low cost" width="36"><br>Low cost | <img src="./docs/images/why/high-fidelity.svg" alt="High fidelity" width="36"><br>High fidelity |
 | --- | --- | --- |
-| The video pipeline is optimized for continuous realtime interaction, keeping input, generation, and visual feedback closely connected. | Start, update, and stop generation tasks on demand, with rendering, interaction, and storage built in to reduce runtime and integration costs. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
+| End-to-end latency is measured in hundreds of milliseconds. Changes to prompts, reference images, and interaction controls are reflected in the generated stream almost immediately. | Start, update, and stop generation tasks on demand, with rendering, interaction, and storage built in to reduce runtime and integration costs. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
 
 <br>
 
