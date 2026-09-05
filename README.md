@@ -60,12 +60,8 @@ Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-
 
 ### Installation
 
-XmaxSDK supports the following integration methods:
-
-- Add the source through CocoaPods.
-- Download and integrate the XCFramework manually from GitHub Releases.
-
-Swift Package Manager is not supported in version 1.0.3.
+XmaxSDK currently supports two integration methods: [**CocoaPods**](#cocoapods) and
+[**Manual**](#manual).
 
 #### CocoaPods
 
