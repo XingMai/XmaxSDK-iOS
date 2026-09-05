@@ -40,7 +40,7 @@ Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-
 
 <br>
 
-## Use XmaxSDK
+## How to use XmaxSDK?
 
 ### Before you begin
 
