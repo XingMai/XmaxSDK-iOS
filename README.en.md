@@ -61,6 +61,13 @@ Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-
 
 ### Installation
 
+XmaxSDK supports the following integration methods:
+
+- Add the source through CocoaPods.
+- Download and integrate the XCFramework manually from GitHub Releases.
+
+Swift Package Manager is not supported in version 1.0.3.
+
 #### CocoaPods
 
 XmaxSDK is distributed directly from this GitHub repository through CocoaPods. Add
@@ -147,12 +154,6 @@ Only `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` are required for CO
 Do not add `QCloudTrack.xcframework`, `COSBeaconAPI_Base.xcframework`, or QimeiSDK.
 The third-party frameworks must be present when importing XmaxSDK because its stable
 Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
-
-#### Supported distribution methods
-
-- CocoaPods source distribution is supported.
-- Manual XCFramework distribution is available through GitHub Releases.
-- Swift Package Manager is not supported in version 1.0.3.
 
 ### Configure privacy permissions
 

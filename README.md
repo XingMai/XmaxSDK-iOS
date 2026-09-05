@@ -15,19 +15,19 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT 许可证"></a>
 </p>
 
-XmaxSDK 是原生 iOS SDK，可接入 Xmax AI 的实时交互视频生成模型。SDK 支持以实时视频流、参考图和用户交互驱动低延迟、高保真的视频变换。只需几行代码，即可在应用中集成实时角色替换、虚拟试穿、混合现实伙伴和交互式图像动画等能力。
+XmaxSDK 是一款面向 iOS 的原生 SDK，帮助开发者快速接入 Xmax AI 的实时交互视频生成能力。它可以根据实时画面、参考图和用户操作，低延迟地生成高保真视频。只需几行代码，即可在应用中实现实时角色替换、虚拟试穿、混合现实伙伴、交互式图片动画等功能。
 
-## 用 XmaxSDK 构建实时交互视频体验
+## 用 XmaxSDK 可以做什么？
 
-XmaxSDK 将实时视频生成所需的输入、传输、生成和渲染能力整合到一套 API 中。输入可以来自实时相机、静态图片或本地视频；提示词和参考图定义生成方向，触控手势则可以持续改变画面中的动作。
+XmaxSDK 将媒体输入、文件传输、视频生成和画面渲染整合为一套易用的 API。你可以使用相机画面、静态图片或本地视频作为输入，通过提示词和参考图控制生成内容，还可以用触控手势实时改变画面中主体的动作。
 
-### 实时转换视频
+### 实时改变视频内容
 
-让摄像头画面或本地视频在播放过程中实时生成新的视觉内容，构建角色替换、虚拟试穿、风格转换和混合现实伙伴等体验。SDK 在应用内同时管理原始输入和生成结果的渲染，便于自然地衔接预览与生成画面。
+在摄像头画面或本地视频播放的同时，实时生成新的视觉内容。你可以用它实现角色替换、虚拟试穿、画面风格转换和混合现实伙伴等功能。SDK 会同时管理原始画面和生成画面的渲染，让预览与生成结果之间的切换更自然。
 
-### 让图片响应你的手势
+### 让图片跟着手势动起来
 
-静态图片也可以成为可交互的动态画布。XmaxSDK 捕获用户在生成画面上的多点触控轨迹，并将轨迹提交给当前生成任务，让图片中的人物或主体跟随手势移动。
+一张静态图片，也可以变成能够实时互动的动态画面。XmaxSDK 会采集用户在画面上的多点触控轨迹，并将轨迹发送给生成任务，让图片中的人物或其他主体跟随手势移动。
 
 <p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab 实时生成演示" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab 首页演示" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab 存储演示" width="33%" /></p>
 
@@ -37,26 +37,33 @@ XmaxSDK 将实时视频生成所需的输入、传输、生成和渲染能力整
 
 | 低延迟 | 低成本 | 高保真 |
 | --- | --- | --- |
-| 面向连续实时交互优化视频链路，让输入、生成与画面反馈紧密衔接。 | 按需启动、更新和停止生成任务，并内置渲染、交互与存储能力，降低运行和接入成本。 | 在视频转换过程中保留主体细节和画面一致性，获得稳定、自然的生成结果。 |
+| 针对实时交互链路做了专门优化，尽可能缩短从输入到生成画面回传的等待时间，让操作和反馈更跟手。 | 支持按需开始、更新和停止生成任务，并内置渲染、交互和存储能力，减少重复开发和不必要的生成开销。 | 改变角色、服装或画面风格的同时，尽量保留主体细节和前后帧的一致性，让生成结果更稳定、更自然。 |
 
 <br>
 
-## 使用 XmaxSDK
+## 如何使用 XmaxSDK
 
-### 开始之前
+### 接入前准备
 
 - iOS 15.0 或更高版本
 - Swift 6
 - Xmax API Key
 
 > [!WARNING]
-> 请勿将 Xmax API Key 提交到版本控制系统。请在运行时安全地提供凭证，或使用 Xmax API 签发的临时 Key。详情参阅[身份认证](https://platform.xmaxai.com/docs/authentication)。
+> 不要将 Xmax API Key 写入代码或提交到版本控制系统。建议在运行时安全地注入凭证，也可以使用 Xmax API 签发的临时 Key。详情请参阅[身份认证](https://platform.xmaxai.com/docs/authentication)。
 
 ### 安装
 
+目前支持以下两种接入方式：
+
+- 通过 CocoaPods 引入源码
+- 从 GitHub Releases 下载并手动集成 XCFramework
+
+1.0.3 版本暂不支持 Swift Package Manager。
+
 #### CocoaPods
 
-XmaxSDK 通过 CocoaPods 直接从本 GitHub 仓库分发。请在应用的 `Podfile` 中添加所需的 Specs 源和 XmaxSDK 依赖：
+XmaxSDK 支持通过 CocoaPods 从本仓库直接引入。在应用的 `Podfile` 中添加所需的 Spec 源和 XmaxSDK 依赖：
 
 ```ruby
 source 'https://github.com/volcengine/volcengine-specs.git'
@@ -82,24 +89,24 @@ post_install do |installer|
 end
 ```
 
-安装依赖：
+执行以下命令安装依赖：
 
 ```bash
 pod install --repo-update
 ```
 
-打开生成的 `.xcworkspace` 文件并构建应用。
+安装完成后，打开生成的 `.xcworkspace` 文件即可构建应用。
 
-必须使用静态 Framework 链接，以便将 Objective-C `QCloudCOSXML` 依赖暴露为 Swift 可导入的模块。
+这里需要使用静态链接，确保 Swift 能够正常导入 Objective-C 依赖 `QCloudCOSXML`。
 
 #### 手动集成
 
-下载 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip)，解压得到 `XmaxSDK.xcframework`，并下载本版本使用的精确第三方依赖：
+如需手动接入，请先下载并解压 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip)，然后准备与当前版本匹配的第三方依赖：
 
 - [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip)：使用下载包中的 `VolcEngineRTC.xcframework`、`RealXBase.xcframework` 和 `RTCFFmpeg.xcframework`。
 - [腾讯云 COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/releases/download/6.5.7/QCloudCOSXML-6.5.7.zip)：使用官方发布包中的 `QCloudCOSXML.xcframework` 和 `QCloudCore.xcframework`。
 
-在应用 Target 的 **Frameworks, Libraries, and Embedded Content** 中添加这些 Framework，并采用以下嵌入设置：
+将这些 Framework 添加到应用 Target 的 **Frameworks, Libraries, and Embedded Content**，并按下表设置嵌入方式：
 
 | Framework | 嵌入设置 |
 | --- | --- |
@@ -110,7 +117,7 @@ pod install --repo-update
 | `RealXBase.xcframework` | Embed & Sign |
 | `RTCFFmpeg.xcframework` | Embed & Sign |
 
-XmaxSDK 和 COS 二进制文件为静态 Framework。三个 VolcEngine 二进制文件为动态 Framework，必须由应用 Target 嵌入并签名。
+XmaxSDK 和 COS 使用静态 Framework；三个 VolcEngine Framework 为动态库，需要由应用 Target 嵌入并签名。
 
 完成以下配置：
 
@@ -118,35 +125,29 @@ XmaxSDK 和 COS 二进制文件为静态 Framework。三个 VolcEngine 二进制
 2. 在 **Other Linker Flags** 中添加 `-ObjC`。
 3. 链接 `Accelerate.framework`、`CoreMedia.framework`、`CoreTelephony.framework`、`SystemConfiguration.framework`、`libz.tbd` 和 `libc++.tbd`。
 4. 将 COS 的 [`PrivacyInfo.xcprivacy`](https://github.com/tencentyun/qcloud-sdk-ios/blob/6.5.7/QCloudCOSXML/PrivacyInfo.xcprivacy) 文件添加到应用 Target。
-5. 确认每个 XCFramework 都包含目标平台和架构对应的 Slice。Apple 芯片上的模拟器构建需要 `arm64` 模拟器 Slice。
+5. 确认每个 XCFramework 都包含目标平台和架构所需的 Slice。在 Apple 芯片 Mac 上运行模拟器时，需要 `arm64` 模拟器 Slice。
 
-COS 只需要 `QCloudCOSXML.xcframework` 和 `QCloudCore.xcframework`。请勿添加 `QCloudTrack.xcframework`、`COSBeaconAPI_Base.xcframework` 或 QimeiSDK。导入 XmaxSDK 时必须存在第三方 Framework，因为它的稳定 Swift 模块接口会导入 `QCloudCOSXML` 和 `VolcEngineRTC`。
+COS 只需引入 `QCloudCOSXML.xcframework` 和 `QCloudCore.xcframework`，无需添加 `QCloudTrack.xcframework`、`COSBeaconAPI_Base.xcframework` 或 QimeiSDK。由于 XmaxSDK 的 Swift 模块接口引用了 `QCloudCOSXML` 和 `VolcEngineRTC`，编译时必须能够找到这两个依赖。
 
-#### 支持的分发方式
+### 声明隐私权限
 
-- 支持通过 CocoaPods 源码分发。
-- 可通过 GitHub Releases 手动集成 XCFramework。
-- 版本 1.0.3 暂不支持 Swift Package Manager。
-
-### 配置隐私权限
-
-使用相机输入时，请在应用的 `Info.plist` 中提供相机用途说明：
+使用相机作为输入源时，需要在应用的 `Info.plist` 中添加相机权限说明：
 
 ```xml
 <key>NSCameraUsageDescription</key>
 <string>此应用使用相机提供实时视频输入。</string>
 ```
 
-如果本地视频输入包含音频，还需要提供麦克风用途说明：
+如果本地视频包含音频，还需要添加麦克风权限说明：
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
 <string>此应用使用麦克风提供实时音频输入。</string>
 ```
 
-请根据应用实际用途修改这些说明。创建本地媒体流时，XmaxSDK 会检查并请求所需的运行时权限。如果权限不可用，SDK 会报告 `XmaxError`。
+请根据应用的实际用途调整文案。创建本地媒体流时，XmaxSDK 会自动检查并申请所需权限；如果用户未授权，SDK 将返回 `XmaxError`。
 
-### 构建第一个实时生成体验
+### 快速开始
 
 #### 创建客户端
 
@@ -162,9 +163,9 @@ let realtime = client.createRealtimeManager(
 )
 ```
 
-实时操作使用 Swift Concurrency，应在宿主应用中由生命周期明确的 `Task` 调用。
+实时相关 API 基于 Swift Concurrency。请在生命周期明确、由业务侧持有的 `Task` 中调用。
 
-可以在实时管理器上注册连接状态和错误监听器：
+如需监听连接状态和运行错误，可以注册以下回调：
 
 ```swift
 await realtime.setStateListener { state in
@@ -181,7 +182,7 @@ await realtime.setErrorListener { error in
 
 #### 创建输入流
 
-获得相机权限后，创建实时相机流：
+取得相机权限后，可以创建实时相机流：
 
 ```swift
 let localStream = try await realtime.createLocalCameraStream(
@@ -194,7 +195,7 @@ let localStream = try await realtime.createLocalCameraStream(
 )
 ```
 
-也可以使用静态图片或本地视频文件作为输入源：
+除了相机，也可以使用静态图片或本地视频作为输入：
 
 ```swift
 let imageStream = try await realtime.createLocalImageStream(
@@ -205,11 +206,11 @@ let videoStream = try await realtime.createLocalVideoStream(
 )
 ```
 
-同一时间只能有一个本地输入流处于活动状态。
+XmaxSDK 同一时间只支持一个本地输入流。
 
 #### 预览输入
 
-在 UIKit 中，将本地流绑定到 `XmaxRealtimeVideoView`：
+在 UIKit 中，将本地视频流绑定到 `XmaxRealtimeVideoView`：
 
 ```swift
 let realtimeVideoView = XmaxRealtimeVideoView(
@@ -218,7 +219,7 @@ let realtimeVideoView = XmaxRealtimeVideoView(
 )
 ```
 
-在 SwiftUI 中，使用 `XmaxRealtimeVideo` 渲染本地和远端轨道：
+在 SwiftUI 中，使用 `XmaxRealtimeVideo` 渲染本地和远端视频：
 
 ```swift
 XmaxRealtimeVideo(
@@ -230,7 +231,7 @@ XmaxRealtimeVideo(
 
 #### 开始生成
 
-使用提示词和可选的远程参考图 URL 构建 `RealtimeContext`：
+创建 `RealtimeContext`，传入提示词；如果需要，也可以同时传入远程参考图地址：
 
 ```swift
 let remoteStream = try await realtime.startGeneration(
@@ -242,21 +243,21 @@ let remoteStream = try await realtime.startGeneration(
 )
 ```
 
-在 UIKit 中，将生成轨道赋给同一个实时视频视图：
+在 UIKit 中，将生成的视频轨道设置到同一个实时视频视图：
 
 ```swift
 realtimeVideoView.remoteTrack = remoteStream.videoTrack
 ```
 
-在 SwiftUI 中，更新 `XmaxRealtimeVideo` 使用的远端轨道：
+在 SwiftUI 中，更新 `XmaxRealtimeVideo` 使用的远端视频轨道：
 
 ```swift
 remoteVideoTrack = remoteStream.videoTrack
 ```
 
-`XmaxRealtimeVideoView` 和 `XmaxRealtimeVideo` 会在生成结果下方保持本地预览；收到首个远端帧后才显示生成结果；当 `remoteTrack` 变为 `nil` 时恢复本地预览。
+`XmaxRealtimeVideoView` 和 `XmaxRealtimeVideo` 会继续在底层播放本地预览，收到第一帧生成画面后再切换到生成结果。当 `remoteTrack` 设为 `nil` 时，界面会恢复显示本地预览。
 
-如果需要在 SDK 外录制或处理生成结果，请在开始生成前注册最终帧监听器：
+如需在 SDK 之外录制或进一步处理生成画面，请在开始生成前注册视频帧回调：
 
 ```swift
 await realtime.setRemoteVideoFrameListener { frame in
@@ -268,15 +269,15 @@ await realtime.setRemoteVideoFrameListener { frame in
 }
 ```
 
-监听器会在专用的串行后台队列中接收最终渲染管线接受的帧，包括可选帧插值处理后的结果。帧时间戳不一定从零开始，因此录制器应以收到的第一帧为基准重设输出时间线。请快速将每帧转交给录制管线，避免在回调中进行同步编码。此 API 当前只提供视频帧，不包含生成音频。
+回调会在专用的串行后台队列中返回最终用于渲染的视频帧。开启帧插值后，返回的是插值处理后的结果。帧时间戳不一定从零开始，录制时应以收到的第一帧为基准重设时间线。建议尽快将视频帧交给录制管线，不要在回调中同步编码。目前该 API 只提供视频帧，不包含生成音频。
 
-不再需要帧回调时，请清除监听器：
+不再需要接收视频帧时，请移除回调：
 
 ```swift
 await realtime.setRemoteVideoFrameListener(nil)
 ```
 
-如需更新正在运行的生成任务，请提交包含新提示词或参考图的 Context：
+生成过程中，如需更换提示词或参考图，再次提交新的 `RealtimeContext` 即可：
 
 ```swift
 try await realtime.startGeneration(
@@ -295,19 +296,19 @@ await realtime.disconnect()
 await realtime.close()
 ```
 
-`stopGeneration()` 会终止当前生成任务，同时保留远端连接和本地预览。`disconnect()` 会关闭远端会话，同时保留本地预览。`close()` 会释放所有本地媒体和 RTC 资源；实时工作流不再需要时应调用该方法。
+`stopGeneration()` 用于停止当前生成任务，但会保留远端连接和本地预览。`disconnect()` 用于断开远端会话，同样不会关闭本地预览。整个实时流程结束后，请调用 `close()` 释放本地媒体和 RTC 资源。
 
 ### 触控交互
 
-在生成任务运行期间，`XmaxRealtimeVideoView` 和 `XmaxRealtimeVideo` 会捕获生成视频上的多点触控轨迹，并将其提交给当前任务。宿主应用无需自行实现手势追踪或坐标转换。
+生成过程中，`XmaxRealtimeVideoView` 和 `XmaxRealtimeVideo` 会自动采集用户在画面上的多点触控轨迹，并发送给当前生成任务。应用无需自行处理手势追踪和坐标转换。
 
-轨迹交互默认启用。在 UIKit 中，如果触控输入需要由外围界面处理，可将其关闭：
+轨迹交互默认开启。如果外层 UI 需要接管触摸事件，可以在 UIKit 中关闭该功能：
 
 ```swift
 realtimeVideoView.isInteractionEnabled = false
 ```
 
-在 SwiftUI 中，构造 `XmaxRealtimeVideo` 时设置 `isInteractionEnabled`：
+在 SwiftUI 中，通过 `isInteractionEnabled` 控制是否启用轨迹交互：
 
 ```swift
 XmaxRealtimeVideo(
@@ -319,7 +320,7 @@ XmaxRealtimeVideo(
 
 ### 上传参考图
 
-`RealtimeContext.referencePath` 需要远程图片 URL。如需使用设备上的图片，请通过存储管理器上传，并提供返回的 URL：
+`RealtimeContext.referencePath` 必须是可访问的远程图片地址。如果参考图来自本地，请先通过存储管理器上传，再使用上传后返回的 URL：
 
 ```swift
 let storage = try client.createStorageManager()
@@ -332,21 +333,21 @@ let uploaded = try await storage.uploadImage(
 let referenceImageURL = uploaded.url.absoluteString
 ```
 
-存储管理器使用从 Xmax 获取的临时凭证。宿主应用中不会嵌入腾讯云凭证。
+存储管理器会向 Xmax 获取临时凭证，应用中无需保存腾讯云凭证。
 
 ### 帧插值
 
-在运行 iOS 26 或更高版本的受支持设备上，XmaxSDK 可以对远端生成视频帧进行插值。帧插值默认启用，可在运行时修改：
+在系统版本为 iOS 26 及以上、且硬件支持的设备上，XmaxSDK 可以对服务端返回的视频帧进行插值。该功能默认开启，也可以在运行时关闭：
 
 ```swift
 try await realtime.setFrameInterpolationEnabled(false)
 ```
 
-使用 `client.createMediaService().supportsFrameInterpolation(for:)` 检查当前设备是否支持指定视频尺寸的帧插值。
+调用 `client.createMediaService().supportsFrameInterpolation(for:)`，可以检查当前设备是否支持指定视频尺寸的帧插值。
 
 ### 日志
 
-SDK 日志默认关闭。创建客户端时，可以启用业务日志、性能日志或两者同时启用：
+SDK 默认不输出日志。创建客户端时，可以按需开启业务日志、性能日志，或同时开启两者：
 
 ```swift
 let configuration = XmaxConfiguration(
@@ -357,13 +358,13 @@ let configuration = XmaxConfiguration(
 let client = XmaxClient(configuration: configuration)
 ```
 
-日志配置在进程范围内生效，并由所有 `XmaxClient` 实例共享。
+日志配置对整个进程生效，所有 `XmaxClient` 实例共用同一套设置。
 
 <br>
 
 ## 示例工程
 
-[`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab) 提供了同时包含 UIKit 和 SwiftUI 实现的可运行示例应用。该应用演示了使用相机、图片和本地视频输入进行实时生成，以及自定义提示词、参考图选择和轨迹渲染。
+[`Examples/XLab`](./Examples/XLab) 中提供了一个可直接运行的示例应用，同时包含 UIKit 和 SwiftUI 两种实现。你可以在其中查看如何使用相机、图片和本地视频发起实时生成，以及如何设置提示词、选择参考图和渲染触控轨迹。
 
 <p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab 首页" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK 功能" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab 存储服务" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab 实时生成" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab 轨迹生成" width="20%" /></p>
 
@@ -371,17 +372,17 @@ let client = XmaxClient(configuration: configuration)
 
 ## 第三方依赖
 
-- VolcEngine RTC SDK for iOS 提供实时音视频通信能力。
-- 腾讯云 COS SDK 提供通过对象存储传输图片和视频的能力。
+- **VolcEngine RTC SDK for iOS**：负责实时音视频通信。
+- **腾讯云 COS SDK**：负责通过对象存储上传和下载图片、视频。
 
 <br>
 
 ## 联系我们
 
-如需报告 Bug 或提出功能建议，请使用 [GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues)。如有接入问题或需要技术支持，请联系 [sdk@xmax.ai](mailto:sdk@xmax.ai)。
+如果遇到问题或有功能建议，欢迎提交 [GitHub Issue](https://github.com/XingMai/XmaxSDK-iOS/issues)。接入咨询和技术支持请联系 [sdk@xmax.ai](mailto:sdk@xmax.ai)。
 
 <br>
 
 ## 许可证
 
-XmaxSDK 基于 [MIT License](LICENSE) 发布。
+XmaxSDK 采用 [MIT License](LICENSE) 发布。
