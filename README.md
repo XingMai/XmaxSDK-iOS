@@ -15,8 +15,6 @@ transformations conditioned on reference images, text prompts, and user interact
 Through a concise Swift API, developers can integrate capabilities such as real-time
 character swapping, virtual try-on, and mixed-reality companions into iOS applications.
 
-<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
-
 <br>
 
 ## What XmaxSDK does
@@ -33,13 +31,66 @@ straightforward to integrate our generation models.
 
 ## What you can build with XmaxSDK
 
-### Transform video as it plays
+### Character Swapping
 
-Generate new visual content from a live camera feed or local video while it plays. Build experiences such as realtime character replacement, virtual try-on, style transformation, and mixed reality companions. The SDK renders both the original input and generated output in the app, making transitions between preview and generation seamless.
+Place a generated character into a live camera stream while preserving the continuity
+of the performance. This capability is designed for live streaming, video
+communication, and interactive entertainment, where the generated character must
+remain responsive throughout the session.
 
-### Make images respond to gestures
+<p align="center">
+  <img src="./docs/images/xlab/generation-demo.gif" alt="Character swapping demo" width="640">
+</p>
 
-Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-touch trajectories over the generated video and submits them to the active generation task, allowing people or subjects in an image to follow the user's gestures.
+<p align="center"><sub>Live camera input → generated character stream</sub></p>
+
+<br>
+
+### Virtual Try-On
+
+Enable shoppers to preview apparel, accessories, makeup, or eyewear from a live
+camera feed, video, or image. Product references guide the generation process,
+allowing commerce applications to offer personalized visualization before purchase.
+
+<!-- Add the virtual try-on demo at docs/images/use-cases/virtual-try-on.gif. -->
+
+<br>
+
+### Video Restyling
+
+Apply a new visual language to live or prerecorded video while retaining its motion
+and scene structure. Applications include cinematic treatments, animation and
+illustration styles, branded visual effects, and creative tools for short-form video.
+
+<!-- Add the video restyling demo at docs/images/use-cases/video-restyling.gif. -->
+
+<br>
+
+### Virtual Companions
+
+Bring generated characters into the user's camera view as responsive virtual
+companions. Reference images and text prompts define their appearance, while
+real-time generation enables social, entertainment, and mixed-reality experiences.
+
+<p align="center">
+  <img src="./docs/images/xlab/storage-demo.gif" alt="Virtual companion demo" width="640">
+</p>
+
+<p align="center"><sub>Reference image → generated companion experience</sub></p>
+
+<br>
+
+### Dynamic Wallpapers
+
+Create personalized animated wallpaper content from an image. XmaxSDK converts
+multi-touch trajectories into spatial control signals, allowing users to direct
+subject motion and create dynamic backgrounds that respond to their interactions.
+
+<p align="center">
+  <img src="./docs/images/xlab/index-demo.gif" alt="Dynamic wallpaper interaction demo" width="640">
+</p>
+
+<p align="center"><sub>Image input → touch-directed motion</sub></p>
 
 <br>
 
