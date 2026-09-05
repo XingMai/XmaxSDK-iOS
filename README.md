@@ -149,7 +149,7 @@ integrating real-time video generation is seamless and intuitive.
 
 ## How to use XmaxSDK?
 
-### Before you begin
+### Prerequisites
 
 - iOS 15.0 or later
 - Swift 6
