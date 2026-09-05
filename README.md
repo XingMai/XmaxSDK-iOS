@@ -24,7 +24,7 @@ swapping, virtual try-on, or AI companions into iOS applications.
 XmaxSDK gives an end-to-end pipeline covering media capture, low-latency video
 communication, frame-by-frame generation, and in-app rendering. Whether
 processing live camera feeds, pre-recorded video, or still images, the SDK streams
-input to our cloud AI engine, applies on-device enhancement to the generated video,
+input to our cloud AI engine, applies on-device enhancement to the returned video,
 and renders the result. With the entire workflow abstracted into simple API calls,
 integrating real-time video generation is seamless and intuitive.
 
