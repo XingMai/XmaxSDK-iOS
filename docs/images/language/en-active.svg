@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="72" height="28" viewBox="0 0 72 28" role="img" aria-label="English">
-  <rect x="0.5" y="0.5" width="71" height="27" rx="7" fill="#9B6237" stroke="#9B6237"/>
-  <text x="36" y="18.5" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" text-anchor="middle">English</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="24" viewBox="0 0 96 24" role="img" aria-label="English">
+  <rect x="3" y="5" width="4" height="4" fill="#B67539"/>
+  <rect x="13" y="5" width="4" height="4" fill="#C16B58"/>
+  <rect x="8" y="10" width="4" height="4" fill="#B67539"/>
+  <rect x="3" y="15" width="4" height="4" fill="#C16B58"/>
+  <rect x="13" y="15" width="4" height="4" fill="#C16B58"/>
+  <text x="61" y="16.5" fill="#A96B43" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="13" font-weight="600" letter-spacing="0.2" text-anchor="middle">English</text>
 </svg>
