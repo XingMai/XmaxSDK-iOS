@@ -156,9 +156,9 @@ integrating real-time video generation is seamless and intuitive.
 - An Xmax API key
 
 > [!WARNING]
-> Do not commit an Xmax API key to version control. Supply credentials securely at
-> runtime, or use a temporary key issued by the Xmax API. See
-> [Authentication](https://platform.xmaxai.com/docs/authentication) for details.
+> Never commit your Xmax API key to version control. Pass credentials securely at
+> runtime or use short-lived temporary keys issued by the Xmax API. For step-by-step
+> instructions, see [Authentication](https://platform.xmaxai.com/docs/authentication).
 
 ### Installation
 
