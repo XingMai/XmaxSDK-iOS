@@ -1,4 +1,6 @@
-<h1 align="center">XmaxSDK for iOS</h1>
+<p align="center">
+  <img src="./docs/images/brand/xmax-sdk.png" alt="XmaxSDK — Realtime Interactive Video Generation" width="880">
+</p>
 
 <p align="center">
   <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-15.0%2B-007AFF" alt="iOS 15.0+"></a>
