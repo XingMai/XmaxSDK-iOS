@@ -36,11 +36,15 @@ Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-
 
 <p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
 
+<br>
+
 ## Why XmaxSDK?
 
 | Low latency | Low cost | High fidelity |
 | --- | --- | --- |
 | The video pipeline is optimized for continuous realtime interaction, keeping input, generation, and visual feedback closely connected. | Start, update, and stop generation tasks on demand, with rendering, interaction, and storage built in to reduce runtime and integration costs. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
+
+<br>
 
 ## Use XmaxSDK
 
@@ -408,6 +412,8 @@ let client = XmaxClient(configuration: configuration)
 
 Logging configuration is process-wide and shared by all `XmaxClient` instances.
 
+<br>
+
 ## Example Project
 
 A runnable reference application with UIKit and SwiftUI implementations is available
@@ -418,16 +424,22 @@ trajectory rendering.
 
 <p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
 
+<br>
+
 ## Third-party dependencies
 
 - VolcEngine RTC SDK for iOS provides real-time audio and video communication.
 - Tencent Cloud COS SDK provides image and video transfer through object storage.
+
+<br>
 
 ## Contact us
 
 For bug reports and feature requests, use
 [GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
 questions and technical support, contact [sdk@xmax.ai](mailto:sdk@xmax.ai).
+
+<br>
 
 ## License
 

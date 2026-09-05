@@ -31,11 +31,15 @@ XmaxSDK 将实时视频生成所需的输入、传输、生成和渲染能力整
 
 <p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab 实时生成演示" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab 首页演示" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab 存储演示" width="33%" /></p>
 
+<br>
+
 ## 为什么选择 XmaxSDK？
 
 | 低延迟 | 低成本 | 高保真 |
 | --- | --- | --- |
 | 面向连续实时交互优化视频链路，让输入、生成与画面反馈紧密衔接。 | 按需启动、更新和停止生成任务，并内置渲染、交互与存储能力，降低运行和接入成本。 | 在视频转换过程中保留主体细节和画面一致性，获得稳定、自然的生成结果。 |
+
+<br>
 
 ## 使用 XmaxSDK
 
@@ -355,20 +359,28 @@ let client = XmaxClient(configuration: configuration)
 
 日志配置在进程范围内生效，并由所有 `XmaxClient` 实例共享。
 
+<br>
+
 ## 示例工程
 
 [`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab) 提供了同时包含 UIKit 和 SwiftUI 实现的可运行示例应用。该应用演示了使用相机、图片和本地视频输入进行实时生成，以及自定义提示词、参考图选择和轨迹渲染。
 
 <p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab 首页" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK 功能" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab 存储服务" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab 实时生成" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab 轨迹生成" width="20%" /></p>
 
+<br>
+
 ## 第三方依赖
 
 - VolcEngine RTC SDK for iOS 提供实时音视频通信能力。
 - 腾讯云 COS SDK 提供通过对象存储传输图片和视频的能力。
 
+<br>
+
 ## 联系我们
 
 如需报告 Bug 或提出功能建议，请使用 [GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues)。如有接入问题或需要技术支持，请联系 [sdk@xmax.ai](mailto:sdk@xmax.ai)。
+
+<br>
 
 ## 许可证
 
