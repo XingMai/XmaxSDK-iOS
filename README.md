@@ -35,6 +35,11 @@ straightforward to integrate our generation models.
 
 <table>
   <tr>
+    <th width="20%" align="left">Use Case</th>
+    <th width="64%" align="left">Description</th>
+    <th width="16%" align="center">Demo</th>
+  </tr>
+  <tr>
     <td width="20%" valign="middle">
       <strong>Character Swapping</strong>
     </td>
