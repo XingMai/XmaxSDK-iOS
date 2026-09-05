@@ -48,7 +48,7 @@ video generation effortless to integrate.
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
-        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the character swapping demo" width="120">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -63,7 +63,11 @@ video generation effortless to integrate.
       authentic fit.
     </td>
     <td width="16%" align="center" valign="middle">
-      <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
+        <br>
+        <sub>▶ Play demo</sub>
+      </a>
     </td>
   </tr>
   <tr>
@@ -75,7 +79,11 @@ video generation effortless to integrate.
       visual experience.
     </td>
     <td width="16%" align="center" valign="middle">
-      <!-- Add docs/images/use-cases/video-restyling.gif. -->
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
+        <br>
+        <sub>▶ Play demo</sub>
+      </a>
     </td>
   </tr>
   <tr>
@@ -87,7 +95,11 @@ video generation effortless to integrate.
       through gestures.
     </td>
     <td width="16%" align="center" valign="middle">
-      <!-- Add docs/images/use-cases/ai-companions.gif. -->
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
+        <br>
+        <sub>▶ Play demo</sub>
+      </a>
     </td>
   </tr>
   <tr>
@@ -99,7 +111,11 @@ video generation effortless to integrate.
       trajectories.
     </td>
     <td width="16%" align="center" valign="middle">
-      <!-- Add docs/images/use-cases/live-photo.gif. -->
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
+        <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
+        <br>
+        <sub>▶ Play demo</sub>
+      </a>
     </td>
   </tr>
 </table>
