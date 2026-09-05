@@ -124,7 +124,7 @@ integrating real-time video generation is seamless and intuitive.
 
 | <img src="./docs/images/why/low-latency.svg" alt="Low latency" width="36"><br>Low latency | <img src="./docs/images/why/low-cost.svg" alt="Cost efficiency" width="36"><br>Cost efficiency | <img src="./docs/images/why/high-fidelity.svg" alt="High fidelity" width="36"><br>High fidelity |
 | --- | --- | --- |
-| End-to-end latency is measured in hundreds of milliseconds, ensuring that updates to generation conditions and interaction controls are reflected in the stream almost instantly. | Our models achieve high-efficiency frame generation on a single NVIDIA GeForce RTX 5090 GPU, reducing inference costs by orders of magnitude compared to solutions requiring high-end datacenter GPUs like the NVIDIA H100. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
+| End-to-end latency is measured in hundreds of milliseconds, ensuring that updates to generation conditions and interaction controls are reflected in the stream almost instantly. | Our models achieve high-efficiency frame generation on a single NVIDIA GeForce RTX 5090 GPU, reducing inference costs by orders of magnitude compared to solutions requiring high-end datacenter GPUs like the NVIDIA H100. | Our models support real-time generation at resolutions up to 1080p, delivering detailed, high-fidelity video output. |
 
 <br>
 
