@@ -95,8 +95,7 @@ straightforward to integrate our generation models.
       <strong>Live Photo</strong>
     </td>
     <td width="60%" valign="middle">
-      Bring images or live camera feeds to life by drawing motion trajectories on the
-      screen.
+      Bring images to life by drawing motion trajectories on the screen.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/live-photo.gif. -->
