@@ -41,7 +41,7 @@ straightforward to integrate our generation models.
       and interactive entertainment.
     </td>
     <td width="22%" align="center" valign="middle">
-      <img src="./docs/images/use-cases/character-swapping.gif" alt="Character swapping from a live camera feed" width="140">
+      <video src="./docs/videos/use-cases/character-swapping.mp4" width="180" controls playsinline></video>
     </td>
   </tr>
   <tr>
