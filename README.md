@@ -16,7 +16,9 @@ few lines of code, developers can integrate features such as real-time character
 swap, virtual try-on, mixed reality companions, and interactive image animation
 directly into their apps.
 
-## Build realtime interactive video experiences
+<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
+
+## What you can build with XmaxSDK
 
 XmaxSDK brings the input, transport, generation, and rendering capabilities required for realtime video generation into one API. Input can come from a live camera, still image, or local video. Prompts and reference images define the generation direction, while touch gestures continuously shape movement in the result.
 
@@ -27,8 +29,6 @@ Generate new visual content from a live camera feed or local video while it play
 ### Make images respond to gestures
 
 Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-touch trajectories over the generated video and submits them to the active generation task, allowing people or subjects in an image to follow the user's gestures.
-
-<p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
 
 <br>
 
