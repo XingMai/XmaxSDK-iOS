@@ -22,22 +22,29 @@ few lines of code, developers can integrate features such as real-time character
 swap, virtual try-on, mixed reality companions, and interactive image animation
 directly into their apps.
 
+## Build realtime interactive video experiences
+
+XmaxSDK brings the input, transport, generation, and rendering capabilities required for realtime video generation into one API. Input can come from a live camera, still image, or local video. Prompts and reference images define the generation direction, while touch gestures continuously shape movement in the result.
+
+### Transform video as it plays
+
+Generate new visual content from a live camera feed or local video while it plays. Build experiences such as realtime character replacement, virtual try-on, style transformation, and mixed reality companions. The SDK renders both the original input and generated output in the app, making transitions between preview and generation seamless.
+
+### Make images respond to gestures
+
+Turn a still image into an interactive, animated canvas. XmaxSDK captures multi-touch trajectories over the generated video and submits them to the active generation task, allowing people or subjects in an image to follow the user's gestures.
+
 <p align="center"><img src="./docs/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./docs/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./docs/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
 
-<br>
+## Why XmaxSDK?
 
-## Features
+| Low latency | Low cost | High fidelity |
+| --- | --- | --- |
+| The video pipeline is optimized for continuous realtime interaction, keeping input, generation, and visual feedback closely connected. | Start, update, and stop generation tasks on demand, with rendering, interaction, and storage built in to reduce runtime and integration costs. | Preserve subject detail and visual consistency during video transformation for stable, natural-looking generated results. |
 
-- Real-time video generation from live camera streams, still images, and local video
-  files, guided by prompts, reference images, and user interactions
-- In-application rendering of local media input and generated output
-- Multi-touch trajectory input for controlling subject movement in generated video
-  streams
-- Image and video transfer through Xmax-managed object storage
-- Swift 6 APIs with async/await support
-- SwiftUI ready
+## Use XmaxSDK
 
-## Requirements
+### Before you begin
 
 - iOS 15.0 or later
 - Swift 6
@@ -48,9 +55,9 @@ directly into their apps.
 > runtime, or use a temporary key issued by the Xmax API. See
 > [Authentication](https://platform.xmaxai.com/docs/authentication) for details.
 
-## Installation
+### Installation
 
-### CocoaPods
+#### CocoaPods
 
 XmaxSDK is distributed directly from this GitHub repository through CocoaPods. Add
 the required spec sources and XmaxSDK dependency to the application's `Podfile`:
@@ -90,7 +97,7 @@ Open the generated `.xcworkspace` file to build the application.
 Static framework linkage is required so that the Objective-C `QCloudCOSXML`
 dependency is exposed as a module that XmaxSDK can import from Swift.
 
-### Manual
+#### Manual
 
 Download
 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip),
@@ -137,7 +144,13 @@ Do not add `QCloudTrack.xcframework`, `COSBeaconAPI_Base.xcframework`, or QimeiS
 The third-party frameworks must be present when importing XmaxSDK because its stable
 Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
 
-## Privacy Permissions
+#### Supported distribution methods
+
+- CocoaPods source distribution is supported.
+- Manual XCFramework distribution is available through GitHub Releases.
+- Swift Package Manager is not supported in version 1.0.3.
+
+### Configure privacy permissions
 
 For camera-based input, provide a camera usage description in the application's
 `Info.plist`:
@@ -158,9 +171,9 @@ Replace these descriptions with text appropriate for the application. XmaxSDK ch
 and requests the required runtime permissions when a local media stream is created.
 If permission is unavailable, the SDK reports an `XmaxError`.
 
-## Getting Started
+### Build your first realtime generation experience
 
-### Create a client
+#### Create a client
 
 ```swift
 import XmaxSDK
@@ -192,7 +205,7 @@ await realtime.setErrorListener { error in
 }
 ```
 
-### Create an input stream
+#### Create an input stream
 
 After camera permission has been granted, create a live camera stream:
 
@@ -220,7 +233,7 @@ let videoStream = try await realtime.createLocalVideoStream(
 
 Only one local input stream may be active at a time.
 
-### Preview the input
+#### Preview the input
 
 In UIKit, bind the local stream to an `XmaxRealtimeVideoView`:
 
@@ -241,7 +254,7 @@ XmaxRealtimeVideo(
 )
 ```
 
-### Start generation
+#### Start generation
 
 Construct a `RealtimeContext` with a prompt and, when applicable, a remote reference
 image URL:
@@ -310,7 +323,7 @@ try await realtime.startGeneration(
 )
 ```
 
-### Stop and release resources
+#### Stop and release resources
 
 ```swift
 await realtime.stopGeneration()
@@ -323,7 +336,7 @@ remote connection and local preview. `disconnect()` closes the remote session
 while preserving the local preview. `close()` releases all local media and RTC
 resources and should be called when the realtime workflow is no longer required.
 
-## Touch Interaction
+### Touch interaction
 
 During an active generation task, `XmaxRealtimeVideoView` and
 `XmaxRealtimeVideo` capture multi-touch trajectories over the generated video and
@@ -347,7 +360,7 @@ XmaxRealtimeVideo(
 )
 ```
 
-## Reference Image Upload
+### Upload a reference image
 
 `RealtimeContext.referencePath` requires a remote image URL. To use an on-device
 image, upload it through the storage manager and supply the resulting URL:
@@ -366,7 +379,7 @@ let referenceImageURL = uploaded.url.absoluteString
 The storage manager uses temporary credentials obtained from Xmax. Tencent Cloud
 credentials are not embedded in the host application.
 
-## Frame Interpolation
+### Frame interpolation
 
 On supported devices running iOS 26 or later, XmaxSDK can interpolate remote
 generated video frames. Frame interpolation is enabled by default and can be changed
@@ -379,7 +392,7 @@ try await realtime.setFrameInterpolationEnabled(false)
 Check whether the current device supports interpolation for a specific video size
 with `client.createMediaService().supportsFrameInterpolation(for:)`.
 
-## Logging
+### Logging
 
 SDK logging is disabled by default. Enable business logs, performance logs, or both
 when creating the client:
@@ -405,18 +418,12 @@ trajectory rendering.
 
 <p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
 
-## Dependencies
+## Third-party dependencies
 
 - VolcEngine RTC SDK for iOS provides real-time audio and video communication.
 - Tencent Cloud COS SDK provides image and video transfer through object storage.
 
-## Distribution
-
-- CocoaPods source distribution is supported.
-- Manual XCFramework distribution is available through GitHub Releases.
-- Swift Package Manager is not supported in version 1.0.3.
-
-## Feedback
+## Contact us
 
 For bug reports and feature requests, use
 [GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
