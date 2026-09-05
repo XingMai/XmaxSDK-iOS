@@ -74,7 +74,7 @@ straightforward to integrate our generation models.
   </tr>
   <tr>
     <td width="20%" valign="middle">
-      <strong>Virtual Companions</strong>
+      <strong>AI Companions</strong>
     </td>
     <td width="64%" valign="middle">
       Summon virtual creatures directly into the physical world right in front of
@@ -83,7 +83,7 @@ straightforward to integrate our generation models.
       in real-time.
     </td>
     <td width="16%" align="center" valign="middle">
-      <!-- Add docs/images/use-cases/virtual-companions.gif. -->
+      <!-- Add docs/images/use-cases/ai-companions.gif. -->
     </td>
   </tr>
   <tr>
