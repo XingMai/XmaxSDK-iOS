@@ -168,8 +168,7 @@ currently supports only [**CocoaPods**](#cocoapods) and
 
 #### CocoaPods
 
-XmaxSDK is distributed directly from this GitHub repository through CocoaPods. Add
-the required spec sources and XmaxSDK dependency to the application's `Podfile`:
+Add the following to your application's `Podfile`:
 
 ```ruby
 source 'https://github.com/volcengine/volcengine-specs.git'
@@ -205,306 +204,96 @@ pod install --repo-update
 
 Download
 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip),
-extract `XmaxSDK.xcframework`, and download the exact third-party dependencies used
-by this release:
+then follow the [manual integration guide](./docs/installation.md#manual-integration)
+to add the required dependencies and configure your Xcode target.
 
-- [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip):
-  use `VolcEngineRTC.xcframework`, `RealXBase.xcframework`, and
-  `RTCFFmpeg.xcframework` from the downloaded archive.
-- [Tencent Cloud COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/releases/download/6.5.7/QCloudCOSXML-6.5.7.zip):
-  use `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` from the official
-  release archive.
+### Quick Start
 
-Add the frameworks to the application target under **Frameworks, Libraries, and
-Embedded Content** using the following settings:
+#### Configure permissions
 
-| Framework | Embed setting |
-| --- | --- |
-| `XmaxSDK.xcframework` | Do Not Embed |
-| `QCloudCOSXML.xcframework` | Do Not Embed |
-| `QCloudCore.xcframework` | Do Not Embed |
-| `VolcEngineRTC.xcframework` | Embed & Sign |
-| `RealXBase.xcframework` | Embed & Sign |
-| `RTCFFmpeg.xcframework` | Embed & Sign |
-
-The XmaxSDK and COS binaries are static. The three VolcEngine binaries are dynamic
-and must be embedded and signed by the application target.
-
-Complete the following configuration:
-
-1. Set **Swift Language Version** to **Swift 6**.
-2. Add `-ObjC` to **Other Linker Flags**.
-3. Link `Accelerate.framework`, `CoreMedia.framework`,
-   `CoreTelephony.framework`, `SystemConfiguration.framework`, `libz.tbd`,
-   and `libc++.tbd`.
-4. Add the COS
-   [`PrivacyInfo.xcprivacy`](https://github.com/tencentyun/qcloud-sdk-ios/blob/6.5.7/QCloudCOSXML/PrivacyInfo.xcprivacy)
-   file to the application target.
-5. Confirm that every XCFramework contains a slice for the target platform and
-   architecture. Apple silicon simulator builds require an `arm64` simulator slice.
-
-Only `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` are required for COS.
-Do not add `QCloudTrack.xcframework`, `COSBeaconAPI_Base.xcframework`, or QimeiSDK.
-The third-party frameworks must be present when importing XmaxSDK because its stable
-Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
-
-### Configure privacy permissions
-
-For camera-based input, provide a camera usage description in the application's
-`Info.plist`:
+Add a camera usage description to your application's `Info.plist`:
 
 ```xml
 <key>NSCameraUsageDescription</key>
 <string>This app uses the camera for real-time video input.</string>
 ```
 
-If a local video input contains audio, also provide a microphone usage description:
+Use wording appropriate for your app. XmaxSDK requests permission when creating
+the camera stream and throws an `XmaxError` if permission is unavailable.
 
-```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>This app uses the microphone for real-time audio input.</string>
-```
+#### Generate and display video
 
-Replace these descriptions with text appropriate for the application. XmaxSDK checks
-and requests the required runtime permissions when a local media stream is created.
-If permission is unavailable, the SDK reports an `XmaxError`.
-
-### Build your first realtime generation experience
-
-#### Create a client
+The following UIKit example previews the camera, starts generation, and displays
+the result in the same view. Run it in a main-actor async context, using an API key
+supplied securely at runtime (`apiKey`) and your preview container (`containerView`).
 
 ```swift
+import UIKit
 import XmaxSDK
 
 let client = XmaxClient(
-    configuration: XmaxConfiguration(apiKey: "YOUR_API_KEY")
+    configuration: XmaxConfiguration(apiKey: apiKey)
 )
-
 let realtime = client.createRealtimeManager(
     options: RealtimeConfiguration(model: .x2_0)
 )
-```
 
-Realtime operations use Swift Concurrency and should be invoked from a
-lifecycle-aware `Task` owned by the host application.
-
-Connection-state and error listeners may be registered on the realtime manager:
-
-```swift
-await realtime.setStateListener { state in
-    print(
-        "Xmax realtime state: \(state.connectionState.rawValue), " +
-        "session: \(state.sessionID ?? "-"), task: \(state.taskID ?? "-")"
-    )
-}
-
-await realtime.setErrorListener { error in
-    print("Xmax realtime error: \(error.code.rawValue) \(error.message)")
-}
-```
-
-#### Create an input stream
-
-After camera permission has been granted, create a live camera stream:
-
-```swift
 let localStream = try await realtime.createLocalCameraStream(
-    videoFormat: RealtimeVideoFormat(
-        width: 704,
-        height: 1280,
-        fps: 24
-    ),
+    videoFormat: RealtimeVideoFormat(width: 704, height: 1280, fps: 24),
     position: .front
 )
-```
 
-Still images and local video files can also be used as input sources:
-
-```swift
-let imageStream = try await realtime.createLocalImageStream(
-    fileURL: imageFileURL
-)
-let videoStream = try await realtime.createLocalVideoStream(
-    fileURL: videoFileURL
-)
-```
-
-Only one local input stream may be active at a time.
-
-#### Preview the input
-
-In UIKit, bind the local stream to an `XmaxRealtimeVideoView`:
-
-```swift
-let realtimeVideoView = XmaxRealtimeVideoView(
+let videoView = XmaxRealtimeVideoView(
     localTrack: localStream.videoTrack,
     videoContentMode: .fill
 )
-```
+videoView.frame = containerView.bounds
+videoView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+containerView.addSubview(videoView)
 
-In SwiftUI, render local and remote tracks with `XmaxRealtimeVideo`:
-
-```swift
-XmaxRealtimeVideo(
-    localTrack: localStream.videoTrack,
-    remoteTrack: remoteVideoTrack,
-    videoContentMode: .fill
-)
-```
-
-#### Start generation
-
-Construct a `RealtimeContext` with a prompt and, when applicable, a remote reference
-image URL:
-
-```swift
 let remoteStream = try await realtime.startGeneration(
     localStream: localStream,
-    context: RealtimeContext(
-        prompt: "Replace the video character with the reference character",
-        referencePath: referenceImageURL
-    )
+    context: RealtimeContext(prompt: "Transform the scene into an anime style")
 )
+videoView.remoteTrack = remoteStream.videoTrack
 ```
 
-In UIKit, assign the generated track to the same realtime video view:
+The view shows the local preview until the first generated frame arrives. Touch
+interaction is enabled by default.
 
-```swift
-realtimeVideoView.remoteTrack = remoteStream.videoTrack
-```
+<details>
+<summary>Using SwiftUI</summary>
 
-In SwiftUI, update the remote track used by `XmaxRealtimeVideo`:
-
-```swift
-remoteVideoTrack = remoteStream.videoTrack
-```
-
-`XmaxRealtimeVideoView` and `XmaxRealtimeVideo` keep the local preview active
-under the generated output, wait for the first remote frame before showing it,
-and restore the local preview when `remoteTrack` becomes `nil`.
-
-To record or process the generated output outside the SDK, register a final-frame
-listener before starting generation:
-
-```swift
-await realtime.setRemoteVideoFrameListener { frame in
-    recorder.append(
-        pixelBuffer: frame.pixelBuffer,
-        presentationTimeStamp: frame.presentationTimeStamp,
-        duration: frame.duration
-    )
-}
-```
-
-The listener receives the frames accepted by the final render pipeline, after
-optional frame interpolation, on a dedicated serial background queue. Frame time
-stamps do not necessarily start at zero, so a recorder should rebase its output
-timeline to the first received frame. Transfer each frame to the recording pipeline
-quickly and avoid synchronous encoding in the callback. This API currently exposes
-video frames only; generated audio is not included.
-
-Clear the listener when frame delivery is no longer required:
-
-```swift
-await realtime.setRemoteVideoFrameListener(nil)
-```
-
-To update an active generation task, submit a new context containing the revised
-prompt or reference image:
-
-```swift
-try await realtime.startGeneration(
-    context: RealtimeContext(
-        prompt: "Replace the person's outfit with the reference outfit",
-        referencePath: anotherReferenceImageURL
-    )
-)
-```
-
-#### Stop and release resources
-
-```swift
-await realtime.stopGeneration()
-await realtime.disconnect()
-await realtime.close()
-```
-
-`stopGeneration()` terminates the active generation task while retaining the
-remote connection and local preview. `disconnect()` closes the remote session
-while preserving the local preview. `close()` releases all local media and RTC
-resources and should be called when the realtime workflow is no longer required.
-
-### Touch interaction
-
-During an active generation task, `XmaxRealtimeVideoView` and
-`XmaxRealtimeVideo` capture multi-touch trajectories over the generated video and
-submit them to the active task. The host application does not need to implement
-gesture tracking or coordinate conversion.
-
-Trajectory interaction is enabled by default. In UIKit, disable it when touch input
-must be handled by the surrounding user interface:
-
-```swift
-realtimeVideoView.isInteractionEnabled = false
-```
-
-In SwiftUI, set `isInteractionEnabled` when constructing `XmaxRealtimeVideo`:
+Use `XmaxRealtimeVideo` in place of the UIKit view. Store the local and remote
+tracks in observable state and update them as streams become available:
 
 ```swift
 XmaxRealtimeVideo(
-    localTrack: localStream.videoTrack,
-    remoteTrack: remoteVideoTrack,
-    isInteractionEnabled: false
+    localTrack: localTrack,
+    remoteTrack: remoteTrack,
+    videoContentMode: .fill
 )
 ```
 
-### Upload a reference image
+See the [SwiftUI guide](./docs/usage.md#swiftui) for state binding and the
+[example project](#example-project) for a complete implementation.
 
-`RealtimeContext.referencePath` requires a remote image URL. To use an on-device
-image, upload it through the storage manager and supply the resulting URL:
+</details>
 
-```swift
-let storage = try client.createStorageManager()
+#### Clean up
 
-let uploaded = try await storage.uploadImage(
-    at: imageFileURL,
-    contentType: "image/jpeg"
-)
-
-let referenceImageURL = uploaded.url.absoluteString
-```
-
-The storage manager uses temporary credentials obtained from Xmax. Tencent Cloud
-credentials are not embedded in the host application.
-
-### Frame interpolation
-
-On supported devices running iOS 26 or later, XmaxSDK can interpolate remote
-generated video frames. Frame interpolation is enabled by default and can be changed
-at runtime:
+Keep the realtime manager and video view available for cleanup. When leaving the
+generation screen, cancel its owning task and release the connection and media
+resources:
 
 ```swift
-try await realtime.setFrameInterpolationEnabled(false)
+await realtime.close()
+videoView.removeFromSuperview()
 ```
 
-Check whether the current device supports interpolation for a specific video size
-with `client.createMediaService().supportsFrameInterpolation(for:)`.
-
-### Logging
-
-SDK logging is disabled by default. Enable business logs, performance logs, or both
-when creating the client:
-
-```swift
-let configuration = XmaxConfiguration(
-    apiKey: "YOUR_API_KEY",
-    loggerOptions: [.business, .performance]
-)
-
-let client = XmaxClient(configuration: configuration)
-```
-
-Logging configuration is process-wide and shared by all `XmaxClient` instances.
+Handle errors from throwing calls and clean up if startup fails. For image and
+video inputs, reference images, live updates, and advanced controls, see the
+[usage guide](./docs/usage.md).
 
 <br>
 
