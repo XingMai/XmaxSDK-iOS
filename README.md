@@ -95,7 +95,8 @@ video generation effortless to integrate.
       <strong>Live Photo</strong>
     </td>
     <td width="60%" valign="middle">
-      Bring images to life by drawing motion trajectories on the screen.
+      Animate and control characters in your images simply by drawing motion
+      trajectories.
     </td>
     <td width="16%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/live-photo.gif. -->
