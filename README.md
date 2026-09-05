@@ -33,63 +33,55 @@ straightforward to integrate our generation models.
 
 ## What you can build with XmaxSDK
 
-### Character Swapping
-
 <table>
   <tr>
-    <td width="34%" align="center" valign="middle">
-      <img src="./docs/images/use-cases/character-swapping.gif" alt="Character swapping from a live camera feed" width="260">
-      <br>
-      <sub>Live camera input → generated character stream</sub>
+    <td width="78%" valign="middle">
+      <strong>Character Swapping.</strong> Replace a participant in a live camera
+      stream with a generated character for live broadcasting, video communication,
+      and interactive entertainment.
     </td>
-    <td width="66%" valign="middle">
-      Place a generated character into a live camera stream while preserving the
-      continuity of the performance. This capability is designed for live streaming,
-      video communication, and interactive entertainment, where the generated
-      character must remain responsive throughout the session.
+    <td width="22%" align="center" valign="middle">
+      <img src="./docs/images/use-cases/character-swapping.gif" alt="Character swapping from a live camera feed" width="140">
+    </td>
+  </tr>
+  <tr>
+    <td width="78%" valign="middle">
+      <strong>Virtual Try-On.</strong> Let shoppers preview apparel, accessories,
+      makeup, or eyewear from a camera feed, video, or image before purchase.
+    </td>
+    <td width="22%" align="center" valign="middle">
+      <!-- Add docs/images/use-cases/virtual-try-on.gif. -->
+    </td>
+  </tr>
+  <tr>
+    <td width="78%" valign="middle">
+      <strong>Video Restyling.</strong> Apply cinematic, animated, illustrated, or
+      branded visual styles while preserving the motion and structure of the source
+      video.
+    </td>
+    <td width="22%" align="center" valign="middle">
+      <!-- Add docs/images/use-cases/video-restyling.gif. -->
+    </td>
+  </tr>
+  <tr>
+    <td width="78%" valign="middle">
+      <strong>Virtual Companions.</strong> Bring generated characters into live camera
+      experiences for social, entertainment, and mixed-reality applications.
+    </td>
+    <td width="22%" align="center" valign="middle">
+      <!-- Add docs/images/use-cases/virtual-companions.gif. -->
+    </td>
+  </tr>
+  <tr>
+    <td width="78%" valign="middle">
+      <strong>Dynamic Wallpapers.</strong> Turn images into animated backgrounds whose
+      subjects respond to user-defined touch trajectories.
+    </td>
+    <td width="22%" align="center" valign="middle">
+      <!-- Add docs/images/use-cases/dynamic-wallpapers.gif. -->
     </td>
   </tr>
 </table>
-
-<br>
-
-### Virtual Try-On
-
-Enable shoppers to preview apparel, accessories, makeup, or eyewear from a live
-camera feed, video, or image. Product references guide the generation process,
-allowing commerce applications to offer personalized visualization before purchase.
-
-<!-- Add the virtual try-on demo at docs/images/use-cases/virtual-try-on.gif. -->
-
-<br>
-
-### Video Restyling
-
-Apply a new visual language to live or prerecorded video while retaining its motion
-and scene structure. Applications include cinematic treatments, animation and
-illustration styles, branded visual effects, and creative tools for short-form video.
-
-<!-- Add the video restyling demo at docs/images/use-cases/video-restyling.gif. -->
-
-<br>
-
-### Virtual Companions
-
-Bring generated characters into the user's camera view as responsive virtual
-companions. Reference images and text prompts define their appearance, while
-real-time generation enables social, entertainment, and mixed-reality experiences.
-
-<!-- Add the virtual companion demo at docs/images/use-cases/virtual-companions.gif. -->
-
-<br>
-
-### Dynamic Wallpapers
-
-Create personalized animated wallpaper content from an image. XmaxSDK converts
-multi-touch trajectories into spatial control signals, allowing users to direct
-subject motion and create dynamic backgrounds that respond to their interactions.
-
-<!-- Add the dynamic wallpaper demo at docs/images/use-cases/dynamic-wallpapers.gif. -->
 
 <br>
 
