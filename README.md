@@ -83,8 +83,10 @@ straightforward to integrate our generation models.
       <strong>Virtual Companions</strong>
     </td>
     <td width="58%" valign="middle">
-      Bring generated characters into live camera experiences for social,
-      entertainment, and mixed-reality applications.
+      Summon virtual creatures directly into the physical world right in front of
+      your camera. They seamlessly blend into your real environment and respond
+      instantly to your gestures, allowing you to pet, play, and interact with them
+      in real-time.
     </td>
     <td width="22%" align="center" valign="middle">
       <!-- Add docs/images/use-cases/virtual-companions.gif. -->
