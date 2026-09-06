@@ -292,8 +292,9 @@ let remoteStream = try await realtime.startGeneration(
 videoView.remoteTrack = remoteStream.videoTrack
 ```
 
-The view shows the local preview until the first generated frame arrives. Touch
-interaction is enabled by default.
+Add the video view to your view hierarchy. The view displays a local camera
+preview until the first generated frame arrives, with touch interaction enabled
+by default.
 
 <br>
 
