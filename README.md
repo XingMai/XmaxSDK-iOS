@@ -140,9 +140,7 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>让画面自然动起来</code>
       <br>
-      <strong>Reference image:</strong> Use the input image as the reference.
-      Upload it and set <code>RealtimeContext.referencePath</code> to the returned
-      URL. See the <a href="./docs/usage.md#reference-images">setup guide</a>.
+      <strong>Reference image:</strong> Use the input image as the reference
     </td>
   </tr>
 </table>
