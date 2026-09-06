@@ -184,9 +184,9 @@ Reference images and touch trajectories are supplied separately from the prompt.
 
 ### Installation
 
-Because some of its dependencies do not support Swift Package Manager, XmaxSDK
-currently supports only [**CocoaPods**](#cocoapods) and
-[**manual integration**](#manual).
+Because certain underlying dependencies lack Swift Package Manager support,
+XmaxSDK currently supports [**CocoaPods**](#cocoapods) and
+[**manual integration**](#manual) only.
 
 #### CocoaPods
 
