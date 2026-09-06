@@ -80,7 +80,7 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>视频中人物衣服替换成参考图中衣服</code>
       <br><br>
-      <strong>Reference image:</strong> Use an image of the outfit you want to try on
+      <strong>Reference image:</strong> Select a clear image of the target outfit against a clean, uncluttered background.
     </td>
   </tr>
   <tr>
