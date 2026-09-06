@@ -167,9 +167,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
 
 <br>
 
-## How to use XmaxSDK?
-
-### Prerequisites
+## Prerequisites
 
 - iOS 15.0 or later
 - Swift 6
@@ -182,13 +180,13 @@ Reference images and touch trajectories are supplied separately from the prompt.
 
 <br>
 
-### Installation
+## Installation
 
 Because certain underlying dependencies lack Swift Package Manager support,
 XmaxSDK currently supports [**CocoaPods**](#cocoapods) and
 [**manual integration**](#manual) only.
 
-#### CocoaPods
+### CocoaPods
 
 Add the following to your application's `Podfile`:
 
@@ -221,7 +219,7 @@ Install the dependencies:
 pod install --repo-update
 ```
 
-#### Manual
+### Manual
 
 Download
 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip),
@@ -230,9 +228,9 @@ to add the required dependencies and configure your Xcode target.
 
 <br>
 
-### Quick Start
+## Quick Start
 
-#### Configure permissions
+### Configure permissions
 
 Add a camera usage description to your application's `Info.plist`:
 
@@ -244,7 +242,7 @@ Add a camera usage description to your application's `Info.plist`:
 Use wording appropriate for your app. XmaxSDK requests permission when creating
 the camera stream and throws an `XmaxError` if permission is unavailable.
 
-#### Generate and display video
+### Generate and display video
 
 The following UIKit example creates a camera stream, starts generation, and binds
 the output to a video view. Run it in a main-actor async context, using an API key
@@ -306,7 +304,7 @@ See the [SwiftUI guide](./docs/usage.md#swiftui) for state binding and the
 
 </details>
 
-#### Clean up
+### Clean up
 
 Keep the realtime manager available for cleanup. When leaving the generation
 screen, cancel its owning task and release the connection and media resources:
