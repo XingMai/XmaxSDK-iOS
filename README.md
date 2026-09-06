@@ -272,6 +272,7 @@ import XmaxSDK
 let client = XmaxClient(
     configuration: XmaxConfiguration(apiKey: "YOUR_XMAX_API_KEY")
 )
+
 let realtime = client.createRealtimeManager(
     options: RealtimeConfiguration(model: .x2_0)
 )
