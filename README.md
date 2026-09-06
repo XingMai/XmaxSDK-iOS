@@ -334,7 +334,7 @@ input stream or starting generation.
 | `setNetworkQualityListener` | Monitor uplink and downlink network quality. |
 | `setPerformanceAlarmListener` | Detect device performance limitations or recovery, with a suggested video format when available. |
 
-For example, monitor state changes and fatal errors:
+For example, monitor state changes and errors:
 
 ```swift
 await realtime.setStateListener { state in
