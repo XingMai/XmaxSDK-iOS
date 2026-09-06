@@ -346,9 +346,6 @@ await realtime.setErrorListener { error in
 }
 ```
 
-Pass `nil` to any setter to remove its listener. Recoverable errors are thrown by
-the corresponding async calls and still require `do`/`catch` handling.
-
 <br>
 
 ### Clean up
