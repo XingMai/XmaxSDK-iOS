@@ -32,6 +32,9 @@ integrating real-time video generation is seamless and intuitive.
 
 ## What you can build with XmaxSDK
 
+The prompts below are illustrative and may differ from those used in the demos.
+Reference images and touch trajectories are supplied separately from the prompt.
+
 <table>
   <tr>
     <th width="24%" align="left">Use Case</th>
@@ -44,6 +47,10 @@ integrating real-time video generation is seamless and intuitive.
     </td>
     <td width="60%" valign="middle">
       Replace anyone in your live feed with a designated avatar in real-time.
+      <br><br>
+      <strong>Example prompt:</strong><br>
+      <code>Replace the person with the character in the reference image. Preserve their expressions, gaze, and movements.</code>
+      <br>Reference image: the target character.
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -60,6 +67,10 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       Seamlessly change outfits, preserving exact body shape, natural motion, and an
       authentic fit.
+      <br><br>
+      <strong>Example prompt:</strong><br>
+      <code>Dress the person in the outfit from the reference image. Preserve their body shape, natural motion, and the scene's lighting.</code>
+      <br>Reference image: the target outfit.
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -75,6 +86,9 @@ integrating real-time video generation is seamless and intuitive.
     </td>
     <td width="60%" valign="middle">
       Reimagine your world in any style with an immersive visual experience.
+      <br><br>
+      <strong>Example prompt:</strong><br>
+      <code>Render the entire scene in an anime style, including both the subject and the background.</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -91,6 +105,9 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       Summon virtual characters into your live camera feed and interact with them
       through gestures.
+      <br><br>
+      <strong>Example prompt:</strong><br>
+      <code>Add a friendly virtual fox to the scene. Match the environment's lighting and perspective.</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -107,6 +124,9 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       Animate and control characters in your images simply by drawing motion
       trajectories.
+      <br><br>
+      <strong>Example prompt:</strong><br>
+      <code>Animate the character in the image with natural motion while preserving its appearance and the background.</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@d4f8a4ada6c3a30b98373d30ec7a63791f4851b1/docs/videos/use-cases/live-photo.mp4">
