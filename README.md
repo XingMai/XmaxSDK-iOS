@@ -125,7 +125,7 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>指定角色在场景中互动</code>
       <br><br>
-      <strong>Reference image:</strong> Use an image of the virtual character you want to summon
+      <strong>Reference image:</strong> Select a clear image of the virtual character you want to summon against a clean, uncluttered background.
     </td>
   </tr>
   <tr>
