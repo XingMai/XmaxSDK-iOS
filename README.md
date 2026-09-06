@@ -39,16 +39,13 @@ integrating real-time video generation is seamless and intuitive.
     <th width="16%" align="center">Demo</th>
   </tr>
   <tr>
-    <td width="24%" valign="middle">
+    <td rowspan="2" width="24%" valign="middle">
       <strong>Character Swapping</strong>
     </td>
     <td width="60%" valign="middle">
       Replace anyone in your live feed with a designated avatar in real-time.
-      <br><br>
-      <strong>Example prompt:</strong><br>
-      <code>视频中角色替换成参考图中角色</code>
     </td>
-    <td width="16%" align="center" valign="middle">
+    <td rowspan="2" width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
         <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
         <br>
@@ -57,17 +54,19 @@ integrating real-time video generation is seamless and intuitive.
     </td>
   </tr>
   <tr>
-    <td width="24%" valign="middle">
+    <td width="60%" valign="middle">
+      <strong>Example prompt:</strong> <code>视频中角色替换成参考图中角色</code>
+    </td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="24%" valign="middle">
       <strong>Virtual Try-On</strong>
     </td>
     <td width="60%" valign="middle">
       Seamlessly change outfits, preserving exact body shape, natural motion, and an
       authentic fit.
-      <br><br>
-      <strong>Example prompt:</strong><br>
-      <code>视频中人物衣服替换成参考图中衣服</code>
     </td>
-    <td width="16%" align="center" valign="middle">
+    <td rowspan="2" width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
         <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
         <br>
@@ -76,16 +75,18 @@ integrating real-time video generation is seamless and intuitive.
     </td>
   </tr>
   <tr>
-    <td width="24%" valign="middle">
+    <td width="60%" valign="middle">
+      <strong>Example prompt:</strong> <code>视频中人物衣服替换成参考图中衣服</code>
+    </td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="24%" valign="middle">
       <strong>Video Restyling</strong>
     </td>
     <td width="60%" valign="middle">
       Reimagine your world in any style with an immersive visual experience.
-      <br><br>
-      <strong>Example prompt:</strong><br>
-      <code>视频风格变为参考图指定的风格</code>
     </td>
-    <td width="16%" align="center" valign="middle">
+    <td rowspan="2" width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
         <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
         <br>
@@ -94,17 +95,19 @@ integrating real-time video generation is seamless and intuitive.
     </td>
   </tr>
   <tr>
-    <td width="24%" valign="middle">
+    <td width="60%" valign="middle">
+      <strong>Example prompt:</strong> <code>视频风格变为参考图指定的风格</code>
+    </td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="24%" valign="middle">
       <strong>AI Companions</strong>
     </td>
     <td width="60%" valign="middle">
       Summon virtual characters into your live camera feed and interact with them
       through gestures.
-      <br><br>
-      <strong>Example prompt:</strong><br>
-      <code>指定角色在场景中互动</code>
     </td>
-    <td width="16%" align="center" valign="middle">
+    <td rowspan="2" width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
         <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the XmaxSDK demo" width="120">
         <br>
@@ -113,22 +116,29 @@ integrating real-time video generation is seamless and intuitive.
     </td>
   </tr>
   <tr>
-    <td width="24%" valign="middle">
+    <td width="60%" valign="middle">
+      <strong>Example prompt:</strong> <code>指定角色在场景中互动</code>
+    </td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="24%" valign="middle">
       <strong>Live Photo</strong>
     </td>
     <td width="60%" valign="middle">
       Animate and control characters in your images simply by drawing motion
       trajectories.
-      <br><br>
-      <strong>Example prompt:</strong><br>
-      <code>让画面自然动起来</code>
     </td>
-    <td width="16%" align="center" valign="middle">
+    <td rowspan="2" width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@d4f8a4ada6c3a30b98373d30ec7a63791f4851b1/docs/videos/use-cases/live-photo.mp4">
         <img src="./docs/images/use-cases/live-photo-poster.png" alt="Play the Live Photo demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
+    </td>
+  </tr>
+  <tr>
+    <td width="60%" valign="middle">
+      <strong>Example prompt:</strong> <code>让画面自然动起来</code>
     </td>
   </tr>
 </table>
