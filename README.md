@@ -350,13 +350,28 @@ await realtime.setErrorListener { error in
 
 ### Clean up
 
-Use `disconnect()` for temporary pauses where local camera preview should remain
-active. Use `close()` for complete resource teardown. When destroying or leaving
-the view, directly cancel the owning task and execute `close()`:
+**`disconnect()` — keep the local preview**
+
+Use this when ending the remote generation session but staying on the screen.
+It stops generation and disconnects from the cloud while keeping the local stream
+and preview active. You can reconnect using the same local stream.
+
+```swift
+await realtime.disconnect()
+```
+
+**`close()` — leave the generation screen**
+
+Use this when leaving or dismissing the screen. It ends the remote session,
+stops local media, and releases the RTC engine. Cancel the screen's owning task
+before calling it:
 
 ```swift
 await realtime.close()
 ```
+
+These are alternatives, not sequential steps. Call `close()` directly for full
+cleanup; there is no need to call `disconnect()` first.
 
 <br>
 
