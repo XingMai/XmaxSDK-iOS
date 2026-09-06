@@ -353,8 +353,12 @@ the corresponding async calls and still require `do`/`catch` handling.
 
 ### Clean up
 
-Keep the realtime manager available for cleanup. When leaving the generation
-screen, cancel its owning task and release the connection and media resources:
+- `disconnect()` ends the remote session while keeping the local media and
+  preview active, allowing you to reconnect with the same local stream.
+- `close()` releases the connection, local media, and RTC engine for full cleanup.
+
+When leaving the generation screen, cancel its owning task and call `close()`
+directly. There is no need to call `disconnect()` first:
 
 ```swift
 await realtime.close()
