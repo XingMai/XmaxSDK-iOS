@@ -46,7 +46,7 @@ integrating real-time video generation is seamless and intuitive.
       Replace anyone in your live feed with a designated avatar in real-time.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cd514e466dfdc5c3d688976608ab70b5029273e3/docs/videos/use-cases/character-swapping.mp4">
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@88182780abe60b3df1c44f549487fcf8ab4b660c/docs/videos/use-cases/character-swapping.mp4">
         <img src="./docs/images/use-cases/character-swapping-poster.png" alt="Play the Character Swapping demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
@@ -69,7 +69,7 @@ integrating real-time video generation is seamless and intuitive.
       authentic fit.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cd514e466dfdc5c3d688976608ab70b5029273e3/docs/videos/use-cases/virtual-try-on.mp4">
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@88182780abe60b3df1c44f549487fcf8ab4b660c/docs/videos/use-cases/virtual-try-on.mp4">
         <img src="./docs/images/use-cases/virtual-try-on-poster.png" alt="Play the Virtual Try-On demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
@@ -91,7 +91,7 @@ integrating real-time video generation is seamless and intuitive.
       Reimagine your world in any style with an immersive visual experience.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cd514e466dfdc5c3d688976608ab70b5029273e3/docs/videos/use-cases/video-restyling.mp4">
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@88182780abe60b3df1c44f549487fcf8ab4b660c/docs/videos/use-cases/video-restyling.mp4">
         <img src="./docs/images/use-cases/video-restyling-poster.png" alt="Play the Video Restyling demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
@@ -114,7 +114,7 @@ integrating real-time video generation is seamless and intuitive.
       through gestures.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cd514e466dfdc5c3d688976608ab70b5029273e3/docs/videos/use-cases/ai-companions.mp4">
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@88182780abe60b3df1c44f549487fcf8ab4b660c/docs/videos/use-cases/ai-companions.mp4">
         <img src="./docs/images/use-cases/ai-companions-poster.png" alt="Play the AI Companions demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
@@ -137,7 +137,7 @@ integrating real-time video generation is seamless and intuitive.
       trajectories.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@d4f8a4ada6c3a30b98373d30ec7a63791f4851b1/docs/videos/use-cases/live-photo.mp4">
+      <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@4351aa869d4e24fd40690c670d8949bff270dee0/docs/videos/use-cases/live-photo.mp4">
         <img src="./docs/images/use-cases/live-photo-poster.png" alt="Play the Live Photo demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
