@@ -22,6 +22,7 @@ final class VideoController: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
+        mediaService: any MediaServicing = MediaService(),
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
         errorListener: @escaping XmaxErrorListener
@@ -33,7 +34,7 @@ final class VideoController: @unchecked Sendable {
         )
         let mediaSourceController = MediaSourceController(
             metadataManager: MediaFileMetadataManager(),
-            mediaService: MediaService(),
+            mediaService: mediaService,
             playerController: playerController
         )
         self.init(

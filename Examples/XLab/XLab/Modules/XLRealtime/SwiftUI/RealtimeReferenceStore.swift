@@ -43,7 +43,7 @@ final class RealtimeReferenceStore: ObservableObject {
         let reference = RealtimeReferenceCatalog.Item(
             categoryID: categoryID,
             iconURL: localURL,
-            prompt: RealtimeReferenceCatalog.prompt(for: categoryID)
+            prompt: RealtimeCategory.defaultPrompt(for: categoryID)
         )
         referencesByCategory[categoryID, default: []].insert(reference, at: 0)
         selectedReferenceID = reference.id

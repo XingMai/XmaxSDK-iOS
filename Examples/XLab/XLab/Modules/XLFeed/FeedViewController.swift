@@ -26,6 +26,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private var pendingMediaSelectionKind: MediaSelectionKind?
 
     // 界面组件
+    private var mediaSourceCards: [(source: RealtimeMediaSource, view: UIView)] = []
     private lazy var scrollView: UIScrollView = {
         let view = UIScrollView()
         view.showsVerticalScrollIndicator = false
@@ -70,6 +71,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        updateMediaSourceAvailability()
     }
 
     private func configureBackgroundGlow() {
@@ -114,7 +116,11 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         contentStack.addArrangedSubview(feedFixedSpacer(height: 12))
         contentStack.addArrangedSubview(makeMetrics())
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
-        contentStack.addArrangedSubview(FeedModelRegistryCardView())
+        let modelRegistry = FeedModelRegistryCardView()
+        modelRegistry.onModelSelectionChanged = { [weak self] in
+            self?.updateMediaSourceAvailability()
+        }
+        contentStack.addArrangedSubview(modelRegistry)
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
         contentStack.addArrangedSubview(
             makeSectionHeader(
@@ -137,6 +143,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             UITapGestureRecognizer(target: self, action: #selector(openRealtime))
         )
         contentStack.addArrangedSubview(realtimeCard)
+        mediaSourceCards.append((.camera, realtimeCard))
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let videoCard = FeedPipelineCardView(
             sequence: "02",
@@ -151,6 +158,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             UITapGestureRecognizer(target: self, action: #selector(selectLocalVideo))
         )
         contentStack.addArrangedSubview(videoCard)
+        mediaSourceCards.append((.video, videoCard))
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let imageCard = FeedPipelineCardView(
             sequence: "03",
@@ -165,6 +173,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             UITapGestureRecognizer(target: self, action: #selector(selectLocalImage))
         )
         contentStack.addArrangedSubview(imageCard)
+        mediaSourceCards.append((.image, imageCard))
 
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
         contentStack.addArrangedSubview(
@@ -190,6 +199,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             )
         )
         contentStack.addArrangedSubview(swiftUICard)
+        mediaSourceCards.append((.camera, swiftUICard))
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let customTrajectoryCard = FeedFeatureCardView(
             category: "SDK RENDERING / TRAJECTORY",
@@ -210,6 +220,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             )
         )
         contentStack.addArrangedSubview(customTrajectoryCard)
+        mediaSourceCards.append((.image, customTrajectoryCard))
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let storageCard = FeedFeatureCardView(
             category: "SDK SERVICE / STORAGE",
@@ -259,17 +270,17 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     @objc private func selectLocalVideo() {
-        guard validateAPIKey() else { return }
+        guard validateAPIKey(), validateMediaSource(.video) else { return }
         presentMediaPicker(for: .video)
     }
 
     @objc private func selectLocalImage() {
-        guard validateAPIKey() else { return }
+        guard validateAPIKey(), validateMediaSource(.image) else { return }
         presentMediaPicker(for: .image)
     }
 
     @objc private func selectCustomTrajectoryImage() {
-        guard validateAPIKey() else { return }
+        guard validateAPIKey(), validateMediaSource(.image) else { return }
         presentMediaPicker(for: .customTrajectoryImage)
     }
 
@@ -279,6 +290,25 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !apiKey.isEmpty else {
             XLToast.show("请先输入 API Key", in: view)
+            return false
+        }
+        return true
+    }
+
+    private func updateMediaSourceAvailability() {
+        let supported = RealtimePreferences.selectedModel.supportedMediaSources
+        for card in mediaSourceCards {
+            let isSupported = supported.contains(card.source)
+            card.view.alpha = isSupported ? 1 : 0.35
+            card.view.accessibilityHint = isSupported
+                ? nil : "当前模型不支持此输入来源"
+        }
+    }
+
+    private func validateMediaSource(_ source: RealtimeMediaSource) -> Bool {
+        let model = RealtimePreferences.selectedModel
+        guard model.supportedMediaSources.contains(source) else {
+            XLToast.show("\(model.rawValue) 不支持此输入来源，请切换模型", in: view)
             return false
         }
         return true
@@ -651,12 +681,12 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     @objc private func openRealtime() {
-        guard validateAPIKey() else { return }
+        guard validateAPIKey(), validateMediaSource(.camera) else { return }
         navigationController?.pushViewController(RealtimeViewController(), animated: true)
     }
 
     @objc private func openSwiftUIRealtime() {
-        guard validateAPIKey() else { return }
+        guard validateAPIKey(), validateMediaSource(.camera) else { return }
         let view = RealtimeView { [weak self] in
             self?.navigationController?.popViewController(animated: true)
         }

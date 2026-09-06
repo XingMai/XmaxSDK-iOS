@@ -72,7 +72,6 @@ final class RealtimeModelTests: XCTestCase {
 
     func testRealtimeEnumRawValuesMatchCrossPlatformContract() {
         XCTAssertEqual(RealtimeModel.x2_0.rawValue, "x2.0")
-        XCTAssertEqual(RealtimeModel.x2_0_sla.rawValue, "x2.0-sla")
         XCTAssertEqual(RealtimeConnectionState.generating.rawValue, "Generating")
         XCTAssertEqual(RealtimeNetworkQualityLevel.veryBad.rawValue, "VeryBad")
         XCTAssertEqual(RealtimePerformanceStatus.recovered.rawValue, "Recovered")

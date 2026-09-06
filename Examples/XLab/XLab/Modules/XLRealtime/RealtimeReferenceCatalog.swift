@@ -82,19 +82,4 @@ struct RealtimeReferenceCatalog: Decodable {
         }
         return catalog
     }
-
-    static func prompt(for categoryID: String) -> String {
-        switch categoryID {
-        case "charx":
-            "视频中角色替换成参考图中角色"
-        case "clothx":
-            "视频中人物衣服替换成参考图中衣服"
-        case "vibex":
-            "视频风格变为参考图指定的风格"
-        case "dimx":
-            "指定角色在场景中互动"
-        default:
-            ""
-        }
-    }
 }

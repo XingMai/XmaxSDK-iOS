@@ -22,6 +22,7 @@ actor MediaController: MediaControlling {
     @MainActor
     init(
         rtcManager: any RtcManaging,
+        mediaService: any MediaServicing = MediaService(),
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
         errorListener: @escaping XmaxErrorListener,
@@ -30,10 +31,12 @@ actor MediaController: MediaControlling {
         self.rtcManager = rtcManager
         cameraController = CameraController(
             rtcManager: rtcManager,
+            mediaService: mediaService,
             errorListener: errorListener
         )
         imageController = ImageController(
             rtcManager: rtcManager,
+            mediaService: mediaService,
             frameListener: videoFrameListener,
             errorListener: errorListener
         )
@@ -42,6 +45,7 @@ actor MediaController: MediaControlling {
         )
         videoController = VideoController(
             rtcManager: rtcManager,
+            mediaService: mediaService,
             videoFrameListener: videoFrameListener,
             audioFrameListener: audioFrameListener,
             errorListener: errorListener

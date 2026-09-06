@@ -1,9 +1,20 @@
 import CoreGraphics
+import UIKit
 import XCTest
 @testable import XmaxSDK
 
 @MainActor
 final class XmaxRealtimeManagerTests: XCTestCase {
+    func testCameraUsesModelDefaultFrameRate() async throws {
+        let components = makeComponents(model: .x2_0)
+        let manager: any XmaxRealtimeManaging = components.manager
+        let stream = try await manager.createLocalCameraStream()
+        let currentTrack = await components.mediaController.currentTrack
+        XCTAssertTrue(currentTrack === stream.videoTrack)
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_0.defaultFrameRate)
+        await manager.close()
+    }
+
     func testPublicAudioVolumeControlsForwardNormalizedValues() async throws {
         let components = makeComponents()
 
@@ -904,6 +915,7 @@ private extension XmaxRealtimeManagerTests {
     }
 
     func makeComponents(
+        model: RealtimeModel = .x2_0,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
         frameInterpolationEnabled: Bool = false,
@@ -985,7 +997,7 @@ private extension XmaxRealtimeManagerTests {
         return Components(
             manager: XmaxRealtimeManager(
                 options: RealtimeConfiguration(
-                    model: .x2_0,
+                    model: model,
                     isFrameInterpolationEnabled:
                         frameInterpolationEnabled
                 ),

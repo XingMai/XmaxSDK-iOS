@@ -21,6 +21,7 @@ final class ImageController: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
+        mediaService: any MediaServicing = MediaService(),
         frameListener: @escaping MediaVideoFrameListener,
         errorListener: @escaping XmaxErrorListener
     ) {
@@ -29,7 +30,7 @@ final class ImageController: @unchecked Sendable {
             rtcManager: rtcManager,
             imageSourceController: ImageSourceController(
                 imageManager: imageManager,
-                mediaService: MediaService(),
+                mediaService: mediaService,
                 frameListener: frameListener,
                 errorListener: errorListener
             )

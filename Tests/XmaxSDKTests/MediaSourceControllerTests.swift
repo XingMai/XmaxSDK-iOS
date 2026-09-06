@@ -6,6 +6,21 @@ import XCTest
 
 @MainActor
 final class MediaSourceControllerTests: XCTestCase {
+    func testModelDefaultFrameRateAndExplicitOverrideReachPlayer() async throws {
+        let components = makeComponents(hasAudio: false, model: .x2_0)
+        let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
+        let defaultConfiguration = try await components.controller.prepare(
+            fileURL: fileURL, videoFormat: nil
+        )
+        XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_0.defaultFrameRate)
+        await components.controller.stop()
+        let explicitConfiguration = try await components.controller.prepare(
+            fileURL: fileURL,
+            videoFormat: RealtimeVideoFormat(width: 832, height: 1_472, fps: 20)
+        )
+        XCTAssertEqual(explicitConfiguration.videoFormat.fps, 20)
+    }
+
     func testPrepareResolvesRotatedSizeAndConfiguresPlayer() async throws {
         let components = makeComponents(hasAudio: true)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
@@ -109,7 +124,7 @@ private extension MediaSourceControllerTests {
         RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
     }
 
-    func makeComponents(hasAudio: Bool) -> Components {
+    func makeComponents(hasAudio: Bool, model: RealtimeModel = .x2_0) -> Components {
         let metadataManager = MediaFileMetadataManagingStub(
             metadata: MediaFileMetadata(
                 width: 1_920,
@@ -120,7 +135,8 @@ private extension MediaSourceControllerTests {
             )
         )
         let mediaService = MediaServicingStub(
-            resolvedSize: CGSize(width: 832, height: 1_472)
+            resolvedSize: CGSize(width: 832, height: 1_472),
+            model: model
         )
         let player = VideoPlayerControllingStub()
         let controller = MediaSourceController(

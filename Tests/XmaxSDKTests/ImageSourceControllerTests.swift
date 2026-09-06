@@ -4,6 +4,22 @@ import XCTest
 @testable import XmaxSDK
 
 final class ImageSourceControllerTests: XCTestCase {
+    func testImageUsesModelDefaultFrameRate() async throws {
+        let controller = ImageSourceController(
+            imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 800)),
+            mediaService: MediaServicingStub(
+                resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_0
+            ),
+            frameListener: { _ in },
+            errorListener: { _ in }
+        )
+        let prepared = try await controller.prepare(
+            imageData: Data("encoded-image".utf8), videoFormat: nil
+        )
+        XCTAssertEqual(prepared.videoFormat.fps, RealtimeModel.x2_0.defaultFrameRate)
+        controller.stop()
+    }
+
     func testPrepareAcceptsEncodedImageDataDirectly() async throws {
         let imageData = Data("encoded-image".utf8)
         let decodedImage = DecodedImageStub(width: 400, height: 800)

@@ -459,7 +459,7 @@ private extension RealtimeView {
         referenceStore.clearSelection(notifiesContextChange: false)
         realtimeSession.startGeneration(
             context: RealtimeContext(
-                prompt: RealtimeCategory.touchAnimationPrompt
+                prompt: RealtimeCategory.defaultPrompt(for: "mox")
             )
         )
     }

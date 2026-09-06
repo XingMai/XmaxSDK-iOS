@@ -4,6 +4,24 @@ import XCTest
 @testable import XmaxSDK
 
 final class CameraControllerTests: XCTestCase {
+    func testCameraUsesModelSizeLimitsAndPreservesExplicitFrameRate() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = CameraController(
+            rtcManager: rtcManager,
+            permissionManager: PermissionManagingStub(),
+            mediaService: MediaService(model: .x2_0)
+        )
+        let requested = RealtimeVideoFormat(width: 832, height: 1472, fps: 25)
+        let stream = try await controller.createLocalCameraStream(
+            videoFormat: requested, position: .front
+        )
+        XCTAssertEqual(stream.videoTrack?.videoFormat, requested)
+        XCTAssertTrue(rtcManager.calls.contains(
+            .startVideoCapture(width: 832, height: 1472, frameRate: 25)
+        ))
+        await controller.stopLocalCameraStream()
+    }
+
     func testCreateStartsInternalCaptureAndRegistersLocalTrack() async throws {
         let rtcManager = RtcManagingStub()
         let permissionManager = PermissionManagingStub()

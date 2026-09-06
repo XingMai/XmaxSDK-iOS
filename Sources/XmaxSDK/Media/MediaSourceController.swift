@@ -5,9 +5,6 @@ import UIKit
 /// 协调本地视频文件元数据、输出格式和解耦的音视频播放器。
 final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
-    // 默认格式
-    private static let defaultFrameRate = 24
-
     // 基础层组件
     private let metadataManager: any MediaFileMetadataManaging
 
@@ -180,7 +177,7 @@ private extension MediaSourceController {
         let requestedFormat = requestedFormat ?? RealtimeVideoFormat(
             width: displayWidth,
             height: displayHeight,
-            fps: Self.defaultFrameRate
+            fps: mediaService.model.defaultFrameRate
         )
         guard requestedFormat.fps > 0 else {
             throw XmaxError(

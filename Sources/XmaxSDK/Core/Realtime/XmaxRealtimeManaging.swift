@@ -118,6 +118,8 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// - Parameters:
     ///   - videoFormat: 相机采集的视频规格。
     ///   - position: 首次启用的摄像头位置。
+    /// - Returns: 包含本地相机视频轨道的媒体流。
+    /// - Throws: 模型不支持相机输入、配置无效、权限或采集启动失败时抛出错误。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -143,7 +145,10 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///
     /// - Parameters:
     ///   - imageData: JPEG、PNG 等受支持格式的编码图片数据。
-    ///   - videoFormat: 输出视频规格；传入 `nil` 时根据图片原始尺寸生成。
+    ///   - videoFormat: 输出视频规格；传入 `nil` 时按图片尺寸计算模型输入尺寸，
+    ///     并使用模型默认帧率；显式传入时保留指定帧率。
+    /// - Returns: 包含本地图片视频轨道的媒体流。
+    /// - Throws: 模型不支持图片输入、配置无效或图片处理失败时抛出错误。
     func createLocalImageStream(
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
@@ -155,7 +160,10 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///
     /// - Parameters:
     ///   - image: 用作本地输入的 UIKit 图片。
-    ///   - videoFormat: 输出视频规格；传入 `nil` 时根据图片原始尺寸生成。
+    ///   - videoFormat: 输出视频规格；传入 `nil` 时按图片尺寸计算模型输入尺寸，
+    ///     并使用模型默认帧率；显式传入时保留指定帧率。
+    /// - Returns: 包含本地图片视频轨道的媒体流。
+    /// - Throws: 模型不支持图片输入、配置无效或图片处理失败时抛出错误。
     func createLocalImageStream(
         image: UIImage,
         videoFormat: RealtimeVideoFormat?
@@ -167,7 +175,10 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///
     /// - Parameters:
     ///   - fileURL: 本地图片文件 URL。
-    ///   - videoFormat: 输出视频规格；传入 `nil` 时根据图片原始尺寸生成。
+    ///   - videoFormat: 输出视频规格；传入 `nil` 时按图片尺寸计算模型输入尺寸，
+    ///     并使用模型默认帧率；显式传入时保留指定帧率。
+    /// - Returns: 包含本地图片视频轨道的媒体流。
+    /// - Throws: 模型不支持图片输入、配置无效或图片处理失败时抛出错误。
     func createLocalImageStream(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
@@ -182,7 +193,10 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///
     /// - Parameters:
     ///   - fileURL: 本地视频文件 URL。
-    ///   - videoFormat: 输出视频规格；传入 `nil` 时使用视频原始尺寸。
+    ///   - videoFormat: 输出视频规格；传入 `nil` 时按视频显示尺寸计算模型输入尺寸，
+    ///     并使用模型默认帧率；显式传入时保留指定帧率。
+    /// - Returns: 包含本地文件视频轨道的媒体流。
+    /// - Throws: 模型不支持文件视频输入、配置无效或视频处理失败时抛出错误。
     func createLocalVideoStream(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?

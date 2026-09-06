@@ -4,9 +4,6 @@ import Foundation
 /// 将本地图片处理为目标尺寸，并按固定帧率持续输出视频帧。
 final class ImageSourceController: ImageSourceControlling, @unchecked Sendable {
 
-    // 默认格式
-    private static let defaultFrameRate = 24
-
     // 基础层组件
     private let imageManager: any ImageManaging
 
@@ -228,7 +225,7 @@ private extension ImageSourceController {
         let requestedFormat = requestedFormat ?? RealtimeVideoFormat(
             width: sourceWidth,
             height: sourceHeight,
-            fps: Self.defaultFrameRate
+            fps: mediaService.model.defaultFrameRate
         )
         guard requestedFormat.fps > 0 else {
             throw XmaxError(

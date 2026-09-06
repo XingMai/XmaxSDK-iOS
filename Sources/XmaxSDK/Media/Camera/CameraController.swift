@@ -26,12 +26,13 @@ final class CameraController: @unchecked Sendable {
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
+        mediaService: any MediaServicing = MediaService(),
         errorListener: @escaping XmaxErrorListener
     ) {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
-            mediaService: MediaService(),
+            mediaService: mediaService,
             errorListener: errorListener
         )
     }

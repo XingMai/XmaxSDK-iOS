@@ -759,7 +759,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             let reference = RealtimeReferenceCatalog.Item(
                 categoryID: categoryID,
                 iconURL: localURL,
-                prompt: RealtimeReferenceCatalog.prompt(
+                prompt: RealtimeCategory.defaultPrompt(
                     for: categoryID
                 )
             )
@@ -866,7 +866,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 touchAnimationPreparationTask = nil
                 startGeneration(
                     context: RealtimeContext(
-                        prompt: RealtimeCategory.touchAnimationPrompt,
+                        prompt: RealtimeCategory.defaultPrompt(for: "mox"),
                         referencePath: referencePath
                     ),
                     selectedReferenceID: nil,

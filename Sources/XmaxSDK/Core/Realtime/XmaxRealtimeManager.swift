@@ -35,7 +35,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let errorHandler = RealtimeErrorHandler()
         let rtcManager = RtcManager()
-        let mediaService = MediaService()
+        let mediaService = MediaService(model: options.model)
         let timing = RealtimeTiming()
 
         let renderController = RenderController(
@@ -59,6 +59,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let mediaController = MediaController(
             rtcManager: rtcManager,
+            mediaService: mediaService,
             videoFrameListener: { frame in
                 try streamController.pushLocalVideoFrame(frame)
             },
@@ -236,7 +237,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await validateMediaSource(.camera)
+        return try await coordinator.run(
             kind: .media,
             failureScope: .all
         ) { [self] token in
@@ -346,7 +348,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await validateMediaSource(.image)
+        return try await coordinator.run(
             kind: .media,
             failureScope: .all
         ) { [self] token in
@@ -374,6 +377,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         image: UIImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
+        try await validateMediaSource(.image)
         let decodedImage = try ImageManager().decode(image)
         return try await createLocalImageStream(
             decodedImage: decodedImage,
@@ -386,7 +390,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await validateMediaSource(.image)
+        return try await coordinator.run(
             kind: .media,
             failureScope: .all
         ) { [self] token in
@@ -408,7 +413,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await validateMediaSource(.image)
+        return try await coordinator.run(
             kind: .media,
             failureScope: .all
         ) { [self] token in
@@ -444,7 +450,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await validateMediaSource(.video)
+        return try await coordinator.run(
             kind: .media,
             failureScope: .all
         ) { [self] token in
@@ -805,6 +812,18 @@ private extension XmaxRealtimeManager {
         let xmaxError = XmaxError.from(error)
         await errorHandler.report(xmaxError)
         return xmaxError
+    }
+
+    func validateMediaSource(_ source: RealtimeMediaSource) async throws {
+        guard options.model.supportedMediaSources.contains(source) else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Model \(options.model.rawValue) does not support " +
+                        "\(source.rawValue) input"
+                ).withSeverity(.recoverable)
+            )
+        }
     }
 
     static func validateAudioVolume(_ volume: Float) throws {

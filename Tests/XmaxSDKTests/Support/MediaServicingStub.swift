@@ -5,6 +5,7 @@ import Foundation
 final class MediaServicingStub: MediaServicing, @unchecked Sendable {
 
     // 测试配置
+    let model: RealtimeModel
     private let resolvedSize: CGSize
     private let resolutionError: (any Error)?
     private let frameInterpolationSupported: Bool
@@ -15,10 +16,12 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
 
     init(
         resolvedSize: CGSize,
+        model: RealtimeModel = .x2_0,
         resolutionError: (any Error)? = nil,
         frameInterpolationSupported: Bool = false
     ) {
         self.resolvedSize = resolvedSize
+        self.model = model
         self.resolutionError = resolutionError
         self.frameInterpolationSupported = frameInterpolationSupported
     }

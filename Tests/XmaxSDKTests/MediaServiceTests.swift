@@ -3,6 +3,37 @@ import XCTest
 @testable import XmaxSDK
 
 final class MediaServiceTests: XCTestCase {
+    func testModelDefaultCameraResolutionIsPreserved() throws {
+        for model in RealtimeModel.allCases {
+            let format = model.defaultCameraVideoFormat
+            let source = CGSize(width: format.width, height: format.height)
+            let size = try MediaService(model: model).resolveModelInputSize(source)
+            XCTAssertEqual(size, source)
+        }
+    }
+
+    func testAlignedSizesStayWithinEachModelsPixelBounds() throws {
+        let sizes: [CGSize] = [
+            CGSize(width: 799, height: 751),
+            CGSize(width: 1_130, height: 1_130),
+            CGSize(width: 1_445, height: 1_445),
+            CGSize(width: 1_024, height: 1_920),
+            CGSize(width: 3_840, height: 2_160),
+            CGSize(width: 1, height: 100_000),
+            CGSize(width: 100_000, height: 1)
+        ]
+        for model in RealtimeModel.allCases {
+            for source in sizes {
+                let size = try MediaService(model: model).resolveModelInputSize(source)
+                let pixels = Int(size.width * size.height)
+                XCTAssertGreaterThanOrEqual(pixels, model.minimumInputPixels)
+                XCTAssertLessThanOrEqual(pixels, model.maximumInputPixels)
+                XCTAssertTrue(Int(size.width).isMultiple(of: model.inputSizeAlignment))
+                XCTAssertTrue(Int(size.height).isMultiple(of: model.inputSizeAlignment))
+            }
+        }
+    }
+
     func testResolveModelInputSizeUpscalesAndAlignsSmallImage() throws {
         let size = try MediaService().resolveModelInputSize(
             CGSize(width: 640, height: 480)

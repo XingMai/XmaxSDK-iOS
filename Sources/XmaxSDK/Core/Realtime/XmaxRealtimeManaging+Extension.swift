@@ -6,6 +6,20 @@ import UIKit
 /// 提供常用默认参数，简化实时媒体流创建与生成调用。
 public extension XmaxRealtimeManaging {
 
+    /// 使用当前模型的默认视频规格创建本地相机流。
+    ///
+    /// - Parameter position: 采集使用的摄像头位置，默认为前置摄像头。
+    /// - Returns: 包含本地相机视频轨道的媒体流。
+    /// - Throws: 模型不支持相机输入、相机权限或采集启动失败时抛出错误。
+    func createLocalCameraStream(
+        position: CameraPosition = .front
+    ) async throws -> RealtimeMediaStream {
+        try await createLocalCameraStream(
+            videoFormat: options.model.defaultCameraVideoFormat,
+            position: position
+        )
+    }
+
     /// 使用前置摄像头创建本地相机流并开始预览。
     ///
     /// - Parameter videoFormat: 相机采集的视频规格。

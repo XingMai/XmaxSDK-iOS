@@ -53,8 +53,9 @@ public final class XmaxClient: Sendable {
 
     /// 创建媒体处理与能力查询 Service。
     ///
+    /// - Parameter model: 媒体输入规则使用的模型，默认为 `x2.0`。
     /// - Returns: 可用于计算模型输入尺寸和查询平台媒体能力的 Service。
-    public func createMediaService() -> any MediaServicing {
-        MediaService()
+    public func createMediaService(model: RealtimeModel = .x2_0) -> any MediaServicing {
+        MediaService(model: model)
     }
 }
