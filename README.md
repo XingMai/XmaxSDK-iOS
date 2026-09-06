@@ -338,9 +338,9 @@ trajectory rendering.
 
 ## Contact us
 
-For bug reports and feature requests, use
-[GitHub Issues](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
-questions and technical support, contact [sdk@xmax.ai](mailto:sdk@xmax.ai).
+For bug reports and feature requests, please open a
+[GitHub Issue](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
+assistance and technical support, contact us at [sdk@xmax.ai](mailto:sdk@xmax.ai).
 
 ## License
 
