@@ -349,10 +349,6 @@ await realtime.setErrorListener { error in
 Pass `nil` to any setter to remove its listener. Recoverable errors are thrown by
 the corresponding async calls and still require `do`/`catch` handling.
 
-Callbacks run on `@MainActor`, except the remote video frame listener, which runs
-on a serial background queue. Keep frame handlers lightweight; see
-[generated video frames](./docs/usage.md#generated-video-frames) for recording details.
-
 <br>
 
 ### Clean up
