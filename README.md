@@ -56,6 +56,8 @@ integrating real-time video generation is seamless and intuitive.
   <tr>
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>视频中角色替换成参考图中角色</code>
+      <br><br>
+      <strong>Reference image:</strong> Use an image of the target character
     </td>
   </tr>
   <tr>
@@ -77,6 +79,8 @@ integrating real-time video generation is seamless and intuitive.
   <tr>
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>视频中人物衣服替换成参考图中衣服</code>
+      <br><br>
+      <strong>Reference image:</strong> Use an image of the outfit you want to try on
     </td>
   </tr>
   <tr>
@@ -97,6 +101,8 @@ integrating real-time video generation is seamless and intuitive.
   <tr>
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>视频风格变为参考图指定的风格</code>
+      <br><br>
+      <strong>Reference image:</strong> Use an image in the desired artistic style
     </td>
   </tr>
   <tr>
@@ -118,6 +124,8 @@ integrating real-time video generation is seamless and intuitive.
   <tr>
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>指定角色在场景中互动</code>
+      <br><br>
+      <strong>Reference image:</strong> Use an image of the virtual character you want to summon
     </td>
   </tr>
   <tr>
