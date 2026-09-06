@@ -248,6 +248,8 @@ Customize this message to match your application's user experience. XmaxSDK
 automatically prompts for camera access when creating the video stream and throws
 an `XmaxError` if permission is denied or unavailable.
 
+<br>
+
 ### Generate and display video
 
 The following UIKit example creates a camera stream, starts generation, and binds
@@ -291,7 +293,9 @@ videoView.remoteTrack = remoteStream.videoTrack
 The view shows the local preview until the first generated frame arrives. Touch
 interaction is enabled by default.
 
-#### Using SwiftUI
+<br>
+
+### Using SwiftUI
 
 Use `XmaxRealtimeVideo` in place of the UIKit view. Store the local and remote
 tracks in observable state and update them as streams become available:
@@ -306,6 +310,8 @@ XmaxRealtimeVideo(
 
 See the [SwiftUI guide](./docs/usage.md#swiftui) for state binding and the
 [example project](#example-project) for a complete implementation.
+
+<br>
 
 ### Clean up
 
