@@ -330,7 +330,7 @@ input stream or starting generation.
 | `setStateListener` | Observe pipeline states during real-time generation. |
 | `setErrorListener` | Handle fatal errors that prevent the realtime workflow from continuing. |
 | `setCameraPreviewReadyListener` | Notify when the initial local camera frame is ready for preview rendering. |
-| `setRemoteVideoFrameListener` | Receive generated frames after optional interpolation for recording or custom processing. |
+| `setRemoteVideoFrameListener` | Receive generated frames for recording or custom processing. |
 | `setNetworkQualityListener` | Monitor uplink and downlink network quality. |
 | `setPerformanceAlarmListener` | Detect device performance limitations or recovery, with a suggested video format when available. |
 
