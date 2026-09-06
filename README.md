@@ -320,6 +320,41 @@ See the [SwiftUI guide](./docs/usage.md#swiftui) for state binding and the
 
 <br>
 
+### Listen for events
+
+After creating `realtime`, register the listeners you need before creating the
+input stream or starting generation.
+
+| Listener | Purpose |
+| --- | --- |
+| `setStateListener` | Observe connection and generation state, session ID, and task ID. |
+| `setErrorListener` | Handle fatal errors that prevent the realtime workflow from continuing. |
+| `setCameraPreviewReadyListener` | Know when the first local camera frame is available for preview. |
+| `setRemoteVideoFrameListener` | Receive generated frames after optional interpolation for recording or custom processing. |
+| `setNetworkQualityListener` | Monitor uplink and downlink network quality. |
+| `setPerformanceAlarmListener` | Detect device performance limitations or recovery, with a suggested video format when available. |
+
+For example, monitor state changes and fatal errors:
+
+```swift
+await realtime.setStateListener { state in
+    print("State: \(state.connectionState.rawValue)")
+}
+
+await realtime.setErrorListener { error in
+    print("Error: \(error.code.rawValue) \(error.message)")
+}
+```
+
+Pass `nil` to any setter to remove its listener. Recoverable errors are thrown by
+the corresponding async calls and still require `do`/`catch` handling.
+
+Callbacks run on `@MainActor`, except the remote video frame listener, which runs
+on a serial background queue. Keep frame handlers lightweight; see
+[generated video frames](./docs/usage.md#generated-video-frames) for recording details.
+
+<br>
+
 ### Clean up
 
 Keep the realtime manager available for cleanup. When leaving the generation
