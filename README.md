@@ -333,7 +333,9 @@ Handle errors from throwing calls and clean up if startup fails.
 
 <br>
 
-For complete usage examples, see the [usage guide](./docs/usage.md).
+> [!TIP]
+> For complete usage examples, including image and video inputs, reference images,
+> and touch interaction, see the [usage guide](./docs/usage.md).
 
 <br>
 
