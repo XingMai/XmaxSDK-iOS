@@ -32,9 +32,6 @@ integrating real-time video generation is seamless and intuitive.
 
 ## What you can build with XmaxSDK
 
-The prompts below are illustrative and may differ from those used in the demos.
-Reference images and touch trajectories are supplied separately from the prompt.
-
 <table>
   <tr>
     <th width="24%" align="left">Use Case</th>
@@ -49,8 +46,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
       Replace anyone in your live feed with a designated avatar in real-time.
       <br><br>
       <strong>Example prompt:</strong><br>
-      <code>Replace the person with the character in the reference image. Preserve their expressions, gaze, and movements.</code>
-      <br>Reference image: the target character.
+      <code>视频中角色替换成参考图中角色</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -69,8 +65,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
       authentic fit.
       <br><br>
       <strong>Example prompt:</strong><br>
-      <code>Dress the person in the outfit from the reference image. Preserve their body shape, natural motion, and the scene's lighting.</code>
-      <br>Reference image: the target outfit.
+      <code>视频中人物衣服替换成参考图中衣服</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -88,7 +83,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
       Reimagine your world in any style with an immersive visual experience.
       <br><br>
       <strong>Example prompt:</strong><br>
-      <code>Render the entire scene in an anime style, including both the subject and the background.</code>
+      <code>视频风格变为参考图指定的风格</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -107,7 +102,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
       through gestures.
       <br><br>
       <strong>Example prompt:</strong><br>
-      <code>Add a friendly virtual fox to the scene. Match the environment's lighting and perspective.</code>
+      <code>指定角色在场景中互动</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@cfcee886daadc7f8b901e652361b20cd4ec42591/docs/videos/use-cases/character-swapping.mp4">
@@ -126,7 +121,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
       trajectories.
       <br><br>
       <strong>Example prompt:</strong><br>
-      <code>Animate the character in the image with natural motion while preserving its appearance and the background.</code>
+      <code>让画面自然动起来</code>
     </td>
     <td width="16%" align="center" valign="middle">
       <a href="https://cdn.jsdelivr.net/gh/XingMai/XmaxSDK-iOS@d4f8a4ada6c3a30b98373d30ec7a63791f4851b1/docs/videos/use-cases/live-photo.mp4">
