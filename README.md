@@ -139,7 +139,7 @@ integrating real-time video generation is seamless and intuitive.
   <tr>
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>让画面自然动起来</code>
-      <br>
+      <br><br>
       <strong>Reference image:</strong> Use the input image as the reference
     </td>
   </tr>
