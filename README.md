@@ -57,7 +57,7 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>视频中角色替换成参考图中角色</code>
       <br><br>
-      <strong>Reference image:</strong> Use an image of the target character
+      <strong>Reference image:</strong> Use a clear image of the target character against a clean, uncluttered background
     </td>
   </tr>
   <tr>
