@@ -244,8 +244,9 @@ Add a camera usage description to your application's `Info.plist`:
 <string>This app uses the camera for real-time video input.</string>
 ```
 
-Use wording appropriate for your app. XmaxSDK requests permission when creating
-the camera stream and throws an `XmaxError` if permission is unavailable.
+Customize this message to match your application's user experience. XmaxSDK
+automatically prompts for camera access when creating the video stream and throws
+an `XmaxError` if permission is denied or unavailable.
 
 ### Generate and display video
 
