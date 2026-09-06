@@ -333,8 +333,8 @@ trajectory rendering.
 
 ## Third-party dependencies
 
-- VolcEngine RTC SDK for iOS provides real-time audio and video communication.
-- Tencent Cloud COS SDK provides image and video transfer through object storage.
+- <ins><strong>VolcEngine RTC SDK for iOS</strong></ins> enables low-latency, real-time audio and video communication.
+- <ins><strong>Tencent Cloud COS SDK</strong></ins> handles media upload and download via object storage.
 
 ## Contact us
 
