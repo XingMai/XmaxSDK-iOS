@@ -347,30 +347,29 @@ await realtime.setErrorListener { error in
 
 <br>
 
-### Clean up
+### Resource Cleanup
 
-**`disconnect()` — keep the local preview**
+- **`disconnect()` — Stop Remote Generation**
 
-Use this when ending the remote generation session but staying on the screen.
-It stops generation and disconnects from the cloud while keeping the local stream
-and preview active. You can reconnect using the same local stream.
+  Stops remote generation and cancels billing while keeping the local camera stream
+  and preview active. Use this when ending the online session but staying on the
+  current screen. You can start a new session later using the same local stream:
 
-```swift
-await realtime.disconnect()
-```
+  ```swift
+  await realtime.disconnect()
+  ```
 
-**`close()` — leave the generation screen**
+- **`close()` — Full Teardown & Release**
 
-Use this when leaving or dismissing the screen. It ends the remote session,
-stops local media, and releases the RTC engine. Cancel the screen's owning task
-before calling it:
+  Ends the remote session, stops local media capture, and releases all engine
+  resources. Use this when leaving or dismissing the generation screen:
 
-```swift
-await realtime.close()
-```
+  ```swift
+  await realtime.close()
+  ```
 
-These are alternatives, not sequential steps. Call `close()` directly for full
-cleanup; there is no need to call `disconnect()` first.
+> **Note:** These methods are alternatives, not sequential steps. When exiting a
+> screen, call `close()` directly—there is no need to call `disconnect()` first.
 
 <br>
 
