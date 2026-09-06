@@ -55,7 +55,7 @@ integrating real-time video generation is seamless and intuitive.
   </tr>
   <tr>
     <td width="60%" valign="middle">
-      <strong>Example prompt:</strong> <code>视频中角色替换成参考图中角色</code>
+      <strong>Prompt:</strong> <code>视频中角色替换成参考图中角色</code>
     </td>
   </tr>
   <tr>
@@ -76,7 +76,7 @@ integrating real-time video generation is seamless and intuitive.
   </tr>
   <tr>
     <td width="60%" valign="middle">
-      <strong>Example prompt:</strong> <code>视频中人物衣服替换成参考图中衣服</code>
+      <strong>Prompt:</strong> <code>视频中人物衣服替换成参考图中衣服</code>
     </td>
   </tr>
   <tr>
@@ -96,7 +96,7 @@ integrating real-time video generation is seamless and intuitive.
   </tr>
   <tr>
     <td width="60%" valign="middle">
-      <strong>Example prompt:</strong> <code>视频风格变为参考图指定的风格</code>
+      <strong>Prompt:</strong> <code>视频风格变为参考图指定的风格</code>
     </td>
   </tr>
   <tr>
@@ -117,7 +117,7 @@ integrating real-time video generation is seamless and intuitive.
   </tr>
   <tr>
     <td width="60%" valign="middle">
-      <strong>Example prompt:</strong> <code>指定角色在场景中互动</code>
+      <strong>Prompt:</strong> <code>指定角色在场景中互动</code>
     </td>
   </tr>
   <tr>
@@ -138,7 +138,7 @@ integrating real-time video generation is seamless and intuitive.
   </tr>
   <tr>
     <td width="60%" valign="middle">
-      <strong>Example prompt:</strong> <code>让画面自然动起来</code>
+      <strong>Prompt:</strong> <code>让画面自然动起来</code>
     </td>
   </tr>
 </table>
