@@ -16,6 +16,8 @@ actor.
 - [Frame interpolation](#frame-interpolation)
 - [Logging](#logging)
 
+<br>
+
 ## Image and video inputs
 
 Replace camera-stream creation in the Quick Start with one of the following.
@@ -49,6 +51,8 @@ Use wording appropriate for your app. XmaxSDK checks and requests the required
 runtime permissions when creating a local stream and reports an `XmaxError` if
 permission is unavailable.
 
+<br>
+
 ## Reference images
 
 `RealtimeContext.referencePath` accepts a remote image URL. To use an on-device
@@ -76,6 +80,8 @@ The storage manager uses temporary credentials obtained from Xmax. Tencent Cloud
 credentials are not embedded in the host application. If the reference image is
 already hosted remotely, supply its URL directly without uploading it again.
 
+<br>
+
 ## Update generation conditions
 
 While generation is active, call `startGeneration(context:)` with a new prompt or
@@ -89,6 +95,8 @@ try await realtime.startGeneration(
 
 To keep using a reference image, include its URL in the new context's
 `referencePath`.
+
+<br>
 
 ## SwiftUI
 
@@ -138,6 +146,8 @@ See the [SwiftUI example](../Examples/XLab/XLab/Modules/XLRealtime/SwiftUI/Realt
 and its [session controller](../Examples/XLab/XLab/Modules/XLRealtime/SwiftUI/RealtimeSessionController.swift)
 for a complete implementation.
 
+<br>
+
 ## Touch interaction
 
 During an active generation task, both realtime video views capture multi-touch
@@ -160,6 +170,8 @@ XmaxRealtimeVideo(
     isInteractionEnabled: false
 )
 ```
+
+<br>
 
 ## Lifecycle and errors
 
@@ -201,6 +213,8 @@ await realtime.setErrorListener { error in
 The error listener reports fatal realtime errors. Recoverable errors are thrown
 by the corresponding async calls and should be handled by the caller.
 
+<br>
+
 ## Generated video frames
 
 To record or process output outside the SDK, register a final-frame listener before
@@ -230,6 +244,8 @@ Clear the listener when frame delivery is no longer needed:
 await realtime.setRemoteVideoFrameListener(nil)
 ```
 
+<br>
+
 ## Frame interpolation
 
 On supported devices running iOS 26 or later, XmaxSDK can interpolate generated
@@ -242,6 +258,8 @@ try await realtime.setFrameInterpolationEnabled(false)
 
 Check support for a specific video size with
 `client.createMediaService().supportsFrameInterpolation(for:)`.
+
+<br>
 
 ## Logging
 
