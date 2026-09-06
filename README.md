@@ -294,8 +294,8 @@ by default.
 
 ### Using SwiftUI
 
-Use `XmaxRealtimeVideo` in place of the UIKit view. Store the local and remote
-tracks in observable state and update them as streams become available:
+**Use `XmaxRealtimeVideo` as your primary SwiftUI view.** Store the local and remote
+tracks in observable state, updating them dynamically as streams become available:
 
 ```swift
 XmaxRealtimeVideo(
