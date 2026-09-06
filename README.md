@@ -360,8 +360,6 @@ screen, cancel its owning task and release the connection and media resources:
 await realtime.close()
 ```
 
-Handle errors from throwing calls and clean up if startup fails.
-
 <br>
 
 > [!TIP]
