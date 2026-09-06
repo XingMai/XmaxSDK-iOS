@@ -102,7 +102,7 @@ integrating real-time video generation is seamless and intuitive.
     <td width="60%" valign="middle">
       <strong>Prompt:</strong> <code>视频风格变为参考图指定的风格</code>
       <br><br>
-      <strong>Reference image:</strong> Select an image in the desired artistic style against a clean, uncluttered background.
+      <strong>Reference image:</strong> Select an image that captures the artistic style you want to apply.
     </td>
   </tr>
   <tr>
