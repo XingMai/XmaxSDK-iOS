@@ -174,7 +174,7 @@ Reference images and touch trajectories are supplied separately from the prompt.
 - An Xmax API key
 
 > [!WARNING]
-> Never commit your Xmax API key to version control. Pass credentials securely at
+> Never commit your Xmax API key to version control. Pass it securely at
 > runtime or use short-lived temporary keys issued by the Xmax API. For step-by-step
 > instructions, see [Authentication](https://platform.xmaxai.com/docs/authentication).
 
