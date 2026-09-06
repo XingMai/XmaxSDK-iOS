@@ -269,10 +269,8 @@ and binds the output to a video view. Run this within a `@MainActor` async conte
 import UIKit
 import XmaxSDK
 
-let apiKey = "xxxxx"
-
 let client = XmaxClient(
-    configuration: XmaxConfiguration(apiKey: apiKey)
+    configuration: XmaxConfiguration(apiKey: "YOUR_XMAX_API_KEY")
 )
 let realtime = client.createRealtimeManager(
     options: RealtimeConfiguration(model: .x2_0)
