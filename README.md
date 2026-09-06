@@ -252,9 +252,8 @@ an `XmaxError` if permission is denied or unavailable.
 
 ### Generate and display video
 
-The following UIKit example creates a camera stream, starts generation, and binds
-the output to a video view. Run it in a main-actor async context, using an API key
-supplied securely at runtime (`apiKey`).
+The following UIKit snippet creates a camera stream, starts real-time generation,
+and binds the output to a video view. Run this within a `@MainActor` async context.
 
 ```swift
 import UIKit
