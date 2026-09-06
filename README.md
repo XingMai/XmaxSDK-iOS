@@ -341,11 +341,10 @@ Handle errors from throwing calls and clean up if startup fails.
 
 ## Example Project
 
-A runnable reference application with UIKit and SwiftUI implementations is available
-in [`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab).
-The application demonstrates realtime generation with camera, image, and local
-video inputs, together with custom prompts, reference image selection, and
-trajectory rendering.
+A complete example application featuring both UIKit and SwiftUI implementations
+is available in [`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab).
+It demonstrates real-time generation using live camera feeds, static images, and
+local video files.
 
 <p align="center"><img src="./docs/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./docs/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./docs/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./docs/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./docs/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
 
