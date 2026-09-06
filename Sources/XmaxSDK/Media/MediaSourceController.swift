@@ -40,6 +40,12 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         stateLock.withLock { preparedMedia?.configuration.hasAudio ?? false }
     }
 
+    var localAudioVolume: Float {
+        get async {
+            await playerController.localAudioVolume
+        }
+    }
+
     func prepare(
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?

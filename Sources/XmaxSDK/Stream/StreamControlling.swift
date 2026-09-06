@@ -6,6 +6,9 @@ protocol StreamControlling: Sendable {
     /// 当前是否存在正在启动或已经运行的生成任务。
     var hasGenerationTask: Bool { get }
 
+    /// 当前远端生成音频播放音量。
+    var remoteAudioVolume: Float { get }
+
     /// 设置实时视频编码器配置。
     ///
     /// - Parameter videoFormat: RTC 视频编码使用的宽度、高度和帧率。

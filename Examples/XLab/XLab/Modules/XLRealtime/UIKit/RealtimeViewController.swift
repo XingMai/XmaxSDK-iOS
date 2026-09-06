@@ -33,8 +33,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var isSuspendedForBackground = false
 
     // 音频状态
-    private var localAudioVolume = RealtimeConst.defaultLocalAudioVolume
-    private var remoteAudioVolume = RealtimeConst.defaultRemoteAudioVolume
+    private var localAudioVolume: Float?
+    private var remoteAudioVolume: Float?
     private var isAudioMuted = false
 
     // 录制资源
@@ -66,6 +66,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var mediaCleanupTask: Task<Void, Never>?
     private var localAudioVolumeTask: Task<Void, Never>?
     private var remoteAudioVolumeTask: Task<Void, Never>?
+    private var audioVolumeStateTask: Task<Void, Never>?
     private var frameInterpolationTask: Task<Void, Never>?
     private var recordingOperationTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
@@ -223,29 +224,56 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func presentAudioVolumeMenu(from sourceView: UIView) {
         guard presentedViewController == nil else { return }
 
-        let menu = RealtimeAudioVolumeMenuViewController(
-            localVolume: localAudioVolume,
-            remoteVolume: remoteAudioVolume
-        )
-        menu.onLocalVolumeChanged = { [weak self] volume in
-            self?.setLocalAudioVolume(volume)
+        audioVolumeStateTask?.cancel()
+        let realtimeManager = realtimeManager
+        audioVolumeStateTask = Task { @MainActor [weak self, weak sourceView] in
+            guard let self, let sourceView else { return }
+            let volumes = await resolveAudioVolumes(
+                realtimeManager: realtimeManager
+            )
+            guard !Task.isCancelled,
+                  presentedViewController == nil,
+                  sourceView.window != nil else {
+                return
+            }
+            localAudioVolume = volumes.local
+            remoteAudioVolume = volumes.remote
+
+            let menu = RealtimeAudioVolumeMenuViewController(
+                localVolume: volumes.local,
+                remoteVolume: volumes.remote
+            )
+            menu.onLocalVolumeChanged = { [weak self] volume in
+                self?.setLocalAudioVolume(volume)
+            }
+            menu.onRemoteVolumeChanged = { [weak self] volume in
+                self?.setRemoteAudioVolume(volume)
+            }
+            if let popover = menu.popoverPresentationController {
+                popover.delegate = menu
+                popover.sourceView = sourceView
+                popover.sourceRect = sourceView.bounds
+                popover.permittedArrowDirections = .up
+            }
+            present(menu, animated: true)
         }
-        menu.onRemoteVolumeChanged = { [weak self] volume in
-            self?.setRemoteAudioVolume(volume)
-        }
-        if let popover = menu.popoverPresentationController {
-            popover.delegate = menu
-            popover.sourceView = sourceView
-            popover.sourceRect = sourceView.bounds
-            popover.permittedArrowDirections = .up
-        }
-        present(menu, animated: true)
     }
 
     private func setAudioMuted(_ muted: Bool) {
         isAudioMuted = muted
-        applyLocalAudioVolume(muted ? 0 : localAudioVolume)
-        applyRemoteAudioVolume(muted ? 0 : remoteAudioVolume)
+        audioVolumeStateTask?.cancel()
+        let realtimeManager = realtimeManager
+        audioVolumeStateTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let volumes = await resolveAudioVolumes(
+                realtimeManager: realtimeManager
+            )
+            guard !Task.isCancelled else { return }
+            localAudioVolume = volumes.local
+            remoteAudioVolume = volumes.remote
+            applyLocalAudioVolume(muted ? 0 : volumes.local)
+            applyRemoteAudioVolume(muted ? 0 : volumes.remote)
+        }
     }
 
     private func setLocalAudioVolume(_ volume: Float) {
@@ -253,7 +281,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         if isAudioMuted {
             isAudioMuted = false
             mediaTopBar.setMuted(false)
-            applyRemoteAudioVolume(remoteAudioVolume)
+            if let remoteAudioVolume {
+                applyRemoteAudioVolume(remoteAudioVolume)
+            }
         }
         applyLocalAudioVolume(volume)
     }
@@ -263,7 +293,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         if isAudioMuted {
             isAudioMuted = false
             mediaTopBar.setMuted(false)
-            applyLocalAudioVolume(localAudioVolume)
+            if let localAudioVolume {
+                applyLocalAudioVolume(localAudioVolume)
+            }
         }
         applyRemoteAudioVolume(volume)
     }
@@ -286,6 +318,19 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             guard !Task.isCancelled else { return }
             try? await realtimeManager.setRemoteAudioVolume(volume)
         }
+    }
+
+    private func resolveAudioVolumes(
+        realtimeManager: any XmaxRealtimeManaging
+    ) async -> (local: Float, remote: Float) {
+        async let currentLocalVolume = realtimeManager.localAudioVolume
+        async let currentRemoteVolume = realtimeManager.remoteAudioVolume
+        let fetchedLocalVolume = await currentLocalVolume
+        let fetchedRemoteVolume = await currentRemoteVolume
+        return (
+            localAudioVolume ?? fetchedLocalVolume,
+            remoteAudioVolume ?? fetchedRemoteVolume
+        )
     }
 
     private func toggleRecording() {
@@ -465,6 +510,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     deinit {
+        audioVolumeStateTask?.cancel()
         localAudioVolumeTask?.cancel()
         remoteAudioVolumeTask?.cancel()
         frameInterpolationTask?.cancel()
@@ -482,7 +528,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 make.top.equalToSuperview()
             } else {
                 make.top.equalTo(view.safeAreaLayoutGuide)
-                    .offset(RealtimeConst.mediaPreviewTopInset)
+                    .offset(68)
             }
         }
 
@@ -657,7 +703,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private static func makeRealtimeManager() -> any XmaxRealtimeManaging {
         let apiKey = UserDefaults.standard.string(
-            forKey: RealtimeConst.apiKeyStorageKey
+            forKey: RealtimePreferences.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
             configuration: XmaxConfiguration(
@@ -667,7 +713,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         )
         return client.createRealtimeManager(
             options: RealtimeConfiguration(
-                model: .x2_0,
+                model: RealtimePreferences.selectedModel,
                 isFrameInterpolationEnabled:
                     Self.initialFrameInterpolationEnabled
             )
@@ -820,7 +866,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 touchAnimationPreparationTask = nil
                 startGeneration(
                     context: RealtimeContext(
-                        prompt: RealtimeConst.defaultTouchAnimationPrompt,
+                        prompt: RealtimeCategory.touchAnimationPrompt,
                         referencePath: referencePath
                     ),
                     selectedReferenceID: nil,
@@ -852,7 +898,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             throw RealtimeDemoError.imageEncodingFailed
         }
         let apiKey = UserDefaults.standard.string(
-            forKey: RealtimeConst.apiKeyStorageKey
+            forKey: RealtimePreferences.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
             configuration: XmaxConfiguration(
@@ -884,7 +930,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         renderReference(reference)
 
         let apiKey = UserDefaults.standard.string(
-            forKey: RealtimeConst.apiKeyStorageKey
+            forKey: RealtimePreferences.apiKeyStorageKey
         ) ?? ""
         let fileURL = reference.iconURL
         referenceUploadTasks[reference.id] = Task { [weak self, reference] in
@@ -1041,7 +1087,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             )
         case nil:
             return try await realtimeManager.createLocalCameraStream(
-                videoFormat: RealtimeConst.cameraVideoFormat,
+                videoFormat: RealtimePreferences.cameraVideoFormat,
                 position: .front
             )
         }
@@ -1090,6 +1136,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
         frameInterpolationTask?.cancel()
         frameInterpolationTask = nil
+
+        audioVolumeStateTask?.cancel()
+        audioVolumeStateTask = nil
 
         pendingRealtimeListener?.cancel()
         realtimeListenerTask = nil

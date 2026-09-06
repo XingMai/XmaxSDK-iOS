@@ -27,7 +27,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     private let timing: RealtimeTiming
 
     // 音频配置
-    private var remoteAudioVolume = 100
+    private var remoteAudioVolumePercentage = 100
 
     // 并发控制
     private let stateLock = NSLock()
@@ -38,6 +38,10 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     var hasGenerationTask: Bool {
         stateLock.withLock { state.generationTask != nil }
+    }
+
+    var remoteAudioVolume: Float {
+        Float(stateLock.withLock { remoteAudioVolumePercentage }) / 100
     }
 
     convenience init(
@@ -114,7 +118,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 )
             }
             stateLock.withLock {
-                remoteAudioVolume = rtcVolume
+                remoteAudioVolumePercentage = rtcVolume
             }
         }
     }
@@ -660,7 +664,7 @@ private extension StreamController {
         let audioState = stateLock.withLock {
             (
                 state.subscribedRemoteAudioUserIDs.contains(userID),
-                remoteAudioVolume
+                remoteAudioVolumePercentage
             )
         }
         guard !audioState.0 else {

@@ -10,6 +10,9 @@ struct RealtimeCategory: Identifiable, Sendable {
     let name: String
     let content: Content
 
+    /// 触控动图分类发起生成时使用的提示词。
+    static let touchAnimationPrompt = "让画面自然动起来"
+
     static let all = [
         RealtimeCategory(
             id: "charx",

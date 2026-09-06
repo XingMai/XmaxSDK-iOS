@@ -174,6 +174,7 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
 
     // 调用记录
     private(set) var calls: [VideoPlayerControllingCall] = []
+    private(set) var localAudioVolume: Float = 0.45
 
     func configure(
         fileURL: URL,
@@ -202,6 +203,7 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
     }
 
     func setLocalAudioVolume(_ volume: Float) {
+        localAudioVolume = volume
         calls.append(.setLocalAudioVolume(volume))
     }
 

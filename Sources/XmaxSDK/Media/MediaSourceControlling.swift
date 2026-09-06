@@ -4,6 +4,9 @@ import UIKit
 /// 定义本地视频文件准备、循环播放和重新起播能力。
 protocol MediaSourceControlling: Sendable {
 
+    /// 当前本地音频预览音量。
+    var localAudioVolume: Float { get async }
+
     /// 当前媒体是否包含音频轨道。
     var hasAudio: Bool { get }
 

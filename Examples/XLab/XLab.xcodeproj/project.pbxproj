@@ -19,7 +19,7 @@
 		F10000000000000000000002 /* RealtimeViewController+Notification.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* RealtimeViewController+Notification.swift */; };
 		F10000000000000000000003 /* RealtimeViewController+Picker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* RealtimeViewController+Picker.swift */; };
 		F10000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */; };
-		F10000000000000000000005 /* RealtimeConst.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* RealtimeConst.swift */; };
+		F10000000000000000000006 /* RealtimePreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* RealtimePreferences.swift */; };
 		F11000000000000000000001 /* RealtimeCameraSwitchButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */; };
 		F11000000000000000000002 /* RealtimeControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000002 /* RealtimeControlPanelView.swift */; };
 		F11000000000000000000003 /* RealtimeLoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000003 /* RealtimeLoadingOverlay.swift */; };
@@ -58,7 +58,7 @@
 		F20000000000000000000002 /* RealtimeViewController+Notification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+Notification.swift"; sourceTree = "<group>"; };
 		F20000000000000000000003 /* RealtimeViewController+Picker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+Picker.swift"; sourceTree = "<group>"; };
 		F20000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RealtimeViewController+CustomTrajectory.swift"; sourceTree = "<group>"; };
-		F20000000000000000000005 /* RealtimeConst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeConst.swift; sourceTree = "<group>"; };
+		F20000000000000000000006 /* RealtimePreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimePreferences.swift; sourceTree = "<group>"; };
 		F21000000000000000000001 /* RealtimeCameraSwitchButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeCameraSwitchButton.swift; sourceTree = "<group>"; };
 		F21000000000000000000002 /* RealtimeControlPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeControlPanelView.swift; sourceTree = "<group>"; };
 		F21000000000000000000003 /* RealtimeLoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeLoadingOverlay.swift; sourceTree = "<group>"; };
@@ -153,7 +153,7 @@
 		C00000000000000000000002 /* XLRealtime */ = {
 			isa = PBXGroup;
 			children = (
-				F20000000000000000000005 /* RealtimeConst.swift */,
+				F20000000000000000000006 /* RealtimePreferences.swift */,
 				F2100000000000000000000D /* RealtimeCategory.swift */,
 				F21000000000000000000009 /* RealtimeLocalInput.swift */,
 				F2100000000000000000000A /* RealtimeReferenceCatalog.swift */,
@@ -387,7 +387,7 @@
 				F10000000000000000000002 /* RealtimeViewController+Notification.swift in Sources */,
 				F10000000000000000000003 /* RealtimeViewController+Picker.swift in Sources */,
 				F10000000000000000000004 /* RealtimeViewController+CustomTrajectory.swift in Sources */,
-				F10000000000000000000005 /* RealtimeConst.swift in Sources */,
+				F10000000000000000000006 /* RealtimePreferences.swift in Sources */,
 				F11000000000000000000001 /* RealtimeCameraSwitchButton.swift in Sources */,
 				F11000000000000000000002 /* RealtimeControlPanelView.swift in Sources */,
 				F11000000000000000000003 /* RealtimeLoadingOverlay.swift in Sources */,

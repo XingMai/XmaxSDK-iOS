@@ -1,5 +1,6 @@
 import UIKit
 import SnapKit
+import XmaxSDK
 
 enum FeedPalette {
     static let mint = UIColor.feed(rgb: 0x8EF0C8)
@@ -238,6 +239,14 @@ final class FeedRuntimeMetricView: UIView {
 final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
 
+    // 模型选择
+    private var selectedModel = RealtimePreferences.selectedModel
+    private var modelRows: [(
+        model: RealtimeModel,
+        row: UIControl,
+        activeIndicator: UIView
+    )] = []
+
     private lazy var apiKeyTextField: UITextField = {
         let textField = UITextField()
         textField.attributedPlaceholder = NSAttributedString(
@@ -273,6 +282,8 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     }()
 
     init() {
+        let models = RealtimeModel.allCases
+
         super.init(
             colors: [.feed(rgb: 0x121B19, alpha: 0.91), .feed(rgb: 0x0D1218, alpha: 0.91)],
             cornerRadius: 17,
@@ -283,7 +294,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
 
         let title = makeFeedLabel("选择你的模型", size: 13, weight: .bold, color: .feed(rgb: 0xE9EDF3))
         let modelCount = makeFeedLabel(
-            "1 MODEL",
+            "\(models.count) MODELS",
             size: 8,
             color: .feed(rgb: 0xFFFFFF, alpha: 0.44),
             letterSpacing: 0.8
@@ -369,30 +380,13 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
             make.height.equalTo(1)
         }
 
-        let diamond = makeFeedLabel("◆", size: 7, color: FeedPalette.mint)
-        let modelName = makeFeedLabel("X2.0", size: 13, weight: .bold, color: .feed(rgb: 0xF0F2F5))
-        let modelIdentifier = makeFeedLabel(
-            "RealtimeModel.X2_0",
-            size: 8,
-            color: .feed(rgb: 0xFFFFFF, alpha: 0.44)
+        let modelList = feedVerticalStack(
+            models.map(makeModelRow),
+            spacing: 4
         )
-        let modelText = feedVerticalStack([modelName, modelIdentifier], spacing: 3)
-        let active = FeedPillView(
-            text: "ACTIVE",
-            foregroundColor: FeedPalette.mint,
-            backgroundColor: FeedPalette.mint.withAlphaComponent(0.086)
-        )
-        let modelRow = feedHorizontalStack([diamond, modelText, feedFlexibleSpacer(), active], spacing: 10)
-        modelRow.translatesAutoresizingMaskIntoConstraints = false
-        modelRow.backgroundColor = FeedPalette.mint.withAlphaComponent(0.063)
-        modelRow.layer.cornerRadius = 10
-        modelRow.isLayoutMarginsRelativeArrangement = true
-        modelRow.layoutMargins = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 8)
-        modelRow.snp.makeConstraints { make in
-            make.height.equalTo(56)
-        }
+        updateModelSelection()
 
-        let stack = feedVerticalStack([header, apiContainer, divider, modelRow])
+        let stack = feedVerticalStack([header, apiContainer, divider, modelList])
         stack.setCustomSpacing(14, after: header)
         stack.setCustomSpacing(12, after: apiContainer)
         stack.setCustomSpacing(4, after: divider)
@@ -404,6 +398,81 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private func makeModelRow(for model: RealtimeModel) -> UIView {
+        let diamond = makeFeedLabel("◆", size: 7, color: FeedPalette.mint)
+        let modelName = makeFeedLabel(
+            model.rawValue.uppercased().replacingOccurrences(of: "-", with: " "),
+            size: 13,
+            weight: .bold,
+            color: .feed(rgb: 0xF0F2F5)
+        )
+        let caseName = model.rawValue
+            .replacingOccurrences(of: ".", with: "_")
+            .replacingOccurrences(of: "-", with: "_")
+        let modelIdentifier = makeFeedLabel(
+            "RealtimeModel.\(caseName)",
+            size: 8,
+            color: .feed(rgb: 0xFFFFFF, alpha: 0.44)
+        )
+        let modelText = feedVerticalStack([modelName, modelIdentifier], spacing: 3)
+        let active = FeedPillView(
+            text: "ACTIVE",
+            foregroundColor: FeedPalette.mint,
+            backgroundColor: FeedPalette.mint.withAlphaComponent(0.086)
+        )
+        let content = feedHorizontalStack(
+            [diamond, modelText, feedFlexibleSpacer(), active],
+            spacing: 10
+        )
+        content.isUserInteractionEnabled = false
+        let row = UIControl()
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.backgroundColor = FeedPalette.mint.withAlphaComponent(0.063)
+        row.layer.cornerRadius = 10
+        row.addSubview(content)
+        row.addAction(
+            UIAction { [weak self] _ in
+                self?.selectModel(model)
+            },
+            for: .touchUpInside
+        )
+        row.snp.makeConstraints { make in
+            make.height.equalTo(56)
+        }
+        content.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(10)
+            make.trailing.equalToSuperview().inset(8)
+            make.verticalEdges.equalToSuperview()
+        }
+        modelRows.append((model, row, active))
+        return row
+    }
+
+    private func selectModel(_ model: RealtimeModel) {
+        guard model != selectedModel else { return }
+        selectedModel = model
+        RealtimePreferences.selectedModel = model
+        updateModelSelection()
+    }
+
+    private func updateModelSelection() {
+        for modelRow in modelRows {
+            let isSelected = modelRow.model == selectedModel
+            modelRow.activeIndicator.isHidden = !isSelected
+            modelRow.row.backgroundColor = isSelected
+                ? FeedPalette.mint.withAlphaComponent(0.063)
+                : UIColor.feed(rgb: 0xFFFFFF, alpha: 0.025)
+            modelRow.row.layer.borderWidth = isSelected ? 1 : 0
+            modelRow.row.layer.borderColor = FeedPalette.mint
+                .withAlphaComponent(0.16)
+                .cgColor
+            modelRow.row.accessibilityTraits = isSelected
+                ? [.button, .selected]
+                : .button
+            modelRow.row.accessibilityLabel = modelRow.model.rawValue
+        }
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {

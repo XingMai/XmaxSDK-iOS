@@ -125,7 +125,7 @@ final class RealtimeReferenceStore: ObservableObject {
         uploadRequestIDs[reference.id] = requestID
 
         let apiKey = UserDefaults.standard.string(
-            forKey: RealtimeConst.apiKeyStorageKey
+            forKey: RealtimePreferences.apiKeyStorageKey
         ) ?? ""
         let fileURL = reference.iconURL
         uploadTasks[reference.id] = Task { [weak self, reference] in

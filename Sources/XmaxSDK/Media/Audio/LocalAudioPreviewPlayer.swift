@@ -5,7 +5,7 @@ import Foundation
 final class LocalAudioPreviewPlayer: @unchecked Sendable {
 
     // 音频配置
-    private static let defaultVolume: Float = 0.45
+    static let defaultVolume: Float = 0.45
 
     // 平台资源
     private let audioSession = AVAudioSession.sharedInstance()
@@ -33,6 +33,11 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         engine.attach(playerNode)
         engine.connect(playerNode, to: engine.mainMixerNode, format: format)
         playerNode.volume = Self.defaultVolume
+    }
+
+    /// 当前本地音频预览音量。
+    var currentVolume: Float {
+        queue.sync { volume }
     }
 
     /// 开始接收并播放本地预览 PCM 帧。

@@ -85,6 +85,16 @@ actor MediaController: MediaControlling {
         return videoController?.hasAudio ?? false
     }
 
+    /// 当前本地文件视频的音频预览音量。
+    var localAudioVolume: Float {
+        get async {
+            guard let videoController else {
+                return LocalAudioPreviewPlayer.defaultVolume
+            }
+            return await videoController.localAudioVolume
+        }
+    }
+
     /// 设置摄像头预览就绪监听器。
     func setCameraPreviewReadyListener(
         _ listener: RealtimeCameraPreviewReadyListener?

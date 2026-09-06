@@ -459,7 +459,7 @@ private extension RealtimeView {
         referenceStore.clearSelection(notifiesContextChange: false)
         realtimeSession.startGeneration(
             context: RealtimeContext(
-                prompt: RealtimeConst.defaultTouchAnimationPrompt
+                prompt: RealtimeCategory.touchAnimationPrompt
             )
         )
     }

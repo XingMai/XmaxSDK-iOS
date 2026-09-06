@@ -3,4 +3,7 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
 
     /// Xmax X2.0 实时生成模型。
     case x2_0 = "x2.0"
+
+    /// Xmax X2.0 SLA 实时生成模型。
+    case x2_0_sla = "x2.0-sla"
 }

@@ -63,6 +63,13 @@ final class VideoController: @unchecked Sendable {
         currentTrack != nil && mediaSourceController.hasAudio
     }
 
+    /// 当前本地文件视频的音频预览音量。
+    var localAudioVolume: Float {
+        get async {
+            await mediaSourceController.localAudioVolume
+        }
+    }
+
     /// 从本地视频文件创建循环播放的媒体流。
     func createLocalVideoStream(
         fileURL: URL,

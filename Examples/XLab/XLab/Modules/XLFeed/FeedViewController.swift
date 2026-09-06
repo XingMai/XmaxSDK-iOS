@@ -275,7 +275,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
 
     private func validateAPIKey() -> Bool {
         let apiKey = UserDefaults.standard.string(
-            forKey: RealtimeConst.apiKeyStorageKey
+            forKey: RealtimePreferences.apiKeyStorageKey
         )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !apiKey.isEmpty else {
             XLToast.show("请先输入 API Key", in: view)
@@ -568,7 +568,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private func makeMetrics() -> UIView {
         let runtime = FeedRuntimeMetricView(label: "RUNTIME", value: "iOS")
         let minimum = FeedRuntimeMetricView(label: "MIN OS", value: "15+")
-        let model = FeedRuntimeMetricView(label: "LATEST MODEL", value: "X2.0")
+        let latestModel = RealtimeModel.allCases.last?.rawValue.uppercased() ?? "—"
+        let model = FeedRuntimeMetricView(label: "LATEST MODEL", value: latestModel)
         let stack = feedHorizontalStack([runtime, minimum, model], spacing: 8)
 
         runtime.snp.makeConstraints { make in

@@ -22,6 +22,7 @@ final class MediaSourceControllingStub:
     // 并发状态
     private let lock = NSLock()
     private var storedCalls: [MediaSourceControllingCall] = []
+    private var storedLocalAudioVolume: Float = 0.45
 
     init(
         configuration: MediaSourceConfiguration,
@@ -39,6 +40,12 @@ final class MediaSourceControllingStub:
 
     var hasAudio: Bool {
         configuration.hasAudio
+    }
+
+    var localAudioVolume: Float {
+        get async {
+            lock.withLock { storedLocalAudioVolume }
+        }
     }
 
     func prepare(
@@ -71,6 +78,7 @@ final class MediaSourceControllingStub:
 
     func setLocalAudioVolume(_ volume: Float) async {
         lock.withLock {
+            storedLocalAudioVolume = volume
             storedCalls.append(.setLocalAudioVolume(volume))
         }
     }

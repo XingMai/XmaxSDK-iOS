@@ -18,6 +18,14 @@ public protocol XmaxRealtimeManaging: Sendable {
     var isFrameInterpolationEnabled: Bool { get async }
 
 
+    /// 当前本地媒体预览音量，取值范围为 `0...1`。
+    var localAudioVolume: Float { get async }
+
+
+    /// 当前远端生成音频播放音量，取值范围为 `0...1`。
+    var remoteAudioVolume: Float { get async }
+
+
     /// 设置实时状态监听器。
     ///
     /// - Parameter listener: 实时状态回调；传入 `nil` 时清除监听器。

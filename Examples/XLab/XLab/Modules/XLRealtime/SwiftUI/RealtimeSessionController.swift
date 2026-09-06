@@ -46,7 +46,7 @@ final class RealtimeSessionController: ObservableObject {
         isFrameInterpolationEnabled = initialFrameInterpolationEnabled
 
         let apiKey = UserDefaults.standard.string(
-            forKey: RealtimeConst.apiKeyStorageKey
+            forKey: RealtimePreferences.apiKeyStorageKey
         ) ?? ""
         let client = XmaxClient(
             configuration: XmaxConfiguration(
@@ -56,7 +56,7 @@ final class RealtimeSessionController: ObservableObject {
         )
         realtimeManager = client.createRealtimeManager(
             options: RealtimeConfiguration(
-                model: .x2_0,
+                model: RealtimePreferences.selectedModel,
                 isFrameInterpolationEnabled: initialFrameInterpolationEnabled
             )
         )
@@ -95,7 +95,7 @@ final class RealtimeSessionController: ObservableObject {
 
             do {
                 let stream = try await realtimeManager.createLocalCameraStream(
-                    videoFormat: RealtimeConst.cameraVideoFormat,
+                    videoFormat: RealtimePreferences.cameraVideoFormat,
                     position: .front
                 )
                 guard hasStarted, !Task.isCancelled else { return }

@@ -156,6 +156,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
+    var localAudioVolume: Float {
+        get async {
+            await mediaController.localAudioVolume
+        }
+    }
+
+    var remoteAudioVolume: Float {
+        streamController.remoteAudioVolume
+    }
+
     func setStateListener(_ listener: RealtimeStateListener?) async {
         await coordinator.setStateListener(listener)
     }

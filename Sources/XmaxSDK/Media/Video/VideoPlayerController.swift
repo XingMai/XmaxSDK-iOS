@@ -7,6 +7,10 @@ import UIKit
 /// 定义基于统一媒体时间轴的文件音视频输出能力。
 protocol VideoPlayerControlling: Sendable {
 
+    /// 当前本地音频预览音量。
+    @MainActor
+    var localAudioVolume: Float { get }
+
     /// 配置本地视频文件及最终 RTC 输出格式。
     @MainActor
     func configure(
@@ -183,6 +187,10 @@ final class VideoPlayerController: VideoPlayerControlling {
         self.videoFrameListener = videoFrameListener
         self.audioFrameListener = audioFrameListener
         self.errorListener = errorListener
+    }
+
+    var localAudioVolume: Float {
+        audioPreviewPlayer.currentVolume
     }
 
     /// 校验文件并保存统一解码所需的媒体配置。

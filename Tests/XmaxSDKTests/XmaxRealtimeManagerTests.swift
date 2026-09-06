@@ -7,8 +7,18 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     func testPublicAudioVolumeControlsForwardNormalizedValues() async throws {
         let components = makeComponents()
 
+        let initialLocalVolume = await components.manager.localAudioVolume
+        let initialRemoteVolume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(initialLocalVolume, 0.45)
+        XCTAssertEqual(initialRemoteVolume, 1)
+
         try await components.manager.setLocalAudioVolume(0.6)
         try await components.manager.setRemoteAudioVolume(0.35)
+
+        let localVolume = await components.manager.localAudioVolume
+        let remoteVolume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(localVolume, 0.6)
+        XCTAssertEqual(remoteVolume, 0.35)
 
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioVolume(0.6)
