@@ -165,7 +165,7 @@ integrating real-time video generation is seamless and intuitive.
     <tr>
       <td>End-to-end latency is measured in <img src="./docs/images/why/latency-highlight.svg" alt="hundreds of milliseconds" width="192" height="20" align="absmiddle">, ensuring that updates to generation conditions and interaction controls are reflected almost instantly.</td>
       <td>Run efficiently on a single 5090 GPU, reducing inference costs by orders of magnitude compared to setups requiring datacenter GPUs like H100.</td>
-      <td>Our models support real-time generation at up to 1080p, delivering production-ready, high-quality video output.</td>
+      <td>Our models support real-time generation at up to <img src="./docs/images/why/resolution-highlight.svg" alt="1080p" width="48" height="20" align="absmiddle">, delivering production-ready, high-quality video output.</td>
     </tr>
   </tbody>
 </table>
