@@ -294,7 +294,7 @@ by default.
 
 ### Using SwiftUI
 
-**Use `XmaxRealtimeVideo` as your primary SwiftUI view.** Store the local and remote
+Use `XmaxRealtimeVideo` as your primary SwiftUI view. Store the local and remote
 tracks in observable state, updating them dynamically as streams become available:
 
 ```swift
