@@ -1,14 +1,14 @@
 # Installation guide
 
 For CocoaPods, follow the [README installation steps](../README.md#cocoapods).
-This guide covers manual integration of XmaxSDK 1.0.3.
+This guide covers manual integration of XmaxSDK 1.0.4.
 
 ## Manual integration
 
 ### Download the frameworks
 
 Download
-[`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip)
+[`XmaxSDK-1.0.4.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.4/XmaxSDK-1.0.4.xcframework.zip)
 and extract `XmaxSDK.xcframework`. Use the exact dependency versions below:
 
 - [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip):
