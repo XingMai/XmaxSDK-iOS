@@ -327,7 +327,7 @@ input stream or starting generation.
 
 | Listener | Purpose |
 | --- | --- |
-| `setStateListener` | Observe connection and generation state, session ID, and task ID. |
+| `setStateListener` | Observe pipeline states during real-time generation. |
 | `setErrorListener` | Handle fatal errors that prevent the realtime workflow from continuing. |
 | `setCameraPreviewReadyListener` | Know when the first local camera frame is available for preview. |
 | `setRemoteVideoFrameListener` | Receive generated frames after optional interpolation for recording or custom processing. |
