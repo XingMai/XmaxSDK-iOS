@@ -280,8 +280,7 @@ videoView.remoteTrack = remoteStream.videoTrack
 The view shows the local preview until the first generated frame arrives. Touch
 interaction is enabled by default.
 
-<details>
-<summary>Using SwiftUI</summary>
+#### Using SwiftUI
 
 Use `XmaxRealtimeVideo` in place of the UIKit view. Store the local and remote
 tracks in observable state and update them as streams become available:
@@ -296,8 +295,6 @@ XmaxRealtimeVideo(
 
 See the [SwiftUI guide](./docs/usage.md#swiftui) for state binding and the
 [example project](#example-project) for a complete implementation.
-
-</details>
 
 ### Clean up
 
