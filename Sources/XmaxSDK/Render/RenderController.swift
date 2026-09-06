@@ -29,7 +29,7 @@ final class RenderController: RenderControlling {
         RemoteVideoFramePipeline.FrameInterpolationSupportChecker
     private let remoteFrameReadyTimeoutNanoseconds: UInt64
     private let remoteVideoFrameDispatcher = RealtimeVideoFrameDispatcher()
-    private var renderingToken = UUID()
+    private var renderingToken: UInt64 = 0
     private lazy var remoteFramePipeline = RemoteVideoFramePipeline(
         interpolationEnabled: initialFrameInterpolationEnabled,
         outputToken: renderingToken,
@@ -144,7 +144,7 @@ final class RenderController: RenderControlling {
         _ enabled: Bool,
         videoFormat: RealtimeVideoFormat?
     ) async throws {
-        let outputToken = UUID()
+        let outputToken = renderingToken &+ 1
         try await remoteFramePipeline.setFrameInterpolationEnabled(
             enabled,
             videoSize: videoFormat.map {
@@ -290,11 +290,15 @@ private extension RenderController {
     func activateRemoteFramesIfReady(reportsError: Bool) throws {
         guard let remoteStream else { return }
         guard activeRemoteFrameStream != remoteStream else { return }
+        let outputToken = renderingToken
         do {
             try rtcManager.setRemoteVideoFrameListener(
                 { [weak remoteFramePipeline] frame in
                     Task {
-                        await remoteFramePipeline?.enqueue(frame)
+                        await remoteFramePipeline?.enqueue(
+                            frame,
+                            outputToken: outputToken
+                        )
                     }
                 },
                 for: remoteStream
@@ -320,7 +324,7 @@ private extension RenderController {
         )
         latestRemoteFrame = nil
         remoteVideoFrameDispatcher.invalidatePendingFrames()
-        renderingToken = UUID()
+        renderingToken &+= 1
         let token = renderingToken
         Task { [remoteFramePipeline] in
             await remoteFramePipeline.reset(outputToken: token)
@@ -329,7 +333,7 @@ private extension RenderController {
 
     func displayRemoteFrame(
         _ frame: RealtimeVideoFrame,
-        outputToken: UUID
+        outputToken: UInt64
     ) {
         guard outputToken == renderingToken else { return }
         latestRemoteFrame = frame

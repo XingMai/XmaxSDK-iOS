@@ -11,7 +11,7 @@ actor RemoteVideoFramePipeline {
 
     typealias OutputListener = @Sendable (
         _ frame: RealtimeVideoFrame,
-        _ outputToken: UUID
+        _ outputToken: UInt64
     ) async -> Void
 
     // 事件监听
@@ -30,11 +30,11 @@ actor RemoteVideoFramePipeline {
     private var interpolationEnabled: Bool
     private var previousPresentationTimeStamp: CMTime?
     private var generation = 0
-    private var outputToken: UUID
+    private var outputToken: UInt64
 
     init(
         interpolationEnabled: Bool,
-        outputToken: UUID,
+        outputToken: UInt64,
         frameInterpolationSupportChecker:
             @escaping FrameInterpolationSupportChecker = {
                 FrameInterpolationSupport.supports(size: $0)
@@ -55,6 +55,17 @@ actor RemoteVideoFramePipeline {
     }
 
     func enqueue(_ frame: RealtimeVideoFrame) {
+        enqueue(frame, outputToken: outputToken)
+    }
+
+    func enqueue(
+        _ frame: RealtimeVideoFrame,
+        outputToken: UInt64
+    ) {
+        guard outputToken >= self.outputToken else { return }
+        if outputToken > self.outputToken {
+            resetProcessing(outputToken: outputToken)
+        }
         pendingFrame = frame
         guard drainTask == nil else { return }
         let activeGeneration = generation
@@ -70,7 +81,7 @@ actor RemoteVideoFramePipeline {
     func setFrameInterpolationEnabled(
         _ enabled: Bool,
         videoSize: CGSize?,
-        outputToken: UUID
+        outputToken: UInt64
     ) throws {
         if enabled {
             guard FrameInterpolationSupport.isSupported else {
@@ -85,7 +96,8 @@ actor RemoteVideoFramePipeline {
         resetProcessing(outputToken: outputToken)
     }
 
-    func reset(outputToken: UUID) {
+    func reset(outputToken: UInt64) {
+        guard outputToken > self.outputToken else { return }
         resetProcessing(outputToken: outputToken)
     }
 }
@@ -107,7 +119,7 @@ private extension RemoteVideoFramePipeline {
         }
     }
 
-    func resetProcessing(outputToken: UUID) {
+    func resetProcessing(outputToken: UInt64) {
         generation += 1
         self.outputToken = outputToken
         drainTask?.cancel()
@@ -120,7 +132,7 @@ private extension RemoteVideoFramePipeline {
 
     func drainFrames(
         generation activeGeneration: Int,
-        outputToken activeOutputToken: UUID
+        outputToken activeOutputToken: UInt64
     ) async {
         while !Task.isCancelled,
               generation == activeGeneration,

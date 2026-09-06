@@ -6,7 +6,7 @@ import XCTest
 final class RemoteVideoFramePipelineTests: XCTestCase {
     func testDisabledPipelinePassesThroughRemoteFrame() async throws {
         let recorder = RealtimeVideoFrameRecorder()
-        let token = UUID()
+        let token: UInt64 = 0
         let pipeline = RemoteVideoFramePipeline(
             interpolationEnabled: false,
             outputToken: token,
@@ -30,11 +30,38 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
         XCTAssertEqual(output.token, token)
     }
 
+    func testStaleOutputTokenCannotReplaceCurrentGeneration() async throws {
+        let recorder = RealtimeVideoFrameRecorder()
+        let pipeline = RemoteVideoFramePipeline(
+            interpolationEnabled: false,
+            outputToken: 1,
+            outputListener: { frame, outputToken in
+                await recorder.record(frame, token: outputToken)
+            },
+            errorListener: { _ in }
+        )
+        let pixelBuffer = try makePixelBuffer(width: 16, height: 16)
+        let frame = RealtimeVideoFrame(
+            pixelBuffer: pixelBuffer,
+            presentationTimeStamp: .zero
+        )
+
+        await pipeline.reset(outputToken: 2)
+        await pipeline.reset(outputToken: 1)
+        await pipeline.enqueue(frame, outputToken: 1)
+        let staleOutput = await recorder.firstOutput
+        XCTAssertNil(staleOutput)
+
+        await pipeline.enqueue(frame, outputToken: 2)
+        let output = try await waitForOutput(recorder)
+        XCTAssertEqual(output.token, 2)
+    }
+
 #if targetEnvironment(simulator)
     func testEnablingInterpolationFailsInSimulator() async throws {
         let pipeline = RemoteVideoFramePipeline(
             interpolationEnabled: false,
-            outputToken: UUID(),
+            outputToken: 0,
             outputListener: { _, _ in },
             errorListener: { _ in }
         )
@@ -43,7 +70,7 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
             try await pipeline.setFrameInterpolationEnabled(
                 true,
                 videoSize: CGSize(width: 704, height: 1_280),
-                outputToken: UUID()
+                outputToken: 1
             )
             XCTFail("Expected frame interpolation to be unavailable")
         } catch {
@@ -59,12 +86,12 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
 private actor RealtimeVideoFrameRecorder {
     struct Output: @unchecked Sendable {
         let frame: RealtimeVideoFrame
-        let token: UUID
+        let token: UInt64
     }
 
     private var outputs: [Output] = []
 
-    func record(_ frame: RealtimeVideoFrame, token: UUID) {
+    func record(_ frame: RealtimeVideoFrame, token: UInt64) {
         outputs.append(Output(frame: frame, token: token))
     }
 

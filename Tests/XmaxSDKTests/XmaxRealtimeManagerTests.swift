@@ -1025,7 +1025,7 @@ private extension XmaxRealtimeManagerTests {
             }) {
                 return
             }
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: 1_000_000)
         }
         XCTFail("Timed out waiting for room event: \(event)")
     }
@@ -1042,7 +1042,7 @@ private extension XmaxRealtimeManagerTests {
             if matchingEvents.count >= count {
                 return
             }
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: 1_000_000)
         }
         XCTFail(
             "Timed out waiting for room event: \(event), count: \(count)"
