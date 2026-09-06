@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="256" viewBox="0 0 1040 256" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">XmaxSDK</title>
+  <desc id="description">A mint-to-blue four-point motion mark beside a custom geometric XMAXSDK wordmark. Realtime interactive video generation.</desc>
+  <defs>
+    <linearGradient id="mark" x1="94" y1="62" x2="227" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8EF0C8"/>
+      <stop offset="0.48" stop-color="#79D8E8"/>
+      <stop offset="1" stop-color="#6495FF"/>
+    </linearGradient>
+    <linearGradient id="sdk" x1="698" y1="83" x2="926" y2="175" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8EF0C8"/>
+      <stop offset="1" stop-color="#78A9FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Four swept points echo XLab's star silhouette and suggest motion. -->
+  <path fill="url(#mark)" d="M211 42 180 112 240 146 195 145C177 145 164 152 151 168L111 214 143 142 83 108 128 109C146 109 159 102 172 86Z"/>
+  <path fill="#D7FFF0" fill-opacity="0.42" d="m211 42-31 70-18 14Z"/>
+
+  <!-- Custom letter outlines keep the wordmark independent of installed fonts. -->
+  <g fill="#F0F5FA">
+    <path transform="translate(270 83)" d="M0 0H22L42 30 62 0H84L54 46 84 92H62L42 61 22 92H0L30 46Z"/>
+    <path transform="translate(369 83)" d="M0 92V0H19L48 46 77 0H96V92H77V33L49 76H47L19 33V92Z"/>
+    <path transform="translate(479 83)" d="m0 92 39-92h20l39 92H78L49 23 20 92Zm33-32h32l7 17H26Z"/>
+    <path transform="translate(588 83)" d="M0 0H22L42 30 62 0H84L54 46 84 92H62L42 61 22 92H0L30 46Z"/>
+  </g>
+  <g stroke="url(#sdk)" stroke-width="10" stroke-linejoin="bevel">
+    <path d="M758 88H718L703 103V113L718 128H741L756 143V155L741 170H699"/>
+    <path d="M783 88H811L832 109V149L811 170H783Z"/>
+    <path d="M856 83V175M920 86 874 129 923 172M856 129H874"/>
+  </g>
+
+  <text x="600" y="218" fill="#93A5B9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="500" letter-spacing="3.4" text-anchor="middle">REALTIME INTERACTIVE VIDEO GENERATION</text>
+</svg>
