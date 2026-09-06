@@ -234,6 +234,7 @@ supplied securely at runtime (`apiKey`).
 import UIKit
 import XmaxSDK
 
+// 1. Create the client and realtime manager.
 let client = XmaxClient(
     configuration: XmaxConfiguration(apiKey: apiKey)
 )
@@ -241,20 +242,25 @@ let realtime = client.createRealtimeManager(
     options: RealtimeConfiguration(model: .x2_0)
 )
 
+// 2. Create a live camera stream.
 let localStream = try await realtime.createLocalCameraStream(
     videoFormat: RealtimeVideoFormat(width: 704, height: 1280, fps: 24),
     position: .front
 )
 
+// 3. Create a video view for the local preview.
 let videoView = XmaxRealtimeVideoView(
     localTrack: localStream.videoTrack,
     videoContentMode: .fill
 )
 
+// 4. Start generation with a text prompt.
 let remoteStream = try await realtime.startGeneration(
     localStream: localStream,
     context: RealtimeContext(prompt: "Transform the scene into an anime style")
 )
+
+// 5. Bind the generated stream to the same view.
 videoView.remoteTrack = remoteStream.videoTrack
 ```
 
