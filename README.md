@@ -160,6 +160,8 @@ integrating real-time video generation is seamless and intuitive.
 > runtime or use short-lived temporary keys issued by the Xmax API. For step-by-step
 > instructions, see [Authentication](https://platform.xmaxai.com/docs/authentication).
 
+<br>
+
 ### Installation
 
 Because some of its dependencies do not support Swift Package Manager, XmaxSDK
@@ -206,6 +208,8 @@ Download
 [`XmaxSDK-1.0.3.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.3/XmaxSDK-1.0.3.xcframework.zip),
 then follow the [manual integration guide](./docs/installation.md#manual-integration)
 to add the required dependencies and configure your Xcode target.
+
+<br>
 
 ### Quick Start
 
