@@ -319,9 +319,11 @@ screen, cancel its owning task and release the connection and media resources:
 await realtime.close()
 ```
 
-Handle errors from throwing calls and clean up if startup fails. For image and
-video inputs, reference images, live updates, and advanced controls, see the
-[usage guide](./docs/usage.md).
+Handle errors from throwing calls and clean up if startup fails.
+
+<br>
+
+For complete usage examples, see the [usage guide](./docs/usage.md).
 
 <br>
 
