@@ -289,7 +289,10 @@ let videoView = XmaxRealtimeVideoView(
 
 let remoteStream = try await realtime.startGeneration(
     localStream: localStream,
-    context: RealtimeContext(prompt: "Transform the scene into an anime style")
+    context: RealtimeContext(
+        prompt: "视频中角色替换成参考图中角色",
+        referencePath: "https://platform.xmaxai.com/images/source/charx/chatx_image1.jpg"
+    )
 )
 
 videoView.remoteTrack = remoteStream.videoTrack
