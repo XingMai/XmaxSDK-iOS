@@ -34,7 +34,7 @@ integrating real-time video generation is seamless and intuitive.
 
 <table>
   <tr>
-    <th width="24%" align="left">Use Case</th>
+    <th width="24%" align="left">Realtime Use Case</th>
     <th width="60%" align="left">Description</th>
     <th width="16%" align="center">Demo</th>
   </tr>
