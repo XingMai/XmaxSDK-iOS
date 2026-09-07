@@ -2,5 +2,5 @@
 public enum XmaxSDKInfo {
 
     /// 当前 SDK 的语义化版本号。
-    public static let version = "1.0.4"
+    public static let version = "1.0.5"
 }
