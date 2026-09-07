@@ -6,8 +6,22 @@ final class XmaxConfigurationTests: XCTestCase {
         let configuration = XmaxConfiguration(apiKey: "  test-key\n")
 
         XCTAssertEqual(configuration.apiKey, "test-key")
+        XCTAssertEqual(configuration.environment, .china)
         XCTAssertTrue(configuration.loggerOptions.isEmpty)
         XCTAssertNoThrow(try configuration.validate())
+    }
+
+    func testGlobalEnvironmentUsesGlobalAPIBaseURL() {
+        let configuration = XmaxConfiguration(
+            apiKey: "test-key",
+            environment: .global
+        )
+
+        XCTAssertEqual(configuration.environment, .global)
+        XCTAssertEqual(
+            configuration.environment.apiBaseURL.absoluteString,
+            "https://api.xmax.cloud/open/api/v1"
+        )
     }
 
     func testConfigurationKeepsLoggerOptions() {

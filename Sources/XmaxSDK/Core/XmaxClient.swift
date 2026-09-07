@@ -14,7 +14,10 @@ public final class XmaxClient: Sendable {
     public init(configuration: XmaxConfiguration) {
         self.configuration = configuration
         XmaxLogger.configure(options: configuration.loggerOptions)
-        apiService = ApiService(apiKey: configuration.apiKey)
+        apiService = ApiService(
+            apiKey: configuration.apiKey,
+            baseURL: configuration.environment.apiBaseURL
+        )
     }
 
     init(
