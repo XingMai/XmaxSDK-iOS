@@ -279,21 +279,23 @@ final class RealtimeAudioVolumeMenuViewController: UIViewController,
     var onRemoteVolumeChanged: ((Float) -> Void)?
 
     // 界面组件
-    private let localVolumeRow: RealtimeAudioVolumeSliderRow
+    private let localVolumeRow: RealtimeAudioVolumeSliderRow?
     private let remoteVolumeRow: RealtimeAudioVolumeSliderRow
 
-    init(localVolume: Float, remoteVolume: Float) {
-        localVolumeRow = RealtimeAudioVolumeSliderRow(
-            title: "本地音量",
-            value: localVolume
-        )
+    init(localVolume: Float? = nil, remoteVolume: Float) {
+        localVolumeRow = localVolume.map {
+            RealtimeAudioVolumeSliderRow(title: "本地音量", value: $0)
+        }
         remoteVolumeRow = RealtimeAudioVolumeSliderRow(
             title: "远端音量",
             value: remoteVolume
         )
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .popover
-        preferredContentSize = CGSize(width: 260, height: 144)
+        preferredContentSize = CGSize(
+            width: 260,
+            height: localVolume == nil ? 82 : 144
+        )
     }
 
     required init?(coder: NSCoder) {
@@ -306,7 +308,7 @@ final class RealtimeAudioVolumeMenuViewController: UIViewController,
         view.layer.cornerRadius = 14
         view.clipsToBounds = true
 
-        localVolumeRow.onValueChanged = { [weak self] value in
+        localVolumeRow?.onValueChanged = { [weak self] value in
             self?.onLocalVolumeChanged?(value)
         }
         remoteVolumeRow.onValueChanged = { [weak self] value in
@@ -314,7 +316,7 @@ final class RealtimeAudioVolumeMenuViewController: UIViewController,
         }
 
         let stackView = UIStackView(
-            arrangedSubviews: [localVolumeRow, remoteVolumeRow]
+            arrangedSubviews: [localVolumeRow, remoteVolumeRow].compactMap { $0 }
         )
         stackView.axis = .vertical
         stackView.distribution = .fillEqually

@@ -168,6 +168,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         actionBar.onFrameInterpolationChanged = { [weak self] enabled in
             self?.setFrameInterpolationEnabled(enabled)
         }
+        actionBar.onOpenAudioVolume = { [weak self] sourceView in
+            self?.presentAudioVolumeMenu(from: sourceView)
+        }
         actionBar.setFrameInterpolationEnabled(
             Self.initialFrameInterpolationEnabled
         )
@@ -240,7 +243,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             remoteAudioVolume = volumes.remote
 
             let menu = RealtimeAudioVolumeMenuViewController(
-                localVolume: volumes.local,
+                localVolume: localInput?.kind == .video ? volumes.local : nil,
                 remoteVolume: volumes.remote
             )
             menu.onLocalVolumeChanged = { [weak self] volume in
@@ -253,7 +256,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 popover.delegate = menu
                 popover.sourceView = sourceView
                 popover.sourceRect = sourceView.bounds
-                popover.permittedArrowDirections = .up
+                popover.permittedArrowDirections = localInput == nil ? .right : .up
             }
             present(menu, animated: true)
         }
@@ -559,7 +562,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
             make.trailing.equalToSuperview().inset(8)
             make.width.equalTo(58)
-            make.height.equalTo(124)
+            make.height.equalTo(186)
         }
         mediaTopBar.snp.makeConstraints { make in
             make.centerY.equalTo(backButton)

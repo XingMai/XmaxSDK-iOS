@@ -2,11 +2,16 @@ import SnapKit
 import UIKit
 
 final class RealtimeCameraActionBar: UIView {
+
+    // 事件监听
     var onSwitchCamera: (() -> Void)?
     var onFrameInterpolationChanged: ((Bool) -> Void)?
+    var onOpenAudioVolume: ((UIView) -> Void)?
 
+    // 运行状态
     private var isFrameInterpolationEnabled = false
 
+    // 界面组件
     private lazy var switchCameraButton: RealtimeLabeledActionButton = {
         let button = RealtimeLabeledActionButton(
             title: "翻转",
@@ -48,11 +53,26 @@ final class RealtimeCameraActionBar: UIView {
         return button
     }()
 
+    private lazy var audioVolumeButton: RealtimeLabeledActionButton = {
+        let button = RealtimeLabeledActionButton(
+            title: "音量",
+            image: UIImage(systemName: "slider.horizontal.3")
+        )
+        button.accessibilityLabel = "调整远端音量"
+        button.addTarget(
+            self,
+            action: #selector(openAudioVolume),
+            for: .touchUpInside
+        )
+        return button
+    }()
+
     private lazy var stackView: UIStackView = {
         let stackView = UIStackView(
             arrangedSubviews: [
                 switchCameraButton,
-                frameInterpolationButton
+                frameInterpolationButton,
+                audioVolumeButton
             ]
         )
         stackView.axis = .vertical
@@ -96,6 +116,10 @@ final class RealtimeCameraActionBar: UIView {
 
     @objc private func toggleFrameInterpolation() {
         onFrameInterpolationChanged?(!isFrameInterpolationEnabled)
+    }
+
+    @objc private func openAudioVolume() {
+        onOpenAudioVolume?(audioVolumeButton)
     }
 }
 
