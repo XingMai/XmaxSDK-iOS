@@ -25,13 +25,25 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// - Parameters:
     ///   - videoFormat: 相机采集使用的目标视频格式。
     ///   - position: 首次启用的摄像头位置。
+    ///   - useMicrophone: 是否使用麦克风；创建时检查权限，连接时启动采集。
     /// - Returns: 包含本地相机视频轨道的媒体流。
     /// - Throws: 相机权限、RTC 初始化或采集启动失败时抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
+        position: CameraPosition,
+        useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
+
+    /// 为启用了麦克风的相机流启动内部音频采集；其他来源不受影响。
+    ///
+    /// - Throws: 操作被取消或 RTC 音频采集启动失败时抛出错误。
+    func startMicrophoneCapture() throws
+
+    /// 停止相机流的麦克风采集，保留相机预览和麦克风配置。
+    ///
+    /// - Throws: RTC 音频采集停止失败时抛出错误。
+    func stopMicrophoneCapture() throws
 
     /// 停止并释放当前本地相机媒体流、预览绑定和 RTC 资源；
     /// 当前来源不是相机时忽略。

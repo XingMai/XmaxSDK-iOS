@@ -26,6 +26,16 @@ protocol RtcManaging: Sendable {
     /// 停止 RTC 内部摄像头采集。
     func stopVideoCapture() throws
 
+    /// 切换到 RTC 内部音频源并启动麦克风采集。
+    ///
+    /// - Throws: 引擎未初始化、音频源切换或采集启动失败时抛出错误。
+    func startAudioCapture() throws
+
+    /// 停止 RTC 内部麦克风采集。
+    ///
+    /// - Throws: RTC 音频采集停止失败时抛出错误。
+    func stopAudioCapture() throws
+
     /// 切换 RTC 内部采集使用的摄像头。
     func switchCamera(to position: CameraPosition) throws
 

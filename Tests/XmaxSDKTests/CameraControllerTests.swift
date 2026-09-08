@@ -44,6 +44,8 @@ final class CameraControllerTests: XCTestCase {
         )
 
         XCTAssertEqual(permissionManager.cameraRequestCount, 1)
+        XCTAssertEqual(permissionManager.microphoneRequestCount, 0)
+        XCTAssertFalse(manager.useMicrophone)
         XCTAssertEqual(
             mediaService.requestedSizes,
             [CGSize(width: 640, height: 480)]
@@ -229,6 +231,76 @@ final class CameraControllerTests: XCTestCase {
         XCTAssertEqual(recorder.recordedErrors, [expectedError])
 
         await manager.stopLocalCameraStream()
+    }
+}
+
+extension CameraControllerTests {
+    func testMicrophonePermissionDoesNotStartCaptureDuringPreview() async throws {
+        let rtcManager = RtcManagingStub()
+        let permissions = PermissionManagingStub()
+        let controller = makeManager(
+            rtcManager: rtcManager,
+            permissionManager: permissions
+        )
+        _ = try await controller.createLocalCameraStream(
+            videoFormat: RealtimeVideoFormat(width: 1024, height: 768, fps: 24),
+            position: .front,
+            useMicrophone: true
+        )
+
+        XCTAssertEqual(permissions.microphoneRequestCount, 1)
+        XCTAssertTrue(controller.useMicrophone)
+        XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
+        await controller.stopLocalCameraStream()
+        XCTAssertFalse(controller.useMicrophone)
+        XCTAssertFalse(rtcManager.calls.contains(.stopAudioCapture))
+    }
+
+    func testDeniedMicrophonePermissionDoesNotStartCameraOrAudio() async {
+        let expectedError = XmaxError(
+            code: .microphonePermissionDenied,
+            message: "Microphone access denied"
+        )
+        let rtcManager = RtcManagingStub()
+        let controller = makeManager(
+            rtcManager: rtcManager,
+            permissionManager: PermissionManagingStub(microphoneError: expectedError)
+        )
+        do {
+            _ = try await controller.createLocalCameraStream(
+                videoFormat: RealtimeVideoFormat(width: 1024, height: 768, fps: 24),
+                position: .front,
+                useMicrophone: true
+            )
+            XCTFail("Expected microphone permission to be denied")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
+        XCTAssertNil(controller.currentTrack)
+        XCTAssertFalse(controller.useMicrophone)
+        XCTAssertEqual(rtcManager.calls, [.stopVideoCapture])
+    }
+
+    func testMicrophoneCaptureIsIdempotentAndCameraStopReleasesIt() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = makeManager(rtcManager: rtcManager)
+        _ = try await controller.createLocalCameraStream(
+            videoFormat: RealtimeVideoFormat(width: 1024, height: 768, fps: 24),
+            position: .front,
+            useMicrophone: true
+        )
+        try controller.startMicrophoneCapture()
+        try controller.startMicrophoneCapture()
+        try controller.stopMicrophoneCapture()
+        try controller.stopMicrophoneCapture()
+        try controller.startMicrophoneCapture()
+        _ = try await controller.switchCamera()
+        await controller.stopLocalCameraStream()
+
+        XCTAssertEqual(
+            rtcManager.calls.filter { $0 == .startAudioCapture || $0 == .stopAudioCapture },
+            [.startAudioCapture, .stopAudioCapture, .startAudioCapture, .stopAudioCapture]
+        )
     }
 }
 

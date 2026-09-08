@@ -8,29 +8,55 @@ public extension XmaxRealtimeManaging {
 
     /// 使用当前模型的默认视频规格创建本地相机流。
     ///
-    /// - Parameter position: 采集使用的摄像头位置，默认为前置摄像头。
+    /// - Parameters:
+    ///   - position: 采集使用的摄像头位置，默认为前置摄像头。
+    ///   - useMicrophone: 是否使用麦克风，默认关闭；连接时开始采集，断开时停止。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 模型不支持相机输入、相机权限或采集启动失败时抛出错误。
+    /// - Throws: 模型不支持相机输入、所需权限被拒绝或采集启动失败时抛出错误。
     func createLocalCameraStream(
-        position: CameraPosition = .front
+        position: CameraPosition = .front,
+        useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await createLocalCameraStream(
             videoFormat: options.model.defaultCameraVideoFormat,
-            position: position
+            position: position,
+            useMicrophone: useMicrophone
         )
     }
 
     /// 使用前置摄像头创建本地相机流并开始预览。
     ///
-    /// - Parameter videoFormat: 相机采集的视频规格。
+    /// - Parameters:
+    ///   - videoFormat: 相机采集的视频规格。
+    ///   - useMicrophone: 是否使用麦克风，默认关闭；连接时开始采集，断开时停止。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 相机权限、RTC 初始化或采集启动失败时抛出错误。
+    /// - Throws: 所需权限被拒绝、RTC 初始化或采集启动失败时抛出错误。
     func createLocalCameraStream(
-        videoFormat: RealtimeVideoFormat
+        videoFormat: RealtimeVideoFormat,
+        useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await createLocalCameraStream(
             videoFormat: videoFormat,
-            position: .front
+            position: .front,
+            useMicrophone: useMicrophone
+        )
+    }
+
+    /// 创建不使用麦克风的本地相机流。
+    ///
+    /// - Parameters:
+    ///   - videoFormat: 相机采集的视频规格。
+    ///   - position: 首次启用的摄像头位置。
+    /// - Returns: 包含本地相机视频轨道的媒体流。
+    /// - Throws: 模型不支持相机输入、权限或采集启动失败时抛出错误。
+    func createLocalCameraStream(
+        videoFormat: RealtimeVideoFormat,
+        position: CameraPosition
+    ) async throws -> RealtimeMediaStream {
+        try await createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: position,
+            useMicrophone: false
         )
     }
 

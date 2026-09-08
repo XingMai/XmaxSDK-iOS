@@ -370,7 +370,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
             videoFormat: videoFormat,
-            position: .front
+            position: .front,
+            useMicrophone: true
         )
         _ = try await components.manager.connect(localStream: localStream)
         let firstStartTask = Task {
@@ -450,6 +451,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             1
         )
         XCTAssertFalse(components.rtcManager.calls.contains(.leaveRoom))
+
+        XCTAssertEqual(
+            components.rtcManager.calls.filter { $0 == .startAudioCapture }.count,
+            1
+        )
+        XCTAssertFalse(components.rtcManager.calls.contains(.stopAudioCapture))
 
         await components.manager.stopGeneration()
         await components.manager.disconnect()
@@ -644,6 +651,168 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         ))
 
         try await components.manager.stopLocalVideoStream()
+    }
+
+    func testCameraMicrophoneFollowsConnectionLifecycle() async throws {
+        let components = makeComponents()
+        let manager: any XmaxRealtimeManaging = components.manager
+        let stream = try await manager.createLocalCameraStream(useMicrophone: true)
+        let hasAudio = await components.mediaController.hasAudio
+        XCTAssertTrue(hasAudio)
+        XCTAssertFalse(components.rtcManager.calls.contains(.startAudioCapture))
+        XCTAssertTrue(components.sessionService.calls.isEmpty)
+
+        _ = try await manager.connect(localStream: stream)
+        let calls = components.rtcManager.calls
+        let captureIndex = try XCTUnwrap(calls.firstIndex(of: .startAudioCapture))
+        let publishIndex = try XCTUnwrap(calls.firstIndex(of: .publishLocalAudio))
+        XCTAssertLessThan(captureIndex, publishIndex)
+
+        await manager.disconnect()
+        let ownsPreview = await components.mediaController.owns(stream)
+        XCTAssertTrue(ownsPreview)
+        XCTAssertFalse(components.rtcManager.calls.contains(.stopVideoCapture))
+        XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
+
+        _ = try await manager.connect(localStream: stream)
+        await manager.close()
+        XCTAssertEqual(
+            components.rtcManager.calls.filter {
+                $0 == .startAudioCapture || $0 == .stopAudioCapture
+            },
+            [.startAudioCapture, .stopAudioCapture, .startAudioCapture, .stopAudioCapture]
+        )
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
+    }
+
+    func testCameraWithoutMicrophoneDoesNotCaptureOrPublishAudio() async throws {
+        let permissions = PermissionManagingStub()
+        let components = makeComponents(permissionManager: permissions)
+        let manager: any XmaxRealtimeManaging = components.manager
+        let stream = try await manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        _ = try await manager.connect(localStream: stream)
+        await manager.close()
+
+        XCTAssertEqual(permissions.microphoneRequestCount, 0)
+        XCTAssertFalse(components.rtcManager.calls.contains(.startAudioCapture))
+        XCTAssertFalse(components.rtcManager.calls.contains(.stopAudioCapture))
+        XCTAssertFalse(components.rtcManager.calls.contains(.publishLocalAudio))
+    }
+
+    func testCameraMicrophonePermissionFailureReleasesRTC() async {
+        let expectedError = XmaxError(
+            code: .microphonePermissionDenied,
+            message: "Microphone access denied"
+        )
+        let components = makeComponents(
+            permissionManager: PermissionManagingStub(microphoneError: expectedError)
+        )
+        do {
+            _ = try await components.manager.createLocalCameraStream(useMicrophone: true)
+            XCTFail("Expected microphone permission to fail")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
+        let track = await components.mediaController.currentTrack
+        XCTAssertNil(track)
+        XCTAssertFalse(components.rtcManager.calls.contains(.startAudioCapture))
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
+        XCTAssertTrue(components.sessionService.calls.isEmpty)
+    }
+
+    func testCameraMicrophoneStartFailureStopsCaptureBeforeCreatingSession() async throws {
+        let expectedError = XmaxError(code: .rtcError, message: "Microphone start failed")
+        let components = makeComponents(
+            rtcManager: RtcManagingStub(startAudioCaptureError: expectedError)
+        )
+        let stream = try await components.manager.createLocalCameraStream(useMicrophone: true)
+        do {
+            _ = try await components.manager.connect(localStream: stream)
+            XCTFail("Expected microphone start to fail")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
+        XCTAssertTrue(components.rtcManager.calls.contains(.stopAudioCapture))
+        XCTAssertFalse(components.rtcManager.calls.contains(.publishLocalAudio))
+        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_0)))
+        let ownsPreview = await components.mediaController.owns(stream)
+        XCTAssertTrue(ownsPreview)
+        await components.manager.close()
+    }
+
+    func testCameraConnectionFailureStopsMicrophoneAndPreservesPreview() async throws {
+        let expectedError = XmaxError(code: .sessionError, message: "Session creation failed")
+        let components = makeComponents(sessionCreateError: expectedError)
+        let stream = try await components.manager.createLocalCameraStream(useMicrophone: true)
+        do {
+            _ = try await components.manager.connect(localStream: stream)
+            XCTFail("Expected session creation to fail")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
+        XCTAssertEqual(
+            components.rtcManager.calls.filter {
+                $0 == .startAudioCapture || $0 == .stopAudioCapture
+            },
+            [.startAudioCapture, .stopAudioCapture]
+        )
+        let ownsPreview = await components.mediaController.owns(stream)
+        XCTAssertTrue(ownsPreview)
+        await components.manager.close()
+    }
+
+    func testCancellingCameraConnectionStopsMicrophone() async throws {
+        for closesManager in [false, true] {
+            let joining = expectation(description: "RTC join started")
+            let rtcManager = RtcManagingStub(joinRoomHandler: { _ in
+                joining.fulfill()
+                try await Task.sleep(nanoseconds: 30000000000)
+            })
+            let components = makeComponents(rtcManager: rtcManager)
+            let stream = try await components.manager.createLocalCameraStream(useMicrophone: true)
+            let connecting = Task {
+                try await components.manager.connect(localStream: stream)
+            }
+            await fulfillment(of: [joining], timeout: 2)
+            if closesManager {
+                await components.manager.close()
+            } else {
+                await components.manager.disconnect()
+            }
+            do {
+                _ = try await connecting.value
+                XCTFail("Expected connection cancellation")
+            } catch {
+                XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+            }
+            XCTAssertEqual(
+                rtcManager.calls.filter { $0 == .startAudioCapture || $0 == .stopAudioCapture },
+                [.startAudioCapture, .stopAudioCapture]
+            )
+            let ownsPreview = await components.mediaController.owns(stream)
+            XCTAssertEqual(ownsPreview, !closesManager)
+            await components.manager.close()
+        }
+    }
+
+    func testMicrophoneStopFailureDoesNotPreventCloseFromReleasingRTC() async throws {
+        let components = makeComponents(
+            rtcManager: RtcManagingStub(stopAudioCaptureError: XmaxError(
+                code: .rtcError, message: "Microphone stop failed"
+            ))
+        )
+        let stream = try await components.manager.createLocalCameraStream(useMicrophone: true)
+        _ = try await components.manager.connect(localStream: stream)
+        await components.manager.close()
+
+        XCTAssertTrue(components.rtcManager.calls.contains(.stopAudioCapture))
+        XCTAssertTrue(components.rtcManager.calls.contains(.leaveRoom))
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
+        let track = await components.mediaController.currentTrack
+        XCTAssertNil(track)
     }
 
     func testFileVideoConfiguresEncoderBeforeConnecting() async throws {
@@ -942,6 +1111,7 @@ private extension XmaxRealtimeManagerTests {
 
     func makeComponents(
         rtcManager: RtcManagingStub = RtcManagingStub(),
+        permissionManager: PermissionManagingStub = PermissionManagingStub(),
         model: RealtimeModel = .x2_0,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
@@ -970,7 +1140,7 @@ private extension XmaxRealtimeManagerTests {
         )
         let cameraController = CameraController(
             rtcManager: rtcManager,
-            permissionManager: PermissionManagingStub(),
+            permissionManager: permissionManager,
             mediaService: mediaService,
             errorListener: { errorHandler.forward($0) }
         )

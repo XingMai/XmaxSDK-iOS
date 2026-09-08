@@ -96,7 +96,8 @@ final class RealtimeSessionController: ObservableObject {
             do {
                 let stream = try await realtimeManager.createLocalCameraStream(
                     videoFormat: RealtimePreferences.cameraVideoFormat,
-                    position: .front
+                    position: .front,
+                    useMicrophone: true
                 )
                 guard hasStarted, !Task.isCancelled else { return }
                 localMediaStream = stream

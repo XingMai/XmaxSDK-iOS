@@ -10,6 +10,8 @@ enum RtcManagingCall: Equatable {
     case configureVideoEncoding(VideoEncodingConfiguration)
     case startVideoCapture(width: Int, height: Int, frameRate: Int)
     case stopVideoCapture
+    case startAudioCapture
+    case stopAudioCapture
     case switchCamera(CameraPosition)
     case useExternalVideoSource
     case startExternalAudioSource
@@ -43,6 +45,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let initializationError: (any Error)?
     private let startVideoCaptureError: (any Error)?
     private let stopVideoCaptureError: (any Error)?
+    private let startAudioCaptureError: (any Error)?
+    private let stopAudioCaptureError: (any Error)?
     private let switchCameraError: (any Error)?
     private let publishLocalVideoError: (any Error)?
     private let unpublishLocalVideoError: (any Error)?
@@ -75,6 +79,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         encodingError: (any Error)? = nil,
         startVideoCaptureError: (any Error)? = nil,
         stopVideoCaptureError: (any Error)? = nil,
+        startAudioCaptureError: (any Error)? = nil,
+        stopAudioCaptureError: (any Error)? = nil,
         switchCameraError: (any Error)? = nil,
         publishLocalVideoError: (any Error)? = nil,
         unpublishLocalVideoError: (any Error)? = nil,
@@ -95,6 +101,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         self.encodingError = encodingError
         self.startVideoCaptureError = startVideoCaptureError
         self.stopVideoCaptureError = stopVideoCaptureError
+        self.startAudioCaptureError = startAudioCaptureError
+        self.stopAudioCaptureError = stopAudioCaptureError
         self.switchCameraError = switchCameraError
         self.publishLocalVideoError = publishLocalVideoError
         self.unpublishLocalVideoError = unpublishLocalVideoError
@@ -191,6 +199,14 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         lock.withLock {
             storedCalls.append(.useExternalVideoSource)
         }
+    }
+
+    func startAudioCapture() throws {
+        try record(.startAudioCapture, error: startAudioCaptureError)
+    }
+
+    func stopAudioCapture() throws {
+        try record(.stopAudioCapture, error: stopAudioCaptureError)
     }
 
     func startExternalAudioSource() throws {

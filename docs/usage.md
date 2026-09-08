@@ -6,6 +6,7 @@ rendering. Unless stated otherwise, the examples below reuse its `client`,
 app. Run realtime operations in a lifecycle-owned task and update UI on the main
 actor.
 
+- [Camera microphone](#camera-microphone)
 - [Image and video inputs](#image-and-video-inputs)
 - [Reference images](#reference-images)
 - [Update generation conditions](#update-generation-conditions)
@@ -15,6 +16,32 @@ actor.
 - [Generated video frames](#generated-video-frames)
 - [Frame interpolation](#frame-interpolation)
 - [Logging](#logging)
+
+<br>
+
+## Camera microphone
+
+Camera input does not use the microphone by default. Opt in when creating the
+local camera stream:
+
+```swift
+let localStream = try await realtime.createLocalCameraStream(
+    position: .front,
+    useMicrophone: true
+)
+```
+
+Add `NSMicrophoneUsageDescription` to your app's `Info.plist`. XmaxSDK requests
+microphone permission when creating the stream and throws an `XmaxError` if
+permission is denied. Creating the stream only starts camera preview; microphone
+capture starts when you call `connect(localStream:)` or the one-call
+`startGeneration(localStream:context:)` flow. The microphone is not played back
+locally.
+
+`disconnect()` stops microphone capture while preserving camera preview.
+Reconnecting the same stream starts capture again. Connection failure or
+cancellation also stops capture. `stopLocalCameraStream()` and `close()` release
+the local capture resources. Switching cameras does not restart the microphone.
 
 <br>
 

@@ -23,6 +23,10 @@ final class CameraController: @unchecked Sendable {
     // 本地资源
     private var activeTrack: RealtimeVideoTrack?
 
+    // 麦克风配置与采集状态
+    private var storedUseMicrophone = false
+    private var isMicrophoneCapturing = false
+
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
@@ -54,6 +58,11 @@ final class CameraController: @unchecked Sendable {
         stateLock.withLock { activeTrack }
     }
 
+    /// 当前相机流是否配置为使用麦克风。
+    var useMicrophone: Bool {
+        stateLock.withLock { activeTrack != nil && storedUseMicrophone }
+    }
+
     /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
     func setPreviewReadyListener(
         _ listener: RealtimeCameraPreviewReadyListener?
@@ -64,7 +73,8 @@ final class CameraController: @unchecked Sendable {
     /// 创建并启动本地相机流。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
+        position: CameraPosition,
+        useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
         guard currentTrack == nil else {
             throw XmaxError(
@@ -76,15 +86,46 @@ final class CameraController: @unchecked Sendable {
 
         return try await createStream(
             videoFormat: videoFormat,
-            position: position
+            position: position,
+            useMicrophone: useMicrophone
         )
+    }
+
+    /// 在实时连接开始时启动麦克风，不开启本地回放。
+    func startMicrophoneCapture() throws {
+        try stateLock.withLock {
+            guard activeTrack != nil, storedUseMicrophone,
+                  !isMicrophoneCapturing else { return }
+            // 启动失败时也保留待停止状态，由连接清理回收可能已启动的设备。
+            isMicrophoneCapturing = true
+            try rtcManager.startAudioCapture()
+        }
+    }
+
+    /// 停止麦克风采集，保留下一次连接所需的配置。
+    func stopMicrophoneCapture() throws {
+        try stateLock.withLock {
+            guard isMicrophoneCapturing else { return }
+            try rtcManager.stopAudioCapture()
+            isMicrophoneCapturing = false
+        }
     }
 
     /// 停止相机采集并释放本地预览绑定。
     func stopLocalCameraStream() async {
+        do {
+            try stopMicrophoneCapture()
+        } catch {
+            Self.logCleanupFailure(
+                title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)",
+                error: error
+            )
+        }
         let track = stateLock.withLock { () -> RealtimeVideoTrack? in
             let track = activeTrack
             activeTrack = nil
+            storedUseMicrophone = false
+            isMicrophoneCapturing = false
             return track
         }
 
@@ -140,7 +181,8 @@ final class CameraController: @unchecked Sendable {
 private extension CameraController {
     func createStream(
         videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
+        position: CameraPosition,
+        useMicrophone: Bool
     ) async throws -> RealtimeMediaStream {
         let resolvedFormat = try resolveVideoFormat(videoFormat)
         let track = RealtimeVideoTrack(
@@ -151,6 +193,10 @@ private extension CameraController {
 
         do {
             try await permissionManager.ensureCameraPermission()
+            if useMicrophone {
+                try await permissionManager.ensureMicrophonePermission()
+            }
+            try Task.checkCancellation()
             try rtcManager.switchCamera(to: position)
             try rtcManager.startVideoCapture(
                 width: resolvedFormat.width,
@@ -182,6 +228,7 @@ private extension CameraController {
             }
             stateLock.withLock {
                 activeTrack = track
+                storedUseMicrophone = useMicrophone
             }
 
             return RealtimeMediaStream(

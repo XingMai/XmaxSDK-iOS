@@ -83,10 +83,14 @@ actor MediaController: MediaControlling {
 
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool {
-        guard activeSource?.kind == .video else {
+        switch activeSource?.kind {
+        case .camera:
+            return cameraController.useMicrophone
+        case .video:
+            return videoController?.hasAudio ?? false
+        default:
             return false
         }
-        return videoController?.hasAudio ?? false
     }
 
     /// 当前本地文件视频的音频预览音量。
@@ -130,14 +134,27 @@ actor MediaController: MediaControlling {
     /// 创建相机媒体来源并取得本地媒体所有权。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
+        position: CameraPosition,
+        useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await createSource(kind: .camera) {
             try await self.cameraController.createLocalCameraStream(
                 videoFormat: videoFormat,
-                position: position
+                position: position,
+                useMicrophone: useMicrophone
             )
         }
+    }
+
+    func startMicrophoneCapture() throws {
+        try Task.checkCancellation()
+        guard activeSource?.kind == .camera else { return }
+        try cameraController.startMicrophoneCapture()
+    }
+
+    func stopMicrophoneCapture() throws {
+        guard activeSource?.kind == .camera else { return }
+        try cameraController.stopMicrophoneCapture()
     }
 
     /// 创建图片数据媒体来源并取得本地媒体所有权。

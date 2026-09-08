@@ -235,12 +235,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
+        position: CameraPosition,
+        useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .camera) { [self] token in
             let stream = try await mediaController.createLocalCameraStream(
                 videoFormat: videoFormat,
-                position: position
+                position: position,
+                useMicrophone: useMicrophone
             )
             try token.ensureCurrent()
             return stream
@@ -677,6 +679,8 @@ private extension XmaxRealtimeManager {
             token: token
         )
         try streamController.setVideoEncoderConfig(videoFormat)
+        try await mediaController.startMicrophoneCapture()
+        try token.ensureCurrent()
         let remoteStream = try await connectionManager.connect(
             model: options.model,
             videoFormat: videoFormat,
@@ -820,6 +824,17 @@ private extension XmaxRealtimeManager {
         let releasesConnection = scope.includes(.connection)
         if scope == .all {
             await mediaController.setLocalAudioPreviewMuted(true)
+        }
+
+        if releasesConnection {
+            do {
+                try await mediaController.stopMicrophoneCapture()
+            } catch {
+                logCleanupFailure(
+                    title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)",
+                    error: error
+                )
+            }
         }
 
         do {

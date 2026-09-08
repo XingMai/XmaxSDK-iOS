@@ -1088,7 +1088,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         case nil:
             return try await realtimeManager.createLocalCameraStream(
                 videoFormat: RealtimePreferences.cameraVideoFormat,
-                position: .front
+                position: .front,
+                useMicrophone: true
             )
         }
     }

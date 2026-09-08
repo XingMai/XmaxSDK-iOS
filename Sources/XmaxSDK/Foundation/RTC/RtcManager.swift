@@ -224,6 +224,28 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
+    func startAudioCapture() throws {
+        try withEngine { engine in
+            try checkResult(
+                engine.setAudioSourceType(.internal),
+                operation: "setAudioSourceType"
+            )
+            try checkResult(
+                engine.startAudioCapture(),
+                operation: "startAudioCapture"
+            )
+        }
+    }
+
+    func stopAudioCapture() throws {
+        try withOptionalEngine { engine in
+            try checkResult(
+                engine.stopAudioCapture(),
+                operation: "stopAudioCapture"
+            )
+        }
+    }
+
     func startExternalAudioSource() throws {
         try withEngine { engine in
             try checkResult(

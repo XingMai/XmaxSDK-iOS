@@ -118,11 +118,13 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// - Parameters:
     ///   - videoFormat: 相机采集的视频规格。
     ///   - position: 首次启用的摄像头位置。
+    ///   - useMicrophone: 是否使用麦克风；创建时申请权限，连接时开始采集，断开时停止采集。
     /// - Returns: 包含本地相机视频轨道的媒体流。
     /// - Throws: 模型不支持相机输入、配置无效、权限或采集启动失败时抛出错误。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
-        position: CameraPosition
+        position: CameraPosition,
+        useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
 
 
