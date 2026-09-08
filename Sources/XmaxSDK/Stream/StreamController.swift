@@ -281,36 +281,6 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    func setLocalAudioEnabled(_ enabled: Bool) throws {
-        try operationLock.withLock {
-            let currentState = stateLock.withLock { state }
-            guard !currentState.roomID.isEmpty,
-                  currentState.localVideoPublished else {
-                throw XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Publish the local video stream before " +
-                        "updating local audio"
-                )
-            }
-            guard currentState.localAudioPublished != enabled else {
-                return
-            }
-
-            do {
-                if enabled {
-                    try rtcManager.publishLocalAudio()
-                } else {
-                    try rtcManager.unpublishLocalAudio()
-                }
-                stateLock.withLock {
-                    state.localAudioPublished = enabled
-                }
-            } catch {
-                throw XmaxError.from(error)
-            }
-        }
-    }
-
     func pushLocalVideoFrame(_ frame: VideoFrame) throws {
         guard let seiData = stateLock.withLock({
             state.generationTask?.seiData

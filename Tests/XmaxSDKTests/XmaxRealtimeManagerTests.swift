@@ -675,6 +675,32 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalVideoStream()
     }
 
+    func testFileVideoEncoderFailureReleasesLocalStream() async throws {
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "Failed to configure video encoding"
+        )
+        let components = makeComponents(
+            rtcManager: RtcManagingStub(encodingError: expectedError)
+        )
+
+        do {
+            _ = try await components.manager.createLocalVideoStream(
+                fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
+                videoFormat: nil
+            )
+            XCTFail("Expected video encoding configuration to fail")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
+
+        let currentTrack = await components.mediaController.currentTrack
+        XCTAssertNil(currentTrack)
+        XCTAssertTrue(components.videoSource.calls.contains(.start))
+        XCTAssertTrue(components.videoSource.calls.contains(.stop))
+        XCTAssertEqual(components.rtcManager.calls.last, .destroy)
+    }
+
     func testRepeatedDisconnectReusesSingleTermination() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
@@ -915,6 +941,7 @@ private extension XmaxRealtimeManagerTests {
     }
 
     func makeComponents(
+        rtcManager: RtcManagingStub = RtcManagingStub(),
         model: RealtimeModel = .x2_0,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
@@ -922,7 +949,6 @@ private extension XmaxRealtimeManagerTests {
         frameInterpolationSupported: Bool = false
     ) -> Components {
         let errorHandler = RealtimeErrorHandler()
-        let rtcManager = RtcManagingStub()
         let mediaService = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768),
             frameInterpolationSupported: frameInterpolationSupported

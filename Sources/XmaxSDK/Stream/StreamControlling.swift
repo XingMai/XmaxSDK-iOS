@@ -56,13 +56,6 @@ protocol StreamControlling: Sendable {
     /// 没有活动房间时安全返回。
     func disconnect() async
 
-    /// 更新本地音频发布状态。
-    ///
-    /// - Parameter enabled: `true` 表示发布本地音频，`false` 表示取消发布。
-    /// - Throws: 当前房间或本地视频尚未就绪，或 RTC 发布状态更新失败时
-    ///   抛出错误。
-    func setLocalAudioEnabled(_ enabled: Bool) throws
-
     /// 在生成任务活动期间推送本地外部视频帧；无生成任务时忽略。
     ///
     /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。

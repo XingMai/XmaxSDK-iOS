@@ -237,21 +237,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(.camera)
-        return try await coordinator.run(
-            kind: .media,
-            failureScope: .all
-        ) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Local camera stream is unavailable during " +
-                    "a realtime connection"
-            )
+        try await createLocalMediaStream(source: .camera) { [self] token in
             let stream = try await mediaController.createLocalCameraStream(
                 videoFormat: videoFormat,
                 position: position
             )
             try token.ensureCurrent()
-            await reconcileFrameInterpolation(for: stream)
             return stream
         }
     }
@@ -348,21 +339,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         imageData: Data,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(.image)
-        return try await coordinator.run(
-            kind: .media,
-            failureScope: .all
-        ) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Local image stream is unavailable during " +
-                    "a realtime connection"
-            )
+        try await createLocalMediaStream(source: .image) { [self] token in
             let stream = try await mediaController.createLocalImageStream(
                 imageData: imageData,
                 videoFormat: videoFormat
             )
             try token.ensureCurrent()
-            await reconcileFrameInterpolation(for: stream)
             return stream
         }
     }
@@ -390,21 +372,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         decodedImage: any DecodedImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(.image)
-        return try await coordinator.run(
-            kind: .media,
-            failureScope: .all
-        ) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Local image stream is unavailable during " +
-                    "a realtime connection"
-            )
+        try await createLocalMediaStream(source: .image) { [self] token in
             let stream = try await mediaController.createLocalImageStream(
                 decodedImage: decodedImage,
                 videoFormat: videoFormat
             )
             try token.ensureCurrent()
-            await reconcileFrameInterpolation(for: stream)
             return stream
         }
     }
@@ -413,21 +386,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(.image)
-        return try await coordinator.run(
-            kind: .media,
-            failureScope: .all
-        ) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Local image stream is unavailable during " +
-                    "a realtime connection"
-            )
+        try await createLocalMediaStream(source: .image) { [self] token in
             let stream = try await mediaController.createLocalImageStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
             )
             try token.ensureCurrent()
-            await reconcileFrameInterpolation(for: stream)
             return stream
         }
     }
@@ -450,15 +414,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(.video)
-        return try await coordinator.run(
-            kind: .media,
-            failureScope: .all
-        ) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Local video stream is unavailable during " +
-                    "a realtime connection"
-            )
+        try await createLocalMediaStream(source: .video) { [self] token in
             let stream = try await mediaController.createLocalVideoStream(
                 fileURL: fileURL,
                 videoFormat: videoFormat
@@ -472,7 +428,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 }
                 try streamController.setVideoEncoderConfig(resolvedFormat)
                 try token.ensureCurrent()
-                await reconcileFrameInterpolation(for: stream)
                 return stream
             } catch {
                 await mediaController.stopLocalVideoStream()
@@ -751,6 +706,26 @@ private extension XmaxRealtimeManager {
             token: token
         )
         return remoteStream
+    }
+
+    func createLocalMediaStream(
+        source: RealtimeMediaSource,
+        prepare: @escaping @Sendable (RealtimeCoordinator.Token) async throws
+            -> RealtimeMediaStream
+    ) async throws -> RealtimeMediaStream {
+        try await validateMediaSource(source)
+        return try await coordinator.run(
+            kind: .media,
+            failureScope: .all
+        ) { [self] token in
+            try await ensureLocalMediaCanChange(
+                message: "Local \(source.rawValue) stream is unavailable during " +
+                    "a realtime connection"
+            )
+            let stream = try await prepare(token)
+            await reconcileFrameInterpolation(for: stream)
+            return stream
+        }
     }
 
     func ensureLocalMediaCanChange(message: String) async throws {

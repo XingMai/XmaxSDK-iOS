@@ -35,6 +35,20 @@ final class StreamControllerTests: XCTestCase {
         XCTAssertEqual(rtcManager.calls, [.publishLocalVideo])
     }
 
+    func testPublishLocalStreamPublishesAudioAndVideoOnlyOnce() throws {
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
+        try controller.configureRoom(roomID: "room-id", botName: nil)
+
+        try controller.publishLocalStream(includeAudio: true)
+        try controller.publishLocalStream(includeAudio: true)
+
+        XCTAssertEqual(
+            rtcManager.calls,
+            [.publishLocalVideo, .publishLocalAudio]
+        )
+    }
+
     func testAudioPublicationFailureRollsBackNewVideoPublication() throws {
         let expectedError = XmaxError(
             code: .rtcError,
@@ -57,27 +71,6 @@ final class StreamControllerTests: XCTestCase {
                 .publishLocalVideo,
                 .publishLocalAudio,
                 .unpublishLocalVideo
-            ]
-        )
-    }
-
-    func testSetLocalAudioEnabledUpdatesOnlyChangedState() throws {
-        let rtcManager = RtcManagingStub()
-        let controller = StreamController(rtcManager: rtcManager)
-        try controller.configureRoom(roomID: "room-id", botName: nil)
-        try controller.publishLocalStream(includeAudio: false)
-
-        try controller.setLocalAudioEnabled(true)
-        try controller.setLocalAudioEnabled(true)
-        try controller.setLocalAudioEnabled(false)
-        try controller.setLocalAudioEnabled(false)
-
-        XCTAssertEqual(
-            rtcManager.calls,
-            [
-                .publishLocalVideo,
-                .publishLocalAudio,
-                .unpublishLocalAudio
             ]
         )
     }
