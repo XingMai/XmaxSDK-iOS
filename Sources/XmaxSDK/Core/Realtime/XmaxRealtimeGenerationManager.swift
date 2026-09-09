@@ -28,6 +28,7 @@ actor XmaxRealtimeGenerationManager {
 
     func start(
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext?,
         ensureCurrent: @escaping RealtimeGenerationValidity
     ) async throws -> String {
@@ -43,6 +44,7 @@ actor XmaxRealtimeGenerationManager {
         let confirmation = try await streamController.beginGeneration(
             taskID: taskID,
             videoFormat: videoFormat,
+            targetSize: targetSize,
             context: resolvedContext
         )
         do {
@@ -68,6 +70,7 @@ actor XmaxRealtimeGenerationManager {
     func update(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext?
     ) async throws {
         await interactionController.startInteraction(
@@ -81,6 +84,7 @@ actor XmaxRealtimeGenerationManager {
         try await streamController.updateGeneration(
             taskID: taskID,
             videoFormat: videoFormat,
+            targetSize: targetSize,
             context: context
         )
         currentContext = context

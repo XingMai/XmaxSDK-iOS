@@ -228,7 +228,7 @@ enum RtcVideoConverter {
         rtcConfiguration.frameRate = configuration.frameRate
         rtcConfiguration.minBitrate = configuration.minimumBitrate
         rtcConfiguration.maxBitrate = configuration.maximumBitrate
-        rtcConfiguration.encoderPreference = .maintainFramerate
+        rtcConfiguration.encoderPreference = .auto
         return rtcConfiguration
     }
 

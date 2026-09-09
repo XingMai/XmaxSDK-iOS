@@ -5,6 +5,48 @@ import XCTest
 
 @MainActor
 final class RenderControllerTests: XCTestCase {
+    func testDisablingInterpolationKeepsFrameDeliveryAndRTCBinding() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(rtcManager: rtcManager)
+        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+        try controller.setRemoteStream(stream)
+        defer { try? controller.resetRemoteTrack(nil) }
+        try rtcManager.emitRemoteVideoFrame()
+        try await controller.waitUntilRemoteFrameReady()
+
+        for index in 1...3 {
+            try await controller.setFrameInterpolationEnabled(false, videoFormat: nil)
+            let recorder = RemoteVideoFrameRecorder()
+            controller.setRemoteVideoFrameListener { recorder.record($0) }
+            let timestamp = CMTime(value: Int64(index), timescale: 24)
+            try rtcManager.emitRemoteVideoFrame(presentationTimeStamp: timestamp)
+            let frame = try await waitForRemoteVideoFrame(recorder)
+            XCTAssertEqual(frame.presentationTimeStamp, timestamp)
+        }
+        XCTAssertEqual(rtcManager.calls, [.setRemoteVideoFrameListener(stream, enabled: true)])
+    }
+
+    func testDisablingInterpolationPreservesPendingFirstFrameWait() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RenderController(
+            rtcManager: rtcManager,
+            frameInterpolationEnabled: true,
+            remoteFrameReadyTimeoutNanoseconds: 1000000000
+        )
+        try controller.setRemoteStream(RemoteStream(roomID: "room-id", userID: "bot-user"))
+        defer { try? controller.resetRemoteTrack(nil) }
+        let waiting = expectation(description: "Waiting for first remote frame")
+        let readiness = Task {
+            waiting.fulfill()
+            try await controller.waitUntilRemoteFrameReady()
+        }
+        await fulfillment(of: [waiting], timeout: 2)
+
+        try await controller.setFrameInterpolationEnabled(false, videoFormat: nil)
+        try rtcManager.emitRemoteVideoFrame()
+        try await readiness.value
+    }
+
     func testSettingStreamBeforeAttachStartsRemoteFrameDelivery() throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
@@ -241,7 +283,7 @@ final class RenderControllerTests: XCTestCase {
         )
     }
 
-    func testViewLifecycleFrameBindingFailureReportsRTCError() throws {
+    func testViewAttachmentRetriesFailedFrameBindingAndReportsRTCError() throws {
         let expectedError = XmaxError(
             code: .rtcError,
             message: "Failed to bind the remote RTC frame sink"
@@ -258,15 +300,27 @@ final class RenderControllerTests: XCTestCase {
         defer { try? controller.resetRemoteTrack(registration.track) }
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
         let videoView = XmaxVideoView()
-        try controller.setRemoteStream(stream)
+        XCTAssertThrowsError(try controller.setRemoteStream(stream)) { error in
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
+        XCTAssertTrue(recorder.recordedErrors.isEmpty)
 
         XCTAssertThrowsError(
             try registration.binding.attach(
                 to: videoView,
                 contentMode: .fill
             )
-        )
+        ) { error in
+            XCTAssertEqual(error as? XmaxError, expectedError)
+        }
         XCTAssertEqual(recorder.recordedErrors, [expectedError])
+        XCTAssertEqual(
+            rtcManager.calls,
+            [
+                .setRemoteVideoFrameListener(stream, enabled: true),
+                .setRemoteVideoFrameListener(stream, enabled: true)
+            ]
+        )
     }
 
     func testGenerationFrameBindingFailureIsOnlyThrown() throws {

@@ -97,7 +97,7 @@ struct RealtimeView: View {
                 if let context {
                     realtimeSession.startGeneration(context: context)
                 } else {
-                    realtimeSession.stopGeneration()
+                    realtimeSession.disconnectGeneration()
                 }
             }
         }
@@ -191,7 +191,7 @@ private extension RealtimeView {
                 referenceStore.clearSelection(
                     notifiesContextChange: false
                 )
-                realtimeSession.stopGeneration()
+                realtimeSession.disconnectGeneration()
             } label: {
                 Image(systemName: "nosign")
                     .font(.system(size: 13, weight: .regular))

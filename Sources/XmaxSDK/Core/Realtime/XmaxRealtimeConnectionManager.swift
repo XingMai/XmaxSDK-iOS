@@ -27,6 +27,7 @@ actor XmaxRealtimeConnectionManager {
     // 连接资源
     private var activeRemoteTrack: RealtimeVideoTrack?
     private var activeSession: RealtimeSession?
+    private(set) var currentTargetSize: CGSize?
 
     init(
         sessionService: any RealtimeSessionServicing,
@@ -60,21 +61,33 @@ actor XmaxRealtimeConnectionManager {
         _ videoFormat: RealtimeVideoFormat
     ) async {
         guard let activeRemoteTrack else { return }
-        activeRemoteTrack.updateVideoFormat(videoFormat)
+        let remoteFormat = remoteVideoFormat(for: videoFormat)
+        activeRemoteTrack.updateVideoFormat(remoteFormat)
         await renderController.updateRemoteVideoFormat(
-            videoFormat,
+            remoteFormat,
             for: activeRemoteTrack
         )
+    }
+
+    func updateTargetSize(
+        _ size: CGSize,
+        videoFormat: RealtimeVideoFormat
+    ) async {
+        guard activeSession != nil else { return }
+        currentTargetSize = size
+        await updateRemoteVideoFormat(videoFormat)
     }
 
     func connect(
         model: RealtimeModel,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         includeLocalAudio: Bool,
         isCurrent: @escaping RealtimeConnectionValidity,
         onHeartbeatFailure: @escaping RealtimeConnectionHeartbeatFailureHandler
     ) async throws -> RealtimeMediaStream {
         timing.beginConnection()
+        currentTargetSize = targetSize
         var session: RealtimeSession?
         var sessionActivated = false
 
@@ -107,7 +120,7 @@ actor XmaxRealtimeConnectionManager {
             )
             let remoteTrack = RealtimeVideoTrack(
                 id: connection.botName ?? "video-remote",
-                videoFormat: videoFormat
+                videoFormat: remoteVideoFormat(for: videoFormat)
             )
             await registerRemoteTrack(remoteTrack)
 
@@ -145,6 +158,7 @@ actor XmaxRealtimeConnectionManager {
         let remoteTrack = activeRemoteTrack
         activeSession = nil
         activeRemoteTrack = nil
+        currentTargetSize = nil
 
         sessionService.stopHeartbeat()
         await resetRemoteRendering(track: remoteTrack)
@@ -159,6 +173,15 @@ actor XmaxRealtimeConnectionManager {
 }
 
 private extension XmaxRealtimeConnectionManager {
+    func remoteVideoFormat(for generationFormat: RealtimeVideoFormat) -> RealtimeVideoFormat {
+        guard let currentTargetSize else { return generationFormat }
+        return RealtimeVideoFormat(
+            width: Int(currentTargetSize.width),
+            height: Int(currentTargetSize.height),
+            fps: generationFormat.fps
+        )
+    }
+
     static func ensureCurrent(
         _ isCurrent: RealtimeConnectionValidity
     ) throws {
@@ -184,6 +207,7 @@ private extension XmaxRealtimeConnectionManager {
         let remoteTrack = activeRemoteTrack
         activeSession = nil
         activeRemoteTrack = nil
+        currentTargetSize = nil
 
         sessionService.stopHeartbeat()
         await resetRemoteRendering(track: remoteTrack)

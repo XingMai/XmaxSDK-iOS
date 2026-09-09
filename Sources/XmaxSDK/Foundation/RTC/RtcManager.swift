@@ -43,11 +43,17 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     }
 
     func initialize() async throws {
+        guard !Task.isCancelled else {
+            throw Self.cancelledError(operation: "RTC initialization")
+        }
+        let waiterID = UUID()
         let initialization = stateLock.withLock { () -> Initialization? in
             guard engineLease == nil else {
                 return nil
             }
-            if let initialization {
+            if var initialization {
+                initialization.waiterIDs.insert(waiterID)
+                self.initialization = initialization
                 return initialization
             }
 
@@ -55,7 +61,8 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 id: UUID(),
                 task: Task {
                     try await engineManager.acquire()
-                }
+                },
+                waiterIDs: [waiterID]
             )
             self.initialization = initialization
             return initialization
@@ -65,11 +72,19 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
 
         do {
-            let lease = try await initialization.task.value
-            try finishInitialization(
+            let lease = try await withTaskCancellationHandler {
+                try await initialization.task.value
+            } onCancel: {
+                self.cancelInitializationWaiter(
+                    initializationID: initialization.id,
+                    waiterID: waiterID
+                )
+            }
+            try await finishInitialization(
                 initializationID: initialization.id,
                 lease: lease
             )
+            try Task.checkCancellation()
         } catch is CancellationError {
             clearInitialization(id: initialization.id)
             throw Self.cancelledError(operation: "RTC initialization")
@@ -560,10 +575,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    var renderLibraryName: String {
-        "XmaxSDK"
-    }
-
     func sendRoomMessage(_ message: String) throws {
         guard !message.isEmpty else {
             throw XmaxError(
@@ -617,6 +628,7 @@ private extension RtcManager {
     struct Initialization {
         let id: UUID
         let task: Task<RtcEngineLease, any Error>
+        var waiterIDs: Set<UUID>
     }
 
     /// 保存销毁 Engine 时需要在锁外处理的资源。
@@ -675,31 +687,46 @@ private extension RtcManager {
     func finishInitialization(
         initializationID: UUID,
         lease: RtcEngineLease
-    ) throws {
-        operationLock.lock()
-        let outcome = stateLock.withLock { () -> InitializationOutcome in
-            if engineLease?.id == lease.id {
-                return .alreadyInstalled
-            }
-            guard initialization?.id == initializationID else {
-                return .cancelled
-            }
+    ) async throws {
+        let outcome = operationLock.withLock {
+            stateLock.withLock { () -> InitializationOutcome in
+                if engineLease?.id == lease.id {
+                    return .alreadyInstalled
+                }
+                guard initialization?.id == initializationID else {
+                    return .cancelled
+                }
 
-            let bridge = makeEngineBridge()
-            lease.engine.delegate = bridge
-            engineLease = lease
-            engineBridge = bridge
-            initialization = nil
-            return .installed
+                let bridge = makeEngineBridge()
+                lease.engine.delegate = bridge
+                engineLease = lease
+                engineBridge = bridge
+                initialization = nil
+                return .installed
+            }
         }
-        operationLock.unlock()
 
         if outcome == .cancelled {
-            Task {
-                await engineManager.release(lease)
-            }
+            await engineManager.release(lease)
             throw Self.cancelledError(operation: "RTC initialization")
         }
+    }
+
+    func cancelInitializationWaiter(initializationID: UUID, waiterID: UUID) {
+        let task = stateLock.withLock { () -> Task<RtcEngineLease, any Error>? in
+            guard var initialization,
+                  initialization.id == initializationID,
+                  initialization.waiterIDs.remove(waiterID) != nil else {
+                return nil
+            }
+            guard initialization.waiterIDs.isEmpty else {
+                self.initialization = initialization
+                return nil
+            }
+            self.initialization = nil
+            return initialization.task
+        }
+        task?.cancel()
     }
 
     func clearInitialization(id: UUID) {

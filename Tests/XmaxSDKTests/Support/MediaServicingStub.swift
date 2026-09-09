@@ -40,6 +40,10 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
         }
     }
 
+    func resolveFrameInterpolationSize(_ size: CGSize) throws -> CGSize {
+        try MediaService(model: model).resolveFrameInterpolationSize(size)
+    }
+
     func supportsFrameInterpolation(for size: CGSize) -> Bool {
         frameInterpolationSupported
     }

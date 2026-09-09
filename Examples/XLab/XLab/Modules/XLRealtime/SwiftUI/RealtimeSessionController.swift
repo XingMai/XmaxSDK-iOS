@@ -150,7 +150,7 @@ final class RealtimeSessionController: ObservableObject {
         }
     }
 
-    func stopGeneration() {
+    func disconnectGeneration() {
         guard isGenerationRequested || remoteVideoTrack != nil else { return }
 
         isGenerationRequested = false
@@ -211,6 +211,10 @@ final class RealtimeSessionController: ObservableObject {
                 try await realtimeManager.setFrameInterpolationEnabled(enabled)
             } catch {
                 guard !Task.isCancelled else { return }
+                let resolvedError = XmaxError.from(error)
+                if resolvedError.code != .cancelled {
+                    errorMessage = resolvedError.localizedDescription
+                }
             }
             guard !Task.isCancelled else { return }
             isFrameInterpolationEnabled =

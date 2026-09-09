@@ -8,6 +8,9 @@ actor RealtimeCoordinator {
         case connection
         case generation
         case cameraSwitch
+
+        /// 更新生成条件或回传尺寸，不改变生成生命周期。
+        case configuration
     }
 
     enum TerminationScope: Int, Sendable {
@@ -22,7 +25,7 @@ actor RealtimeCoordinator {
         func affects(_ kind: OperationKind) -> Bool {
             switch self {
             case .generation:
-                kind == .generation || kind == .cameraSwitch
+                kind == .generation || kind == .cameraSwitch || kind == .configuration
             case .connection:
                 kind != .media
             case .all:
@@ -95,8 +98,8 @@ actor RealtimeCoordinator {
     }
 
     /**
-     * 接纳并执行一个实时操作。主要操作同一时刻只允许一个；异步操作失效或
-     * 调用方取消时，会先完成对应范围的资源清理再结束取消流程。
+     * 接纳并执行一个实时操作，同一时刻只允许一个。生命周期操作取消时先完成
+     * 对应范围的资源清理；仅取消参数更新不会停止当前生成。
      */
     func run<Value: Sendable>(
         kind: OperationKind,
@@ -113,8 +116,12 @@ actor RealtimeCoordinator {
             throw error
         }
 
+        // 已在生成时，startGeneration 只更新条件，与回传尺寸调整共用配置操作。
+        let operationKind: OperationKind =
+            kind == .generation && state.connectionState == .generating
+                ? .configuration : kind
         let operation = Operation(
-            kind: kind,
+            kind: operationKind,
             failureScope: failureScope
         )
         let token = Token(lease: operation.lease)
@@ -155,6 +162,19 @@ actor RealtimeCoordinator {
     ) async throws {
         try token.ensureCurrent()
         await setState(nextState)
+    }
+
+    /// 断开实时连接；尚未提交连接状态的活跃操作也会被取消。
+    func disconnect() async {
+        let hasConnectionOperation = activeOperation.map {
+            TerminationScope.connection.affects($0.kind)
+        } ?? false
+        guard hasConnectionOperation || termination != nil ||
+                (state.connectionState != .idle &&
+                    state.connectionState != .disconnected) else {
+            return
+        }
+        await terminate(.connection, finalState: .disconnected)
     }
 
     /// 终止指定范围并等待资源清理完成；并发终止请求会合并为最大范围。
@@ -287,6 +307,13 @@ private extension RealtimeCoordinator {
             !operation.lease.isCurrent || Task.isCancelled
 
         if operationWasCancelled {
+            // 取消配置请求本身不停止生成；外部断开或关闭仍按已有终止流程等待收尾。
+            if operation.kind == .configuration,
+               operation.terminationTask == nil,
+               termination == nil {
+                finish(operation)
+                throw Self.cancelledError()
+            }
             let terminationTask: Task<Void, Never>
             if let assignedTask = operation.terminationTask {
                 terminationTask = assignedTask
@@ -410,11 +437,20 @@ private extension RealtimeCoordinator {
                 current: state,
                 sessionID: pending.sessionID
             )
-            await setState(finalState)
+            // 先完成内部收尾，再通知监听器，避免旧任务覆盖重入的关闭请求。
+            if let activeOperation,
+               requestedTarget.affects(activeOperation.kind) {
+                finish(activeOperation)
+            }
+            let listener = state != finalState ? stateListener : nil
+            state = finalState
+            termination = nil
+            if let listener {
+                await listener(finalState)
+            }
             if let error = pending.error {
                 await errorHandler.report(error.withSeverity(.fatal))
             }
-            termination = nil
             return
         }
     }

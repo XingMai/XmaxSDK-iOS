@@ -103,11 +103,11 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 开启或关闭远端生成画面的插帧。
     ///
-    /// 设置结果覆盖初始化配置，并持续应用于当前及后续远端视频流。显式开启
-    /// 时，如果当前设备或已有本地流不支持插帧，则保持原状态并抛出错误。
+    /// 设置结果覆盖初始化配置。生成中开启时请求等比例缩小回传尺寸，关闭时
+    /// 请求恢复生成尺寸；不会重新连接或重启生成。尺寸切换期间继续显示原始帧。
     ///
     /// - Parameter enabled: 是否开启远端视频插帧。
-    /// - Throws: 当前设备、视频规格或帧处理器不支持插帧时抛出错误。
+    /// - Throws: 其他实时操作正在执行、设备或目标尺寸不支持插帧，或信令发送失败时抛出错误。
     func setFrameInterpolationEnabled(
         _ enabled: Bool
     ) async throws
@@ -250,8 +250,4 @@ public protocol XmaxRealtimeManaging: Sendable {
         localStream: RealtimeMediaStream,
         context: RealtimeContext?
     ) async throws -> RealtimeMediaStream
-
-
-    /// 停止当前生成任务并保留实时连接。
-    func stopGeneration() async
 }

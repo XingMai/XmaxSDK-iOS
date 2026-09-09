@@ -153,7 +153,6 @@ private extension XmaxVideoViewTests {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcManager.renderLibraryName,
                 attachHandler: { view, contentMode in
                     try rtcManager.bindLocalVideo(
                         to: view,

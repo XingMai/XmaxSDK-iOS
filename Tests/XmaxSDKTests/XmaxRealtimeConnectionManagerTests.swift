@@ -52,10 +52,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             ]
         )
         let track = try XCTUnwrap(stream.videoTrack)
-        XCTAssertEqual(
-            VideoRenderRegistry.binding(for: track)?.libraryName,
-            "test"
-        )
+        XCTAssertNotNil(VideoRenderRegistry.binding(for: track))
         XCTAssertNotNil(TrajectoryRegistry.binding(for: track))
 
         _ = try await components.manager.disconnect()
@@ -160,6 +157,7 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
             _ = try await components.manager.connect(
                 model: .x2_0,
                 videoFormat: videoFormat,
+                targetSize: CGSize(width: 702, height: 1242),
                 includeLocalAudio: false,
                 isCurrent: { true },
                 onHeartbeatFailure: { _, _ in }
@@ -171,6 +169,9 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
                 publicationError
             )
         }
+
+        let targetSize = await components.manager.currentTargetSize
+        XCTAssertNil(targetSize)
 
         XCTAssertEqual(
             sessionService.calls,

@@ -220,16 +220,53 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func setFrameInterpolationEnabled(_ enabled: Bool) async throws {
-        do {
-            let videoFormat = await mediaController.currentVideoFormat
-            try await renderController.setFrameInterpolationEnabled(
-                enabled,
-                videoFormat: videoFormat
-            )
-        } catch {
-            throw await reportError(
-                XmaxError.from(error).withSeverity(.recoverable)
-            )
+        try await coordinator.run(
+            kind: .configuration,
+            failureScope: .generation
+        ) { [self] token in
+            do {
+                let current = await coordinator.currentState
+                let generationFormat = await mediaController.currentVideoFormat
+                let targetSize = try generationFormat.map {
+                    enabled ? try mediaService.resolveFrameInterpolationSize($0.size) : $0.size
+                }
+                if enabled, let targetSize,
+                   !mediaService.supportsFrameInterpolation(for: targetSize) {
+                    throw XmaxError(
+                        code: .frameInterpolationUnsupported,
+                        message: "Frame interpolation is unavailable for " +
+                            "\(Int(targetSize.width)) × \(Int(targetSize.height)) video",
+                        severity: .recoverable
+                    )
+                }
+                try token.ensureCurrent()
+                if let taskID = current.taskID, let targetSize {
+                    try await streamController.changeTargetSize(
+                        taskID: taskID,
+                        targetSize: targetSize,
+                        ensureActive: { try token.ensureCurrent() }
+                    )
+                }
+
+                // 信令发出后完成本地配置提交；并发断开会等待当前操作完成再清理。
+                if let generationFormat, let targetSize {
+                    await connectionManager.updateTargetSize(targetSize, videoFormat: generationFormat)
+                }
+                var returnFormat = generationFormat
+                if let generationFormat, let targetSize {
+                    returnFormat = RealtimeVideoFormat(
+                        width: Int(targetSize.width),
+                        height: Int(targetSize.height),
+                        fps: generationFormat.fps
+                    )
+                }
+                try await renderController.setFrameInterpolationEnabled(
+                    enabled,
+                    videoFormat: returnFormat
+                )
+            } catch {
+                throw XmaxError.from(error).withSeverity(.recoverable)
+            }
         }
     }
 
@@ -467,15 +504,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func disconnect() async {
-        let current = await coordinator.currentState
-        guard current.connectionState != .idle,
-              current.connectionState != .disconnected else {
-            return
-        }
-        await coordinator.terminate(
-            .connection,
-            finalState: .disconnected
-        )
+        await coordinator.disconnect()
     }
 
     func close() async {
@@ -486,26 +515,27 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func startGeneration(context: RealtimeContext?) async throws {
-        let current = await coordinator.currentState
-        let measuresStartup = current.connectionState == .connected
-        if measuresStartup {
-            timing.begin()
-        }
-        do {
-            try await coordinator.run(
-                kind: .generation,
-                failureScope: .generation
-            ) { [self] token in
+        try await coordinator.run(
+            kind: .generation,
+            failureScope: .generation
+        ) { [self] token in
+            let current = await coordinator.currentState
+            try token.ensureCurrent()
+            let measuresStartup = current.connectionState == .connected
+            if measuresStartup {
+                timing.begin()
+            }
+            do {
                 try await performStartGeneration(
                     context: context,
                     token: token
                 )
+            } catch {
+                if measuresStartup {
+                    timing.finishFailure(error)
+                }
+                throw error
             }
-        } catch {
-            if measuresStartup {
-                timing.finishFailure(error)
-            }
-            throw error
         }
     }
 
@@ -513,20 +543,22 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         localStream: RealtimeMediaStream,
         context: RealtimeContext?
     ) async throws -> RealtimeMediaStream {
-        let initialState = await coordinator.currentState
-        let hasConnection = await connectionManager.currentSessionID != ""
-        let failureScope: RealtimeCoordinator.TerminationScope =
-            hasConnection ? .generation : .connection
-        let measuresStartup = initialState.connectionState != .connecting &&
-            initialState.connectionState != .disconnecting
-        if measuresStartup {
-            timing.begin()
-        }
-        do {
-            return try await coordinator.run(
-                kind: .generation,
-                failureScope: failureScope
-            ) { [self] token in
+        try await coordinator.run(
+            kind: .generation,
+            failureScope: .connection
+        ) { [self] token in
+            let initialState = await coordinator.currentState
+            let hasConnection = await connectionManager.currentSessionID != ""
+            try token.ensureCurrent()
+            if hasConnection {
+                token.setFailureScope(.generation)
+            }
+            let measuresStartup = initialState.connectionState != .connecting &&
+                initialState.connectionState != .disconnecting
+            if measuresStartup {
+                timing.begin()
+            }
+            do {
                 guard await mediaController.owns(localStream) else {
                     throw XmaxError(
                         code: .invalidConfiguration,
@@ -534,9 +566,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                             "started by this realtime manager"
                     )
                 }
+                try token.ensureCurrent()
 
                 let remoteStream: RealtimeMediaStream
-                if await connectionManager.currentSessionID != "" {
+                if hasConnection {
                     guard let activeRemoteStream =
                             await connectionManager.currentRemoteStream else {
                         throw XmaxError(
@@ -559,12 +592,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     token: token
                 )
                 return remoteStream
+            } catch {
+                if measuresStartup {
+                    timing.finishFailure(error)
+                }
+                throw error
             }
-        } catch {
-            if measuresStartup {
-                timing.finishFailure(error)
-            }
-            throw error
         }
     }
 
@@ -598,6 +631,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try await generationManager.update(
                 taskID: taskID,
                 videoFormat: videoFormat,
+                targetSize: await connectionManager.currentTargetSize,
                 context: context
             )
             try token.ensureCurrent()
@@ -608,6 +642,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             await mediaController.setLocalAudioPreviewMuted(true)
             let taskID = try await generationManager.start(
                 videoFormat: videoFormat,
+                targetSize: await connectionManager.currentTargetSize,
                 context: context,
                 ensureCurrent: {
                     try token.ensureCurrent()
@@ -635,17 +670,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             await mediaController.setLocalAudioPreviewMuted(false)
             throw error
         }
-    }
-
-    func stopGeneration() async {
-        let current = await coordinator.currentState
-        let sessionID = await connectionManager.currentSessionID
-        guard !sessionID.isEmpty,
-              current.connectionState == .connected ||
-                current.connectionState == .generating else {
-            return
-        }
-        await coordinator.terminate(.generation)
     }
 }
 
@@ -679,11 +703,14 @@ private extension XmaxRealtimeManager {
             token: token
         )
         try streamController.setVideoEncoderConfig(videoFormat)
+        let targetSize = await reconcileFrameInterpolation(for: localStream)
+        try token.ensureCurrent()
         try await mediaController.startMicrophoneCapture()
         try token.ensureCurrent()
         let remoteStream = try await connectionManager.connect(
             model: options.model,
             videoFormat: videoFormat,
+            targetSize: targetSize,
             includeLocalAudio: await mediaController.hasAudio,
             isCurrent: { token.isCurrent },
             onHeartbeatFailure: { [weak self] sessionID, error in
@@ -744,33 +771,41 @@ private extension XmaxRealtimeManager {
         }
     }
 
+    @discardableResult
     func reconcileFrameInterpolation(
         for stream: RealtimeMediaStream
-    ) async {
+    ) async -> CGSize? {
         guard await renderController.isFrameInterpolationEnabled,
               let videoFormat = stream.videoTrack?.videoFormat else {
-            return
+            return nil
         }
-        let size = CGSize(
-            width: videoFormat.width,
-            height: videoFormat.height
-        )
-        guard !mediaService.supportsFrameInterpolation(for: size) else {
-            return
-        }
-
-        try? await renderController.setFrameInterpolationEnabled(
-            false,
-            videoFormat: videoFormat
-        )
-        await errorHandler.report(
-            XmaxError(
-                code: .frameInterpolationUnsupported,
-                message: "Frame interpolation is unavailable for " +
-                    "\(videoFormat.width) × \(videoFormat.height) video",
-                severity: .recoverable
+        do {
+            let targetSize = try mediaService.resolveFrameInterpolationSize(videoFormat.size)
+            guard mediaService.supportsFrameInterpolation(for: targetSize) else {
+                throw XmaxError(
+                    code: .frameInterpolationUnsupported,
+                    message: "Frame interpolation is unavailable for " +
+                        "\(Int(targetSize.width)) × \(Int(targetSize.height)) video",
+                    severity: .recoverable
+                )
+            }
+            try await renderController.setFrameInterpolationEnabled(
+                true,
+                videoFormat: RealtimeVideoFormat(
+                    width: Int(targetSize.width),
+                    height: Int(targetSize.height),
+                    fps: videoFormat.fps
+                )
             )
-        )
+            return targetSize == videoFormat.size ? nil : targetSize
+        } catch {
+            try? await renderController.setFrameInterpolationEnabled(
+                false,
+                videoFormat: videoFormat
+            )
+            await errorHandler.report(XmaxError.from(error).withSeverity(.recoverable))
+            return nil
+        }
     }
 
     func handleHeartbeatFailure(

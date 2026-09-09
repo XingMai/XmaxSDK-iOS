@@ -205,18 +205,17 @@ XmaxRealtimeVideo(
 Keep the realtime manager for the lifetime of the generation screen. Handle errors
 from throwing calls, cancel the screen's owning task when leaving, and call
 `close()` on exit or if startup fails. These lifecycle methods serve different
-purposes; they are not three required sequential steps:
+purposes; they are not required sequential steps:
 
 | Method | Effect |
 | --- | --- |
-| `await realtime.stopGeneration()` | Stops generation, retaining the connection and local preview. |
-| `await realtime.disconnect()` | Closes the remote session, retaining the local preview. |
+| `await realtime.disconnect()` | Stops generation and closes the remote session, retaining the local preview. |
 | `await realtime.close()` | Releases the connection, local media, and RTC resources. |
 
 To stop generation and return to the local preview in UIKit:
 
 ```swift
-await realtime.stopGeneration()
+await realtime.disconnect()
 videoView.remoteTrack = nil
 ```
 
@@ -283,8 +282,36 @@ runtime:
 try await realtime.setFrameInterpolationEnabled(false)
 ```
 
-Check support for a specific video size with
-`client.createMediaService().supportsFrameInterpolation(for:)`.
+When interpolation is enabled and supported, XmaxSDK keeps the model generation
+size and requests a proportional return size with even dimensions and at most
+900000 pixels. For example, generation at 832 × 1472 returns 702 × 1242. Local
+capture, model input, and touch coordinates remain at the generation size.
+
+During generation, enabling interpolation requests the smaller return size with
+`change_target_size`; disabling it requests the original generation size. The
+connection and generation task remain active. Frames at the old size continue to
+display without interpolation until frames at the requested size arrive.
+
+Before generation starts, the toggle updates the size used by the next start
+request. Switching while another realtime operation is in progress throws an
+error. Signaling failures also throw without changing the current configuration;
+handle these errors at the call site to give the user feedback.
+
+To inspect the size calculation and device support:
+
+```swift
+let media = client.createMediaService()
+let returnSize = try media.resolveFrameInterpolationSize(
+    CGSize(width: 832, height: 1472)
+)
+let supported = media.supportsFrameInterpolation(for: returnSize)
+```
+
+The calculation itself is device-independent. Unsupported devices retain the
+original return size with interpolation disabled. Only frames matching the
+requested interpolation size enter the interpolation processor; other sizes
+continue to display without interpolation. Processor failures disable
+interpolation and are logged without interrupting generation.
 
 <br>
 

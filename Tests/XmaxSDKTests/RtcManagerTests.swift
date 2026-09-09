@@ -24,6 +24,75 @@ final class RtcManagerTests: XCTestCase {
         XCTAssertEqual(lifecycle.destroyCount, 1)
     }
 
+    func testCancellingOneInitializationKeepsOtherWaitersValid() async throws {
+        let lifecycle = RtcManagerEngineLifecycleRecorder()
+        let engineManager = RtcEngineManager(
+            appID: "test-app-id",
+            makeEngine: lifecycle.create,
+            destroyEngine: lifecycle.destroy
+        )
+        let occupiedLease = try await engineManager.acquire()
+        let manager = RtcManager(engineManager: engineManager)
+        let first = Task { try await manager.initialize() }
+        let second = Task { try await manager.initialize() }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        first.cancel()
+        await engineManager.release(occupiedLease)
+
+        do {
+            try await first.value
+            XCTFail("Expected cancelled initialization to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        try await second.value
+        XCTAssertEqual(lifecycle.creationCount, 2)
+        XCTAssertEqual(lifecycle.destroyCount, 1)
+
+        try await manager.initialize()
+        XCTAssertEqual(lifecycle.creationCount, 2)
+        await manager.destroy()
+        XCTAssertEqual(lifecycle.destroyCount, 2)
+    }
+
+    func testCancellationDuringEngineCreationReturnsLease() async throws {
+        let lifecycle = RtcManagerEngineLifecycleRecorder()
+        let creationStarted = expectation(description: "Engine creation started")
+        let creationGate = DispatchSemaphore(value: 0)
+        let engineManager = RtcEngineManager(
+            appID: "test-app-id",
+            makeEngine: { appID in
+                let engine = lifecycle.create(appID: appID)
+                if lifecycle.creationCount == 1 {
+                    creationStarted.fulfill()
+                    _ = creationGate.wait(timeout: .now() + 3)
+                }
+                return engine
+            },
+            destroyEngine: lifecycle.destroy
+        )
+        let manager = RtcManager(engineManager: engineManager)
+        let initialization = Task { try await manager.initialize() }
+        await fulfillment(of: [creationStarted], timeout: 2)
+        initialization.cancel()
+        creationGate.signal()
+
+        do {
+            try await initialization.value
+            XCTFail("Expected cancelled initialization to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        XCTAssertEqual(lifecycle.destroyCount, 1)
+
+        try await manager.initialize()
+        XCTAssertEqual(lifecycle.creationCount, 2)
+        await manager.destroy()
+        XCTAssertEqual(lifecycle.destroyCount, 2)
+    }
+
     func testMediaOperationRequiresInitializedEngine() {
         let manager = RtcManager(
             engineManager: RtcEngineManager(
@@ -121,9 +190,6 @@ final class RtcManagerTests: XCTestCase {
         }
     }
 
-    func testRenderLibraryNameMatchesIntegratedPod() {
-        XCTAssertEqual(RtcManager().renderLibraryName, "VolcEngineRTC")
-    }
 }
 
 private final class RtcManagerEngineLifecycleRecorder: @unchecked Sendable {

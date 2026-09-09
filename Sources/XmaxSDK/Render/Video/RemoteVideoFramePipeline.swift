@@ -28,6 +28,7 @@ actor RemoteVideoFramePipeline {
 
     // 运行状态
     private var interpolationEnabled: Bool
+    private var interpolationVideoSize: CGSize?
     private var previousPresentationTimeStamp: CMTime?
     private var generation = 0
     private var outputToken: UInt64
@@ -84,16 +85,16 @@ actor RemoteVideoFramePipeline {
         outputToken: UInt64
     ) throws {
         if enabled {
-            guard FrameInterpolationSupport.isSupported else {
-                throw Self.unsupportedError(videoSize: videoSize)
-            }
-            if let videoSize,
-               !frameInterpolationSupportChecker(videoSize) {
+            let supported = videoSize.map(frameInterpolationSupportChecker)
+                ?? FrameInterpolationSupport.isSupported
+            guard supported else {
                 throw Self.unsupportedError(videoSize: videoSize)
             }
         }
         interpolationEnabled = enabled
-        resetProcessing(outputToken: outputToken)
+        interpolationVideoSize = enabled ? videoSize : nil
+        // 模式切换不更换流标识，也不能覆盖异步等待期间已经切换的新流标识。
+        resetProcessing(outputToken: max(outputToken, self.outputToken))
     }
 
     func reset(outputToken: UInt64) {
@@ -143,7 +144,8 @@ private extension RemoteVideoFramePipeline {
             )
             let outputFrames = await process(
                 frame,
-                sourceDuration: sourceDuration
+                sourceDuration: sourceDuration,
+                generation: activeGeneration
             )
             guard !Task.isCancelled,
                   generation == activeGeneration else {
@@ -164,13 +166,20 @@ private extension RemoteVideoFramePipeline {
 
     func process(
         _ frame: RealtimeVideoFrame,
-        sourceDuration: CMTime
+        sourceDuration: CMTime,
+        generation activeGeneration: Int
     ) async -> [RealtimeVideoFrame] {
         guard interpolationEnabled else {
             return [passthrough(frame, duration: sourceDuration)]
         }
 
         let signature = FrameSignature(frame)
+        // 调整回传尺寸期间，旧尺寸帧继续显示，不进入插帧器，也不关闭用户开关。
+        if let interpolationVideoSize, signature.size != interpolationVideoSize {
+            interpolationManager?.reset()
+            interpolationManager = nil
+            return [passthrough(frame, duration: sourceDuration)]
+        }
         guard frameInterpolationSupportChecker(signature.size) else {
             disableAfterFailure(Self.unsupportedError(videoSize: signature.size))
             return [passthrough(frame, duration: sourceDuration)]
@@ -189,6 +198,10 @@ private extension RemoteVideoFramePipeline {
                 sourceDuration: sourceDuration
             )
         } catch {
+            guard !Task.isCancelled,
+                  generation == activeGeneration else {
+                return []
+            }
             let resolvedError: XmaxError
             if let xmaxError = error as? XmaxError {
                 resolvedError = xmaxError.withSeverity(.recoverable)

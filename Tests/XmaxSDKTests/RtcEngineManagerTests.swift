@@ -138,7 +138,7 @@ final class RtcEngineManagerTests: XCTestCase {
     }
 }
 
-private final class RtcEngineLifecycleRecorder: @unchecked Sendable {
+final class RtcEngineLifecycleRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private let shouldFailCreation: Bool
     private var appIDs: [String] = []

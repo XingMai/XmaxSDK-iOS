@@ -316,12 +316,17 @@ private extension MediaController {
         activeSource = ActiveLocalMediaSource(id: sourceID, kind: kind)
         let operation = makeMediaOperation(sourceID: sourceID) {
             try await self.rtcManager.initialize()
+            try Task.checkCancellation()
             return try await body()
         }
         mediaOperation = operation
 
         do {
-            let stream = try await operation.task.value
+            let stream = try await withTaskCancellationHandler {
+                try await operation.task.value
+            } onCancel: {
+                operation.task.cancel()
+            }
             try ensureCreationActive(sourceID: sourceID)
             clearMediaOperation(id: operation.id)
             return stream

@@ -35,7 +35,7 @@ protocol RenderControlling: AnyObject, Sendable {
     ///
     /// - Parameters:
     ///   - enabled: 是否开启插帧。
-    ///   - videoFormat: 当前本地视频格式；尚未创建本地流时为空。
+    ///   - videoFormat: 期望的回传视频格式；尚未创建本地流时为空。
     /// - Throws: 显式开启时，当前设备或视频规格不支持插帧则抛出错误。
     func setFrameInterpolationEnabled(
         _ enabled: Bool,

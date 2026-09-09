@@ -115,6 +115,7 @@ actor RoomController: RoomControlling {
     func startGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext
     ) throws {
         try send(
@@ -122,6 +123,7 @@ actor RoomController: RoomControlling {
                 userID: try requireUserID(),
                 taskID: taskID,
                 videoFormat: videoFormat,
+                targetSize: targetSize,
                 context: context
             ),
             severity: .fatal
@@ -131,14 +133,33 @@ actor RoomController: RoomControlling {
     func changeGenerationCondition(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext
     ) throws {
+        try Task.checkCancellation()
         try send(
             RoomEvent.changeCondition(
                 userID: try requireUserID(),
                 taskID: taskID,
                 videoFormat: videoFormat,
+                targetSize: targetSize,
                 context: context
+            ),
+            severity: .recoverable
+        )
+    }
+
+    func changeTargetSize(
+        taskID: String,
+        targetSize: CGSize,
+        ensureActive: @Sendable () throws -> Void
+    ) throws {
+        try ensureActive()
+        try send(
+            RoomEvent.changeTargetSize(
+                userID: try requireUserID(),
+                taskID: taskID,
+                targetSize: targetSize
             ),
             severity: .recoverable
         )

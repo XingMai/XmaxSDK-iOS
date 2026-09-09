@@ -220,6 +220,10 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     await realtimeManager.isFrameInterpolationEnabled
                 cameraActionBar.setFrameInterpolationEnabled(currentValue)
                 mediaTopBar.setFrameInterpolationEnabled(currentValue)
+                let resolvedError = XmaxError.from(error)
+                if resolvedError.code != .cancelled {
+                    XLToast.show(resolvedError.localizedDescription, in: view)
+                }
             }
         }
     }

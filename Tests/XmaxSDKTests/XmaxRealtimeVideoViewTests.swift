@@ -54,7 +54,6 @@ final class XmaxRealtimeVideoViewTests: XCTestCase {
         VideoRenderRegistry.register(
             remoteTrack,
             binding: VideoRenderBinding(
-                libraryName: "Test",
                 attachHandler: { _, _ in },
                 detachHandler: { _ in }
             )

@@ -148,6 +148,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     func beginGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext
     ) async throws -> Task<Void, any Error> {
         timing.beginSignal(taskID: taskID)
@@ -156,6 +157,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             try await roomController.startGeneration(
                 taskID: taskID,
                 videoFormat: videoFormat,
+                targetSize: targetSize,
                 context: context
             )
             timing.finishSignal(taskID: taskID)
@@ -186,11 +188,13 @@ final class StreamController: StreamControlling, RtcEventListener,
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext
     ) async throws {
         try await roomController.changeGenerationCondition(
             taskID: taskID,
             videoFormat: videoFormat,
+            targetSize: targetSize,
             context: context
         )
     }
@@ -303,6 +307,18 @@ final class StreamController: StreamControlling, RtcEventListener,
         } catch {
             throw XmaxError.from(error)
         }
+    }
+
+    func changeTargetSize(
+        taskID: String,
+        targetSize: CGSize,
+        ensureActive: @escaping @Sendable () throws -> Void
+    ) async throws {
+        try await roomController.changeTargetSize(
+            taskID: taskID,
+            targetSize: targetSize,
+            ensureActive: ensureActive
+        )
     }
 
     func beginGenerationConfirmation(

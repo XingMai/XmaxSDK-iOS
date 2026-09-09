@@ -197,7 +197,6 @@ private extension VideoController {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: "AVFoundation",
                 attachHandler: { view, contentMode in
                     try self.mediaSourceController.attachPreview(
                         to: view,

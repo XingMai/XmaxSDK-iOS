@@ -54,10 +54,10 @@ final class ImageControllerTests: XCTestCase {
         )
 
         let track = try XCTUnwrap(stream.videoTrack)
-        let libraryName = await MainActor.run {
-            VideoRenderRegistry.binding(for: track)?.libraryName
+        let hasRenderBinding = await MainActor.run {
+            VideoRenderRegistry.binding(for: track) != nil
         }
-        XCTAssertEqual(libraryName, "UIKit")
+        XCTAssertTrue(hasRenderBinding)
     }
 
     func testStopClearsSourceTrackAndPreviewBinding() async throws {

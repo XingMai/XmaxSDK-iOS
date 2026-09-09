@@ -7,7 +7,7 @@ final class MediaService: MediaServicing, Sendable {
     let model: RealtimeModel
 
     // 插帧约束
-    private static let maximumFrameInterpolationPixels = 1_000_000
+    private static let maximumFrameInterpolationPixels = 900000
 
     init(model: RealtimeModel = .x2_0) {
         self.model = model
@@ -50,6 +50,40 @@ final class MediaService: MediaServicing, Sendable {
         return boundedAlignedSize(
             width: Double(size.width) * scale,
             height: Double(size.height) * scale
+        )
+    }
+
+    func resolveFrameInterpolationSize(_ size: CGSize) throws -> CGSize {
+        guard let width = Self.integralDimension(size.width),
+              let height = Self.integralDimension(size.height) else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Video dimensions must be positive integers"
+            )
+        }
+
+        // 使用最简宽高比的整数倍，避免分别取整导致比例发生变化。
+        var divisor = width
+        var remainder = height
+        while remainder != 0 {
+            (divisor, remainder) = (remainder, divisor % remainder)
+        }
+        let ratioWidth = width / divisor
+        let ratioHeight = height / divisor
+        let maximumSquaredScale = Self.maximumFrameInterpolationPixels
+            / ratioWidth / ratioHeight
+        let scale = min(divisor, Int(sqrt(Double(maximumSquaredScale))))
+        let evenScale = scale - scale % 2
+        guard evenScale >= 2 else {
+            throw XmaxError(
+                code: .frameInterpolationUnsupported,
+                message: "No proportional frame interpolation size is available",
+                severity: .recoverable
+            )
+        }
+        return CGSize(
+            width: ratioWidth * evenScale,
+            height: ratioHeight * evenScale
         )
     }
 
@@ -104,7 +138,7 @@ private extension MediaService {
     static func integralDimension(_ value: CGFloat) -> Int? {
         guard value.isFinite,
               value > 0,
-              value <= CGFloat(Int.max) else {
+              value < CGFloat(Int.max) else {
             return nil
         }
         let roundedValue = value.rounded()

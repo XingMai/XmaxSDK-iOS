@@ -43,6 +43,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     // 测试配置
     private let encodingError: (any Error)?
     private let initializationError: (any Error)?
+    private let initializationHandler: (@Sendable () async throws -> Void)?
+    private let destroyHandler: (@Sendable () async -> Void)?
     private let startVideoCaptureError: (any Error)?
     private let stopVideoCaptureError: (any Error)?
     private let startAudioCaptureError: (any Error)?
@@ -76,6 +78,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
 
     init(
         initializationError: (any Error)? = nil,
+        initializationHandler: (@Sendable () async throws -> Void)? = nil,
+        destroyHandler: (@Sendable () async -> Void)? = nil,
         encodingError: (any Error)? = nil,
         startVideoCaptureError: (any Error)? = nil,
         stopVideoCaptureError: (any Error)? = nil,
@@ -98,6 +102,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         setRemoteVideoFrameListenerError: (any Error)? = nil
     ) {
         self.initializationError = initializationError
+        self.initializationHandler = initializationHandler
+        self.destroyHandler = destroyHandler
         self.encodingError = encodingError
         self.startVideoCaptureError = startVideoCaptureError
         self.stopVideoCaptureError = stopVideoCaptureError
@@ -141,12 +147,14 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
                 throw initializationError
             }
         }
+        try await initializationHandler?()
     }
 
     func destroy() async {
         lock.withLock {
             storedCalls.append(.destroy)
         }
+        await destroyHandler?()
     }
 
     func configureVideoEncoding(
@@ -345,10 +353,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
                 storedRemoteVideoFrameListener = nil
             }
         }
-    }
-
-    var renderLibraryName: String {
-        "test"
     }
 
     func sendRoomMessage(_ message: String) throws {

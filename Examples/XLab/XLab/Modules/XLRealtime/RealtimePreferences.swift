@@ -27,15 +27,7 @@ enum RealtimePreferences {
     }
 
     /// 摄像头采集使用的视频规格。
-    ///
-    /// X2.0 在 iOS 26 及以上使用较小尺寸以适配插帧，其余使用模型默认规格。
     static var cameraVideoFormat: RealtimeVideoFormat {
-        let model = selectedModel
-        if #available(iOS 26.0, *) {
-            return RealtimeVideoFormat(
-                width: 704, height: 1280, fps: model.defaultFrameRate
-            )
-        }
-        return model.defaultCameraVideoFormat
+        selectedModel.defaultCameraVideoFormat
     }
 }

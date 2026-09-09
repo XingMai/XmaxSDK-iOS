@@ -117,9 +117,6 @@ protocol RtcManaging: Sendable {
         for stream: RemoteStream
     ) throws
 
-    /// 获取本地视频使用的 RTC 渲染库名称。
-    var renderLibraryName: String { get }
-
     /// 向当前 RTC 房间发送消息。
     func sendRoomMessage(_ message: String) throws
 

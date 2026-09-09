@@ -4,6 +4,56 @@ import XCTest
 @testable import XmaxSDK
 
 final class RemoteVideoFramePipelineTests: XCTestCase {
+    func testEnablingInterpolationPassesThroughOldSizeUntilTargetArrives() async throws {
+        let recorder = RealtimeVideoFrameRecorder()
+        let target = CGSize(width: 702, height: 1242)
+        let pipeline = RemoteVideoFramePipeline(
+            interpolationEnabled: false,
+            outputToken: 0,
+            frameInterpolationSupportChecker: { $0 == target },
+            outputListener: { frame, token in
+                await recorder.record(frame, token: token)
+            },
+            errorListener: { _ in XCTFail("Old size is not an interpolation failure") }
+        )
+        try await pipeline.setFrameInterpolationEnabled(true, videoSize: target, outputToken: 0)
+        let oldBuffer = try makePixelBuffer(width: 832, height: 1472)
+        await pipeline.enqueue(RealtimeVideoFrame(pixelBuffer: oldBuffer, presentationTimeStamp: .zero))
+        let output = try await waitForOutput(recorder)
+        XCTAssertTrue(output.frame.pixelBuffer === oldBuffer)
+        let enabled = await pipeline.isFrameInterpolationEnabled
+        XCTAssertTrue(enabled)
+        try await pipeline.setFrameInterpolationEnabled(false, videoSize: nil, outputToken: 0)
+    }
+
+    func testOversizedReceivedFrameDisablesInterpolationAndStillDisplays() async throws {
+        let recorder = RealtimeVideoFrameRecorder()
+        let reportedError = expectation(description: "Unsupported received size")
+        let pipeline = RemoteVideoFramePipeline(
+            interpolationEnabled: true,
+            outputToken: 0,
+            frameInterpolationSupportChecker: { MediaService.supportsFrameInterpolationSize($0) },
+            outputListener: { frame, token in
+                await recorder.record(frame, token: token)
+            },
+            errorListener: { error in
+                XCTAssertEqual(error.code, .frameInterpolationUnsupported)
+                XCTAssertEqual(error.severity, .recoverable)
+                reportedError.fulfill()
+            }
+        )
+        let pixelBuffer = try makePixelBuffer(width: 832, height: 1472)
+        await pipeline.enqueue(RealtimeVideoFrame(
+            pixelBuffer: pixelBuffer,
+            presentationTimeStamp: .zero
+        ))
+        await fulfillment(of: [reportedError], timeout: 2)
+        let output = try await waitForOutput(recorder)
+        XCTAssertTrue(output.frame.pixelBuffer === pixelBuffer)
+        let enabled = await pipeline.isFrameInterpolationEnabled
+        XCTAssertFalse(enabled)
+    }
+
     func testDisabledPipelinePassesThroughRemoteFrame() async throws {
         let recorder = RealtimeVideoFrameRecorder()
         let token: UInt64 = 0
@@ -48,6 +98,11 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
 
         await pipeline.reset(outputToken: 2)
         await pipeline.reset(outputToken: 1)
+        try await pipeline.setFrameInterpolationEnabled(
+            false,
+            videoSize: nil,
+            outputToken: 1
+        )
         await pipeline.enqueue(frame, outputToken: 1)
         let staleOutput = await recorder.firstOutput
         XCTAssertNil(staleOutput)

@@ -2,6 +2,24 @@ import XCTest
 @testable import XmaxSDK
 
 final class RoomControllerTests: XCTestCase {
+    func testCancelledTargetSizeChangeDoesNotSendSignal() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = RoomController(rtcManager: rtcManager)
+        try await controller.join(connection: connection, ensureActive: {})
+        do {
+            try await controller.changeTargetSize(
+                taskID: "task-id",
+                targetSize: CGSize(width: 702, height: 1242),
+                ensureActive: { throw XmaxError(code: .cancelled, message: "cancelled") }
+            )
+            XCTFail("Expected cancelled size change")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        XCTAssertTrue(rtcManager.controllerMessages.isEmpty)
+        await controller.leave()
+    }
+
     func testJoinForwardsConnectionAndLeaveReleasesRoom() async throws {
         let rtcManager = RtcManagingStub()
         let controller = RoomController(rtcManager: rtcManager)

@@ -208,7 +208,6 @@ private extension CameraController {
                 VideoRenderRegistry.register(
                     track,
                     binding: VideoRenderBinding(
-                        libraryName: rtcManager.renderLibraryName,
                         attachHandler: { view, contentMode in
                             do {
                                 try self.rtcManager.bindLocalVideo(

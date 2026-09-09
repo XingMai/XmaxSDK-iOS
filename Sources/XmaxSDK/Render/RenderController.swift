@@ -109,7 +109,6 @@ final class RenderController: RenderControlling {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                libraryName: rtcManager.renderLibraryName,
                 attachHandler: { [weak self] view, contentMode in
                     try self?.attachRemoteVideo(
                         to: view,
@@ -144,20 +143,13 @@ final class RenderController: RenderControlling {
         _ enabled: Bool,
         videoFormat: RealtimeVideoFormat?
     ) async throws {
-        let outputToken = renderingToken &+ 1
         try await remoteFramePipeline.setFrameInterpolationEnabled(
             enabled,
             videoSize: videoFormat.map {
                 CGSize(width: $0.width, height: $0.height)
             },
-            outputToken: outputToken
+            outputToken: renderingToken
         )
-        finishAllRemoteFrameReadyWaiters(
-            error: Self.remoteFrameWaitCancelledError()
-        )
-        remoteVideoFrameDispatcher.invalidatePendingFrames()
-        latestRemoteFrame = nil
-        renderingToken = outputToken
     }
 
     func waitUntilRemoteFrameReady() async throws {

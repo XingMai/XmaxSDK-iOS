@@ -3,8 +3,297 @@ import UIKit
 import XCTest
 @testable import XmaxSDK
 
+private extension XmaxRealtimeConnectionManager {
+    func holdQueries(
+        gate: DispatchSemaphore,
+        entered: @Sendable () -> Void
+    ) -> Bool {
+        entered()
+        return gate.wait(timeout: .now() + 5) == .success
+    }
+}
+
+private extension XmaxRealtimeManager {
+    func startGenerationDuringPreparationTest(
+        localStream: RealtimeMediaStream?,
+        entered: @Sendable () -> Void
+    ) async throws {
+        entered()
+        let context = RealtimeContext(prompt: "video")
+        if let localStream {
+            _ = try await startGeneration(localStream: localStream, context: context)
+        } else {
+            try await startGeneration(context: context)
+        }
+    }
+}
+
 @MainActor
 final class XmaxRealtimeManagerTests: XCTestCase {
+    func testCancelledConditionUpdatesPreserveActiveGenerationForBothEntryPoints() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalImageStream(
+            fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+        )
+        _ = try await components.manager.connect(localStream: local)
+        let starting = Task {
+            try await components.manager.startGeneration(context: RealtimeContext(prompt: "first"))
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        let start = try XCTUnwrap(decodedEvents(components.rtcManager).first {
+            $0["event"] as? String == "start"
+        })
+        let taskID = try XCTUnwrap(start["uid"] as? String)
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(roomID: "room-id", userID: "bot-user"), message: taskID
+        )
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await starting.value
+        let previousState = await components.manager.currentState
+
+        for includesLocalStream in [false, true] {
+            components.rtcManager.setSendRoomMessageError(
+                XmaxError(code: .cancelled, message: "Condition update cancelled")
+            )
+            do {
+                let context = RealtimeContext(prompt: "cancelled update")
+                if includesLocalStream {
+                    _ = try await components.manager.startGeneration(localStream: local, context: context)
+                } else {
+                    try await components.manager.startGeneration(context: context)
+                }
+                XCTFail("Expected condition update cancellation")
+            } catch {
+                XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+            }
+            let current = await components.manager.currentState
+            XCTAssertEqual(current, previousState)
+            XCTAssertFalse(decodedEvents(components.rtcManager).contains {
+                $0["event"] as? String == "stop"
+            })
+            components.rtcManager.setSendRoomMessageError(nil)
+        }
+        try await components.manager.startGeneration(context: RealtimeContext(prompt: "retry"))
+        XCTAssertEqual(decodedEvents(components.rtcManager).filter {
+            $0["event"] as? String == "start"
+        }.count, 1)
+        await components.manager.close()
+    }
+
+    func testTargetSizeSignalingFailurePreservesInterpolationAndGeneration() async throws {
+        let components = makeComponents(frameInterpolationSupported: true)
+        let local = try await components.manager.createLocalImageStream(
+            fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+        )
+        let remote = try await components.manager.connect(localStream: local)
+        let starting = Task {
+            try await components.manager.startGeneration(context: RealtimeContext(prompt: "first"))
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        let start = try XCTUnwrap(decodedEvents(components.rtcManager).first {
+            $0["event"] as? String == "start"
+        })
+        let taskID = try XCTUnwrap(start["uid"] as? String)
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(roomID: "room-id", userID: "bot-user"), message: taskID
+        )
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await starting.value
+        let state = await components.manager.currentState
+
+        for enabled in [true, false] {
+            let previousTarget = await components.connectionManager.currentTargetSize
+            let previousFormat = remote.videoTrack?.videoFormat
+            components.rtcManager.setSendRoomMessageError(XmaxError(code: .rtcError, message: "send failed"))
+            do {
+                try await components.manager.setFrameInterpolationEnabled(enabled)
+                XCTFail("Expected signaling failure")
+            } catch {
+                XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
+                XCTAssertEqual((error as? XmaxError)?.severity, .recoverable)
+            }
+            let current = await components.manager.currentState
+            let interpolationEnabled = await components.manager.isFrameInterpolationEnabled
+            let target = await components.connectionManager.currentTargetSize
+            XCTAssertEqual(current, state)
+            XCTAssertEqual(interpolationEnabled, !enabled)
+            XCTAssertEqual(target, previousTarget)
+            XCTAssertEqual(remote.videoTrack?.videoFormat, previousFormat)
+            components.rtcManager.setSendRoomMessageError(nil)
+            try await components.manager.setFrameInterpolationEnabled(enabled)
+        }
+        await components.manager.close()
+    }
+
+    func testInterpolationBeforeGenerationUpdatesNextStartWithoutResizeEvent() async throws {
+        let components = makeComponents(frameInterpolationSupported: true)
+        let local = try await components.manager.createLocalImageStream(
+            fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+        )
+        try await components.manager.setFrameInterpolationEnabled(true)
+        let remote = try await components.manager.connect(localStream: local)
+        XCTAssertEqual(remote.videoTrack?.videoFormat?.size, CGSize(width: 702, height: 1242))
+        try await components.manager.setFrameInterpolationEnabled(false)
+        XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)
+        let target = await components.connectionManager.currentTargetSize
+        XCTAssertEqual(target, imageFormat.size)
+        XCTAssertFalse(decodedEvents(components.rtcManager).contains {
+            $0["event"] as? String == "change_target_size"
+        })
+        await components.manager.close()
+    }
+
+    func testRuntimeInterpolationChangesTargetSizeWithoutRestartingGeneration() async throws {
+        let components = makeComponents(
+            frameInterpolationSupported: true
+        )
+        let local = try await components.manager.createLocalImageStream(
+            fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+        )
+        let remote = try await components.manager.connect(localStream: local)
+        let targetFormat = RealtimeVideoFormat(width: 702, height: 1242, fps: 24)
+        XCTAssertEqual(local.videoTrack?.videoFormat, imageFormat)
+        XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)
+
+        let startTask = Task {
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "first")
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        let start = try XCTUnwrap(decodedEvents(components.rtcManager).first {
+            $0["event"] as? String == "start"
+        })
+        let taskID = try XCTUnwrap(start["uid"] as? String)
+        components.rtcManager.emitSeiMessage(
+            stream: RemoteStream(roomID: "room-id", userID: "bot-user"),
+            message: taskID
+        )
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await startTask.value
+        let beforeToggle = await components.manager.currentState
+        let encodingBeforeToggle = components.rtcManager.encodingConfigurations
+        XCTAssertEqual(
+            encodingBeforeToggle.last,
+            VideoEncodingConfiguration(
+                width: 832,
+                height: 1472,
+                frameRate: 24,
+                minimumBitrate: 1488,
+                maximumBitrate: 2977
+            )
+        )
+        try await components.manager.setFrameInterpolationEnabled(true)
+        try await components.manager.startGeneration(context: RealtimeContext(prompt: "second"))
+        let change = try XCTUnwrap(decodedEvents(components.rtcManager).last {
+            $0["event"] as? String == "change_condition"
+        })
+        let startParams = try XCTUnwrap(start["params"] as? [String: Any])
+        XCTAssertEqual(startParams["size"] as? [Int], [832, 1472])
+        XCTAssertNil(startParams["target_size"])
+        let changeParams = try XCTUnwrap(change["params"] as? [String: Any])
+        XCTAssertEqual(changeParams["size"] as? [Int], [832, 1472])
+        XCTAssertEqual(changeParams["target_size"] as? [Int], [702, 1242])
+        XCTAssertEqual(remote.videoTrack?.videoFormat, targetFormat)
+        await components.mediaController.submitInteraction(InteractionFrame(
+            points: [CGPoint(x: 50, y: 50)],
+            viewportSize: CGSize(width: 100, height: 100),
+            contentMode: .fit
+        ))
+        await waitForEvent("tracks", rtcManager: components.rtcManager)
+        let tracks = try XCTUnwrap(decodedEvents(components.rtcManager).last {
+            $0["event"] as? String == "tracks"
+        })
+        XCTAssertEqual(tracks["tracks"] as? [[Double]], [[416, 736]])
+
+        try await components.manager.setFrameInterpolationEnabled(false)
+        XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)
+        try await components.manager.setFrameInterpolationEnabled(true)
+        XCTAssertEqual(remote.videoTrack?.videoFormat, targetFormat)
+        try await components.manager.setFrameInterpolationEnabled(false)
+        let events = decodedEvents(components.rtcManager)
+        let resizeEvents = events.filter { $0["event"] as? String == "change_target_size" }
+        XCTAssertEqual(resizeEvents.count, 4)
+        for (event, size) in zip(resizeEvents, [[702, 1242], [832, 1472], [702, 1242], [832, 1472]]) {
+            XCTAssertEqual(event["uid"] as? String, taskID)
+            let params = try XCTUnwrap(event["params"] as? [String: Any])
+            XCTAssertEqual(params["target_size"] as? [Int], size)
+        }
+        let afterToggle = await components.manager.currentState
+        XCTAssertEqual(afterToggle, beforeToggle)
+        XCTAssertEqual(components.rtcManager.encodingConfigurations, encodingBeforeToggle)
+        XCTAssertEqual(events.filter { $0["event"] as? String == "start" }.count, 1)
+        XCTAssertFalse(events.contains { $0["event"] as? String == "stop" })
+
+        await components.manager.disconnect()
+        let clearedTarget = await components.connectionManager.currentTargetSize
+        XCTAssertNil(clearedTarget)
+        let nextRemote = try await components.manager.connect(localStream: local)
+        XCTAssertEqual(nextRemote.videoTrack?.videoFormat, imageFormat)
+        let nextTarget = await components.connectionManager.currentTargetSize
+        XCTAssertNil(nextTarget)
+        await components.manager.close()
+    }
+
+    func testUnsupportedDeviceKeepsOriginalReturnSize() async throws {
+        let components = makeComponents(frameInterpolationEnabled: true)
+        let local = try await components.manager.createLocalImageStream(
+            fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+        )
+        let remote = try await components.manager.connect(localStream: local)
+        XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)
+        let target = await components.connectionManager.currentTargetSize
+        XCTAssertNil(target)
+        await components.manager.close()
+    }
+
+    func testInterpolationDoesNotResizeStreamAlreadyWithinBudget() async throws {
+        let components = makeComponents(
+            frameInterpolationEnabled: true,
+            frameInterpolationSupported: true
+        )
+        let local = try await components.manager.createLocalCameraStream(videoFormat: videoFormat)
+        let remote = try await components.manager.connect(localStream: local)
+        XCTAssertEqual(remote.videoTrack?.videoFormat, videoFormat)
+        let target = await components.connectionManager.currentTargetSize
+        XCTAssertNil(target)
+        await components.manager.close()
+    }
+
+    func testDisconnectAllowsImmediateReconnectWhileGenerationIsCancelling() async throws {
+        for _ in 0..<100 {
+            let components = makeComponents()
+            let localStream = try await components.manager.createLocalCameraStream(
+                videoFormat: videoFormat,
+                position: .front
+            )
+            let starting = Task.detached(priority: .background) {
+                try await components.manager.startGeneration(
+                    localStream: localStream,
+                    context: RealtimeContext(prompt: "video")
+                )
+            }
+            await waitForEvent("start", rtcManager: components.rtcManager)
+            await components.manager.disconnect()
+
+            // 不等待旧 startGeneration 的调用方收尾，立即重新连接。
+            do {
+                _ = try await components.manager.connect(localStream: localStream)
+            } catch {
+                XCTFail("Immediate reconnect failed: \(error)")
+            }
+            do {
+                _ = try await starting.value
+                XCTFail("Expected previous generation to be cancelled")
+            } catch {
+                XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+            }
+            let state = await components.manager.currentState
+            XCTAssertEqual(state.connectionState, .connected)
+            await components.manager.close()
+        }
+    }
+
     func testCameraUsesModelDefaultFrameRate() async throws {
         let components = makeComponents(model: .x2_0)
         let manager: any XmaxRealtimeManaging = components.manager
@@ -217,7 +506,9 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                     VideoEncodingConfiguration(
                         width: videoFormat.width,
                         height: videoFormat.height,
-                        frameRate: videoFormat.fps
+                        frameRate: videoFormat.fps,
+                        minimumBitrate: 956,
+                        maximumBitrate: 1911
                     )
                 )
             )
@@ -266,6 +557,14 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
     }
 
+    func testDisconnectCancelsOneClickGenerationDuringPreparation() async throws {
+        try await assertDisconnectCancelsGenerationDuringPreparation(connectFirst: false)
+    }
+
+    func testDisconnectCancelsConnectedGenerationDuringPreparation() async throws {
+        try await assertDisconnectCancelsGenerationDuringPreparation(connectFirst: true)
+    }
+
     func testRepeatedCloseReusesSingleReleaseOperation() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
@@ -288,6 +587,62 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             components.rtcManager.calls.filter { $0 == .destroy }.count,
             1
         )
+    }
+
+    func testCloseCancelsMediaWaitingForAnotherManagersEngineLease() async throws {
+        let lifecycle = RtcEngineLifecycleRecorder()
+        let engineManager = RtcEngineManager(
+            appID: "test-app-id",
+            makeEngine: lifecycle.create,
+            destroyEngine: lifecycle.destroy
+        )
+        let firstLease = try await engineManager.acquire()
+        let waitingRTC = RtcManager(engineManager: engineManager)
+        let initializationStarted = expectation(description: "Media initialization started")
+        let rtcStub = RtcManagingStub(
+            initializationHandler: {
+                initializationStarted.fulfill()
+                try await waitingRTC.initialize()
+            },
+            destroyHandler: { await waitingRTC.destroy() }
+        )
+        let components = makeComponents(rtcManager: rtcStub)
+        let creation = Task {
+            try await components.manager.createLocalCameraStream(
+                videoFormat: videoFormat,
+                position: .front
+            )
+        }
+        await fulfillment(of: [initializationStarted], timeout: 2)
+
+        let closed = expectation(description: "Close finishes while the first lease is held")
+        let closing = Task {
+            await components.manager.close()
+            closed.fulfill()
+        }
+        await fulfillment(of: [closed], timeout: 1)
+        XCTAssertEqual(lifecycle.createdAppIDs.count, 1)
+        XCTAssertEqual(lifecycle.destroyCount, 0)
+
+        // 失败时也释放占用者，让旧实现中的排队任务退出，避免挂住测试进程。
+        await engineManager.release(firstLease)
+        await closing.value
+        do {
+            _ = try await creation.value
+            XCTFail("Expected local media creation to be cancelled")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        let state = await components.manager.currentState
+        let track = await components.mediaController.currentTrack
+        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertNil(track)
+        XCTAssertFalse(rtcStub.calls.contains(.switchCamera(.front)))
+
+        let nextLease = try await engineManager.acquire()
+        await engineManager.release(nextLease)
+        XCTAssertEqual(lifecycle.createdAppIDs.count, 2)
+        XCTAssertEqual(lifecycle.destroyCount, 2)
     }
 
     func testConnectedIdleCameraSwitchKeepsConnection() async throws {
@@ -361,7 +716,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
-        await components.manager.stopGeneration()
         await components.manager.disconnect()
         try await components.manager.stopLocalCameraStream()
     }
@@ -458,7 +812,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         XCTAssertFalse(components.rtcManager.calls.contains(.stopAudioCapture))
 
-        await components.manager.stopGeneration()
         await components.manager.disconnect()
         try await components.manager.stopLocalCameraStream()
     }
@@ -508,12 +861,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(changeEvent["uid"] as? String, taskID)
         XCTAssertNil(changeEvent["condition_version"])
 
-        await components.manager.stopGeneration()
+        await components.manager.disconnect()
         let stoppedState = await components.manager.currentState
-        XCTAssertEqual(stoppedState.connectionState, .connected)
+        XCTAssertEqual(stoppedState.connectionState, .disconnected)
         XCTAssertNil(stoppedState.taskID)
 
-        await components.manager.disconnect()
         try await components.manager.stopLocalCameraStream()
     }
 
@@ -561,7 +913,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             )
         ))
 
-        await components.manager.stopGeneration()
+        await components.manager.disconnect()
         XCTAssertTrue(components.videoSource.calls.contains(
             .setLocalAudioPreviewMuted(false)
         ))
@@ -571,7 +923,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 subscribe: false
             )
         ))
-        await components.manager.disconnect()
         try await components.manager.stopLocalVideoStream()
     }
 
@@ -616,7 +967,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             components.sessionService.calls.contains(.createSession(.x2_0))
         )
 
-        await components.manager.stopGeneration()
         await components.manager.disconnect()
         try await components.manager.stopLocalVideoStream()
     }
@@ -836,7 +1186,9 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 VideoEncodingConfiguration(
                     width: imageFormat.width,
                     height: imageFormat.height,
-                    frameRate: imageFormat.fps
+                    frameRate: imageFormat.fps,
+                    minimumBitrate: 1488,
+                    maximumBitrate: 2977
                 )
             ]
         )
@@ -927,7 +1279,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testStopGenerationFailureDoesNotReportFatalError() async throws {
+    func testDisconnectGenerationFailureDoesNotReportFatalError() async throws {
         let components = makeComponents()
         var receivedErrors: [XmaxError] = []
         await components.manager.setErrorListener { error in
@@ -965,10 +1317,9 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         components.rtcManager.setSendRoomMessageError(signalingError)
 
-        await components.manager.stopGeneration()
+        await components.manager.disconnect()
 
         XCTAssertTrue(receivedErrors.isEmpty)
-        await components.manager.disconnect()
         try await components.manager.stopLocalCameraStream()
     }
 
@@ -1094,6 +1445,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 private extension XmaxRealtimeManagerTests {
     struct Components {
         let manager: XmaxRealtimeManager
+        let connectionManager: XmaxRealtimeConnectionManager
         let mediaController: MediaController
         let rtcManager: RtcManagingStub
         let sessionService: RealtimeSessionServicingStub
@@ -1126,6 +1478,7 @@ private extension XmaxRealtimeManagerTests {
         let renderController = RenderController(
             rtcManager: rtcManager,
             frameInterpolationEnabled: frameInterpolationEnabled,
+            frameInterpolationSupportChecker: { mediaService.supportsFrameInterpolation(for: $0) },
             errorListener: { errorHandler.forward($0) }
         )
         let streamController = StreamController(
@@ -1166,6 +1519,9 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             cameraController: cameraController,
             imageController: imageController,
+            interactionListener: { taskID, points in
+                try await streamController.sendTracks(taskID: taskID, points: points)
+            },
             videoController: videoController
         )
         let sessionService = RealtimeSessionServicingStub(
@@ -1208,12 +1564,82 @@ private extension XmaxRealtimeManagerTests {
                     streamController: streamController
                 )
             ),
+            connectionManager: connectionManager,
             mediaController: mediaController,
             rtcManager: rtcManager,
             sessionService: sessionService,
             imageSource: imageSource,
             videoSource: videoSource
         )
+    }
+
+    func assertDisconnectCancelsGenerationDuringPreparation(
+        connectFirst: Bool
+    ) async throws {
+        let components = makeComponents()
+        let localStream = try await components.manager.createLocalCameraStream(
+            videoFormat: videoFormat,
+            position: .front
+        )
+        if connectFirst {
+            _ = try await components.manager.connect(localStream: localStream)
+        }
+
+        // 卡住连接状态查询，确保断开发生在生成准备阶段，而非进房之后。
+        let gate = DispatchSemaphore(value: 0)
+        defer { gate.signal() }
+        let queryBlocked = expectation(description: "Connection queries blocked")
+        let holding = Task.detached {
+            await components.connectionManager.holdQueries(
+                gate: gate,
+                entered: { queryBlocked.fulfill() }
+            )
+        }
+        await fulfillment(of: [queryBlocked], timeout: 2)
+
+        let startEntered = expectation(description: "Generation call entered")
+        let starting = Task {
+            try await components.manager.startGenerationDuringPreparationTest(
+                localStream: connectFirst ? nil : localStream,
+                entered: { startEntered.fulfill() }
+            )
+        }
+        await fulfillment(of: [startEntered], timeout: 2)
+
+        let disconnecting = expectation(description: "Pending generation cancelled")
+        await components.manager.setStateListener { state in
+            if state.connectionState == .disconnecting {
+                disconnecting.fulfill()
+            }
+        }
+        let closing = Task { await components.manager.disconnect() }
+        await fulfillment(of: [disconnecting], timeout: 2)
+        gate.signal()
+        let gateReleased = await holding.value
+        XCTAssertTrue(gateReleased)
+        await closing.value
+
+        do {
+            try await starting.value
+            XCTFail("Expected generation preparation to be cancelled")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        let state = await components.manager.currentState
+        let ownsLocalStream = await components.mediaController.owns(localStream)
+        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertTrue(ownsLocalStream)
+        XCTAssertFalse(decodedEvents(components.rtcManager).contains {
+            $0["event"] as? String == "start"
+        })
+        if !connectFirst {
+            XCTAssertFalse(components.sessionService.calls.contains {
+                if case .createSession = $0 { return true }
+                return false
+            })
+        }
+        await components.manager.setStateListener(nil)
+        await components.manager.close()
     }
 
     func makeBGRAFrame(timestampUs: Int64) throws -> VideoFrame {

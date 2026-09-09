@@ -4,9 +4,6 @@ import UIKit
 @MainActor
 final class VideoRenderBinding {
 
-    // 渲染信息
-    let libraryName: String
-
     // 渲染操作
     private let attachHandler: (UIView, VideoContentMode) throws -> Void
     private let detachHandler: (UIView) throws -> Void
@@ -15,11 +12,9 @@ final class VideoRenderBinding {
     private weak var attachedView: UIView?
 
     init(
-        libraryName: String,
         attachHandler: @escaping (UIView, VideoContentMode) throws -> Void,
         detachHandler: @escaping (UIView) throws -> Void
     ) {
-        self.libraryName = libraryName
         self.attachHandler = attachHandler
         self.detachHandler = detachHandler
     }
@@ -57,7 +52,6 @@ final class VideoRenderBinding {
 extension VideoRenderBinding {
     convenience init(imageFrame: VideoFrame) {
         self.init(
-            libraryName: "UIKit",
             attachHandler: { view, contentMode in
                 guard let videoView = view as? XmaxVideoView else {
                     throw XmaxError(

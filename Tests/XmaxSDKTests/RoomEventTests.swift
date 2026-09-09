@@ -2,6 +2,39 @@ import XCTest
 @testable import XmaxSDK
 
 final class RoomEventTests: XCTestCase {
+    func testChangeTargetSizeOnlyUpdatesReturnDimensions() throws {
+        let event = try decode(RoomEvent.changeTargetSize(
+            userID: "user-id",
+            taskID: "task-id",
+            targetSize: CGSize(width: 702, height: 1242)
+        ))
+        XCTAssertEqual(event["event"] as? String, "change_target_size")
+        XCTAssertEqual(event["user_id"] as? String, "user-id")
+        XCTAssertEqual(event["uid"] as? String, "task-id")
+        let params = try XCTUnwrap(event["params"] as? [String: Any])
+        XCTAssertEqual(Set(params.keys), ["target_size"])
+        XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
+        try assertRuntime(in: event)
+    }
+
+    func testStartAndChangeConditionSeparateGenerationAndReturnSizes() throws {
+        let format = RealtimeVideoFormat(width: 832, height: 1472, fps: 24)
+        let target = CGSize(width: 702, height: 1242)
+        let context = RealtimeContext(prompt: "test")
+        let messages = try [
+            RoomEvent.start(userID: "user", taskID: "task", videoFormat: format,
+                            targetSize: target, context: context),
+            RoomEvent.changeCondition(userID: "user", taskID: "task", videoFormat: format,
+                                      targetSize: target, context: context)
+        ]
+        for message in messages {
+            let event = try decode(message)
+            let params = try XCTUnwrap(event["params"] as? [String: Any])
+            XCTAssertEqual(params["size"] as? [Int], [832, 1472])
+            XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
+        }
+    }
+
     func testStartEventMatchesRoomProtocol() throws {
         let event = try decode(
             RoomEvent.start(
@@ -26,6 +59,7 @@ final class RoomEventTests: XCTestCase {
         let params = try XCTUnwrap(event["params"] as? [String: Any])
         XCTAssertEqual(params["model"] as? String, "default")
         XCTAssertEqual(params["size"] as? [Int], [720, 1280])
+        XCTAssertNil(params["target_size"])
         XCTAssertEqual(params["prompt"] as? String, "a prompt")
         XCTAssertEqual(
             params["ref_image_path"] as? String,
@@ -67,6 +101,8 @@ final class RoomEventTests: XCTestCase {
 
         XCTAssertEqual(event["event"] as? String, "change_condition")
         XCTAssertNil(event["condition_version"])
+        let params = try XCTUnwrap(event["params"] as? [String: Any])
+        XCTAssertNil(params["target_size"])
         try assertRuntime(in: event)
     }
 

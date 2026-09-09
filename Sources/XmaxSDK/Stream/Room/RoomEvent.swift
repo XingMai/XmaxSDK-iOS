@@ -6,12 +6,14 @@ enum RoomEvent {
         userID: String,
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext
     ) throws -> String {
         try encode(
             StartPayload(
                 params: GenerationParameters(
                     videoFormat: videoFormat,
+                    targetSize: targetSize,
                     context: context
                 ),
                 userID: userID,
@@ -24,14 +26,30 @@ enum RoomEvent {
         userID: String,
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize? = nil,
         context: RealtimeContext
     ) throws -> String {
         try encode(
             ChangeConditionPayload(
                 params: GenerationParameters(
                     videoFormat: videoFormat,
+                    targetSize: targetSize,
                     context: context
                 ),
+                userID: userID,
+                taskID: taskID
+            )
+        )
+    }
+
+    static func changeTargetSize(
+        userID: String,
+        taskID: String,
+        targetSize: CGSize
+    ) throws -> String {
+        try encode(
+            ChangeTargetSizePayload(
+                params: TargetSizeParameters(targetSize: [Int(targetSize.width), Int(targetSize.height)]),
                 userID: userID,
                 taskID: taskID
             )
@@ -101,14 +119,17 @@ private extension RoomEvent {
     struct GenerationParameters: Encodable {
         let model = "default"
         let size: [Int]
+        let targetSize: [Int]?
         let prompt: String
         let referencePath: String?
 
         init(
             videoFormat: RealtimeVideoFormat,
+            targetSize: CGSize?,
             context: RealtimeContext
         ) {
             size = [videoFormat.width, videoFormat.height]
+            self.targetSize = targetSize.map { [Int($0.width), Int($0.height)] }
             prompt = context.prompt
             referencePath = context.referencePath
         }
@@ -116,6 +137,7 @@ private extension RoomEvent {
         enum CodingKeys: String, CodingKey {
             case model
             case size
+            case targetSize = "target_size"
             case prompt
             case referencePath = "ref_image_path"
         }
@@ -138,6 +160,28 @@ private extension RoomEvent {
     struct ChangeConditionPayload: Encodable {
         let event = "change_condition"
         let params: GenerationParameters
+        let userID: String
+        let taskID: String
+
+        enum CodingKeys: String, CodingKey {
+            case event
+            case params
+            case userID = "user_id"
+            case taskID = "uid"
+        }
+    }
+
+    struct TargetSizeParameters: Encodable {
+        let targetSize: [Int]
+
+        enum CodingKeys: String, CodingKey {
+            case targetSize = "target_size"
+        }
+    }
+
+    struct ChangeTargetSizePayload: Encodable {
+        let event = "change_target_size"
+        let params: TargetSizeParameters
         let userID: String
         let taskID: String
 

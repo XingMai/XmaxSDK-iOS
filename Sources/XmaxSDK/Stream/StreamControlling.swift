@@ -74,6 +74,7 @@ protocol StreamControlling: Sendable {
     /// - Parameters:
     ///   - taskID: 当前生成任务的唯一标识，同时用于 SEI 匹配。
     ///   - videoFormat: 当前本地媒体使用的视频格式。
+    ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 当前生成任务使用的条件上下文。
     /// - Returns: 等待匹配远端结果流确认的任务。
     /// - Throws: 任务标识无效、RTC 房间未就绪、已有生成任务，或开始信令
@@ -81,6 +82,7 @@ protocol StreamControlling: Sendable {
     func beginGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize?,
         context: RealtimeContext
     ) async throws -> Task<Void, any Error>
 
@@ -94,13 +96,28 @@ protocol StreamControlling: Sendable {
     /// - Parameters:
     ///   - taskID: 当前生成任务的唯一标识。
     ///   - videoFormat: 当前本地媒体使用的视频格式。
+    ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 更新后的生成条件上下文。
     /// - Throws: RTC 房间未就绪、参数无效或条件变更信令发送失败时
     ///   抛出错误。
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
+        targetSize: CGSize?,
         context: RealtimeContext
+    ) async throws
+
+    /// 调整当前生成任务的回传尺寸，不重启生成或等待 SEI。
+    ///
+    /// - Parameters:
+    ///   - taskID: 当前生成任务标识。
+    ///   - targetSize: 生成后回传的整数像素尺寸。
+    ///   - ensureActive: 发送前确认当前配置操作仍有效。
+    /// - Throws: 操作已取消、房间未就绪或信令发送失败时抛出错误。
+    func changeTargetSize(
+        taskID: String,
+        targetSize: CGSize,
+        ensureActive: @escaping @Sendable () throws -> Void
     ) async throws
 
     /// 停止生成任务并清理远端结果流。
