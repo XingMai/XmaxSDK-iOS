@@ -257,7 +257,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         await components.roomController.leave()
     }
 
-    func testTaskIDUsesCompactBase64URLTokenAndOSSuffix() {
+    func testTaskIDUsesCompactBase64URLFormat() {
         let first = XmaxRealtimeGenerationManager.createTaskID()
         let second = XmaxRealtimeGenerationManager.createTaskID()
         let allowed = CharacterSet(
@@ -265,12 +265,11 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 "abcdefghijklmnopqrstuvwxyz0123456789-_"
         )
 
-        XCTAssertTrue(first.hasPrefix("task-"))
-        XCTAssertTrue(first.hasSuffix("?os=ios"))
-        XCTAssertEqual(first.count, 34)
+        XCTAssertTrue(first.hasPrefix("task-ios-"))
+        XCTAssertEqual(first.count, 31)
         XCTAssertNotEqual(first, second)
         XCTAssertTrue(
-            first.dropFirst(5).dropLast(7).unicodeScalars.allSatisfy {
+            first.dropFirst(9).unicodeScalars.allSatisfy {
                 allowed.contains($0)
             }
         )
