@@ -399,7 +399,9 @@ private extension RealtimeCoordinator {
             await setState(
                 RealtimeState(
                     connectionState: .disconnecting,
-                    sessionID: state.sessionID
+                    sessionID: state.sessionID,
+                    disconnectionReason: pending.finalState == .disconnected ||
+                        pending.error == nil ? .normal : nil
                 )
             )
         }
@@ -494,7 +496,8 @@ private extension RealtimeCoordinator {
         return RealtimeState(
             connectionState: connectionState,
             sessionID: sessionID ?? current.sessionID,
-            taskID: connectionState == .generating ? current.taskID : nil
+            taskID: connectionState == .generating ? current.taskID : nil,
+            disconnectionReason: connectionState == .disconnected ? .normal : nil
         )
     }
 

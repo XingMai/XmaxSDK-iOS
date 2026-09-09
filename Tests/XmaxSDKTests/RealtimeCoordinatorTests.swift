@@ -3,6 +3,52 @@ import XCTest
 
 @MainActor
 final class RealtimeCoordinatorTests: XCTestCase {
+    func testNormalTerminationReportsReasonAndReconnectClearsIt() async throws {
+        for scope: RealtimeCoordinator.TerminationScope in [.connection, .all] {
+            let coordinator = makeCoordinator(probe: RealtimeCoordinatorProbe())
+            var states: [RealtimeState] = []
+            await coordinator.setStateListener { states.append($0) }
+            try await coordinator.run(kind: .connection, failureScope: .connection) { token in
+                try await coordinator.commit(
+                    RealtimeState(connectionState: .connected, sessionID: "session"),
+                    token: token
+                )
+            }
+
+            if scope == .connection {
+                await coordinator.disconnect()
+            } else {
+                await coordinator.terminate(.all, finalState: .disconnected)
+            }
+
+            XCTAssertEqual(states.map(\.connectionState), [.idle, .connected, .disconnecting, .disconnected])
+            XCTAssertEqual(states.map(\.disconnectionReason), [nil, nil, .normal, .normal])
+            XCTAssertEqual(states.last?.disconnectionReason?.rawValue, "Normal")
+
+            try await coordinator.run(kind: .connection, failureScope: .connection) { token in
+                try await coordinator.commit(RealtimeState(connectionState: .connecting), token: token)
+            }
+            let state = await coordinator.currentState
+            XCTAssertNil(state.disconnectionReason)
+        }
+    }
+
+    func testConnectionFailureDoesNotReportNormalDisconnection() async {
+        let coordinator = makeCoordinator(probe: RealtimeCoordinatorProbe())
+        var states: [RealtimeState] = []
+        await coordinator.setStateListener { states.append($0) }
+        do {
+            try await coordinator.run(kind: .connection, failureScope: .connection) { _ in
+                throw XmaxError(code: .rtcError, message: "Connection failed")
+            }
+            XCTFail("Expected connection failure")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
+        }
+        XCTAssertEqual(states.map(\.connectionState), [.idle, .disconnecting, .error])
+        XCTAssertTrue(states.allSatisfy { $0.disconnectionReason == nil })
+    }
+
     func testCancellingConfigurationDoesNotStopGeneration() async throws {
         for kind: RealtimeCoordinator.OperationKind in [.configuration, .generation] {
             try await assertCancellingUpdatePreservesGeneration(kind: kind)

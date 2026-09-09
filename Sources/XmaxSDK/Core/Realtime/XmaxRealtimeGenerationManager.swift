@@ -107,6 +107,6 @@ actor XmaxRealtimeGenerationManager {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
-        return "task-ios-\(encoded)"
+        return "task-\(encoded)?os=ios"
     }
 }

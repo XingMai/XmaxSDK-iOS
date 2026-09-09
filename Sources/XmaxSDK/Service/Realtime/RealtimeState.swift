@@ -23,6 +23,13 @@ public enum RealtimeConnectionState: String, CaseIterable, Sendable {
     case error = "Error"
 }
 
+/// 实时连接断开原因。
+public enum RealtimeDisconnectionReason: String, CaseIterable, Sendable {
+
+    /// 正常断开。
+    case normal = "Normal"
+}
+
 /// 实时业务当前状态快照。
 public struct RealtimeState: Equatable, Sendable {
 
@@ -35,15 +42,26 @@ public struct RealtimeState: Equatable, Sendable {
     /// 当前生成任务标识。
     public let taskID: String?
 
+    /// 正常断开过程中或断开后的原因；其他状态为 `nil`。
+    public let disconnectionReason: RealtimeDisconnectionReason?
+
     /// 创建实时状态快照。
+    ///
+    /// - Parameters:
+    ///   - connectionState: 当前连接生命周期状态。
+    ///   - sessionID: 当前或最近一次实时 Session 标识。
+    ///   - taskID: 当前生成任务标识。
+    ///   - disconnectionReason: 连接断开原因，默认无。
     public init(
         connectionState: RealtimeConnectionState,
         sessionID: String? = nil,
-        taskID: String? = nil
+        taskID: String? = nil,
+        disconnectionReason: RealtimeDisconnectionReason? = nil
     ) {
         self.connectionState = connectionState
         self.sessionID = sessionID
         self.taskID = taskID
+        self.disconnectionReason = disconnectionReason
     }
 }
 

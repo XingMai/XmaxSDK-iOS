@@ -287,7 +287,7 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     func pushLocalVideoFrame(_ frame: VideoFrame) throws {
         guard let seiData = stateLock.withLock({
-            state.generationTask?.seiData
+            state.generationTask?.nextFrameSeiData()
         }) else {
             return
         }
@@ -531,9 +531,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 guard let task = state.generationTask,
                       let waiter = state.generationWaiter,
                       !waiter.confirmationPending,
-                      message.trimmingCharacters(
-                          in: .whitespacesAndNewlines
-                      ) == task.id,
+                      task.matchesSei(message),
                       stream.roomID == state.roomID,
                       state.botName.isEmpty ||
                         stream.userID == state.botName else {
@@ -582,11 +580,27 @@ private extension StreamController {
 
     struct GenerationTask {
         let id: String
-        let seiData: Data
+
+        // 当前任务的外部视频帧序号。
+        private var nextFrameIndex: UInt64 = 0
 
         init(id: String) {
             self.id = id
-            seiData = Data(id.utf8)
+        }
+
+        mutating func nextFrameSeiData() -> Data {
+            let data = Data("\(id)&index=\(nextFrameIndex)".utf8)
+            nextFrameIndex &+= 1
+            return data
+        }
+
+        func matchesSei(_ message: String) -> Bool {
+            let message = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            if message == id { return true }
+            let prefix = "\(id)&index="
+            guard message.hasPrefix(prefix) else { return false }
+            let index = message.dropFirst(prefix.count)
+            return !index.isEmpty && index.utf8.allSatisfy { (48...57).contains($0) }
         }
     }
 

@@ -133,7 +133,7 @@ final class RtcFoundationTests: XCTestCase {
         XCTAssertEqual(rtcConfiguration.maxBitrate, 3_000)
         XCTAssertEqual(
             rtcConfiguration.encoderPreference.rawValue,
-            ByteRTCVideoEncoderPreference.maintainFramerate.rawValue
+            ByteRTCVideoEncoderPreference.auto.rawValue
         )
     }
 
