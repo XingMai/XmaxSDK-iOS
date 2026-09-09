@@ -4,6 +4,27 @@ import XCTest
 @testable import XmaxSDK
 
 final class RtcManagerTests: XCTestCase {
+    func testEncoderConverterPreservesBitratesAndMapsPreferences() {
+        let cases: [(VideoEncodingConfiguration.EncoderPreference, ByteRTCVideoEncoderPreference)] = [
+            (.auto, .auto),
+            (.maintainFramerate, .maintainFramerate),
+            (.maintainQuality, .maintainQuality)
+        ]
+        for (preference, expected) in cases {
+            let converted = RtcVideoConverter.makeEncoderConfiguration(VideoEncodingConfiguration(
+                width: 832, height: 1472, frameRate: 24,
+                minimumBitrate: 1500, maximumBitrate: 3000,
+                encoderPreference: preference
+            ))
+            XCTAssertEqual(converted.width, 832)
+            XCTAssertEqual(converted.height, 1472)
+            XCTAssertEqual(converted.frameRate, 24)
+            XCTAssertEqual(converted.minBitrate, 1500)
+            XCTAssertEqual(converted.maxBitrate, 3000)
+            XCTAssertEqual(converted.encoderPreference, expected)
+        }
+    }
+
     func testInitializeIsIdempotentAndDestroyReleasesEngine() async throws {
         let lifecycle = RtcManagerEngineLifecycleRecorder()
         let engineManager = RtcEngineManager(

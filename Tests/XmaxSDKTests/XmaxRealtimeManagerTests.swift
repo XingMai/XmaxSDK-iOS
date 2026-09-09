@@ -179,8 +179,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 width: 832,
                 height: 1472,
                 frameRate: 24,
-                minimumBitrate: 1488,
-                maximumBitrate: 2977
+                minimumBitrate: 1805,
+                maximumBitrate: 3611
             )
         )
         try await components.manager.setFrameInterpolationEnabled(true)
@@ -507,8 +507,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                         width: videoFormat.width,
                         height: videoFormat.height,
                         frameRate: videoFormat.fps,
-                        minimumBitrate: 956,
-                        maximumBitrate: 1911
+                        minimumBitrate: 1310,
+                        maximumBitrate: 2620
                     )
                 )
             )
@@ -1165,6 +1165,31 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertNil(track)
     }
 
+    func testCameraConnectionUsesExplicitEncodingOptionsAfterSizeResolution() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalCameraStream(
+            videoFormat: RealtimeVideoFormat(
+                width: 832, height: 1472, fps: 24,
+                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+            ),
+            position: .front
+        )
+        let expectedFormat = RealtimeVideoFormat(
+            width: 1024, height: 768, fps: 24,
+            minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+        )
+        XCTAssertEqual(local.videoTrack?.videoFormat, expectedFormat)
+        _ = try await components.manager.connect(localStream: local)
+        XCTAssertEqual(
+            components.rtcManager.encodingConfigurations.last,
+            VideoEncodingConfiguration(
+                width: 1024, height: 768, frameRate: 24,
+                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+            )
+        )
+        await components.manager.close()
+    }
+
     func testFileVideoConfiguresEncoderBeforeConnecting() async throws {
         let components = makeComponents()
 
@@ -1187,8 +1212,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                     width: imageFormat.width,
                     height: imageFormat.height,
                     frameRate: imageFormat.fps,
-                    minimumBitrate: 1488,
-                    maximumBitrate: 2977
+                    minimumBitrate: 1805,
+                    maximumBitrate: 3611
                 )
             ]
         )

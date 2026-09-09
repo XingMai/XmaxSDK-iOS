@@ -254,10 +254,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 }
                 var returnFormat = generationFormat
                 if let generationFormat, let targetSize {
-                    returnFormat = RealtimeVideoFormat(
+                    returnFormat = generationFormat.resized(
                         width: Int(targetSize.width),
-                        height: Int(targetSize.height),
-                        fps: generationFormat.fps
+                        height: Int(targetSize.height)
                     )
                 }
                 try await renderController.setFrameInterpolationEnabled(
@@ -791,10 +790,9 @@ private extension XmaxRealtimeManager {
             }
             try await renderController.setFrameInterpolationEnabled(
                 true,
-                videoFormat: RealtimeVideoFormat(
+                videoFormat: videoFormat.resized(
                     width: Int(targetSize.width),
-                    height: Int(targetSize.height),
-                    fps: videoFormat.fps
+                    height: Int(targetSize.height)
                 )
             )
             return targetSize == videoFormat.size ? nil : targetSize

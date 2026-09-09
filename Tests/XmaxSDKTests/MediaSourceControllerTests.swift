@@ -6,7 +6,7 @@ import XCTest
 
 @MainActor
 final class MediaSourceControllerTests: XCTestCase {
-    func testModelDefaultFrameRateAndExplicitOverrideReachPlayer() async throws {
+    func testModelDefaultsAndExplicitEncodingOptionsSurviveSizeResolution() async throws {
         let components = makeComponents(hasAudio: false, model: .x2_0)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
         let defaultConfiguration = try await components.controller.prepare(
@@ -16,9 +16,15 @@ final class MediaSourceControllerTests: XCTestCase {
         await components.controller.stop()
         let explicitConfiguration = try await components.controller.prepare(
             fileURL: fileURL,
-            videoFormat: RealtimeVideoFormat(width: 832, height: 1_472, fps: 20)
+            videoFormat: RealtimeVideoFormat(
+                width: 640, height: 480, fps: 20,
+                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+            )
         )
-        XCTAssertEqual(explicitConfiguration.videoFormat.fps, 20)
+        XCTAssertEqual(explicitConfiguration.videoFormat, RealtimeVideoFormat(
+            width: 832, height: 1472, fps: 20,
+            minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+        ))
     }
 
     func testPrepareResolvesRotatedSizeAndConfiguresPlayer() async throws {

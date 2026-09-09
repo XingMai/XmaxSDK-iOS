@@ -257,10 +257,9 @@ private extension CameraController {
         let targetSize = try mediaService.resolveModelInputSize(
             CGSize(width: videoFormat.width, height: videoFormat.height)
         )
-        let resolvedFormat = RealtimeVideoFormat(
+        let resolvedFormat = videoFormat.resized(
             width: Int(targetSize.width),
-            height: Int(targetSize.height),
-            fps: videoFormat.fps
+            height: Int(targetSize.height)
         )
         try resolvedFormat.validate()
         return resolvedFormat

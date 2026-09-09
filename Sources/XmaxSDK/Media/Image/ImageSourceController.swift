@@ -240,10 +240,9 @@ private extension ImageSourceController {
                 height: requestedFormat.height
             )
         )
-        let resolvedFormat = RealtimeVideoFormat(
+        let resolvedFormat = requestedFormat.resized(
             width: Int(targetSize.width),
-            height: Int(targetSize.height),
-            fps: requestedFormat.fps
+            height: Int(targetSize.height)
         )
         try resolvedFormat.validate()
         return resolvedFormat

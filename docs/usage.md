@@ -8,6 +8,7 @@ actor.
 
 - [Camera microphone](#camera-microphone)
 - [Image and video inputs](#image-and-video-inputs)
+- [Upload encoding](#upload-encoding)
 - [Reference images](#reference-images)
 - [Update generation conditions](#update-generation-conditions)
 - [SwiftUI](#swiftui)
@@ -77,6 +78,40 @@ contains audio, also add a microphone usage description to `Info.plist`:
 Use wording appropriate for your app. XmaxSDK checks and requests the required
 runtime permissions when creating a local stream and reports an `XmaxError` if
 permission is unavailable.
+
+<br>
+
+## Upload encoding
+
+Pass a `RealtimeVideoFormat` when creating a camera, image, or video stream to
+override its upload bitrate and encoding preference:
+
+```swift
+let format = RealtimeVideoFormat(
+    width: 832,
+    height: 1472,
+    fps: 24,
+    minimumBitrate: 1500,
+    maximumBitrate: 3000,
+    encoderPreference: .maintainFramerate
+)
+let localStream = try await realtime.createLocalCameraStream(
+    videoFormat: format,
+    position: .front
+)
+```
+
+Bitrates are in kbps. Each omitted bitrate uses the SDK's reference-table estimate
+for the final upload dimensions and frame rate. Explicit values survive model
+size adaptation. The minimum must be nonnegative and the maximum must be positive;
+if the minimum exceeds the maximum after defaults are applied, encoding
+configuration throws an `XmaxError` instead of adjusting the supplied values.
+
+The default preference is `.auto`, balancing frame rate and resolution.
+`.maintainFramerate` prioritizes frame rate; `.maintainQuality` prioritizes
+resolution. These settings apply to upload encoding, not the server's return size
+or remote frame interpolation. Configure them when creating the stream; existing
+calls that omit them retain the SDK defaults.
 
 <br>
 

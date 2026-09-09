@@ -175,10 +175,9 @@ actor XmaxRealtimeConnectionManager {
 private extension XmaxRealtimeConnectionManager {
     func remoteVideoFormat(for generationFormat: RealtimeVideoFormat) -> RealtimeVideoFormat {
         guard let currentTargetSize else { return generationFormat }
-        return RealtimeVideoFormat(
+        return generationFormat.resized(
             width: Int(currentTargetSize.width),
-            height: Int(currentTargetSize.height),
-            fps: generationFormat.fps
+            height: Int(currentTargetSize.height)
         )
     }
 

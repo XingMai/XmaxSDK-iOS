@@ -93,7 +93,7 @@ final class ImageSourceControllerTests: XCTestCase {
         XCTAssertGreaterThan(frame.timestampUs, 0)
     }
 
-    func testPreparePreservesRequestedFrameRateAfterSizeResolution() async throws {
+    func testPreparePreservesEncodingOptionsAfterSizeResolution() async throws {
         let fileURL = try makeTemporaryImageDataFile()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         let mediaService = MediaServicingStub(
@@ -113,7 +113,10 @@ final class ImageSourceControllerTests: XCTestCase {
             videoFormat: RealtimeVideoFormat(
                 width: 720,
                 height: 1_280,
-                fps: 30
+                fps: 30,
+                minimumBitrate: 1500,
+                maximumBitrate: 3000,
+                encoderPreference: .maintainQuality
             )
         )
         controller.stop()
@@ -124,7 +127,10 @@ final class ImageSourceControllerTests: XCTestCase {
         )
         XCTAssertEqual(
             prepared.videoFormat,
-            RealtimeVideoFormat(width: 832, height: 1_472, fps: 30)
+            RealtimeVideoFormat(
+                width: 832, height: 1472, fps: 30,
+                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainQuality
+            )
         )
     }
 
