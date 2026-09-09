@@ -172,6 +172,13 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
         let beforeToggle = await components.manager.currentState
+        let mutedIndex = try XCTUnwrap(components.rtcManager.calls.firstIndex(
+            of: .setRemoteAudioVolume(0, userID: "bot-user")
+        ))
+        let audioSubscriptionIndex = try XCTUnwrap(components.rtcManager.calls.firstIndex(
+            of: .subscribeRemoteAudio(userID: "bot-user", subscribe: true)
+        ))
+        XCTAssertLessThan(mutedIndex, audioSubscriptionIndex)
         let encodingBeforeToggle = components.rtcManager.encodingConfigurations
         XCTAssertEqual(
             encodingBeforeToggle.last,
@@ -304,6 +311,50 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await manager.close()
     }
 
+    func testNewMediaStreamsResetRemoteVolumeBySource() async throws {
+        let components = makeComponents()
+        for source: RealtimeMediaSource in [.camera, .image, .video, .camera] {
+            try await components.manager.setRemoteAudioVolume(0.35)
+            switch source {
+            case .camera:
+                _ = try await components.manager.createLocalCameraStream()
+            case .image:
+                _ = try await components.manager.createLocalImageStream(
+                    fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+                )
+            case .video:
+                _ = try await components.manager.createLocalVideoStream(
+                    fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
+                )
+            }
+            let volume = await components.manager.remoteAudioVolume
+            XCTAssertEqual(volume, source == .video ? 1 : 0)
+
+            switch source {
+            case .camera: try await components.manager.stopLocalCameraStream()
+            case .image: try await components.manager.stopLocalImageStream()
+            case .video: try await components.manager.stopLocalVideoStream()
+            }
+        }
+        await components.manager.close()
+    }
+
+    func testFailedMediaCreationPreservesRemoteVolume() async throws {
+        let components = makeComponents(rtcManager: RtcManagingStub(
+            startVideoCaptureError: XmaxError(code: .rtcError, message: "Capture failed")
+        ))
+        try await components.manager.setRemoteAudioVolume(0.35)
+        do {
+            _ = try await components.manager.createLocalCameraStream()
+            XCTFail("Expected camera creation to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
+        }
+        let volume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(volume, 0.35)
+        await components.manager.close()
+    }
+
     func testPublicAudioVolumeControlsForwardNormalizedValues() async throws {
         let components = makeComponents()
 
@@ -327,6 +378,9 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let localStream = try await components.manager.createLocalVideoStream(
             fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
         )
+        let createdVolume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(createdVolume, 1)
+        try await components.manager.setRemoteAudioVolume(0.35)
         _ = try await components.manager.connect(localStream: localStream)
         let startTask = Task {
             try await components.manager.startGeneration(
@@ -360,6 +414,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             .setRemoteAudioVolume(35, userID: "bot-user")
         ))
 
+        await components.manager.disconnect()
+        let disconnectedVolume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(disconnectedVolume, 0.35)
+        _ = try await components.manager.connect(localStream: localStream)
+        let reconnectedVolume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(reconnectedVolume, 0.35)
         await components.manager.disconnect()
         try await components.manager.stopLocalVideoStream()
     }
@@ -651,11 +711,14 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             videoFormat: videoFormat,
             position: .front
         )
+        try await components.manager.setRemoteAudioVolume(0.35)
         _ = try await components.manager.connect(localStream: localStream)
 
         let switchedStream = try await components.manager.switchCamera()
 
         XCTAssertEqual(switchedStream.videoTrack?.position, .back)
+        let switchedVolume = await components.manager.remoteAudioVolume
+        XCTAssertEqual(switchedVolume, 0.35)
         XCTAssertEqual(
             components.rtcManager.calls.filter {
                 if case .joinRoom = $0 { return true }

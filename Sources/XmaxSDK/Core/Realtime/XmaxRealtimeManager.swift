@@ -754,6 +754,8 @@ private extension XmaxRealtimeManager {
             )
             let stream = try await prepare(token)
             await reconcileFrameInterpolation(for: stream)
+            try token.ensureCurrent()
+            try streamController.setRemoteAudioVolume(source == .video ? 1 : 0)
             return stream
         }
     }

@@ -7,6 +7,7 @@ app. Run realtime operations in a lifecycle-owned task and update UI on the main
 actor.
 
 - [Camera microphone](#camera-microphone)
+- [Remote audio volume](#remote-audio-volume)
 - [Image and video inputs](#image-and-video-inputs)
 - [Upload encoding](#upload-encoding)
 - [Reference images](#reference-images)
@@ -43,6 +44,24 @@ locally.
 Reconnecting the same stream starts capture again. Connection failure or
 cancellation also stops capture. `stopLocalCameraStream()` and `close()` release
 the local capture resources. Switching cameras does not restart the microphone.
+
+<br>
+
+## Remote audio volume
+
+Creating a camera or image stream sets the remote playback volume to `0` (muted).
+Creating a file video stream sets it to `1`. To override the initial volume, call
+the existing setter after creating the local stream:
+
+```swift
+try await realtime.setRemoteAudioVolume(0.5)
+let volume = await realtime.remoteAudioVolume
+```
+
+Starting generation, reconnecting the same stream, and switching cameras preserve
+the current volume. Creating a new local stream applies its initial volume again.
+This controls remote playback only, not microphone capture, audio upload, or local
+video preview volume.
 
 <br>
 

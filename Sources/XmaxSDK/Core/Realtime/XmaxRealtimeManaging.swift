@@ -23,6 +23,7 @@ public protocol XmaxRealtimeManaging: Sendable {
 
 
     /// 当前远端生成音频播放音量，取值范围为 `0...1`。
+    /// 新建摄像头或图片流后初始值为 0，文件视频流为 1。
     var remoteAudioVolume: Float { get async }
 
 
@@ -93,6 +94,7 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 设置远端生成音频播放音量。
     ///
     /// 尚未连接或订阅远端流时保存配置，并在远端音频开始播放前应用。
+    /// 如需覆盖初始音量，请在创建本地流后调用。
     ///
     /// - Parameter volume: 远端播放音量，取值范围为 `0...1`。
     /// - Throws: 音量超出有效范围或 RTC 音量配置失败时抛出错误。
