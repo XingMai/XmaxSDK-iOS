@@ -819,7 +819,12 @@ final class StorageViewController: UIViewController {
         uploadTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let client = XmaxClient(configuration: XmaxConfiguration(apiKey: apiKey))
+                let client = XmaxClient(
+                    configuration: XmaxConfiguration(
+                        apiKey: apiKey,
+                        environment: RealtimePreferences.environment
+                    )
+                )
                 let storage = try client.createStorageManager()
                 let progress: XmaxStorageProgressHandler = { [weak self] value in
                     let fraction = Float(value.fractionCompleted)

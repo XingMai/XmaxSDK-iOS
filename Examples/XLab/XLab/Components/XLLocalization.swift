@@ -19,7 +19,7 @@ enum XLLanguage: String, CaseIterable, Sendable {
     }
 }
 
-/// UIKit 与 SwiftUI 共用的界面语言设置，不影响服务区域和生成内容。
+/// UIKit 与 SwiftUI 共用的界面语言设置。
 @MainActor
 final class XLLocalization: ObservableObject {
     // 共享实例与通知

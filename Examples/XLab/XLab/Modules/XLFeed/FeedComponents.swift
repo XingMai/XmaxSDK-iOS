@@ -507,7 +507,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     }
 
     @objc private func openApiKeyApplicationPage() {
-        let address = XLLocalization.languageCode == "zh-Hans"
+        let address = RealtimePreferences.environment == .china
             ? "https://platform.xmaxai.com/api-keys"
             : "https://platform.xmax.ai/api-keys"
         guard let url = URL(

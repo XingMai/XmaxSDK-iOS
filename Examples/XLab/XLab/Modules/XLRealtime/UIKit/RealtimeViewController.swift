@@ -715,6 +715,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let client = XmaxClient(
             configuration: XmaxConfiguration(
                 apiKey: apiKey,
+                environment: RealtimePreferences.environment,
                 loggerOptions: [.business, .performance]
             )
         )
@@ -910,6 +911,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let client = XmaxClient(
             configuration: XmaxConfiguration(
                 apiKey: apiKey,
+                environment: RealtimePreferences.environment,
                 loggerOptions: .business
             )
         )
@@ -945,6 +947,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 let client = XmaxClient(
                     configuration: XmaxConfiguration(
                         apiKey: apiKey,
+                        environment: RealtimePreferences.environment,
                         loggerOptions: .business
                     )
                 )

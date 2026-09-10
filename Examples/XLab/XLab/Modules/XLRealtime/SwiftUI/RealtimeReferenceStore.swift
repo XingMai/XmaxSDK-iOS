@@ -133,6 +133,7 @@ final class RealtimeReferenceStore: ObservableObject {
                 let client = XmaxClient(
                     configuration: XmaxConfiguration(
                         apiKey: apiKey,
+                        environment: RealtimePreferences.environment,
                         loggerOptions: .business
                     )
                 )

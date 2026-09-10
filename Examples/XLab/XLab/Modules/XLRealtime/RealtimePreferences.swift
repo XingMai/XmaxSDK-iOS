@@ -8,6 +8,11 @@ enum RealtimePreferences {
     /// 从本地缓存读取所选实时模型使用的键。
     private static let modelStorageKey = "xlab.realtime.model"
 
+    /// XLab 按界面语言选择服务环境：中文使用国内环境，英文使用海外环境。
+    static var environment: XmaxEnvironment {
+        XLLocalization.languageCode == "zh-Hans" ? .china : .global
+    }
+
     /// XLab 当前选择的实时生成模型。
     static var selectedModel: RealtimeModel {
         get {

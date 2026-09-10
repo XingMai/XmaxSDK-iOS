@@ -106,6 +106,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         displayedLanguageCode = XLLocalization.languageCode
         populateFeed()
         updateMediaSourceAvailability()
+        performNetworkPreflight()
 
         view.layoutIfNeeded()
         let minimumOffset = -scrollView.adjustedContentInset.top
@@ -299,8 +300,12 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     private func performNetworkPreflight() {
+        networkPreflightTask?.cancel()
+        let address = RealtimePreferences.environment == .china
+            ? "https://cloud.xmax.22duck.cn/open/api/v1"
+            : "https://api.xmax.cloud/open/api/v1"
         guard let url = URL(
-            string: "https://cloud.xmax.22duck.cn/open/api/v1"
+            string: address
         ) else {
             return
         }
