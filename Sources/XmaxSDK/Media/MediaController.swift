@@ -383,7 +383,7 @@ private extension MediaController {
                     XmaxLogger.realtime.error(
                         message: "等待本地媒体操作结束失败 " +
                             "(Failed to Await Local Media Operation Completion)\n" +
-                            "└─ 原因：" +
+                            "└─ 原因 (Reason)：" +
                             (error as NSError).localizedDescription
                     )
                 }

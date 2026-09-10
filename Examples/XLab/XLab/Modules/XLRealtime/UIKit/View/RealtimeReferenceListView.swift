@@ -58,16 +58,16 @@ final class RealtimeReferenceListView: UIView {
 
     private lazy var addReferenceButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(
-            UIImage(named: "realtime_add_reference"),
-            for: .normal
-        )
+        let imageName = XLLocalization.languageCode == "zh-Hans"
+            ? "realtime_add_reference"
+            : "realtime_add_reference_en"
+        button.setImage(UIImage(named: imageName), for: .normal)
         button.imageView?.contentMode = .scaleAspectFill
         button.backgroundColor = .feed(rgb: 0x303032)
         button.layer.cornerRadius = 10
         button.layer.cornerCurve = .continuous
         button.clipsToBounds = true
-        button.accessibilityLabel = "添加参考图"
+        button.accessibilityLabel = XLLocalization.text("realtime.reference.add")
         button.addTarget(
             self,
             action: #selector(addReference),

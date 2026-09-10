@@ -56,7 +56,7 @@ final class RealtimeControlPanelView: UIView {
         button.tintColor = .white
         button.alpha = 0.5
         button.isEnabled = false
-        button.accessibilityLabel = "停止生成"
+        button.accessibilityLabel = XLLocalization.text("realtime.generation.stop")
         button.addTarget(
             self,
             action: #selector(disableGeneration),
@@ -88,7 +88,7 @@ final class RealtimeControlPanelView: UIView {
 
     private lazy var instructionButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setTitle("点击开始生成", for: .normal)
+        button.setTitle(XLLocalization.text("realtime.generation.start"), for: .normal)
         button.setTitleColor(.white.withAlphaComponent(0.85), for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
         button.backgroundColor = .white.withAlphaComponent(0.14)
@@ -97,7 +97,7 @@ final class RealtimeControlPanelView: UIView {
         button.layer.borderColor = UIColor.white
             .withAlphaComponent(0.19)
             .cgColor
-        button.accessibilityLabel = "点击开始生成"
+        button.accessibilityLabel = XLLocalization.text("realtime.generation.start")
         button.addTarget(
             self,
             action: #selector(performInstructionAction),
@@ -202,8 +202,8 @@ final class RealtimeControlPanelView: UIView {
     private func updateInstructionState() {
         instructionButton.setTitle(
             isGenerationActive
-                ? "在画面上拖拽，用轨迹控制角色"
-                : "点击开始生成",
+                ? XLLocalization.text("realtime.generation.drag")
+                : XLLocalization.text("realtime.generation.start"),
             for: .normal
         )
         instructionButton.titleLabel?.font = .systemFont(
@@ -218,8 +218,8 @@ final class RealtimeControlPanelView: UIView {
             isGenerationActive ? 0.09 : 0.14
         )
         instructionButton.accessibilityLabel = isGenerationActive
-            ? "触控动图生成中"
-            : "点击开始生成"
+            ? XLLocalization.text("realtime.generation.touch.active")
+            : XLLocalization.text("realtime.generation.start")
     }
 
     private func configureCategoryRow() {

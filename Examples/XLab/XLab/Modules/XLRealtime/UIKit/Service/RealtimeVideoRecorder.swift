@@ -15,15 +15,15 @@ final class RealtimeVideoRecorder: @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .alreadyRecording:
-                return "视频正在录制中。"
+                return XLLocalization.text("record.alreadyRecording")
             case .notRecording:
-                return "当前没有正在进行的录制。"
+                return XLLocalization.text("record.notRecording")
             case .noFrames:
-                return "尚未录制到生成画面，请稍后重试。"
+                return XLLocalization.text("record.noFrames")
             case .videoFormatChanged:
-                return "录制期间视频分辨率发生变化，录制已停止。"
+                return XLLocalization.text("record.sizeChanged")
             case let .writingFailed(message):
-                return "视频录制失败：\(message)"
+                return XLLocalization.format("record.failed", message)
             }
         }
     }
@@ -142,14 +142,14 @@ private extension RealtimeVideoRecorder {
 
     func prepareWriter(for frame: RealtimeVideoFrame) throws {
         guard let outputURL else {
-            throw RecorderError.writingFailed("缺少输出文件地址。")
+            throw RecorderError.writingFailed(XLLocalization.text("record.missingURL"))
         }
         videoWidth = CVPixelBufferGetWidth(frame.pixelBuffer)
         videoHeight = CVPixelBufferGetHeight(frame.pixelBuffer)
         guard videoWidth > 0, videoHeight > 0,
               videoWidth.isMultiple(of: 2),
               videoHeight.isMultiple(of: 2) else {
-            throw RecorderError.writingFailed("视频分辨率无效。")
+            throw RecorderError.writingFailed(XLLocalization.text("record.invalidSize"))
         }
 
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
@@ -163,7 +163,7 @@ private extension RealtimeVideoRecorder {
         )
         input.expectsMediaDataInRealTime = true
         guard writer.canAdd(input) else {
-            throw RecorderError.writingFailed("无法创建视频编码轨道。")
+            throw RecorderError.writingFailed(XLLocalization.text("record.trackFailed"))
         }
         writer.add(input)
 
@@ -342,7 +342,7 @@ private extension RealtimeVideoRecorder {
 
     static func writerError(_ writer: AVAssetWriter) -> RecorderError {
         .writingFailed(
-            writer.error?.localizedDescription ?? "视频编码器异常。"
+            writer.error?.localizedDescription ?? XLLocalization.text("record.encoderFailed")
         )
     }
 }

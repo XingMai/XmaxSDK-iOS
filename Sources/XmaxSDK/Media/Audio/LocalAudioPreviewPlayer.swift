@@ -87,7 +87,7 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
                 stopPlayback()
                 XmaxLogger.media.error(
                     message: "本地音频预览失败 (Local Audio Preview Failed)\n" +
-                        "└─ 原因：\((error as NSError).localizedDescription)"
+                        "└─ 原因 (Reason)：\((error as NSError).localizedDescription)"
                 )
             }
         }

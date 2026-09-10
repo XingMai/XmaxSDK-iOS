@@ -353,7 +353,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func startRecording() {
         guard isGenerationRequested else {
-            XLToast.show("请先开始视频生成。", in: view)
+            XLToast.show(XLLocalization.text("record.generation.required"), in: view)
             return
         }
 
@@ -392,7 +392,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 try await Self.saveVideoToPhotoLibrary(outputURL)
                 guard let self else { return }
                 setRecordingButtonState(.idle)
-                XLToast.show("视频已保存到相册。", in: view)
+                XLToast.show(XLLocalization.text("record.saved"), in: view)
             } catch {
                 guard let self else { return }
                 setRecordingButtonState(.idle)
@@ -456,11 +456,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private lazy var realtimeErrorAlert: UIAlertController = {
         let alert = UIAlertController(
-            title: "实时服务异常",
+            title: XLLocalization.text("realtime.error.title"),
             message: nil,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        alert.addAction(UIAlertAction(title: XLLocalization.text("common.confirm"), style: .default))
         return alert
     }()
 
@@ -550,7 +550,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         backButton.translatesAutoresizingMaskIntoConstraints = false
         backButton.setImage(UIImage(named: "realtime_nav_back"), for: .normal)
         backButton.imageView?.contentMode = .scaleAspectFit
-        backButton.accessibilityLabel = "返回首页"
+        backButton.accessibilityLabel = XLLocalization.text("common.home")
         backButton.addTarget(self, action: #selector(goBack), for: .touchUpInside)
         view.addSubview(backButton)
 
@@ -756,7 +756,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         referencePickerDestination = nil
 
         if error != nil {
-            XLToast.show("读取照片失败，请重试", in: view)
+            XLToast.show(XLLocalization.text("realtime.photo.error"), in: view)
             return
         }
         guard let localURL, let destination else { return }
@@ -1008,7 +1008,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             reference.uploadState = .failed
             renderReference(reference)
             XLToast.show(
-                "参考图上传失败，点击图片可重试",
+                XLLocalization.text("realtime.reference.error"),
                 in: view
             )
         }
@@ -1301,7 +1301,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     matching: selectedReferenceID
                 )
             }
-            XLToast.show("本地媒体尚未准备好，请稍后重试。", in: view)
+            XLToast.show(XLLocalization.text("realtime.media.notReady"), in: view)
             return
         }
 
@@ -1496,14 +1496,13 @@ private enum RealtimeDemoError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .connectionTransitioning:
-            return "实时连接正在切换状态，请稍后重试。"
+            return XLLocalization.text("realtime.connection.busy")
         case .imageEncodingFailed:
-            return "图片处理失败，请重新选择图片。"
+            return XLLocalization.text("realtime.image.error")
         case .photoLibraryPermissionDenied:
-            return "没有相册写入权限，请在系统设置中允许 XLab " +
-                "添加照片。"
+            return XLLocalization.text("realtime.photos.permission")
         case .videoSaveFailed:
-            return "视频保存失败，请稍后重试。"
+            return XLLocalization.text("realtime.video.save.error")
         }
     }
 }

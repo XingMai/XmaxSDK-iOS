@@ -252,7 +252,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     private lazy var apiKeyTextField: UITextField = {
         let textField = UITextField()
         textField.attributedPlaceholder = NSAttributedString(
-            string: "输入 Xmax API Key",
+            string: XLLocalization.text("feed.api.placeholder"),
             attributes: [
                 .font: feedFont(ofSize: 10),
                 .foregroundColor: UIColor.feed(rgb: 0x607080, alpha: 0.50)
@@ -278,7 +278,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
         button.setImage(UIImage(named: "api_key_visible"), for: .normal)
         button.imageView?.contentMode = .scaleAspectFit
         button.alpha = 0.78
-        button.accessibilityLabel = "显示 API Key"
+        button.accessibilityLabel = XLLocalization.text("feed.api.show")
         button.addTarget(self, action: #selector(toggleApiKeyVisibility), for: .touchUpInside)
         return button
     }()
@@ -294,9 +294,9 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
             shadowOffset: CGSize(width: 0, height: 8)
         )
 
-        let title = makeFeedLabel("选择你的模型", size: 13, weight: .bold, color: .feed(rgb: 0xE9EDF3))
+        let title = makeFeedLabel(XLLocalization.text("feed.model.title"), size: 13, weight: .bold, color: .feed(rgb: 0xE9EDF3))
         let modelCount = makeFeedLabel(
-            "\(models.count) MODELS",
+            XLLocalization.format("feed.model.count", models.count),
             size: 8,
             color: .feed(rgb: 0xFFFFFF, alpha: 0.44),
             letterSpacing: 0.8
@@ -327,9 +327,9 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
         passwordField.addSubview(apiKeyTextField)
         passwordField.addSubview(visibilityButton)
 
-        let prompt = makeFeedLabel("还没有 API Key？", size: 9, color: .feed(rgb: 0x708090, alpha: 0.60))
+        let prompt = makeFeedLabel(XLLocalization.text("feed.api.prompt"), size: 9, color: .feed(rgb: 0x708090, alpha: 0.60))
         let link = UIButton(type: .custom)
-        link.setTitle("前往 Xmax 开放平台申请", for: .normal)
+        link.setTitle(XLLocalization.text("feed.api.link"), for: .normal)
         link.setTitleColor(
             FeedPalette.mint.withAlphaComponent(0.63),
             for: .normal
@@ -420,7 +420,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
         )
         let modelText = feedVerticalStack([modelName, modelIdentifier], spacing: 3)
         let active = FeedPillView(
-            text: "ACTIVE",
+            text: XLLocalization.text("feed.selected"),
             foregroundColor: FeedPalette.mint,
             backgroundColor: FeedPalette.mint.withAlphaComponent(0.086)
         )
@@ -502,13 +502,16 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
             for: .normal
         )
         visibilityButton.accessibilityLabel = isSecure
-            ? "显示 API Key"
-            : "隐藏 API Key"
+            ? XLLocalization.text("feed.api.show")
+            : XLLocalization.text("feed.api.hide")
     }
 
     @objc private func openApiKeyApplicationPage() {
+        let address = XLLocalization.languageCode == "zh-Hans"
+            ? "https://platform.xmaxai.com/api-keys"
+            : "https://platform.xmax.ai/api-keys"
         guard let url = URL(
-            string: "https://platform.xmaxai.com/api-keys"
+            string: address
         ) else {
             return
         }
@@ -561,7 +564,7 @@ final class FeedPipelineCardView: FeedCardView {
         let modeRow = feedHorizontalStack([modeDot, mode], spacing: 8)
 
         let statusDot = makeFeedLabel("●", size: 7, color: statusColor)
-        let status = makeFeedLabel("READY", size: 9, weight: .bold, color: statusColor, letterSpacing: 0.8)
+        let status = makeFeedLabel(XLLocalization.text("feed.ready"), size: 9, weight: .bold, color: statusColor, letterSpacing: 0.8)
         let statusPill = feedPillContainer(
             content: feedHorizontalStack([statusDot, status], spacing: 6),
             height: 25,
@@ -569,9 +572,10 @@ final class FeedPipelineCardView: FeedCardView {
         )
         let header = feedHorizontalStack([modeRow, feedFlexibleSpacer(), statusPill])
 
-        let titleLabel = makeFeedLabel(title, size: 21, weight: .bold, color: FeedPalette.primaryText)
-        let subtitleLabel = makeFeedLabel(subtitle, size: 12, color: FeedPalette.secondaryText)
-        subtitleLabel.numberOfLines = 2
+        let titleLabel = makeFeedLabel(title, size: 19, weight: .bold, color: FeedPalette.primaryText)
+        titleLabel.numberOfLines = 0
+        let subtitleLabel = makeFeedLabel(subtitle, size: 11, color: FeedPalette.secondaryText)
+        subtitleLabel.numberOfLines = 0
         subtitleLabel.attributedText = feedAttributedText(
             subtitle,
             font: subtitleLabel.font,
@@ -595,7 +599,7 @@ final class FeedPipelineCardView: FeedCardView {
         capabilityView.layer.borderColor = UIColor.feed(rgb: 0xFFFFFF, alpha: 0.086).cgColor
         capabilityView.addSubview(capabilityLabel)
 
-        let runLabel = makeFeedLabel("运行", size: 11, weight: .bold, color: .feed(rgb: 0x08110E))
+        let runLabel = makeFeedLabel(XLLocalization.text("feed.run"), size: 11, weight: .bold, color: .feed(rgb: 0x08110E))
         runLabel.textAlignment = .center
         let runView = UIView()
         runView.translatesAutoresizingMaskIntoConstraints = false
@@ -709,7 +713,7 @@ final class FeedFeatureCardView: FeedCardView {
         )
         let categoryRow = feedHorizontalStack([categoryDot, categoryLabel], spacing: 8)
         let available = FeedPillView(
-            text: "AVAILABLE",
+            text: XLLocalization.text("feed.available"),
             foregroundColor: accentColor,
             backgroundColor: .white.withAlphaComponent(0.047),
             fontSize: 8,
@@ -738,12 +742,13 @@ final class FeedFeatureCardView: FeedCardView {
         iconTile.addSubview(icon)
         iconTile.addSubview(iconCaption)
 
-        let titleLabel = makeFeedLabel(title, size: 18, weight: .bold, color: FeedPalette.primaryText)
-        let subtitleLabel = makeFeedLabel(subtitle, size: 10, color: .feed(rgb: 0x81786F))
-        subtitleLabel.numberOfLines = 2
+        let titleLabel = makeFeedLabel(title, size: 17, weight: .bold, color: FeedPalette.primaryText)
+        titleLabel.numberOfLines = 0
+        let subtitleLabel = makeFeedLabel(subtitle, size: 9.5, color: .feed(rgb: 0x81786F))
+        subtitleLabel.numberOfLines = 0
         let textStack = feedVerticalStack([titleLabel, subtitleLabel], spacing: 5)
 
-        let enterLabel = makeFeedLabel("进入", size: 11, weight: .bold, color: .feed(rgb: 0x08110E))
+        let enterLabel = makeFeedLabel(XLLocalization.text("feed.open"), size: 11, weight: .bold, color: .feed(rgb: 0x08110E))
         enterLabel.textAlignment = .center
         let enterView = UIView()
         enterView.translatesAutoresizingMaskIntoConstraints = false

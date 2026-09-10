@@ -54,14 +54,14 @@ enum RtcStatsLogger {
         let video = stats.videoStats
         return """
         本地视频发送 (Local Video Uplink)
-        ├─ 分辨率：\(video.encodedFrameWidth) × \(video.encodedFrameHeight)
-        ├─ 发送码率：\(video.sentKBitrate) kbps
-        ├─ 采集帧率：\(video.inputFrameRate) fps
-        ├─ 编码帧率：\(video.encoderOutputFrameRate) fps
-        ├─ 发送帧率：\(video.sentFrameRate) fps
-        ├─ 视频丢包率：\(percentage(video.videoLossRate))
-        ├─ 网络往返时延：\(video.rtt) ms
-        └─ 网络抖动：\(video.jitter) ms
+        ├─ 分辨率 (Resolution)：\(video.encodedFrameWidth) × \(video.encodedFrameHeight)
+        ├─ 发送码率 (Send Bitrate)：\(video.sentKBitrate) kbps
+        ├─ 采集帧率 (Capture Frame Rate)：\(video.inputFrameRate) fps
+        ├─ 编码帧率 (Encode Frame Rate)：\(video.encoderOutputFrameRate) fps
+        ├─ 发送帧率 (Send Frame Rate)：\(video.sentFrameRate) fps
+        ├─ 视频丢包率 (Video Packet Loss)：\(percentage(video.videoLossRate))
+        ├─ 网络往返时延 (Round-Trip Time)：\(video.rtt) ms
+        └─ 网络抖动 (Network Jitter)：\(video.jitter) ms
         """
     }
 
@@ -71,15 +71,15 @@ enum RtcStatsLogger {
         let video = stats.videoStats
         return """
         远端视频接收 (Remote Video Downlink)
-        ├─ 分辨率：\(video.width) × \(video.height)
-        ├─ 接收码率：\(video.receivedKBitrate) kbps
-        ├─ 解码帧率：\(video.decoderOutputFrameRate) fps
-        ├─ 渲染帧率：\(video.renderOutputFrameRate) fps
-        ├─ 视频丢包率：\(percentage(video.videoLossRate))
-        ├─ 网络往返时延：\(video.rtt) ms
-        ├─ 卡顿次数：\(video.stallCount) 次
-        ├─ 卡顿时长：\(video.stallDuration) ms
-        └─ 端到端时延：\(video.e2eDelay) ms
+        ├─ 分辨率 (Resolution)：\(video.width) × \(video.height)
+        ├─ 接收码率 (Receive Bitrate)：\(video.receivedKBitrate) kbps
+        ├─ 解码帧率 (Decode Frame Rate)：\(video.decoderOutputFrameRate) fps
+        ├─ 渲染帧率 (Render Frame Rate)：\(video.renderOutputFrameRate) fps
+        ├─ 视频丢包率 (Video Packet Loss)：\(percentage(video.videoLossRate))
+        ├─ 网络往返时延 (Round-Trip Time)：\(video.rtt) ms
+        ├─ 卡顿次数 (Stall Count)：\(video.stallCount)
+        ├─ 卡顿时长 (Stall Duration)：\(video.stallDuration) ms
+        └─ 端到端时延 (End-to-End Delay)：\(video.e2eDelay) ms
         """
     }
 
@@ -92,8 +92,8 @@ enum RtcStatsLogger {
         let localIndent = hasRemoteQuality ? "│  " : "   "
         var lines = [
             "网络质量 (Network Quality Metrics)",
-            "\(localBranch) 本地发送（上行）",
-            "\(localIndent)├─ 质量：\(networkQualityName(localQuality.txQuality))",
+            "\(localBranch) 本地发送（上行）(Local Uplink)",
+            "\(localIndent)├─ 质量 (Quality)：\(networkQualityName(localQuality.txQuality))",
             "\(localIndent)└─ \(networkMetrics(localQuality, includesRtt: true))"
         ]
 
@@ -101,9 +101,9 @@ enum RtcStatsLogger {
             let isLast = index == remoteQualities.count - 1
             let branch = isLast ? "└─" : "├─"
             let indent = isLast ? "   " : "│  "
-            lines.append("\(branch) 远端接收 \(quality.uid)（下行）")
+            lines.append("\(branch) 远端接收（下行）(Remote Downlink)：\(quality.uid)")
             lines.append(
-                "\(indent)├─ 质量：\(networkQualityName(quality.rxQuality))"
+                "\(indent)├─ 质量 (Quality)：\(networkQualityName(quality.rxQuality))"
             )
             lines.append(
                 "\(indent)└─ \(networkMetrics(quality, includesRtt: false))"
@@ -114,19 +114,19 @@ enum RtcStatsLogger {
 
     private static func systemStatsMessage(_ stats: ByteRTCSysStats) -> String {
         let cpu = [
-            "应用 \(percentage(stats.cpuAppUsage))",
-            "系统 \(percentage(stats.cpuTotalUsage))",
-            "\(stats.cpuCores) 核"
+            "应用 (App) \(percentage(stats.cpuAppUsage))",
+            "系统 (System) \(percentage(stats.cpuTotalUsage))",
+            "核心数 (Cores) \(stats.cpuCores)"
         ].joined(separator: "，")
         let memory = [
-            "应用 \(String(format: "%.0f", stats.memoryUsage)) MB",
-            "应用占用 \(String(format: "%.2f", stats.memoryRatio))%",
-            "系统占用 \(String(format: "%.2f", stats.totalMemoryRatio))%"
+            "应用 (App) \(String(format: "%.0f", stats.memoryUsage)) MB",
+            "应用占用 (App Usage) \(String(format: "%.2f", stats.memoryRatio))%",
+            "系统占用 (System Usage) \(String(format: "%.2f", stats.totalMemoryRatio))%"
         ].joined(separator: "，")
         return """
         性能统计 (System Performance Metrics)
         ├─ CPU：\(cpu)
-        └─ 内存：\(memory)
+        └─ 内存 (Memory)：\(memory)
         """
     }
 
@@ -137,12 +137,12 @@ enum RtcStatsLogger {
         var lines = ["性能告警 (Performance Alert)"]
         let state = performanceAlarmName(reason)
         if data.width > 0, data.height > 0, data.frameRate > 0 {
-            lines.append("├─ 状态：\(state)")
+            lines.append("├─ 状态 (Status)：\(state)")
             lines.append(
-                "└─ 建议：\(data.width) × \(data.height)，\(data.frameRate) fps"
+                "└─ 建议 (Recommendation)：\(data.width) × \(data.height)，\(data.frameRate) fps"
             )
         } else {
-            lines.append("└─ 状态：\(state)")
+            lines.append("└─ 状态 (Status)：\(state)")
         }
         return lines.joined(separator: "\n")
     }
@@ -151,14 +151,14 @@ enum RtcStatsLogger {
         _ quality: ByteRTCNetworkQualityStats,
         includesRtt: Bool
     ) -> String {
-        var metrics = ["丢包 \(percentage(quality.lossRatio))"]
+        var metrics = ["丢包 (Packet Loss) \(percentage(quality.lossRatio))"]
         if includesRtt {
             metrics.append("RTT \(quality.rtt) ms")
         }
         metrics.append(
-            "带宽 \(String(format: "%.0f", Double(quality.totalBandwidth) / 1_000)) kbps"
+            "带宽 (Bandwidth) \(String(format: "%.0f", Double(quality.totalBandwidth) / 1_000)) kbps"
         )
-        return "指标：\(metrics.joined(separator: "，"))"
+        return "指标 (Metrics)：\(metrics.joined(separator: "，"))"
     }
 
     private static func networkQualityName(
@@ -166,19 +166,19 @@ enum RtcStatsLogger {
     ) -> String {
         switch quality {
         case .excellent:
-            "极好"
+            "极好 (Excellent)"
         case .good:
-            "良好"
+            "良好 (Good)"
         case .poor:
-            "较差"
+            "较差 (Poor)"
         case .bad:
-            "差"
+            "差 (Bad)"
         case .veryBad:
-            "极差"
+            "极差 (Very Bad)"
         case .down:
-            "断网"
+            "断网 (Disconnected)"
         default:
-            "未知"
+            "未知 (Unknown)"
         }
     }
 
@@ -187,15 +187,15 @@ enum RtcStatsLogger {
     ) -> String {
         switch reason {
         case .bandwidthFallback:
-            "网络受限"
+            "网络受限 (Bandwidth Limited)"
         case .bandwidthResumed:
-            "网络恢复"
+            "网络恢复 (Bandwidth Recovered)"
         case .fallback:
-            "设备性能受限"
+            "设备性能受限 (Device Performance Limited)"
         case .resumed:
-            "设备性能恢复"
+            "设备性能恢复 (Device Performance Recovered)"
         default:
-            "未知"
+            "未知 (Unknown)"
         }
     }
 

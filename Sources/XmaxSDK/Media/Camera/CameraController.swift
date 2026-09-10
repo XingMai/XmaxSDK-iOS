@@ -288,7 +288,7 @@ private extension CameraController {
 
     static func logCleanupFailure(title: String, error: any Error) {
         XmaxLogger.realtime.error(
-            message: "\(title)\n└─ 原因：" + (error as NSError).localizedDescription
+            message: "\(title)\n└─ 原因 (Reason)：" + (error as NSError).localizedDescription
         )
     }
 }

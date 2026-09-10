@@ -10,7 +10,7 @@ final class StorageViewController: UIViewController {
         case image
         case video
 
-        var title: String { self == .image ? "图片" : "视频" }
+        var title: String { self == .image ? XLLocalization.text("media.image") : XLLocalization.text("media.video") }
     }
 
     private enum Layout {
@@ -79,7 +79,7 @@ final class StorageViewController: UIViewController {
 
     private lazy var pickerButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.accessibilityLabel = "选择图片或视频"
+        button.accessibilityLabel = XLLocalization.text("storage.select")
         button.addTarget(self, action: #selector(selectMedia), for: .touchUpInside)
         return button
     }()
@@ -88,7 +88,7 @@ final class StorageViewController: UIViewController {
         let button = UIButton(type: .custom)
         configureOutlineButton(
             button,
-            title: "重新上传",
+            title: XLLocalization.text("storage.reselect"),
             height: Layout.compactControlHeight,
             fontSize: 8,
             horizontalPadding: Layout.compactControlHorizontalPadding
@@ -103,7 +103,8 @@ final class StorageViewController: UIViewController {
         let label = UILabel()
         label.font = feedFont(ofSize: 9)
         label.textColor = .feed(rgb: 0x596678)
-        label.text = "视频生成暂不支持安全检测"
+        label.text = XLLocalization.text("storage.safety.unsupported")
+        label.numberOfLines = 0
         return label
     }()
 
@@ -136,6 +137,7 @@ final class StorageViewController: UIViewController {
         let label = UILabel()
         label.font = feedFont(ofSize: 10)
         label.textColor = orange
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()
 
@@ -143,6 +145,8 @@ final class StorageViewController: UIViewController {
         let label = UILabel()
         label.font = feedFont(ofSize: 9)
         label.textColor = .feed(rgb: 0x657386)
+        label.numberOfLines = 0
+        label.textAlignment = .right
         return label
     }()
 
@@ -168,21 +172,21 @@ final class StorageViewController: UIViewController {
 
     private lazy var safetyUploadButton: UIButton = {
         let button = UIButton(type: .custom)
-        configureOutlineButton(button, title: "安全检测上传")
+        configureOutlineButton(button, title: XLLocalization.text("storage.upload.safe"))
         button.addTarget(self, action: #selector(uploadWithSafetyCheck), for: .touchUpInside)
         return button
     }()
 
     private lazy var normalUploadButton: UIButton = {
         let button = UIButton(type: .custom)
-        configureOutlineButton(button, title: "普通上传")
+        configureOutlineButton(button, title: XLLocalization.text("storage.upload.normal"))
         button.addTarget(self, action: #selector(uploadNormally), for: .touchUpInside)
         return button
     }()
 
     private lazy var videoUploadButton: UIButton = {
         let button = UIButton(type: .custom)
-        configureOutlineButton(button, title: "上传并获取地址")
+        configureOutlineButton(button, title: XLLocalization.text("storage.upload.getURL"))
         button.addTarget(self, action: #selector(uploadNormally), for: .touchUpInside)
         return button
     }()
@@ -248,7 +252,7 @@ final class StorageViewController: UIViewController {
 
     private lazy var copyButton: UIButton = {
         let button = UIButton(type: .custom)
-        configureOutlineButton(button, title: "复制地址")
+        configureOutlineButton(button, title: XLLocalization.text("storage.copy"))
         button.addTarget(self, action: #selector(copyUploadedURL), for: .touchUpInside)
         return button
     }()
@@ -299,9 +303,9 @@ final class StorageViewController: UIViewController {
         let backButton = UIButton(type: .custom)
         backButton.setImage(UIImage(named: "realtime_nav_back"), for: .normal)
         backButton.imageView?.contentMode = .scaleAspectFit
-        backButton.accessibilityLabel = "返回首页"
+        backButton.accessibilityLabel = XLLocalization.text("common.home")
         backButton.addTarget(self, action: #selector(goBack), for: .touchUpInside)
-        let title = makeFeedLabel("存储服务", size: 20, weight: .bold, color: FeedPalette.primaryText)
+        let title = makeFeedLabel(XLLocalization.text("feed.storage.title"), size: 20, weight: .bold, color: FeedPalette.primaryText)
         let subtitle = makeFeedLabel("EXAMPLE / IOS", size: 8, color: orange.withAlphaComponent(0.72), letterSpacing: 1)
         let titleStack = feedVerticalStack([title, subtitle], spacing: 3)
         let version = FeedPillView(
@@ -371,26 +375,27 @@ final class StorageViewController: UIViewController {
         )
         let dot = feedDot(color: orange, size: 6, glows: false)
         let eyebrow = makeFeedLabel(
-            "STORAGE PIPELINE",
+            XLLocalization.text("storage.pipeline"),
             size: 9,
             weight: .bold,
             color: orange,
             letterSpacing: 1
         )
         let ready = FeedPillView(
-            text: "READY", foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.13),
+            text: XLLocalization.text("feed.ready"), foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.13),
             borderColor: .clear, fontSize: 8, horizontalPadding: 9, height: 23
         )
         let header = feedHorizontalStack(
             [feedHorizontalStack([dot, eyebrow], spacing: 7), feedFlexibleSpacer(), ready]
         )
         let title = makeFeedLabel(
-            "把本地媒体交给 XmaxSDK",
+            XLLocalization.text("storage.hero.title"),
             size: 18,
             weight: .bold,
             color: .feed(rgb: 0xF4EEE6)
         )
-        let subtitleText = "选择图片或视频，上传后获取可直接使用的远程地址。"
+        let subtitleText = XLLocalization.text("storage.hero.subtitle")
+        title.numberOfLines = 0
         let subtitle = makeFeedLabel(subtitleText, size: 10, color: .feed(rgb: 0x8E8377))
         subtitle.numberOfLines = 0
         subtitle.attributedText = feedAttributedText(
@@ -399,11 +404,11 @@ final class StorageViewController: UIViewController {
             color: subtitle.textColor,
             lineHeight: 17
         )
-        let localFile = makeFeedLabel("LOCAL FILE", size: 8, weight: .bold, color: .feed(rgb: 0x9A8B7A))
+        let localFile = makeFeedLabel(XLLocalization.text("storage.localFile"), size: 8, weight: .bold, color: .feed(rgb: 0x9A8B7A))
         let firstSeparator = makeFeedLabel("—", size: 9, color: .feed(rgb: 0x66513A))
         let sdk = makeFeedLabel("XMAX SDK", size: 8, weight: .bold, color: orange)
         let secondSeparator = makeFeedLabel("—", size: 9, color: .feed(rgb: 0x66513A))
-        let remoteURL = makeFeedLabel("REMOTE URL", size: 8, weight: .bold, color: .feed(rgb: 0x9A8B7A))
+        let remoteURL = makeFeedLabel(XLLocalization.text("storage.remoteURL"), size: 8, weight: .bold, color: .feed(rgb: 0x9A8B7A))
         let pipeline = feedHorizontalStack([
             localFile,
             firstSeparator,
@@ -432,16 +437,16 @@ final class StorageViewController: UIViewController {
         )
         let step = makeStepPill("01")
         let title = makeFeedLabel(
-            "文件预览",
+            XLLocalization.text("storage.preview"),
             size: Layout.sectionTitleFontSize,
             weight: .bold,
             color: .feed(rgb: 0xF2ECE4)
         )
         let header = feedHorizontalStack([step, title, feedFlexibleSpacer(), reselectButton], spacing: 9)
         configurePicker()
-        let typeMetric = makeMetadataView(label: "type", valueLabel: typeValue)
-        let resolutionMetric = makeMetadataView(label: "resolution", valueLabel: resolutionValue)
-        let sizeMetric = makeMetadataView(label: "size", valueLabel: sizeValue)
+        let typeMetric = makeMetadataView(label: XLLocalization.text("storage.type"), valueLabel: typeValue)
+        let resolutionMetric = makeMetadataView(label: XLLocalization.text("storage.resolution"), valueLabel: resolutionValue)
+        let sizeMetric = makeMetadataView(label: XLLocalization.text("storage.size"), valueLabel: sizeValue)
         let metadata = feedHorizontalStack([typeMetric, resolutionMetric, sizeMetric], spacing: 8)
         typeMetric.snp.makeConstraints { make in make.width.equalTo(resolutionMetric) }
         resolutionMetric.snp.makeConstraints { make in make.width.equalTo(sizeMetric) }
@@ -485,18 +490,24 @@ final class StorageViewController: UIViewController {
         plusContainer.addSubview(plusIcon)
         plusIcon.snp.makeConstraints { make in make.center.equalToSuperview() }
         let pickerTitle = makeFeedLabel(
-            "点击选择图片或视频",
+            XLLocalization.text("storage.select.hint"),
             size: 12,
             weight: .bold,
             color: .feed(rgb: 0x9D9185)
         )
-        let pickerType = makeFeedLabel("IMAGE  /  VIDEO", size: 9, color: .feed(rgb: 0x62584E), letterSpacing: 0.8)
+        pickerTitle.numberOfLines = 0
+        pickerTitle.textAlignment = .center
+        let pickerType = makeFeedLabel(XLLocalization.text("storage.mediaTypes"), size: 9, color: .feed(rgb: 0x62584E), letterSpacing: 0.8)
         let pickerStack = feedVerticalStack([plusContainer, pickerTitle, pickerType])
         pickerStack.alignment = .center
         pickerStack.setCustomSpacing(11, after: plusContainer)
         pickerStack.setCustomSpacing(5, after: pickerTitle)
         emptyPickerContent.addSubview(pickerStack)
-        pickerStack.snp.makeConstraints { make in make.center.equalToSuperview() }
+        pickerStack.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.leading.greaterThanOrEqualToSuperview().offset(12)
+            make.trailing.lessThanOrEqualToSuperview().inset(12)
+        }
         pickerContainer.addSubview(emptyPickerContent)
         pickerContainer.addSubview(imagePreview)
         pickerContainer.addSubview(videoPreview)
@@ -517,23 +528,23 @@ final class StorageViewController: UIViewController {
     private func configureResultCard() {
         let step = makeStepPill("02")
         let title = makeFeedLabel(
-            "上传结果",
+            XLLocalization.text("storage.result"),
             size: Layout.sectionTitleFontSize,
             weight: .bold,
             color: .feed(rgb: 0xF2ECE4)
         )
         let success = FeedPillView(
-            text: "SUCCESS", foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.08),
+            text: XLLocalization.text("storage.success"), foregroundColor: orange, backgroundColor: orange.withAlphaComponent(0.08),
             borderColor: orange.withAlphaComponent(0.28), fontSize: 8,
             horizontalPadding: Layout.compactControlHorizontalPadding,
             height: Layout.compactControlHeight,
             cornerRadius: Layout.compactControlCornerRadius
         )
         let header = feedHorizontalStack([step, title, feedFlexibleSpacer(), success], spacing: 9)
-        let elapsedTitle = makeFeedLabel("上传耗时", size: 11, color: .feed(rgb: 0x718095))
+        let elapsedTitle = makeFeedLabel(XLLocalization.text("storage.elapsed"), size: 11, color: .feed(rgb: 0x718095))
         let elapsedRow = feedHorizontalStack([elapsedTitle, feedFlexibleSpacer(), elapsedValue])
         let urlTitle = makeFeedLabel(
-            "REMOTE URL",
+            XLLocalization.text("storage.remoteURL"),
             size: 9,
             weight: .bold,
             color: .feed(rgb: 0x667589),
@@ -776,7 +787,7 @@ final class StorageViewController: UIViewController {
 
     private func finishPicking(error: Error?) {
         isPicking = false
-        if let error { showError(error, fallback: "读取文件失败，请重试") }
+        if let error { showError(error, fallback: XLLocalization.text("storage.file.error")) }
         refreshState()
     }
 
@@ -791,14 +802,14 @@ final class StorageViewController: UIViewController {
         errorLabel.text = nil
         errorLabel.attributedText = nil
         uploadProgressView.progress = 0
-        uploadProgressLabel.text = "上传中 0%"
+        uploadProgressLabel.text = XLLocalization.format("storage.upload.progress", 0)
         uploadModeLabel.text = switch selectedMediaKind {
         case .video:
-            "正在上传视频"
+            XLLocalization.text("storage.upload.video")
         case .image where withSafetyCheck:
-            "包含内容安全检查"
+            XLLocalization.text("storage.upload.safety")
         case .image:
-            "正在上传图片"
+            XLLocalization.text("storage.upload.image")
         }
         updateUploadButtonTitles()
         refreshState()
@@ -834,7 +845,7 @@ final class StorageViewController: UIViewController {
                 await MainActor.run {
                     self.isUploading = false
                     self.updateUploadButtonTitles()
-                    self.showError(error, fallback: "上传失败，请检查 API Key 和网络后重试")
+                    self.showError(error, fallback: XLLocalization.text("storage.upload.error"))
                     self.refreshState()
                 }
             }
@@ -844,7 +855,7 @@ final class StorageViewController: UIViewController {
     private func applyUploadProgress(_ fraction: Float) {
         let clamped = min(max(fraction, 0), 1)
         uploadProgressView.setProgress(clamped, animated: true)
-        uploadProgressLabel.text = "上传中 \(Int((clamped * 100).rounded()))%"
+        uploadProgressLabel.text = XLLocalization.format("storage.upload.progress", Int((clamped * 100).rounded()))
     }
 
     private func finishUpload(url: URL, elapsed: TimeInterval) {
@@ -864,14 +875,14 @@ final class StorageViewController: UIViewController {
 
     private func updateUploadButtonTitles() {
         safetyUploadButton.setTitle(
-            isUploading && activeUploadUsesSafetyCheck ? "正在检测上传" : "安全检测上传",
+            isUploading && activeUploadUsesSafetyCheck ? XLLocalization.text("storage.upload.checking") : XLLocalization.text("storage.upload.safe"),
             for: .normal
         )
         normalUploadButton.setTitle(
-            isUploading && !activeUploadUsesSafetyCheck ? "正在上传" : "普通上传",
+            isUploading && !activeUploadUsesSafetyCheck ? XLLocalization.text("storage.uploading") : XLLocalization.text("storage.upload.normal"),
             for: .normal
         )
-        videoUploadButton.setTitle(isUploading ? "正在上传" : "上传并获取地址", for: .normal)
+        videoUploadButton.setTitle(isUploading ? XLLocalization.text("storage.uploading") : XLLocalization.text("storage.upload.getURL"), for: .normal)
     }
 
     private func showError(_ error: Error, fallback: String) {
@@ -889,7 +900,7 @@ final class StorageViewController: UIViewController {
     @objc private func copyUploadedURL() {
         guard let uploadedURL else { return }
         UIPasteboard.general.string = uploadedURL.absoluteString
-        XLToast.show("地址已复制", in: view, duration: 2)
+        XLToast.show(XLLocalization.text("storage.copied"), in: view, duration: 2)
     }
 
     @objc private func goBack() { navigationController?.popViewController(animated: true) }
@@ -917,7 +928,7 @@ extension StorageViewController: PHPickerViewControllerDelegate,
 
 private enum StoragePageError: LocalizedError {
     case unreadableSelection
-    var errorDescription: String? { "无法读取所选文件，请重试" }
+    var errorDescription: String? { XLLocalization.text("feed.file.error") }
 }
 
 private final class StorageVideoPreviewView: UIView {

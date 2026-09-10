@@ -106,7 +106,7 @@ final class RealtimeReferenceStore: ObservableObject {
     }
 
     func showImportError() {
-        errorMessage = "读取照片失败，请重试"
+        errorMessage = XLLocalization.text("realtime.photo.error")
     }
 
     func cancelUploads() {
@@ -181,7 +181,7 @@ final class RealtimeReferenceStore: ObservableObject {
             }
         case .failure:
             reference.uploadState = .failed
-            errorMessage = "参考图上传失败，点击图片可重试"
+            errorMessage = XLLocalization.text("realtime.reference.error")
         }
         if reference === promptReference {
             promptReference = reference

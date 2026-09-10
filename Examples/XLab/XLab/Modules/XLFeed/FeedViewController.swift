@@ -25,6 +25,9 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private var isPickingMedia = false
     private var pendingMediaSelectionKind: MediaSelectionKind?
 
+    // 界面语言
+    private var displayedLanguageCode = XLLocalization.languageCode
+
     // 界面组件
     private var mediaSourceCards: [(source: RealtimeMediaSource, view: UIView)] = []
     private lazy var scrollView: UIScrollView = {
@@ -66,12 +69,55 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         populateFeed()
         configureKeyboardDismissal()
         performNetworkPreflight()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshLanguage),
+            name: XLLocalization.didChangeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshSystemLanguage),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         updateMediaSourceAvailability()
+    }
+
+    @objc private func refreshSystemLanguage() {
+        guard displayedLanguageCode != XLLocalization.languageCode else { return }
+        refreshLanguage()
+    }
+
+    @objc private func refreshLanguage() {
+        view.endEditing(true)
+        let offset = scrollView.contentOffset
+
+        for subview in contentStack.arrangedSubviews {
+            contentStack.removeArrangedSubview(subview)
+            subview.removeFromSuperview()
+        }
+        mediaSourceCards.removeAll()
+        displayedLanguageCode = XLLocalization.languageCode
+        populateFeed()
+        updateMediaSourceAvailability()
+
+        view.layoutIfNeeded()
+        let minimumOffset = -scrollView.adjustedContentInset.top
+        let maximumOffset = max(
+            minimumOffset,
+            scrollView.contentSize.height - scrollView.bounds.height
+                + scrollView.adjustedContentInset.bottom
+        )
+        scrollView.setContentOffset(
+            CGPoint(x: offset.x, y: min(max(offset.y, minimumOffset), maximumOffset)),
+            animated: false
+        )
     }
 
     private func configureBackgroundGlow() {
@@ -124,8 +170,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
         contentStack.addArrangedSubview(
             makeSectionHeader(
-                title: "GENERATION PIPELINES",
-                subtitle: "选择一种内容输入方式"
+                title: XLLocalization.text("feed.pipelines"),
+                subtitle: XLLocalization.text("feed.input")
             )
         )
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
@@ -134,8 +180,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             sequence: "01",
             modeID: "MODE_01 / CAMERA",
             statusColor: FeedPalette.mint,
-            title: "摄像头实时流",
-            subtitle: "实时采集摄像头画面，持续驱动视频生成。",
+            title: XLLocalization.text("feed.camera.title"),
+            subtitle: XLLocalization.text("feed.camera.subtitle"),
             capability: "createLocalCameraStream()"
         )
         realtimeCard.isUserInteractionEnabled = true
@@ -149,8 +195,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             sequence: "02",
             modeID: "MODE_02 / VIDEO.FILE",
             statusColor: FeedPalette.blue,
-            title: "视频生成管线",
-            subtitle: "选择本地视频，将连续画面逐帧送入生成链路。",
+            title: XLLocalization.text("feed.video.title"),
+            subtitle: XLLocalization.text("feed.video.subtitle"),
             capability: "createLocalVideoStream()"
         )
         videoCard.isUserInteractionEnabled = true
@@ -164,8 +210,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             sequence: "03",
             modeID: "MODE_03 / IMAGE.FILE",
             statusColor: FeedPalette.purple,
-            title: "图片生成管线",
-            subtitle: "选择本地图片，让静态画面持续流动起来。",
+            title: XLLocalization.text("feed.image.title"),
+            subtitle: XLLocalization.text("feed.image.subtitle"),
             capability: "createLocalImageStream()"
         )
         imageCard.isUserInteractionEnabled = true
@@ -177,7 +223,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
 
         contentStack.addArrangedSubview(feedFixedSpacer(height: 30))
         contentStack.addArrangedSubview(
-            makeSectionHeader(title: "SDK FEATURES", subtitle: "更多能力与接入示例")
+            makeSectionHeader(title: XLLocalization.text("feed.features"), subtitle: XLLocalization.text("feed.examples"))
         )
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let swiftUICard = FeedFeatureCardView(
@@ -186,8 +232,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             accentColor: FeedPalette.red,
             iconName: "swift",
             iconLabel: "SWIFTUI",
-            title: "SwiftUI 实时页面",
-            subtitle: "使用 SwiftUI 接入实时视频生成。",
+            title: XLLocalization.text("feed.swiftui.title"),
+            subtitle: XLLocalization.text("feed.swiftui.subtitle"),
             tags: ["SWIFTUI", "XMAXVIDEO", "REALTIME"],
             highlightedTag: "SWIFTUI"
         )
@@ -207,8 +253,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             accentColor: FeedPalette.pink,
             iconName: "sdk_feature_trajectory_custom",
             iconLabel: "RENDER",
-            title: "自定义轨迹渲染",
-            subtitle: "使用自定义 Renderer 绘制交互轨迹。",
+            title: XLLocalization.text("feed.render.title"),
+            subtitle: XLLocalization.text("feed.render.subtitle"),
             tags: ["CANVAS", "MULTI-TOUCH", "CUSTOM EFFECT"],
             highlightedTag: "CUSTOM EFFECT"
         )
@@ -228,8 +274,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             accentColor: FeedPalette.orange,
             iconName: "sdk_feature_storage",
             iconLabel: "UPLOAD",
-            title: "存储服务",
-            subtitle: "上传图片或视频，获取可复用的远程地址",
+            title: XLLocalization.text("feed.storage.title"),
+            subtitle: XLLocalization.text("feed.storage.subtitle"),
             tags: ["IMAGE", "VIDEO", "REMOTE URL"],
             highlightedTag: "REMOTE URL"
         )
@@ -289,7 +335,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             forKey: RealtimePreferences.apiKeyStorageKey
         )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !apiKey.isEmpty else {
-            XLToast.show("请先输入 API Key", in: view)
+            XLToast.show(XLLocalization.text("feed.api.required"), in: view)
             return false
         }
         return true
@@ -301,14 +347,14 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             let isSupported = supported.contains(card.source)
             card.view.alpha = isSupported ? 1 : 0.35
             card.view.accessibilityHint = isSupported
-                ? nil : "当前模型不支持此输入来源"
+                ? nil : XLLocalization.text("feed.source.unsupported")
         }
     }
 
     private func validateMediaSource(_ source: RealtimeMediaSource) -> Bool {
         let model = RealtimePreferences.selectedModel
         guard model.supportedMediaSources.contains(source) else {
-            XLToast.show("\(model.rawValue) 不支持此输入来源，请切换模型", in: view)
+            XLToast.show(XLLocalization.format("feed.model.unsupported", model.rawValue), in: view)
             return false
         }
         return true
@@ -485,8 +531,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         isPickingMedia = false
         pendingMediaSelectionKind = nil
         let fallback = kind.isVideo
-            ? "读取视频失败，请重试"
-            : "读取图片失败，请重试"
+            ? XLLocalization.text("feed.video.error")
+            : XLLocalization.text("feed.image.error")
         let message = error.localizedDescription
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let alert = UIAlertController(
@@ -494,7 +540,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             message: message.isEmpty ? fallback : message,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "知道了", style: .default))
+        alert.addAction(UIAlertAction(title: XLLocalization.text("common.ok"), style: .default))
         present(alert, animated: true)
     }
 
@@ -538,7 +584,33 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             foregroundColor: FeedPalette.mint,
             backgroundColor: FeedPalette.mint.withAlphaComponent(0.086)
         )
-        return feedHorizontalStack([brand, feedFlexibleSpacer(), version])
+        let header = feedHorizontalStack([brand, feedFlexibleSpacer(), version, makeLanguageButton()], spacing: 8)
+        header.setCustomSpacing(0, after: version)
+        return header
+    }
+
+    private func makeLanguageButton() -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "globe"), for: .normal)
+        button.tintColor = FeedPalette.mint
+        button.accessibilityLabel = "语言 / Language"
+        button.accessibilityValue = XLLocalization.shared.language.title
+        button.showsMenuAsPrimaryAction = true
+        button.menu = UIMenu(
+            title: "语言 / Language",
+            children: XLLanguage.allCases.map { language in
+                UIAction(
+                    title: language.title,
+                    state: language == XLLocalization.shared.language ? .on : .off
+                ) { _ in
+                    XLLocalization.shared.setLanguage(language)
+                }
+            }
+        )
+        button.snp.makeConstraints { make in
+            make.size.equalTo(44)
+        }
+        return button
     }
 
     private func makeHero() -> UIView {
@@ -568,18 +640,20 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         )
         let eyebrowRow = feedHorizontalStack([line, eyebrow], spacing: 7)
         let title = makeFeedLabel(
-            "实时交互视频模型",
-            size: 24,
+            XLLocalization.text("feed.hero.title"),
+            size: 22,
             weight: .bold,
             color: .feed(rgb: 0xF5F7FB),
             letterSpacing: -0.3
         )
         let subtitle = makeFeedLabel(
-            "选择输入源，启动 XmaxSDK 流式生成链路",
-            size: 12,
+            XLLocalization.text("feed.hero.subtitle"),
+            size: 11,
             color: .feed(rgb: 0x91A0B2)
         )
         let stack = feedVerticalStack([eyebrowRow, title, subtitle])
+        title.numberOfLines = 0
+        subtitle.numberOfLines = 0
         stack.setCustomSpacing(18, after: eyebrowRow)
         stack.setCustomSpacing(12, after: title)
         card.contentView.addSubview(stack)
@@ -596,10 +670,10 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     private func makeMetrics() -> UIView {
-        let runtime = FeedRuntimeMetricView(label: "RUNTIME", value: "iOS")
-        let minimum = FeedRuntimeMetricView(label: "MIN OS", value: "15+")
+        let runtime = FeedRuntimeMetricView(label: XLLocalization.text("feed.runtime"), value: "iOS")
+        let minimum = FeedRuntimeMetricView(label: XLLocalization.text("feed.os"), value: "15+")
         let latestModel = RealtimeModel.allCases.last?.rawValue.uppercased() ?? "—"
-        let model = FeedRuntimeMetricView(label: "LATEST MODEL", value: latestModel)
+        let model = FeedRuntimeMetricView(label: XLLocalization.text("feed.latestModel"), value: latestModel)
         let stack = feedHorizontalStack([runtime, minimum, model], spacing: 8)
 
         runtime.snp.makeConstraints { make in
@@ -614,12 +688,13 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private func makeSectionHeader(title: String, subtitle: String) -> UIView {
         let titleLabel = makeFeedLabel(
             title,
-            size: 10,
+            size: 13,
             weight: .bold,
             color: .feed(rgb: 0xC6D0DD),
             letterSpacing: 1.1
         )
         let subtitleLabel = makeFeedLabel(subtitle, size: 11, color: .feed(rgb: 0x667384))
+        titleLabel.numberOfLines = 0
         return feedVerticalStack([titleLabel, subtitleLabel], spacing: 5)
     }
 
@@ -724,6 +799,6 @@ private enum FeedMediaSelectionError: LocalizedError {
     case unreadableFile
 
     var errorDescription: String? {
-        "无法读取所选文件，请重试"
+        XLLocalization.text("feed.file.error")
     }
 }

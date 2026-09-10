@@ -60,7 +60,7 @@ struct RealtimeReferenceCatalog: Decodable {
         init(categoryID: String, iconURL: URL, prompt: String) {
             id = "custom-\(UUID().uuidString)"
             self.categoryID = categoryID
-            title = "自定义参考图"
+            title = XLLocalization.text("realtime.reference.custom")
             self.iconURL = iconURL
             self.prompt = prompt
             referencePath = nil

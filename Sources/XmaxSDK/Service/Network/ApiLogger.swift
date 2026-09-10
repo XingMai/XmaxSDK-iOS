@@ -37,8 +37,8 @@ enum ApiLogger {
     ) {
         XmaxLogger.api.error(
             message: "\(method.rawValue) \(path) 失败 (Request Failed)\n" +
-                "├─ 耗时：\(durationMs) ms\n" +
-                "└─ 原因：\(ErrorMessageFormatter.format(error))"
+                "├─ 耗时 (Duration)：\(durationMs) ms\n" +
+                "└─ 原因 (Reason)：\(ErrorMessageFormatter.format(error))"
         )
     }
 
@@ -51,16 +51,16 @@ enum ApiLogger {
         responseBody: Data? = nil
     ) -> String {
         let prefix = "\(method.rawValue) \(path)\n" +
-            "├─ 状态：\(statusCode)\n" +
-            "├─ 耗时：\(durationMs) ms\n"
+            "├─ 状态 (Status)：\(statusCode)\n" +
+            "├─ 耗时 (Duration)：\(durationMs) ms\n"
         guard let responseBody else {
-            return prefix + "└─ 响应：\(bodyByteCount) bytes"
+            return prefix + "└─ 响应 (Response Size)：\(bodyByteCount) bytes"
         }
 
         let body = formatResponseBody(responseBody)
         return prefix +
-            "├─ 响应：\(bodyByteCount) bytes\n" +
-            "└─ 正文：\n   \(body)"
+            "├─ 响应 (Response Size)：\(bodyByteCount) bytes\n" +
+            "└─ 正文 (Response Body)：\n   \(body)"
     }
 
     static func formatResponseBody(_ data: Data) -> String {

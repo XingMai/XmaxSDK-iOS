@@ -16,6 +16,7 @@ struct RealtimeView: View {
 
     // 应用状态
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var localization = XLLocalization.shared
 
     // 参考图资源
     @StateObject private var referenceStore = RealtimeReferenceStore()
@@ -64,7 +65,7 @@ struct RealtimeView: View {
             .ignoresSafeArea()
         }
         .alert(
-            "提示",
+            XLLocalization.text("common.notice"),
             isPresented: Binding(
                 get: {
                     referenceStore.errorMessage != nil
@@ -78,7 +79,7 @@ struct RealtimeView: View {
                 }
             )
         ) {
-            Button("确定", role: .cancel) {
+            Button(XLLocalization.text("common.confirm"), role: .cancel) {
                 referenceStore.clearError()
                 realtimeSession.clearError()
             }
@@ -113,6 +114,7 @@ struct RealtimeView: View {
         }
         .background(Color.black)
         .preferredColorScheme(.dark)
+        .environment(\.locale, localization.locale)
     }
 }
 
@@ -127,13 +129,13 @@ private extension RealtimeView {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("返回首页")
+            .accessibilityLabel(XLLocalization.text("common.home"))
 
             Spacer()
 
             VStack(spacing: 0) {
                 RealtimeActionButton(
-                    title: "翻转",
+                    title: XLLocalization.text("realtime.flip"),
                     image: Image("realtime_camera_rotate"),
                     isActive: false,
                     isHorizontallyFlipped:
@@ -147,7 +149,7 @@ private extension RealtimeView {
                 )
 
                 RealtimeActionButton(
-                    title: "插帧",
+                    title: XLLocalization.text("realtime.interpolation"),
                     image: Image(systemName: "bolt.fill"),
                     isActive:
                         realtimeSession.isFrameInterpolationEnabled
@@ -158,8 +160,13 @@ private extension RealtimeView {
                 }
                 .accessibilityValue(
                     realtimeSession.isFrameInterpolationEnabled
-                        ? "已开启"
-                        : "已关闭"
+                        ? XLLocalization.text("common.enabled")
+                        : XLLocalization.text("common.disabled")
+                )
+                .accessibilityLabel(
+                    realtimeSession.isFrameInterpolationEnabled
+                        ? XLLocalization.text("realtime.interpolation.disable")
+                        : XLLocalization.text("realtime.interpolation.enable")
                 )
             }
             .frame(width: 58, height: 124)
@@ -205,7 +212,7 @@ private extension RealtimeView {
                     .frame(width: 28, height: 36)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("停止生成")
+            .accessibilityLabel(XLLocalization.text("realtime.generation.stop"))
             .disabled(!realtimeSession.isGenerationRequested)
             .animation(
                 .easeInOut(duration: 0.3),
@@ -271,7 +278,7 @@ private extension RealtimeView {
         case let .references(categoryID):
             referenceList(categoryID: categoryID)
         case .instruction:
-            Button("点击开始生成") {
+            Button(XLLocalization.text("realtime.generation.start")) {
                 startTouchAnimationGeneration()
             }
                 .font(.system(size: 13, weight: .medium))
@@ -286,7 +293,7 @@ private extension RealtimeView {
                 .padding(.horizontal, 14)
         case .prompt:
             HStack(spacing: 0) {
-                TextField("输入你想要的效果", text: $prompt)
+                TextField(XLLocalization.text("realtime.prompt.placeholder"), text: $prompt)
                     .textInputAutocapitalization(.never)
                     .submitLabel(.send)
                     .focused($isPromptFieldFocused)
@@ -325,6 +332,7 @@ private extension RealtimeView {
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSubmitPrompt)
+                .accessibilityLabel(XLLocalization.text("realtime.prompt.submit"))
                 .opacity(canSubmitPrompt ? 1 : 0.2)
                 .padding(.leading, 8)
                 .padding(.trailing, 8)
@@ -345,7 +353,11 @@ private extension RealtimeView {
                 referencePickerDestination = .category(categoryID)
                 isReferencePickerPresented = true
             } label: {
-                Image("realtime_add_reference")
+                Image(
+                    XLLocalization.languageCode == "zh-Hans"
+                        ? "realtime_add_reference"
+                        : "realtime_add_reference_en"
+                )
                     .resizable()
                     .scaledToFill()
                     .frame(width: 50, height: 50)
@@ -355,7 +367,7 @@ private extension RealtimeView {
                     )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("添加参考图")
+            .accessibilityLabel(XLLocalization.text("realtime.reference.add"))
 
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -442,15 +454,15 @@ private extension RealtimeView {
 
     var promptReferenceAccessibilityLabel: String {
         guard let reference = referenceStore.promptReference else {
-            return "添加自定义模式参考图"
+            return XLLocalization.text("realtime.reference.prompt.add")
         }
         return switch reference.uploadState {
         case .ready:
-            "删除自定义模式参考图"
+            XLLocalization.text("realtime.reference.prompt.delete")
         case .uploading:
-            "正在上传自定义模式参考图"
+            XLLocalization.text("realtime.reference.prompt.uploading")
         case .failed:
-            "重试上传自定义模式参考图"
+            XLLocalization.text("realtime.reference.prompt.retry")
         }
     }
 
@@ -717,6 +729,8 @@ private struct RealtimeActionButton: View {
                     )
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
             }

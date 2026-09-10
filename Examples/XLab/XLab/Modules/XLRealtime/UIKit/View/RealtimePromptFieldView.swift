@@ -9,7 +9,7 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
     private lazy var textField: UITextField = {
         let textField = UITextField()
         textField.attributedPlaceholder = NSAttributedString(
-            string: "输入你想要的效果",
+            string: XLLocalization.text("realtime.prompt.placeholder"),
             attributes: [
                 .foregroundColor: UIColor.white.withAlphaComponent(0.5),
                 .font: UIFont.systemFont(ofSize: 14)
@@ -52,7 +52,7 @@ final class RealtimePromptFieldView: UIView, UITextFieldDelegate {
         addSubview(textField)
         addSubview(referenceButton)
         addSubview(submitControl)
-        submitControl.accessibilityLabel = "提交自定义模式描述"
+        submitControl.accessibilityLabel = XLLocalization.text("realtime.prompt.submit")
         submitControl.addTarget(
             self,
             action: #selector(submitPrompt),

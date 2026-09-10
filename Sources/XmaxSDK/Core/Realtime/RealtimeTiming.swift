@@ -141,13 +141,13 @@ private extension RealtimeTiming {
 
         var lines = [
             "实时生成启动耗时 (Realtime Generation Startup Timing)",
-            "├─ 总耗时：\(duration(startedAt, readyAt))"
+            "├─ 总耗时 (Total Duration)：\(duration(startedAt, readyAt))"
         ]
 
         if let connectionStartedAt = state.connectionStartedAt,
            let connectionFinishedAt = state.connectionFinishedAt {
             appendDetail(
-                "调用与本地准备",
+                "调用与本地准备 (Invocation and Local Preparation)",
                 milliseconds(startedAt, connectionStartedAt),
                 to: &lines
             )
@@ -156,7 +156,7 @@ private extension RealtimeTiming {
                 connectionFinishedAt
             ) ?? 0
             lines.append(
-                "├─ 实时连接：\(format(connectionDuration))"
+                "├─ 实时连接 (Realtime Connection)：\(format(connectionDuration))"
             )
             let sessionDuration = milliseconds(
                 state.sessionStartedAt,
@@ -174,27 +174,27 @@ private extension RealtimeTiming {
             )
             appendConnectionDetails(
                 [
-                    ("服务端会话创建", sessionDuration),
-                    ("RTC 房间连接", roomJoinDuration),
-                    ("媒体发布与连接准备", remainingConnectionDuration)
+                    ("服务端会话创建 (Server Session Creation)", sessionDuration),
+                    ("RTC 房间连接 (RTC Room Connection)", roomJoinDuration),
+                    ("媒体发布与连接准备 (Media Publishing and Connection Setup)", remainingConnectionDuration)
                 ],
                 to: &lines
             )
             appendDetail(
-                "连接后生成准备",
+                "连接后生成准备 (Post-Connection Generation Preparation)",
                 milliseconds(connectionFinishedAt, signalStartedAt),
                 to: &lines
             )
         } else {
             appendDetail(
-                "生成前准备",
+                "生成前准备 (Pre-Generation Preparation)",
                 milliseconds(startedAt, signalStartedAt),
                 to: &lines
             )
         }
 
         lines.append(
-            "├─ 等待生成结果流确认：" +
+            "├─ 等待生成结果流确认 (Waiting for Result Stream Confirmation)：" +
                 duration(signalStartedAt, seiMatchedAt)
         )
         if let signalDuration = milliseconds(
@@ -202,11 +202,11 @@ private extension RealtimeTiming {
             state.signalFinishedAt
         ), signalDuration >= minimumDetailMilliseconds {
             lines.append(
-                "│  └─ 发送生成请求：\(format(signalDuration))"
+                "│  └─ 发送生成请求 (Send Generation Request)：\(format(signalDuration))"
             )
         }
         lines.append(
-            "└─ 结果流确认到首帧就绪：" +
+            "└─ 结果流确认到首帧就绪 (Result Stream Confirmation to First Frame Ready)：" +
                 duration(seiMatchedAt, readyAt)
         )
         return lines.joined(separator: "\n")
@@ -225,12 +225,12 @@ private extension RealtimeTiming {
         var lines = [
             "实时生成启动未完成耗时 " +
                 "(Incomplete Realtime Generation Startup Timing)",
-            "├─ 已耗时：\(duration(startedAt, failureAt))",
-            "├─ 停留阶段：\(pendingStage(state))"
+            "├─ 已耗时 (Elapsed Time)：\(duration(startedAt, failureAt))",
+            "├─ 停留阶段 (Current Stage)：\(pendingStage(state))"
         ]
         if let sessionStartedAt = state.sessionStartedAt {
             appendDetail(
-                "服务端会话创建",
+                "服务端会话创建 (Server Session Creation)",
                 milliseconds(
                     sessionStartedAt,
                     state.sessionFinishedAt ?? failureAt
@@ -240,7 +240,7 @@ private extension RealtimeTiming {
         }
         if let roomJoinStartedAt = state.roomJoinStartedAt {
             appendDetail(
-                "RTC 房间连接",
+                "RTC 房间连接 (RTC Room Connection)",
                 milliseconds(
                     roomJoinStartedAt,
                     state.roomJoinFinishedAt ?? failureAt
@@ -250,7 +250,7 @@ private extension RealtimeTiming {
         }
         if let connectionStartedAt = state.connectionStartedAt {
             appendDetail(
-                "实时连接",
+                "实时连接 (Realtime Connection)",
                 milliseconds(
                     connectionStartedAt,
                     state.connectionFinishedAt ?? failureAt
@@ -260,7 +260,7 @@ private extension RealtimeTiming {
         }
         if let signalStartedAt = state.signalStartedAt {
             appendDetail(
-                "等待生成结果流确认",
+                "等待生成结果流确认 (Waiting for Result Stream Confirmation)",
                 milliseconds(
                     signalStartedAt,
                     state.seiMatchedAt ?? failureAt
@@ -270,38 +270,38 @@ private extension RealtimeTiming {
         }
         if let seiMatchedAt = state.seiMatchedAt {
             appendDetail(
-                "结果流确认后等待首帧",
+                "结果流确认后等待首帧 (Waiting for First Frame After Result Stream Confirmation)",
                 milliseconds(seiMatchedAt, failureAt),
                 to: &lines
             )
         }
         lines.append(
-            "└─ 失败原因：\(error.localizedDescription)"
+            "└─ 失败原因 (Failure Reason)：\(error.localizedDescription)"
         )
         return lines.joined(separator: "\n")
     }
 
     static func pendingStage(_ state: State) -> String {
         if state.seiMatchedAt != nil {
-            return "结果流已确认，正在等待首帧"
+            return "结果流已确认，正在等待首帧 (Result Stream Confirmed, Waiting for First Frame)"
         }
         if state.signalStartedAt != nil {
-            return "正在等待生成结果流确认"
+            return "正在等待生成结果流确认 (Waiting for Result Stream Confirmation)"
         }
         if state.connectionFinishedAt != nil {
-            return "连接完成后准备生成"
+            return "连接完成后准备生成 (Preparing Generation After Connection)"
         }
         if state.roomJoinStartedAt != nil,
            state.roomJoinFinishedAt == nil {
-            return "正在连接 RTC 房间"
+            return "正在连接 RTC 房间 (Connecting to RTC Room)"
         }
         if state.sessionFinishedAt != nil {
-            return "RTC 连接准备"
+            return "RTC 连接准备 (RTC Connection Setup)"
         }
         if state.sessionStartedAt != nil {
-            return "服务端会话创建"
+            return "服务端会话创建 (Server Session Creation)"
         }
-        return "调用与本地准备"
+        return "调用与本地准备 (Invocation and Local Preparation)"
     }
 
     static func appendDetail(

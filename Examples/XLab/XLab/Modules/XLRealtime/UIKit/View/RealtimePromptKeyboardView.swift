@@ -31,7 +31,7 @@ final class RealtimePromptKeyboardView: UIView, UITextViewDelegate {
 
     private lazy var placeholderLabel: UILabel = {
         let label = UILabel()
-        label.text = "输入你想要的效果"
+        label.text = XLLocalization.text("realtime.prompt.placeholder")
         label.textColor = .white.withAlphaComponent(0.5)
         label.font = .systemFont(ofSize: 14)
         label.isUserInteractionEnabled = false
@@ -56,7 +56,7 @@ final class RealtimePromptKeyboardView: UIView, UITextViewDelegate {
             imageSize: CGSize(width: 11, height: 12),
             backgroundColor: .feed(rgb: 0xFF2E88)
         )
-        button.accessibilityLabel = "提交自定义模式描述"
+        button.accessibilityLabel = XLLocalization.text("realtime.prompt.submit")
         button.addTarget(
             self,
             action: #selector(submitPrompt),

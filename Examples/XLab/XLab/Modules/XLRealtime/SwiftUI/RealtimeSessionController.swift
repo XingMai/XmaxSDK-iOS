@@ -114,7 +114,7 @@ final class RealtimeSessionController: ObservableObject {
 
     func startGeneration(context: RealtimeContext) {
         guard let localMediaStream else {
-            errorMessage = "本地媒体尚未准备好，请稍后重试。"
+            errorMessage = XLLocalization.text("realtime.media.notReady")
             return
         }
 

@@ -32,11 +32,11 @@ final class RealtimeMediaTopBar: UIView {
     // 界面组件
     private lazy var recordingButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
-            title: "录制",
+            title: XLLocalization.text("record.title"),
             systemName: "record.circle",
-            accessibilityLabel: "开始录制生成视频"
+            accessibilityLabel: XLLocalization.text("record.start")
         )
-        button.accessibilityValue = "未录制"
+        button.accessibilityValue = XLLocalization.text("record.idle")
         button.addTarget(
             self,
             action: #selector(toggleRecording),
@@ -47,9 +47,9 @@ final class RealtimeMediaTopBar: UIView {
 
     private lazy var audioVolumeButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
-            title: "音量",
+            title: XLLocalization.text("realtime.volume"),
             systemName: "slider.horizontal.3",
-            accessibilityLabel: "调整音量"
+            accessibilityLabel: XLLocalization.text("realtime.volume.adjust")
         )
         button.addTarget(
             self,
@@ -61,31 +61,31 @@ final class RealtimeMediaTopBar: UIView {
 
     private lazy var muteButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
-            title: "声音",
+            title: XLLocalization.text("realtime.sound"),
             systemName: "speaker.wave.2.fill",
-            accessibilityLabel: "关闭声音"
+            accessibilityLabel: XLLocalization.text("realtime.sound.disable")
         )
         button.addTarget(
             self,
             action: #selector(toggleMute),
             for: .touchUpInside
         )
-        button.accessibilityValue = "已开启"
+        button.accessibilityValue = XLLocalization.text("common.enabled")
         return button
     }()
 
     private lazy var frameInterpolationButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
-            title: "插帧",
+            title: XLLocalization.text("realtime.interpolation"),
             systemName: "bolt.fill",
             accessibilityLabel: isFrameInterpolationEnabled
-                ? "关闭插帧"
-                : "开启插帧"
+                ? XLLocalization.text("realtime.interpolation.disable")
+                : XLLocalization.text("realtime.interpolation.enable")
         )
         button.setActive(isFrameInterpolationEnabled)
         button.accessibilityValue = isFrameInterpolationEnabled
-            ? "已开启"
-            : "已关闭"
+            ? XLLocalization.text("common.enabled")
+            : XLLocalization.text("common.disabled")
         button.addTarget(
             self,
             action: #selector(toggleFrameInterpolation),
@@ -96,9 +96,9 @@ final class RealtimeMediaTopBar: UIView {
 
     private lazy var galleryButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
-            title: "相册",
+            title: XLLocalization.text("realtime.photos"),
             systemName: "photo",
-            accessibilityLabel: "从相册替换本地素材"
+            accessibilityLabel: XLLocalization.text("realtime.photos.replace")
         )
         button.addTarget(
             self,
@@ -183,40 +183,40 @@ final class RealtimeMediaTopBar: UIView {
         switch state {
         case .idle:
             recordingButton.setContent(
-                title: "录制",
+                title: XLLocalization.text("record.title"),
                 image: makeSymbolImage(systemName: "record.circle")
             )
             recordingButton.setTintColor(.white)
             recordingButton.isEnabled = true
-            recordingButton.accessibilityLabel = "开始录制生成视频"
-            recordingButton.accessibilityValue = "未录制"
+            recordingButton.accessibilityLabel = XLLocalization.text("record.start")
+            recordingButton.accessibilityValue = XLLocalization.text("record.idle")
         case .preparing:
             recordingButton.setContent(
-                title: "准备",
+                title: XLLocalization.text("record.prepare"),
                 image: makeSymbolImage(systemName: "hourglass")
             )
             recordingButton.setTintColor(.systemOrange)
             recordingButton.isEnabled = false
-            recordingButton.accessibilityLabel = "正在准备视频录制"
-            recordingButton.accessibilityValue = "正在准备"
+            recordingButton.accessibilityLabel = XLLocalization.text("record.preparing.label")
+            recordingButton.accessibilityValue = XLLocalization.text("record.preparing")
         case .recording:
             recordingButton.setContent(
-                title: "停止",
+                title: XLLocalization.text("record.stop"),
                 image: makeSymbolImage(systemName: "stop.circle.fill")
             )
             recordingButton.setTintColor(.systemRed)
             recordingButton.isEnabled = true
-            recordingButton.accessibilityLabel = "停止录制并保存视频"
-            recordingButton.accessibilityValue = "正在录制"
+            recordingButton.accessibilityLabel = XLLocalization.text("record.stopSave")
+            recordingButton.accessibilityValue = XLLocalization.text("record.recording")
         case .saving:
             recordingButton.setContent(
-                title: "保存",
+                title: XLLocalization.text("record.save"),
                 image: makeSymbolImage(systemName: "hourglass")
             )
             recordingButton.setTintColor(.systemOrange)
             recordingButton.isEnabled = false
-            recordingButton.accessibilityLabel = "正在保存录制视频"
-            recordingButton.accessibilityValue = "正在保存"
+            recordingButton.accessibilityLabel = XLLocalization.text("record.saving.label")
+            recordingButton.accessibilityValue = XLLocalization.text("record.saving")
         }
     }
 
@@ -224,24 +224,24 @@ final class RealtimeMediaTopBar: UIView {
         isFrameInterpolationEnabled = enabled
         frameInterpolationButton.setActive(enabled)
         frameInterpolationButton.accessibilityLabel = enabled
-            ? "关闭插帧"
-            : "开启插帧"
+            ? XLLocalization.text("realtime.interpolation.disable")
+            : XLLocalization.text("realtime.interpolation.enable")
         frameInterpolationButton.accessibilityValue = enabled
-            ? "已开启"
-            : "已关闭"
+            ? XLLocalization.text("common.enabled")
+            : XLLocalization.text("common.disabled")
     }
 
     private func renderMuteState() {
         muteButton.setContent(
-            title: isMuted ? "静音" : "声音",
+            title: isMuted ? XLLocalization.text("realtime.mute") : XLLocalization.text("realtime.sound"),
             image: makeSymbolImage(
                 systemName: isMuted
                     ? "speaker.slash.fill"
                     : "speaker.wave.2.fill"
             )
         )
-        muteButton.accessibilityLabel = isMuted ? "开启声音" : "关闭声音"
-        muteButton.accessibilityValue = isMuted ? "已静音" : "已开启"
+        muteButton.accessibilityLabel = isMuted ? XLLocalization.text("realtime.sound.enable") : XLLocalization.text("realtime.sound.disable")
+        muteButton.accessibilityValue = isMuted ? XLLocalization.text("realtime.muted") : XLLocalization.text("common.enabled")
     }
 
     @objc private func openAudioVolume() {
@@ -284,10 +284,10 @@ final class RealtimeAudioVolumeMenuViewController: UIViewController,
 
     init(localVolume: Float? = nil, remoteVolume: Float) {
         localVolumeRow = localVolume.map {
-            RealtimeAudioVolumeSliderRow(title: "本地音量", value: $0)
+            RealtimeAudioVolumeSliderRow(title: XLLocalization.text("realtime.volume.local"), value: $0)
         }
         remoteVolumeRow = RealtimeAudioVolumeSliderRow(
-            title: "远端音量",
+            title: XLLocalization.text("realtime.volume.remote"),
             value: remoteVolume
         )
         super.init(nibName: nil, bundle: nil)
@@ -418,6 +418,8 @@ private final class RealtimeMediaActionButton: UIControl {
         label.textColor = .white
         label.font = .systemFont(ofSize: 10, weight: .semibold)
         label.textAlignment = .center
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
         configureShadow(for: label)
         return label
     }()
@@ -443,6 +445,7 @@ private final class RealtimeMediaActionButton: UIControl {
         actionLabel.snp.makeConstraints { make in
             make.top.equalTo(iconView.snp.bottom).offset(2)
             make.centerX.equalToSuperview()
+            make.horizontalEdges.equalToSuperview().inset(2)
         }
     }
 

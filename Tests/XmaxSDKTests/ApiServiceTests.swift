@@ -260,9 +260,9 @@ final class ApiServiceTests: XCTestCase {
         XCTAssertEqual(
             message,
             "POST /session\n" +
-                "├─ 状态：400\n" +
-                "├─ 耗时：20 ms\n" +
-                "└─ 响应：128 bytes"
+                "├─ 状态 (Status)：400\n" +
+                "├─ 耗时 (Duration)：20 ms\n" +
+                "└─ 响应 (Response Size)：128 bytes"
         )
     }
 
@@ -281,7 +281,7 @@ final class ApiServiceTests: XCTestCase {
 
         XCTAssertTrue(
             message.contains(
-                "└─ 正文：\n" +
+                "└─ 正文 (Response Body)：\n" +
                     "   {\n" +
                     "     \"message\" : \"busy\",\n" +
                     "     \"success\" : false\n" +

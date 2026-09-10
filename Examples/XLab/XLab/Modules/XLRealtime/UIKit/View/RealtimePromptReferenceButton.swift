@@ -113,7 +113,7 @@ final class RealtimePromptReferenceButton: UIControl {
             imageView.isHidden = true
             addImageView.isHidden = false
             overlayView.isHidden = true
-            accessibilityLabel = "添加自定义模式参考图"
+            accessibilityLabel = XLLocalization.text("realtime.reference.prompt.add")
             return
         }
 
@@ -121,11 +121,11 @@ final class RealtimePromptReferenceButton: UIControl {
         addImageView.isHidden = true
         accessibilityLabel = switch reference.uploadState {
         case .ready:
-            "删除自定义模式参考图"
+            XLLocalization.text("realtime.reference.prompt.delete")
         case .uploading:
-            "正在上传自定义模式参考图"
+            XLLocalization.text("realtime.reference.prompt.uploading")
         case .failed:
-            "重试上传自定义模式参考图"
+            XLLocalization.text("realtime.reference.prompt.retry")
         }
 
         if displayedURL != reference.iconURL {

@@ -14,10 +14,10 @@ final class RealtimeCameraActionBar: UIView {
     // 界面组件
     private lazy var switchCameraButton: RealtimeLabeledActionButton = {
         let button = RealtimeLabeledActionButton(
-            title: "翻转",
+            title: XLLocalization.text("realtime.flip"),
             image: UIImage(named: "realtime_camera_rotate")
         )
-        button.accessibilityLabel = "翻转摄像头"
+        button.accessibilityLabel = XLLocalization.text("realtime.flipCamera")
         button.addTarget(
             self,
             action: #selector(switchCamera),
@@ -35,16 +35,16 @@ final class RealtimeCameraActionBar: UIView {
             )
         )
         let button = RealtimeLabeledActionButton(
-            title: "插帧",
+            title: XLLocalization.text("realtime.interpolation"),
             image: image
         )
         button.setActive(isFrameInterpolationEnabled)
         button.accessibilityLabel = isFrameInterpolationEnabled
-            ? "关闭插帧"
-            : "开启插帧"
+            ? XLLocalization.text("realtime.interpolation.disable")
+            : XLLocalization.text("realtime.interpolation.enable")
         button.accessibilityValue = isFrameInterpolationEnabled
-            ? "已开启"
-            : "已关闭"
+            ? XLLocalization.text("common.enabled")
+            : XLLocalization.text("common.disabled")
         button.addTarget(
             self,
             action: #selector(toggleFrameInterpolation),
@@ -55,10 +55,10 @@ final class RealtimeCameraActionBar: UIView {
 
     private lazy var audioVolumeButton: RealtimeLabeledActionButton = {
         let button = RealtimeLabeledActionButton(
-            title: "音量",
+            title: XLLocalization.text("realtime.volume"),
             image: UIImage(systemName: "slider.horizontal.3")
         )
-        button.accessibilityLabel = "调整远端音量"
+        button.accessibilityLabel = XLLocalization.text("realtime.volume.remote.adjust")
         button.addTarget(
             self,
             action: #selector(openAudioVolume),
@@ -103,11 +103,11 @@ final class RealtimeCameraActionBar: UIView {
         isFrameInterpolationEnabled = enabled
         frameInterpolationButton.setActive(enabled)
         frameInterpolationButton.accessibilityLabel = enabled
-            ? "关闭插帧"
-            : "开启插帧"
+            ? XLLocalization.text("realtime.interpolation.disable")
+            : XLLocalization.text("realtime.interpolation.enable")
         frameInterpolationButton.accessibilityValue = enabled
-            ? "已开启"
-            : "已关闭"
+            ? XLLocalization.text("common.enabled")
+            : XLLocalization.text("common.disabled")
     }
 
     @objc private func switchCamera() {
@@ -142,6 +142,8 @@ private final class RealtimeLabeledActionButton: UIControl {
         label.textColor = .white
         label.font = .systemFont(ofSize: 11, weight: .semibold)
         label.textAlignment = .center
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
         configureShadow(for: label)
         return label
     }()
@@ -163,6 +165,7 @@ private final class RealtimeLabeledActionButton: UIControl {
         actionLabel.snp.makeConstraints { make in
             make.top.equalTo(iconView.snp.bottom).offset(5)
             make.centerX.equalToSuperview()
+            make.horizontalEdges.equalToSuperview().inset(2)
         }
     }
 

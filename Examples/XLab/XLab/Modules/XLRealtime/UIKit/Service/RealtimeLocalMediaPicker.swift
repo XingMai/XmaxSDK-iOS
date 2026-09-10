@@ -204,11 +204,11 @@ private enum RealtimeLocalMediaPickerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingSelectionKind:
-            "无法识别本地素材类型，请重试"
+            XLLocalization.text("realtime.media.unsupported")
         case .unreadableImage:
-            "读取图片失败，请重试"
+            XLLocalization.text("feed.image.error")
         case .unreadableVideo:
-            "读取视频失败，请重试"
+            XLLocalization.text("feed.video.error")
         }
     }
 }

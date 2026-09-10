@@ -240,7 +240,7 @@ private extension XmaxRealtimeConnectionManager {
         error: any Error
     ) {
         XmaxLogger.realtime.error(
-            message: "\(title)\n└─ 原因：" +
+            message: "\(title)\n└─ 原因 (Reason)：" +
                 (error as NSError).localizedDescription
         )
     }
