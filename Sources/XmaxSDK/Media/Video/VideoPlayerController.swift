@@ -12,6 +12,16 @@ protocol VideoPlayerControlling: Sendable {
     var localAudioVolume: Float { get }
 
     /// 配置本地视频文件及最终 RTC 输出格式。
+    ///
+    /// - Parameters:
+    ///   - fileURL: 已读取元数据的本地视频文件地址。
+    ///   - outputWidth: 输出视频帧的像素宽度。
+    ///   - outputHeight: 输出视频帧的像素高度。
+    ///   - rotation: 文件元数据中的视频旋转方向。
+    ///   - frameRate: 输出视频帧率。
+    ///   - hasAudio: 文件元数据中的音频轨道标记。
+    ///   - durationSeconds: 文件元数据中的原始时长，单位为秒。
+    /// - Throws: 文件、输出格式或播放器状态无效时抛出错误。
     @MainActor
     func configure(
         fileURL: URL,
@@ -19,8 +29,9 @@ protocol VideoPlayerControlling: Sendable {
         outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int,
-        hasAudio: Bool
-    ) async throws
+        hasAudio: Bool,
+        durationSeconds: Double
+    ) throws
 
     /// 开始本地预览和 RTC 音视频帧输出。
     @MainActor
@@ -103,8 +114,9 @@ final class VideoPlayerController: VideoPlayerControlling {
         outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int,
-        hasAudio: Bool
-    ) async throws {
+        hasAudio: Bool,
+        durationSeconds: Double
+    ) throws {
         guard fileURL.isFileURL,
               FileManager.default.fileExists(atPath: fileURL.path),
               outputWidth > 0,
@@ -117,19 +129,6 @@ final class VideoPlayerController: VideoPlayerControlling {
             throw Self.mediaError("Video player configuration is invalid")
         }
 
-        let asset = AVURLAsset(url: fileURL)
-        let videoTracks = try await asset.loadTracks(withMediaType: .video)
-        guard !videoTracks.isEmpty else {
-            throw Self.mediaError("The media file does not contain a video track")
-        }
-        if hasAudio {
-            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-            guard !audioTracks.isEmpty else {
-                throw Self.mediaError("The media file does not contain an audio track")
-            }
-        }
-        let duration = try await asset.load(.duration)
-        let durationSeconds = CMTimeGetSeconds(duration)
         guard durationSeconds.isFinite, durationSeconds > 0 else {
             throw Self.mediaError("The media file has an invalid duration")
         }

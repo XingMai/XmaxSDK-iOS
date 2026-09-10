@@ -3,6 +3,6 @@ struct MediaFileMetadata: Equatable, Sendable {
     let width: Int
     let height: Int
     let rotation: VideoRotation
-    let durationUs: Int64
+    let durationSeconds: Double
     let hasAudio: Bool
 }

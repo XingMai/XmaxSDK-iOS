@@ -27,7 +27,7 @@ final class MediaSourceControllerTests: XCTestCase {
         ))
     }
 
-    func testPrepareResolvesRotatedSizeAndConfiguresPlayer() async throws {
+    func testPrepareResolvesRotatedSizeAndPreservesMetadataDuration() async throws {
         let components = makeComponents(hasAudio: true)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
 
@@ -54,10 +54,56 @@ final class MediaSourceControllerTests: XCTestCase {
                 outputHeight: 1_472,
                 rotation: .rotation90,
                 frameRate: 24,
-                hasAudio: true
+                hasAudio: true,
+                durationSeconds: 2.0000001
             )
         ])
         XCTAssertTrue(components.controller.hasAudio)
+    }
+
+    func testStartBeforePrepareIsRejected() async {
+        let components = makeComponents(hasAudio: false)
+
+        do {
+            try await components.controller.start()
+            XCTFail("Starting an unprepared source should fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+
+        XCTAssertTrue(components.player.calls.isEmpty)
+    }
+
+    func testRepeatedPrepareAndStartAreRejectedUntilStopped() async throws {
+        let components = makeComponents(hasAudio: true)
+        let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
+        _ = try await components.controller.prepare(fileURL: fileURL, videoFormat: nil)
+        try await components.controller.start()
+        let calls = components.player.calls
+
+        do {
+            _ = try await components.controller.prepare(fileURL: fileURL, videoFormat: nil)
+            XCTFail("Preparing an active source should fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+
+        do {
+            try await components.controller.start()
+            XCTFail("Starting an active source should fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        XCTAssertEqual(components.player.calls, calls)
+
+        await components.controller.stop()
+        XCTAssertFalse(components.controller.hasAudio)
+        _ = try await components.controller.prepare(fileURL: fileURL, videoFormat: nil)
+        try await components.controller.start()
+
+        XCTAssertTrue(components.controller.hasAudio)
+        XCTAssertEqual(components.player.calls.filter { $0 == .start }.count, 2)
+        await components.controller.stop()
     }
 
     func testStartAndStopUseSinglePlayerTimeline() async throws {
@@ -136,7 +182,7 @@ private extension MediaSourceControllerTests {
                 width: 1_920,
                 height: 1_080,
                 rotation: .rotation90,
-                durationUs: 2_000_000,
+                durationSeconds: 2.0000001,
                 hasAudio: hasAudio
             )
         )
@@ -181,7 +227,8 @@ private enum VideoPlayerControllingCall: Equatable {
         outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int,
-        hasAudio: Bool
+        hasAudio: Bool,
+        durationSeconds: Double
     )
     case start
     case setLocalAudioPreviewMuted(Bool)
@@ -204,15 +251,17 @@ private final class VideoPlayerControllingStub: VideoPlayerControlling {
         outputHeight: Int,
         rotation: VideoRotation,
         frameRate: Int,
-        hasAudio: Bool
-    ) async throws {
+        hasAudio: Bool,
+        durationSeconds: Double
+    ) throws {
         calls.append(.configure(
             fileURL: fileURL,
             outputWidth: outputWidth,
             outputHeight: outputHeight,
             rotation: rotation,
             frameRate: frameRate,
-            hasAudio: hasAudio
+            hasAudio: hasAudio,
+            durationSeconds: durationSeconds
         ))
     }
 

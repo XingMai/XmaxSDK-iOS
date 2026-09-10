@@ -46,7 +46,7 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
                 width: width,
                 height: height,
                 rotation: Self.rotation(from: resolvedTransform),
-                durationUs: Int64((durationSeconds * 1_000_000).rounded(.up)),
+                durationSeconds: durationSeconds,
                 hasAudio: !resolvedAudioTracks.isEmpty
             )
         } catch let error as XmaxError {

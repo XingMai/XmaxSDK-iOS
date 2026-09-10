@@ -18,7 +18,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     private let stateLock = NSLock()
 
     // 媒体配置
-    private var preparedMedia: PreparedMedia?
+    private var configuration: MediaSourceConfiguration?
 
     // 运行状态
     private var isRunning = false
@@ -34,7 +34,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     }
 
     var hasAudio: Bool {
-        stateLock.withLock { preparedMedia?.configuration.hasAudio ?? false }
+        stateLock.withLock { configuration?.hasAudio ?? false }
     }
 
     var localAudioVolume: Float {
@@ -47,7 +47,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         fileURL: URL,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> MediaSourceConfiguration {
-        guard stateLock.withLock({ preparedMedia == nil }) else {
+        guard stateLock.withLock({ configuration == nil }) else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: "Stop the current media source before preparing " +
@@ -69,7 +69,8 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
                 outputHeight: resolvedFormat.height,
                 rotation: metadata.rotation,
                 frameRate: resolvedFormat.fps,
-                hasAudio: metadata.hasAudio
+                hasAudio: metadata.hasAudio,
+                durationSeconds: metadata.durationSeconds
             )
 
             let configuration = MediaSourceConfiguration(
@@ -77,10 +78,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
                 hasAudio: metadata.hasAudio
             )
             stateLock.withLock {
-                preparedMedia = PreparedMedia(
-                    metadata: metadata,
-                    configuration: configuration
-                )
+                self.configuration = configuration
             }
             return configuration
         } catch {
@@ -89,7 +87,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     }
 
     func start() async throws {
-        _ = try beginRunning()
+        try beginRunning()
         do {
             try await playerController.start()
         } catch {
@@ -128,21 +126,16 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     func stop() async {
         stateLock.withLock {
             isRunning = false
-            preparedMedia = nil
+            configuration = nil
         }
         await playerController.stop()
     }
 }
 
 private extension MediaSourceController {
-    struct PreparedMedia: Sendable {
-        let metadata: MediaFileMetadata
-        let configuration: MediaSourceConfiguration
-    }
-
-    func beginRunning() throws -> PreparedMedia {
+    func beginRunning() throws {
         try stateLock.withLock {
-            guard let preparedMedia else {
+            guard configuration != nil else {
                 throw XmaxError(
                     code: .invalidConfiguration,
                     message: "Prepare the media file before starting it"
@@ -155,7 +148,6 @@ private extension MediaSourceController {
                 )
             }
             isRunning = true
-            return preparedMedia
         }
     }
 
