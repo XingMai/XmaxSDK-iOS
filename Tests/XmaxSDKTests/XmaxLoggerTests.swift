@@ -22,8 +22,7 @@ final class XmaxLoggerTests: XCTestCase {
             (.stream, "Stream"),
             (.render, "Render"),
             (.interaction, "Interaction"),
-            (.permission, "Permission"),
-            (.timing, "Timing")
+            (.permission, "Permission")
         ]
 
         for (logger, category) in loggers {
@@ -67,14 +66,14 @@ final class XmaxLoggerTests: XCTestCase {
         XmaxLogger.media.warn(message: message())
         XmaxLogger.storage.error(message: message())
         XmaxLogger.rtc.debug(message: message(), option: .performance)
-        XmaxLogger.timing.info(message: message(), option: .performance)
+        XmaxLogger.realtime.info(message: message(), option: .performance)
 
         XCTAssertEqual(evaluationCount, 4)
 
         XmaxLogger.configure(options: .performance)
         XmaxLogger.realtime.error(message: message())
         XmaxLogger.rtc.debug(message: message(), option: .performance)
-        XmaxLogger.timing.info(message: message(), option: .performance)
+        XmaxLogger.realtime.info(message: message(), option: .performance)
 
         XCTAssertEqual(evaluationCount, 6)
     }

@@ -40,7 +40,6 @@ struct XmaxLogger: Sendable {
     static let render = Self(category: "Render")
     static let interaction = Self(category: "Interaction")
     static let permission = Self(category: "Permission")
-    static let timing = Self(category: "Timing")
 
     // 日志类别
     private let category: String

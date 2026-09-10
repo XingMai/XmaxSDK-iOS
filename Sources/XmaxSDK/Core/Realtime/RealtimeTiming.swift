@@ -83,7 +83,7 @@ final class RealtimeTiming: @unchecked Sendable {
         }
         guard let snapshot else { return }
 
-        XmaxLogger.timing.info(
+        XmaxLogger.realtime.info(
             message: Self.format(snapshot),
             option: .performance
         )
@@ -100,7 +100,7 @@ final class RealtimeTiming: @unchecked Sendable {
         }
         guard let snapshot else { return }
 
-        XmaxLogger.timing.info(
+        XmaxLogger.realtime.info(
             message: Self.formatFailure(snapshot, error: xmaxError),
             option: .performance
         )
