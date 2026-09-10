@@ -197,6 +197,10 @@ extension XmaxVideoView {
             .resizeAspect : .resizeAspectFill
     }
 
+    func setDecodedVideoPreviewMirrored(_ mirrored: Bool) {
+        decodedVideoLayer?.setAffineTransform(CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1))
+    }
+
     func displayDecodedVideoFrame(
         _ frame: VideoFrame,
         contentMode: VideoContentMode

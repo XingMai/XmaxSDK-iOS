@@ -1,3 +1,4 @@
+import AVFoundation
 import UIKit
 import XCTest
 @testable import XmaxSDK
@@ -141,6 +142,20 @@ final class XmaxVideoViewTests: XCTestCase {
         let image = try XmaxVideoView.makeImage(makeNV12Frame(timestampUs: 0))
 
         XCTAssertEqual(image.size, CGSize(width: 2, height: 2))
+    }
+
+    func testDecodedPreviewMirrorChangesWithoutRecreatingLayer() throws {
+        let view = XmaxVideoView(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        let presenter = DecodedVideoPreviewPresenter()
+        presenter.setMirrored(true)
+        presenter.attach(to: view, contentMode: .fit)
+        let layer = try XCTUnwrap(view.layer.sublayers?.compactMap { $0 as? AVSampleBufferDisplayLayer }.first)
+        XCTAssertEqual(layer.affineTransform().a, -1)
+        XCTAssertEqual(layer.videoGravity, .resizeAspect)
+        presenter.setMirrored(false)
+        XCTAssertEqual(layer.affineTransform(), .identity)
+        presenter.detach(from: view)
+        XCTAssertNil(layer.superlayer)
     }
 
 }

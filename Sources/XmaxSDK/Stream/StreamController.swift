@@ -531,7 +531,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 guard let task = state.generationTask,
                       let waiter = state.generationWaiter,
                       !waiter.confirmationPending,
-                      task.matchesSei(message),
+                      matchesTaskSei(message, taskID: task.id),
                       stream.roomID == state.roomID,
                       state.botName.isEmpty ||
                         stream.userID == state.botName else {
@@ -566,6 +566,14 @@ final class StreamController: StreamControlling, RtcEventListener,
 }
 
 private extension StreamController {
+    /// 仅用查询参数前的任务标识匹配；os、index 等附加信息不参与任务身份判断。
+    func matchesTaskSei(_ message: String, taskID: String) -> Bool {
+        let receivedID = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: "?")[0]
+        let currentID = taskID.components(separatedBy: "?")[0]
+        return !receivedID.isEmpty && receivedID == currentID
+    }
+
     struct State {
         var roomID = ""
         var botName = ""
@@ -592,15 +600,6 @@ private extension StreamController {
             let data = Data("\(id)&index=\(nextFrameIndex)".utf8)
             nextFrameIndex &+= 1
             return data
-        }
-
-        func matchesSei(_ message: String) -> Bool {
-            let message = message.trimmingCharacters(in: .whitespacesAndNewlines)
-            if message == id { return true }
-            let prefix = "\(id)&index="
-            guard message.hasPrefix(prefix) else { return false }
-            let index = message.dropFirst(prefix.count)
-            return !index.isEmpty && index.utf8.allSatisfy { (48...57).contains($0) }
         }
     }
 

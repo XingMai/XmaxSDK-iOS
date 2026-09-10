@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// 协调相机权限、RTC 内部采集和本地预览资源。
+/// 协调系统摄像头采集、外部视频上传和 SDK 本地预览。
 final class CameraController: @unchecked Sendable {
 
     // 轨道标识
@@ -10,18 +10,27 @@ final class CameraController: @unchecked Sendable {
     // 基础层组件
     private let rtcManager: any RtcManaging
     private let permissionManager: any PermissionManaging
+    private let captureManager: any CameraCaptureManaging
 
     // 服务层组件
     private let mediaService: any MediaServicing
 
     // 事件监听
+    private let videoFrameListener: MediaVideoFrameListener
     private let errorListener: XmaxErrorListener
+    private var previewReadyListener: RealtimeCameraPreviewReadyListener?
 
     // 并发控制
     private let stateLock = NSLock()
 
     // 本地资源
     private var activeTrack: RealtimeVideoTrack?
+    private var preview: Preview?
+
+    // 预览状态
+    private var hasCapturedFrame = false
+    private var isPreviewAttached = false
+    private var hasReportedPreviewReady = false
 
     // 麦克风配置与采集状态
     private var storedUseMicrophone = false
@@ -31,12 +40,15 @@ final class CameraController: @unchecked Sendable {
     convenience init(
         rtcManager: any RtcManaging,
         mediaService: any MediaServicing = MediaService(),
+        videoFrameListener: @escaping MediaVideoFrameListener,
         errorListener: @escaping XmaxErrorListener
     ) {
         self.init(
             rtcManager: rtcManager,
             permissionManager: PermissionManager(),
             mediaService: mediaService,
+            captureManager: CameraCaptureManager(),
+            videoFrameListener: videoFrameListener,
             errorListener: errorListener
         )
     }
@@ -45,11 +57,15 @@ final class CameraController: @unchecked Sendable {
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
         mediaService: any MediaServicing,
+        captureManager: any CameraCaptureManaging,
+        videoFrameListener: @escaping MediaVideoFrameListener = { _ in },
         errorListener: @escaping XmaxErrorListener = { _ in }
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
         self.mediaService = mediaService
+        self.captureManager = captureManager
+        self.videoFrameListener = videoFrameListener
         self.errorListener = errorListener
     }
 
@@ -64,10 +80,12 @@ final class CameraController: @unchecked Sendable {
     }
 
     /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
-    func setPreviewReadyListener(
-        _ listener: RealtimeCameraPreviewReadyListener?
-    ) {
-        rtcManager.setCameraPreviewReadyListener(listener)
+    func setPreviewReadyListener(_ listener: RealtimeCameraPreviewReadyListener?) {
+        let track = stateLock.withLock {
+            previewReadyListener = listener
+            return activeTrack
+        }
+        if let track { notifyPreviewReady(for: track) }
     }
 
     /// 创建并启动本地相机流。
@@ -79,23 +97,60 @@ final class CameraController: @unchecked Sendable {
         guard currentTrack == nil else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Stop the current local camera stream before " +
-                    "creating another one"
+                message: "Stop the current local camera stream before creating another one"
             )
         }
-
-        return try await createStream(
-            videoFormat: videoFormat,
-            position: position,
-            useMicrophone: useMicrophone
+        let resolvedFormat = try resolveVideoFormat(videoFormat)
+        let track = RealtimeVideoTrack(
+            id: Self.localVideoTrackID,
+            videoFormat: resolvedFormat,
+            position: position
         )
+        do {
+            try await permissionManager.ensureCameraPermission()
+            if useMicrophone {
+                try await permissionManager.ensureMicrophonePermission()
+            }
+            try Task.checkCancellation()
+            try rtcManager.useExternalVideoSource()
+            try rtcManager.configureLocalVideoMirror(for: position)
+            let preview = await makePreview(for: track, position: position)
+            stateLock.withLock {
+                activeTrack = track
+                self.preview = preview
+                storedUseMicrophone = useMicrophone
+                hasCapturedFrame = false
+                isPreviewAttached = false
+                hasReportedPreviewReady = false
+            }
+            try await captureManager.start(
+                videoFormat: VideoFormat(
+                    width: resolvedFormat.width,
+                    height: resolvedFormat.height,
+                    pixelFormat: .nv12
+                ),
+                frameRate: resolvedFormat.fps,
+                position: position,
+                frameListener: { [weak self] frame in
+                    try self?.handleFrame(frame, track: track, preview: preview)
+                },
+                errorListener: { [weak self] error in
+                    guard let self, currentTrack === track else { return }
+                    errorListener(error)
+                }
+            )
+            try Task.checkCancellation()
+            return RealtimeMediaStream(id: StreamID.local.rawValue, videoTrack: track)
+        } catch {
+            await stopLocalCameraStream()
+            throw XmaxError.from(error)
+        }
     }
 
     /// 在实时连接开始时启动麦克风，不开启本地回放。
     func startMicrophoneCapture() throws {
         try stateLock.withLock {
-            guard activeTrack != nil, storedUseMicrophone,
-                  !isMicrophoneCapturing else { return }
+            guard activeTrack != nil, storedUseMicrophone, !isMicrophoneCapturing else { return }
             // 启动失败时也保留待停止状态，由连接清理回收可能已启动的设备。
             isMicrophoneCapturing = true
             try rtcManager.startAudioCapture()
@@ -116,163 +171,122 @@ final class CameraController: @unchecked Sendable {
         do {
             try stopMicrophoneCapture()
         } catch {
-            Self.logCleanupFailure(
-                title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)",
-                error: error
-            )
+            Self.logCleanupFailure(title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)", error: error)
         }
-        let track = stateLock.withLock { () -> RealtimeVideoTrack? in
-            let track = activeTrack
+        let resources = stateLock.withLock {
+            let resources = (activeTrack, preview)
             activeTrack = nil
+            preview = nil
             storedUseMicrophone = false
             isMicrophoneCapturing = false
-            return track
+            hasCapturedFrame = false
+            isPreviewAttached = false
+            hasReportedPreviewReady = false
+            return resources
         }
-
-        if let track {
-            await MainActor.run {
-                VideoRenderRegistry.unregister(track)
-                do {
-                    try rtcManager.unbindLocalVideo()
-                } catch {
-                    Self.logCleanupFailure(
-                        title: "解除 RTC 本地预览绑定失败 (Failed to Detach RTC Local Preview)",
-                        error: error
-                    )
-                }
-            }
-        }
-
-        do {
-            try rtcManager.stopVideoCapture()
-        } catch {
-            Self.logCleanupFailure(
-                title: "停止 RTC 相机采集失败 (Failed to Stop RTC Camera Capture)",
-                error: error
-            )
+        await captureManager.stop()
+        resources.1?.dispatcher.reset()
+        await MainActor.run {
+            if let track = resources.0 { VideoRenderRegistry.unregister(track) }
+            resources.1?.presenter.clear()
         }
     }
 
     /// 在前置和后置摄像头之间切换。
     func switchCamera() async throws -> RealtimeMediaStream {
-        guard let track = currentTrack,
-              track.videoFormat != nil,
-              let position = track.position else {
-            throw XmaxError(
-                code: .rtcError,
-                message: "Local camera preview is not started"
-            )
+        guard let track = currentTrack, let position = track.position else {
+            throw XmaxError(code: .rtcError, message: "Local camera preview is not started")
         }
-
         let nextPosition: CameraPosition = position == .front ? .back : .front
+        try await captureManager.switchCamera(to: nextPosition)
         do {
-            try rtcManager.switchCamera(to: nextPosition)
-            track.updatePosition(nextPosition)
-            return RealtimeMediaStream(
-                id: StreamID.local.rawValue,
-                videoTrack: track
-            )
+            try rtcManager.configureLocalVideoMirror(for: nextPosition)
         } catch {
-            throw XmaxError.from(error)
+            try? await captureManager.switchCamera(to: position)
+            try? rtcManager.configureLocalVideoMirror(for: position)
+            throw error
         }
+        track.updatePosition(nextPosition)
+        let preview = stateLock.withLock { self.preview }
+        await preview?.presenter.setMirrored(nextPosition == .front)
+        return RealtimeMediaStream(id: StreamID.local.rawValue, videoTrack: track)
     }
 }
 
 private extension CameraController {
-    func createStream(
-        videoFormat: RealtimeVideoFormat,
-        position: CameraPosition,
-        useMicrophone: Bool
-    ) async throws -> RealtimeMediaStream {
-        let resolvedFormat = try resolveVideoFormat(videoFormat)
-        let track = RealtimeVideoTrack(
-            id: Self.localVideoTrackID,
-            videoFormat: resolvedFormat,
-            position: position
+    struct Preview: Sendable {
+        let presenter: DecodedVideoPreviewPresenter
+        let dispatcher: DecodedVideoPreviewDispatcher
+    }
+
+    @MainActor
+    func makePreview(for track: RealtimeVideoTrack, position: CameraPosition) -> Preview {
+        let presenter = DecodedVideoPreviewPresenter()
+        presenter.setMirrored(position == .front)
+        let preview = Preview(
+            presenter: presenter,
+            dispatcher: DecodedVideoPreviewDispatcher(presenter: presenter)
         )
+        VideoRenderRegistry.register(track, binding: VideoRenderBinding(
+            attachHandler: { [weak self] view, contentMode in
+                guard let videoView = view as? XmaxVideoView else {
+                    throw XmaxError(code: .invalidConfiguration, message: "Camera tracks require an XmaxVideoView")
+                }
+                presenter.attach(to: videoView, contentMode: contentMode)
+                self?.stateLock.withLock { self?.isPreviewAttached = true }
+                self?.notifyPreviewReady(for: track)
+            },
+            detachHandler: { [weak self] view in
+                if let videoView = view as? XmaxVideoView { presenter.detach(from: videoView) }
+                self?.stateLock.withLock { self?.isPreviewAttached = false }
+            }
+        ))
+        return preview
+    }
 
-        do {
-            try await permissionManager.ensureCameraPermission()
-            if useMicrophone {
-                try await permissionManager.ensureMicrophonePermission()
-            }
-            try Task.checkCancellation()
-            try rtcManager.switchCamera(to: position)
-            try rtcManager.startVideoCapture(
-                width: resolvedFormat.width,
-                height: resolvedFormat.height,
-                frameRate: resolvedFormat.fps
-            )
+    func handleFrame(_ frame: VideoFrame, track: RealtimeVideoTrack, preview: Preview) throws {
+        let accepted = try stateLock.withLock {
+            guard activeTrack === track else { return false }
+            preview.dispatcher.enqueue(frame)
+            hasCapturedFrame = true
+            try videoFrameListener(frame)
+            return true
+        }
+        if accepted { notifyPreviewReady(for: track) }
+    }
 
-            await MainActor.run {
-                VideoRenderRegistry.register(
-                    track,
-                    binding: VideoRenderBinding(
-                        attachHandler: { view, contentMode in
-                            do {
-                                try self.rtcManager.bindLocalVideo(
-                                    to: view,
-                                    contentMode: contentMode
-                                )
-                            } catch {
-                                self.errorListener(XmaxError.from(error))
-                                throw error
-                            }
-                        },
-                        detachHandler: { _ in
-                            try self.rtcManager.unbindLocalVideo()
-                        }
-                    )
-                )
+    func notifyPreviewReady(for track: RealtimeVideoTrack) {
+        let shouldNotify = stateLock.withLock {
+            activeTrack === track && hasCapturedFrame && isPreviewAttached &&
+                !hasReportedPreviewReady && previewReadyListener != nil
+        }
+        guard shouldNotify else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let listener = stateLock.withLock { () -> RealtimeCameraPreviewReadyListener? in
+                guard activeTrack === track, hasCapturedFrame, isPreviewAttached,
+                      !hasReportedPreviewReady, let previewReadyListener else { return nil }
+                hasReportedPreviewReady = true
+                return previewReadyListener
             }
-            stateLock.withLock {
-                activeTrack = track
-                storedUseMicrophone = useMicrophone
-            }
-
-            return RealtimeMediaStream(
-                id: StreamID.local.rawValue,
-                videoTrack: track
-            )
-        } catch {
-            await MainActor.run {
-                VideoRenderRegistry.unregister(track)
-            }
-            do {
-                try rtcManager.stopVideoCapture()
-            } catch {
-                Self.logCleanupFailure(
-                    title: "回滚 RTC 相机采集失败 (Failed to Roll Back RTC Camera Capture)",
-                    error: error
-                )
-            }
-            throw XmaxError.from(error)
+            listener?()
         }
     }
 
-    func resolveVideoFormat(
-        _ videoFormat: RealtimeVideoFormat
-    ) throws -> RealtimeVideoFormat {
+    func resolveVideoFormat(_ videoFormat: RealtimeVideoFormat) throws -> RealtimeVideoFormat {
         try videoFormat.validate()
         let targetSize = try mediaService.resolveModelInputSize(
             CGSize(width: videoFormat.width, height: videoFormat.height)
         )
-        let resolvedFormat = videoFormat.resized(
-            width: Int(targetSize.width),
-            height: Int(targetSize.height)
-        )
+        let resolvedFormat = videoFormat.resized(width: Int(targetSize.width), height: Int(targetSize.height))
         try resolvedFormat.validate()
         return resolvedFormat
     }
 
-    static func logCleanupFailure(
-        title: String,
-        error: any Error
-    ) {
+    static func logCleanupFailure(title: String, error: any Error) {
         XmaxLogger.error(
             category: "Realtime",
-            message: "\(title)\n└─ 原因：" +
-                (error as NSError).localizedDescription
+            message: "\(title)\n└─ 原因：" + (error as NSError).localizedDescription
         )
     }
 }

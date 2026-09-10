@@ -29,8 +29,8 @@ final class MediaControllerTests: XCTestCase {
             rtcManager.calls,
             [
                 .initialize,
-                .switchCamera(.front),
-                .startVideoCapture(width: 1_024, height: 768, frameRate: 30)
+                .useExternalVideoSource,
+                .configureLocalVideoMirror(.front)
             ]
         )
     }
@@ -82,14 +82,15 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(currentTrack)
         XCTAssertFalse(ownsStream)
         XCTAssertEqual(
-            Array(rtcManager.calls.suffix(3)),
-            [.unbindLocalVideo, .stopVideoCapture, .destroy]
+            rtcManager.calls.last,
+            .destroy
         )
     }
 
     func testRepeatedStopDestroysRTCOnlyOnce() async throws {
         let rtcManager = RtcManagingStub()
-        let manager = makeManager(rtcManager: rtcManager)
+        let capture = CameraCaptureManagingStub()
+        let manager = makeManager(rtcManager: rtcManager, captureManager: capture)
         _ = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
                 width: 1_024,
@@ -108,7 +109,7 @@ final class MediaControllerTests: XCTestCase {
             1
         )
         XCTAssertEqual(
-            rtcManager.calls.filter { $0 == .stopVideoCapture }.count,
+            capture.calls.filter { $0 == .stop }.count,
             1
         )
     }
@@ -132,8 +133,8 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(currentTrack)
         XCTAssertFalse(ownsStream)
         XCTAssertEqual(
-            Array(rtcManager.calls.suffix(3)),
-            [.unbindLocalVideo, .stopVideoCapture, .destroy]
+            rtcManager.calls.last,
+            .destroy
         )
     }
 
@@ -213,7 +214,7 @@ final class MediaControllerTests: XCTestCase {
             rtcManager.calls.filter { $0 == .destroy }.count,
             1
         )
-        XCTAssertTrue(rtcManager.calls.contains(.stopVideoCapture))
+        XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
         XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
 
         await manager.stopLocalCameraStream()
@@ -268,13 +269,15 @@ private extension MediaControllerTests {
         mediaService: MediaServicingStub = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768)
         ),
+        captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         imageSourceController: ImageSourceControllingStub? = nil,
         mediaSourceController: MediaSourceControllingStub? = nil
     ) -> MediaController {
         let cameraController = CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaService: mediaService
+            mediaService: mediaService,
+            captureManager: captureManager
         )
         let imageController = imageSourceController.map {
             ImageController(

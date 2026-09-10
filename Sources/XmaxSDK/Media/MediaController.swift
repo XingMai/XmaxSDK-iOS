@@ -32,6 +32,7 @@ actor MediaController: MediaControlling {
         cameraController = CameraController(
             rtcManager: rtcManager,
             mediaService: mediaService,
+            videoFrameListener: videoFrameListener,
             errorListener: errorListener
         )
         imageController = ImageController(

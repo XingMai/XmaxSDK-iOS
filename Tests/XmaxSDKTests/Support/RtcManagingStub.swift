@@ -13,6 +13,7 @@ enum RtcManagingCall: Equatable {
     case startAudioCapture
     case stopAudioCapture
     case switchCamera(CameraPosition)
+    case configureLocalVideoMirror(CameraPosition)
     case useExternalVideoSource
     case startExternalAudioSource
     case stopExternalAudioSource
@@ -231,7 +232,9 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
 
     func configureLocalVideoMirror(
         for position: CameraPosition
-    ) throws {}
+    ) throws {
+        lock.withLock { storedCalls.append(.configureLocalVideoMirror(position)) }
+    }
 
     func pushExternalVideoFrame(
         _ frame: VideoFrame,

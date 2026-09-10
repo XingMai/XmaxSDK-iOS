@@ -447,9 +447,10 @@ final class StreamControllerTests: XCTestCase {
     }
 
     @MainActor
-    func testIndexedSeiMatchesOnlyCurrentTaskRoomAndBot() async throws {
+    func testTaskSeiMatchesOnlyCurrentTaskRoomAndBot() async throws {
         let rtcManager = RtcManagingStub()
         let taskID = XmaxRealtimeGenerationManager.createTaskID()
+        let baseID = taskID.components(separatedBy: "?")[0]
         var receivedStreams: [RemoteStream?] = []
         let controller = StreamController(
             rtcManager: rtcManager,
@@ -460,9 +461,8 @@ final class StreamControllerTests: XCTestCase {
         let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
 
         for message in [
-            "task-other?os=ios&index=0", "\(taskID)-other&index=0",
-            "\(taskID)&index=", "\(taskID)&index=-1", "\(taskID)&index=1.5",
-            "\(taskID)&index=abc", "\(taskID)&index=1&index=2"
+            "task-other?os=ios&index=0", "\(baseID)-other?os=ios&index=0",
+            "", "  ", "?os=ios&index=0"
         ] {
             rtcManager.emitSeiMessage(stream: stream, message: message)
         }
@@ -480,6 +480,32 @@ final class StreamControllerTests: XCTestCase {
         try await confirmation.value
         XCTAssertEqual(receivedStreams, [stream])
         _ = await controller.stopStreamGeneration(taskID: taskID)
+    }
+
+    @MainActor
+    func testTaskSeiIgnoresQueryParameters() async throws {
+        let taskID = XmaxRealtimeGenerationManager.createTaskID()
+        let baseID = taskID.components(separatedBy: "?")[0]
+        for message in [
+            baseID, taskID, " \(baseID) ", "\(baseID)?",
+            "\(baseID)?os=harmony&index=12", "\(baseID)?index=12&os=ios",
+            "\(taskID)&index=", "\(taskID)&index=-1", "\(taskID)&index=1.5",
+            "\(taskID)&index=abc", "\(taskID)&index=1&index=2"
+        ] {
+            let rtcManager = RtcManagingStub()
+            var receivedStreams: [RemoteStream?] = []
+            let controller = StreamController(
+                rtcManager: rtcManager,
+                remoteStreamListener: { receivedStreams.append($0) }
+            )
+            try controller.configureRoom(roomID: "room-id", botName: "bot-user")
+            let confirmation = try controller.beginGenerationConfirmation(taskID: taskID)
+            let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+            rtcManager.emitSeiMessage(stream: stream, message: message)
+            try await confirmation.value
+            XCTAssertEqual(receivedStreams, [stream], message)
+            _ = await controller.stopStreamGeneration(taskID: taskID)
+        }
     }
 
     @MainActor

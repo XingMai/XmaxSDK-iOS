@@ -340,15 +340,15 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     }
 
     func testFailedMediaCreationPreservesRemoteVolume() async throws {
-        let components = makeComponents(rtcManager: RtcManagingStub(
-            startVideoCaptureError: XmaxError(code: .rtcError, message: "Capture failed")
+        let components = makeComponents(captureManager: CameraCaptureManagingStub(
+            startError: XmaxError(code: .mediaError, message: "Capture failed")
         ))
         try await components.manager.setRemoteAudioVolume(0.35)
         do {
             _ = try await components.manager.createLocalCameraStream()
             XCTFail("Expected camera creation to fail")
         } catch {
-            XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
+            XCTAssertEqual((error as? XmaxError)?.code, .mediaError)
         }
         let volume = await components.manager.remoteAudioVolume
         XCTAssertEqual(volume, 0.35)
@@ -1457,18 +1457,25 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testCameraPreviewReadyListenerReceivesRtcEvent() async {
+    func testCameraPreviewReadyListenerReceivesCapturedFrame() async throws {
         let components = makeComponents()
         var callbackCount = 0
         await components.manager.setCameraPreviewReadyListener {
             callbackCount += 1
         }
 
-        components.rtcManager.emitCameraPreviewReady()
+        let stream = try await components.manager.createLocalCameraStream()
+        let track = try XCTUnwrap(stream.videoTrack)
+        let binding = try XCTUnwrap(VideoRenderRegistry.binding(for: track))
+        let view = XmaxVideoView()
+        try binding.attach(to: view, contentMode: .fill)
+        try components.captureManager.emitFrame(CameraControllerTests.testFrame())
+        for _ in 0..<100 where callbackCount == 0 { await Task.yield() }
         await components.manager.setCameraPreviewReadyListener(nil)
-        components.rtcManager.emitCameraPreviewReady()
+        try components.captureManager.emitFrame(CameraControllerTests.testFrame())
 
         XCTAssertEqual(callbackCount, 1)
+        await components.manager.close()
     }
 
     func testConnectRejectsStreamOwnedByAnotherManager() async throws {
@@ -1536,6 +1543,7 @@ private extension XmaxRealtimeManagerTests {
         let connectionManager: XmaxRealtimeConnectionManager
         let mediaController: MediaController
         let rtcManager: RtcManagingStub
+        let captureManager: CameraCaptureManagingStub
         let sessionService: RealtimeSessionServicingStub
         let imageSource: ImageSourceControllingStub
         let videoSource: MediaSourceControllingStub
@@ -1551,6 +1559,7 @@ private extension XmaxRealtimeManagerTests {
 
     func makeComponents(
         rtcManager: RtcManagingStub = RtcManagingStub(),
+        captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
         model: RealtimeModel = .x2_0,
         sessionCreateError: (any Error)? = nil,
@@ -1583,6 +1592,8 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             permissionManager: permissionManager,
             mediaService: mediaService,
+            captureManager: captureManager,
+            videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
             errorListener: { errorHandler.forward($0) }
         )
         let imageSource = ImageSourceControllingStub(
@@ -1655,6 +1666,7 @@ private extension XmaxRealtimeManagerTests {
             connectionManager: connectionManager,
             mediaController: mediaController,
             rtcManager: rtcManager,
+            captureManager: captureManager,
             sessionService: sessionService,
             imageSource: imageSource,
             videoSource: videoSource
