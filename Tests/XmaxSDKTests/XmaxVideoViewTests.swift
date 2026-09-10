@@ -24,9 +24,9 @@ final class XmaxVideoViewTests: XCTestCase {
     }
 
     func testMovingIntoWindowBindsTrackWithContentMode() {
-        let rtcManager = RtcManagingStub()
+        let recorder = VideoBindingRecorder()
         let track = RealtimeVideoTrack(id: "track")
-        register(track: track, rtcManager: rtcManager)
+        register(track: track, recorder: recorder)
         defer { VideoRenderRegistry.unregister(track) }
         let view = XmaxVideoView(
             track: track,
@@ -36,13 +36,13 @@ final class XmaxVideoViewTests: XCTestCase {
 
         window.addSubview(view)
 
-        XCTAssertEqual(rtcManager.calls, [.bindLocalVideo(.fit)])
+        XCTAssertEqual(recorder.events, [.attach("track", .fit)])
     }
 
-    func testChangingContentModeRefreshesRTCBinding() {
-        let rtcManager = RtcManagingStub()
+    func testChangingContentModeRefreshesRenderBinding() {
+        let recorder = VideoBindingRecorder()
         let track = RealtimeVideoTrack(id: "track")
-        register(track: track, rtcManager: rtcManager)
+        register(track: track, recorder: recorder)
         defer { VideoRenderRegistry.unregister(track) }
         let view = XmaxVideoView(track: track)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
@@ -51,17 +51,17 @@ final class XmaxVideoViewTests: XCTestCase {
         view.videoContentMode = .fit
 
         XCTAssertEqual(
-            rtcManager.calls,
-            [.bindLocalVideo(.fill), .bindLocalVideo(.fit)]
+            recorder.events,
+            [.attach("track", .fill), .attach("track", .fit)]
         )
     }
 
     func testChangingTrackDetachesPreviousBindingAndAttachesNextTrack() {
-        let rtcManager = RtcManagingStub()
+        let recorder = VideoBindingRecorder()
         let firstTrack = RealtimeVideoTrack(id: "first")
         let secondTrack = RealtimeVideoTrack(id: "second")
-        register(track: firstTrack, rtcManager: rtcManager)
-        register(track: secondTrack, rtcManager: rtcManager)
+        register(track: firstTrack, recorder: recorder)
+        register(track: secondTrack, recorder: recorder)
         defer {
             VideoRenderRegistry.unregister(firstTrack)
             VideoRenderRegistry.unregister(secondTrack)
@@ -73,19 +73,19 @@ final class XmaxVideoViewTests: XCTestCase {
         view.track = secondTrack
 
         XCTAssertEqual(
-            rtcManager.calls,
+            recorder.events,
             [
-                .bindLocalVideo(.fill),
-                .unbindLocalVideo,
-                .bindLocalVideo(.fill)
+                .attach("first", .fill),
+                .detach("first"),
+                .attach("second", .fill)
             ]
         )
     }
 
     func testMovingOutOfWindowDetachesCurrentTrack() {
-        let rtcManager = RtcManagingStub()
+        let recorder = VideoBindingRecorder()
         let track = RealtimeVideoTrack(id: "track")
-        register(track: track, rtcManager: rtcManager)
+        register(track: track, recorder: recorder)
         defer { VideoRenderRegistry.unregister(track) }
         let view = XmaxVideoView(track: track)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
@@ -94,8 +94,8 @@ final class XmaxVideoViewTests: XCTestCase {
         view.removeFromSuperview()
 
         XCTAssertEqual(
-            rtcManager.calls,
-            [.bindLocalVideo(.fill), .unbindLocalVideo]
+            recorder.events,
+            [.attach("track", .fill), .detach("track")]
         )
     }
 
@@ -163,19 +163,16 @@ final class XmaxVideoViewTests: XCTestCase {
 private extension XmaxVideoViewTests {
     func register(
         track: RealtimeVideoTrack,
-        rtcManager: RtcManagingStub
+        recorder: VideoBindingRecorder
     ) {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
-                attachHandler: { view, contentMode in
-                    try rtcManager.bindLocalVideo(
-                        to: view,
-                        contentMode: contentMode
-                    )
+                attachHandler: { _, contentMode in
+                    recorder.events.append(.attach(track.id, contentMode))
                 },
                 detachHandler: { _ in
-                    try rtcManager.unbindLocalVideo()
+                    recorder.events.append(.detach(track.id))
                 }
             )
         )
@@ -209,4 +206,15 @@ private extension XmaxVideoViewTests {
             ]
         )
     }
+}
+
+@MainActor
+private final class VideoBindingRecorder {
+    enum Event: Equatable {
+        case attach(String, VideoContentMode)
+        case detach(String)
+    }
+
+    // 绑定记录
+    var events: [Event] = []
 }

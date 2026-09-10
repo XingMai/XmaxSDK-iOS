@@ -139,7 +139,6 @@ final class CameraControllerTests: XCTestCase {
         try capture.emitFrame(frame)
         await fulfillment(of: [ready], timeout: 2)
         XCTAssertEqual(recorder.frames, [frame])
-        XCTAssertFalse(rtc.calls.contains(.bindLocalVideo(.fit)))
 
         await controller.stopLocalCameraStream()
         try lateListener?(frame)

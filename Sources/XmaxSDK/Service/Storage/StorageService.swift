@@ -271,8 +271,7 @@ private extension StorageService {
                 source: source,
                 mediaType: mediaType
             )
-            XmaxLogger.info(
-                category: "Storage",
+            XmaxLogger.storage.info(
                 message: "开始上传 (Upload Started)\n" +
                     "├─ 类型：\(mediaType.rawValue)\n" +
                     "├─ 分辨率：\(resolution)\n" +
@@ -307,8 +306,7 @@ private extension StorageService {
                 result = stored
             }
 
-            XmaxLogger.info(
-                category: "Storage",
+            XmaxLogger.storage.info(
                 message: "上传完成 (Upload Completed)\n" +
                     "├─ 地址：\(result.url.absoluteString)\n" +
                     "└─ 耗时：\(formatDuration(since: startedAt))"
@@ -649,8 +647,7 @@ private extension StorageService {
     }
 
     func logUploadFailure(_ error: XmaxError, startedAt: Date) {
-        XmaxLogger.error(
-            category: "Storage",
+        XmaxLogger.storage.error(
             message: "上传失败 (Upload Failed)\n" +
                 "├─ 错误码：\(error.code.rawValue)\n" +
                 "├─ 原因：\(error.message)\n" +

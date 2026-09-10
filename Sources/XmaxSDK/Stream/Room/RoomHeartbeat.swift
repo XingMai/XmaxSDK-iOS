@@ -79,8 +79,7 @@ private extension RoomHeartbeat {
                 guard context.cycle.isCurrent(context.version) else {
                     return
                 }
-                XmaxLogger.error(
-                    category: "Room",
+                XmaxLogger.room.error(
                     message: "发送 RTC 房间心跳失败 (Failed to Send RTC Room Heartbeat)\n└─ 原因：" +
                         (error as NSError).localizedDescription
                 )

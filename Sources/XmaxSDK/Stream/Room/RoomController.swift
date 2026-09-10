@@ -240,8 +240,7 @@ private extension RoomController {
         } catch {
             throw XmaxError.from(error).withSeverity(severity)
         }
-        XmaxLogger.debug(
-            category: "Room",
+        XmaxLogger.room.debug(
             message: formatSignalLog(message)
         )
     }

@@ -82,7 +82,6 @@ final class VideoControllerTests: XCTestCase {
 
         XCTAssertEqual(source.calls.last, .stop)
         XCTAssertTrue(rtcManager.calls.contains(.stopExternalAudioSource))
-        XCTAssertFalse(rtcManager.calls.contains(.unbindLocalVideo))
         XCTAssertNil(manager.currentTrack)
     }
 

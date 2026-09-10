@@ -1,6 +1,5 @@
 import CoreMedia
 import Foundation
-import UIKit
 @preconcurrency import VolcEngineRTC
 
 /// 保存可同步推送给火山 RTC 的视频帧及其底层内存。
@@ -181,18 +180,6 @@ enum RtcVideoConverter {
         try RtcVideoFrame(frame: frame, seiData: seiData)
     }
 
-    /// 转换摄像头方向。
-    static func convertCameraID(
-        _ position: CameraPosition
-    ) -> ByteRTCCameraID {
-        switch position {
-        case .front:
-            .front
-        case .back:
-            .back
-        }
-    }
-
     /// 根据摄像头方向生成本地镜像策略。
     static func convertMirrorType(
         _ position: CameraPosition
@@ -203,19 +190,6 @@ enum RtcVideoConverter {
         case .back:
             .none
         }
-    }
-
-    /// 创建火山 RTC 渲染画布。
-    static func makeCanvas(
-        view: UIView?,
-        contentMode: VideoContentMode
-    ) -> ByteRTCVideoCanvas {
-        let canvas = ByteRTCVideoCanvas()
-        canvas.view = view
-        canvas.renderMode = convertRenderMode(contentMode)
-        canvas.backgroundColor = 0
-        canvas.renderRotation = .rotation0
-        return canvas
     }
 
     /// 创建火山 RTC 视频编码配置。
@@ -267,17 +241,6 @@ enum RtcVideoConverter {
             .rotation180
         case .rotation270:
             .rotation270
-        }
-    }
-
-    private static func convertRenderMode(
-        _ contentMode: VideoContentMode
-    ) -> ByteRTCRenderMode {
-        switch contentMode {
-        case .fit:
-            .fit
-        case .fill:
-            .hidden
         }
     }
 }

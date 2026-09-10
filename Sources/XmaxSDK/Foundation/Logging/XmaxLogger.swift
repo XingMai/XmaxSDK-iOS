@@ -27,7 +27,23 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
 /// 统一输出带 Xmax 前缀和类别的系统日志。
 ///
 /// 调用方不得传入 API Key、Token、Secret、Authorization 或完整敏感响应。
-enum XmaxLogger {
+struct XmaxLogger: Sendable {
+
+    // 分类日志
+    static let realtime = Self(category: "Realtime")
+    static let rtc = Self(category: "RTC")
+    static let media = Self(category: "Media")
+    static let api = Self(category: "API")
+    static let storage = Self(category: "Storage")
+    static let room = Self(category: "Room")
+    static let stream = Self(category: "Stream")
+    static let render = Self(category: "Render")
+    static let interaction = Self(category: "Interaction")
+    static let permission = Self(category: "Permission")
+    static let timing = Self(category: "Timing")
+
+    // 日志类别
+    private let category: String
 
     // 日志配置
     private static let state = XmaxLoggerState()
@@ -38,80 +54,66 @@ enum XmaxLogger {
         category: "XmaxSDK"
     )
 
+    private init(category: String) {
+        self.category = category
+    }
+
     /// 更新 SDK 全局日志选项。
     static func configure(options: XmaxLoggerOption) {
         state.update(options)
     }
 
     /// 输出调试日志。
-    static func debug(
-        category: String? = nil,
+    func debug(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .debug,
-            category: category,
             message: message,
             option: option
         )
     }
 
     /// 输出普通信息日志。
-    static func info(
-        category: String? = nil,
+    func info(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .info,
-            category: category,
             message: message,
             option: option
         )
     }
 
     /// 输出警告日志。
-    static func warn(
-        category: String? = nil,
+    func warn(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .warning,
-            category: category,
             message: message,
             option: option
         )
     }
 
     /// 输出错误日志。
-    static func error(
-        category: String? = nil,
+    func error(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
     ) {
         write(
             level: .error,
-            category: category,
             message: message,
             option: option
         )
     }
 
     /// 为日志的每一行添加统一前缀。
-    static func formattedMessage(
-        category: String? = nil,
-        message: String
-    ) -> String {
-        let normalizedCategory = category?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let prefix: String
-        if let normalizedCategory, !normalizedCategory.isEmpty {
-            prefix = "[Xmax][\(normalizedCategory)]"
-        } else {
-            prefix = "[Xmax]"
-        }
+    func formattedMessage(message: String) -> String {
+        let prefix = "[Xmax][\(category)]"
 
         return message
             .components(separatedBy: "\n")
@@ -119,29 +121,27 @@ enum XmaxLogger {
             .joined(separator: "\n")
     }
 
-    private static func write(
+    private func write(
         level: Level,
-        category: String?,
         message: () -> String,
         option: XmaxLoggerOption
     ) {
-        guard state.isEnabled(option) else {
+        guard Self.state.isEnabled(option) else {
             return
         }
 
         let formatted = formattedMessage(
-            category: category,
             message: message()
         )
         switch level {
         case .debug:
-            logger.debug("\(formatted, privacy: .public)")
+            Self.logger.debug("\(formatted, privacy: .public)")
         case .info:
-            logger.info("\(formatted, privacy: .public)")
+            Self.logger.info("\(formatted, privacy: .public)")
         case .warning:
-            logger.warning("\(formatted, privacy: .public)")
+            Self.logger.warning("\(formatted, privacy: .public)")
         case .error:
-            logger.error("\(formatted, privacy: .public)")
+            Self.logger.error("\(formatted, privacy: .public)")
         }
     }
 

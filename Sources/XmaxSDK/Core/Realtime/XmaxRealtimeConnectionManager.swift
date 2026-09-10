@@ -239,8 +239,7 @@ private extension XmaxRealtimeConnectionManager {
         title: String,
         error: any Error
     ) {
-        XmaxLogger.error(
-            category: "Realtime",
+        XmaxLogger.realtime.error(
             message: "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription
         )

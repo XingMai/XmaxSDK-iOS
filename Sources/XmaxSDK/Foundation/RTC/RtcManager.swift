@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 @preconcurrency import VolcEngineRTC
 
 /// 提供基于火山引擎的 RTC 基础能力。
@@ -28,15 +27,10 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     // 事件监听
     private weak var eventListener: (any RtcEventListener)?
     private weak var qualityListener: (any RtcQualityListener)?
-    private var cameraPreviewReadyListener: RtcCameraPreviewReadyListener?
 
     // 运行状态
     private var initialization: Initialization?
     private var localVideoMirrorType = ByteRTCMirrorType.none
-    private var isCameraVideoSourceActive = false
-    private var hasCapturedFirstLocalVideoFrame = false
-    private var hasBoundLocalVideoCanvas = false
-    private var hasReportedCameraPreviewReady = false
 
     init(engineManager: RtcEngineManager = .shared) {
         self.engineManager = engineManager
@@ -107,14 +101,9 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 engineLease = nil
                 engineBridge = nil
                 initialization = nil
-                cameraPreviewReadyListener = nil
                 remoteStreamIDs.removeAll()
                 remoteVideoSinks.removeAll()
                 videoFrameCache.removeAll()
-                isCameraVideoSourceActive = false
-                hasCapturedFirstLocalVideoFrame = false
-                hasBoundLocalVideoCanvas = false
-                hasReportedCameraPreviewReady = false
                 return resources
             }
         }
@@ -143,86 +132,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    func startVideoCapture(
-        width: Int,
-        height: Int,
-        frameRate: Int
-    ) throws {
-        try validateVideoDimensions(
-            width: width,
-            height: height,
-            frameRate: frameRate
-        )
-        resetCameraPreviewReadiness(cameraSourceActive: false)
-        do {
-            try withEngine { engine in
-                try checkResult(
-                    engine.setVideoSourceType(.internal),
-                    operation: "setVideoSourceType"
-                )
-
-                let configuration = ByteRTCVideoCaptureConfig()
-                configuration.preference = .mannal
-                configuration.videoSize = CGSize(width: width, height: height)
-                configuration.frameRate = frameRate
-                try checkResult(
-                    engine.setVideoCaptureConfig(configuration),
-                    operation: "setVideoCaptureConfig"
-                )
-                resetCameraPreviewReadiness(cameraSourceActive: true)
-                try checkResult(
-                    engine.startVideoCapture(),
-                    operation: "startVideoCapture"
-                )
-            }
-        } catch {
-            resetCameraPreviewReadiness(cameraSourceActive: false)
-            throw error
-        }
-    }
-
-    func stopVideoCapture() throws {
-        defer {
-            resetCameraPreviewReadiness(cameraSourceActive: false)
-        }
-        try withOptionalEngine { engine in
-            try checkResult(
-                engine.stopVideoCapture(),
-                operation: "stopVideoCapture"
-            )
-        }
-    }
-
-    func switchCamera(to position: CameraPosition) throws {
-        try withEngine { engine in
-            try checkResult(
-                engine.switchCamera(RtcVideoConverter.convertCameraID(position)),
-                operation: "switchCamera"
-            )
-            // 修正火山内部采集在 iOS 27 上倒置的后置摄像头画面。
-            let captureRotation: ByteRTCVideoRotation
-            if #available(iOS 27.0, *), position == .back {
-                captureRotation = .rotation180
-            } else {
-                captureRotation = .rotation0
-            }
-            try checkResult(
-                engine.setVideoCapture(captureRotation),
-                operation: "setVideoCaptureRotation"
-            )
-            let mirrorType = RtcVideoConverter.convertMirrorType(position)
-            try checkResult(
-                engine.setLocalVideoMirrorType(mirrorType),
-                operation: "setLocalVideoMirrorType"
-            )
-            stateLock.withLock {
-                localVideoMirrorType = mirrorType
-            }
-        }
-    }
-
     func useExternalVideoSource() throws {
-        resetCameraPreviewReadiness(cameraSourceActive: false)
         try withEngine { engine in
             videoFrameCache.removeAll()
             try checkResult(
@@ -491,43 +401,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    @MainActor
-    func bindLocalVideo(
-        to view: UIView,
-        contentMode: VideoContentMode
-    ) throws {
-        try operationLock.withLock {
-            let engine = try requireEngine()
-            let canvas = RtcVideoConverter.makeCanvas(
-                view: view,
-                contentMode: contentMode
-            )
-            try checkResult(
-                engine.setLocalVideoCanvas(withCanvas: canvas),
-                operation: "setLocalVideoCanvas"
-            )
-            let mirrorType = stateLock.withLock { localVideoMirrorType }
-            try checkResult(
-                engine.setLocalVideoMirrorType(mirrorType),
-                operation: "setLocalVideoMirrorType"
-            )
-        }
-        markLocalVideoCanvasBound()
-    }
-
-    @MainActor
-    func unbindLocalVideo() throws {
-        defer {
-            markLocalVideoCanvasUnbound()
-        }
-        try withOptionalEngine { engine in
-            try checkResult(
-                engine.setLocalVideoCanvas(withCanvas: nil),
-                operation: "setLocalVideoCanvas"
-            )
-        }
-    }
-
     func setRemoteVideoFrameListener(
         _ listener: RtcRemoteVideoFrameListener?,
         for stream: RemoteStream
@@ -593,14 +466,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     func setEventListener(_ listener: (any RtcEventListener)?) {
         stateLock.withLock {
             eventListener = listener
-        }
-    }
-
-    func setCameraPreviewReadyListener(
-        _ listener: RtcCameraPreviewReadyListener?
-    ) {
-        stateLock.withLock {
-            cameraPreviewReadyListener = listener
         }
     }
 
@@ -739,9 +604,6 @@ private extension RtcManager {
 
     func makeEngineBridge() -> RtcEngineEventBridge {
         RtcEngineEventBridge(
-            onFirstLocalVideoFrame: { [weak self] engine in
-                self?.handleFirstLocalVideoFrame(engine: engine)
-            },
             onSei: { [weak self] engine, streamID, info, message in
                 self?.handleSei(
                     engine: engine,
@@ -998,68 +860,6 @@ private extension RtcManager {
         }
     }
 
-    func handleFirstLocalVideoFrame(engine: ByteRTCEngine) {
-        guard stateLock.withLock({ engineLease?.engine === engine }) else {
-            return
-        }
-        markFirstLocalVideoFrameCaptured()
-    }
-
-    func resetCameraPreviewReadiness(cameraSourceActive: Bool) {
-        stateLock.withLock {
-            isCameraVideoSourceActive = cameraSourceActive
-            hasCapturedFirstLocalVideoFrame = false
-            hasReportedCameraPreviewReady = false
-        }
-    }
-
-    func markFirstLocalVideoFrameCaptured() {
-        let shouldNotify = stateLock.withLock {
-            hasCapturedFirstLocalVideoFrame = true
-            return markCameraPreviewReadyReportedIfNeeded()
-        }
-        notifyCameraPreviewReady(ifNeeded: shouldNotify)
-    }
-
-    func markLocalVideoCanvasBound() {
-        let shouldNotify = stateLock.withLock {
-            hasBoundLocalVideoCanvas = true
-            return markCameraPreviewReadyReportedIfNeeded()
-        }
-        notifyCameraPreviewReady(ifNeeded: shouldNotify)
-    }
-
-    func markLocalVideoCanvasUnbound() {
-        stateLock.withLock {
-            hasBoundLocalVideoCanvas = false
-        }
-    }
-
-    func markCameraPreviewReadyReportedIfNeeded() -> Bool {
-        guard isCameraVideoSourceActive,
-              hasCapturedFirstLocalVideoFrame,
-              hasBoundLocalVideoCanvas,
-              !hasReportedCameraPreviewReady,
-              cameraPreviewReadyListener != nil else {
-            return false
-        }
-        hasReportedCameraPreviewReady = true
-        return true
-    }
-
-    func notifyCameraPreviewReady(ifNeeded shouldNotify: Bool) {
-        guard shouldNotify else { return }
-        Task { @MainActor [weak self] in
-            self?.deliverCameraPreviewReady()
-        }
-    }
-
-    @MainActor
-    func deliverCameraPreviewReady() {
-        let listener = stateLock.withLock { cameraPreviewReadyListener }
-        listener?()
-    }
-
     func handleSei(
         engine: ByteRTCEngine,
         streamID: String,
@@ -1067,8 +867,7 @@ private extension RtcManager {
         message: Data
     ) {
         guard let decodedMessage = String(data: message, encoding: .utf8) else {
-            XmaxLogger.warn(
-                category: "RTC",
+            XmaxLogger.rtc.warn(
                 message: "收到无法解码的 RTC SEI 消息 (Failed to Decode Incoming RTC SEI Message)"
             )
             return

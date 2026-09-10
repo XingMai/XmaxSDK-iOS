@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// 协调系统摄像头采集、外部视频上传和 SDK 本地预览。
-final class CameraController: @unchecked Sendable {
+final class CameraController: CameraControlling, @unchecked Sendable {
 
     // 轨道标识
     private static let localVideoTrackID = "video0"
@@ -230,7 +230,10 @@ private extension CameraController {
         VideoRenderRegistry.register(track, binding: VideoRenderBinding(
             attachHandler: { [weak self] view, contentMode in
                 guard let videoView = view as? XmaxVideoView else {
-                    throw XmaxError(code: .invalidConfiguration, message: "Camera tracks require an XmaxVideoView")
+                    throw XmaxError(
+                        code: .invalidConfiguration,
+                        message: "Camera tracks require an XmaxVideoView"
+                    )
                 }
                 presenter.attach(to: videoView, contentMode: contentMode)
                 self?.stateLock.withLock { self?.isPreviewAttached = true }
@@ -284,8 +287,7 @@ private extension CameraController {
     }
 
     static func logCleanupFailure(title: String, error: any Error) {
-        XmaxLogger.error(
-            category: "Realtime",
+        XmaxLogger.realtime.error(
             message: "\(title)\n└─ 原因：" + (error as NSError).localizedDescription
         )
     }

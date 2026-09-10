@@ -178,12 +178,12 @@ final class MediaControllerTests: XCTestCase {
             height: 1_472,
             fps: 24
         )
-        let imageSourceController = ImageSourceControllingStub(
+        let imageController = ImageControllingStub(
             resolvedFormat: imageFormat
         )
         let manager = makeManager(
             rtcManager: rtcManager,
-            imageSourceController: imageSourceController
+            imageController: imageController
         )
         let cameraStream = try await manager.createLocalCameraStream(
             videoFormat: RealtimeVideoFormat(
@@ -215,7 +215,10 @@ final class MediaControllerTests: XCTestCase {
             1
         )
         XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
-        XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
+        XCTAssertEqual(
+            imageController.calls,
+            [.createFile(URL(fileURLWithPath: "/tmp/reference.png"), nil)]
+        )
 
         await manager.stopLocalCameraStream()
         let trackAfterWrongStop = await manager.currentTrack
@@ -270,7 +273,7 @@ private extension MediaControllerTests {
             resolvedSize: CGSize(width: 1_024, height: 768)
         ),
         captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
-        imageSourceController: ImageSourceControllingStub? = nil,
+        imageController: ImageControllingStub? = nil,
         mediaSourceController: MediaSourceControllingStub? = nil
     ) -> MediaController {
         let cameraController = CameraController(
@@ -279,12 +282,6 @@ private extension MediaControllerTests {
             mediaService: mediaService,
             captureManager: captureManager
         )
-        let imageController = imageSourceController.map {
-            ImageController(
-                rtcManager: rtcManager,
-                imageSourceController: $0
-            )
-        }
         let videoController = mediaSourceController.map {
             VideoController(
                 rtcManager: rtcManager,

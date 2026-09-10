@@ -22,9 +22,9 @@ enum ApiLogger {
             responseBody: successful ? nil : responseBody
         )
         if successful {
-            XmaxLogger.debug(category: "API", message: message)
+            XmaxLogger.api.debug(message: message)
         } else {
-            XmaxLogger.error(category: "API", message: message)
+            XmaxLogger.api.error(message: message)
         }
     }
 
@@ -35,8 +35,7 @@ enum ApiLogger {
         error: any Error,
         durationMs: Int
     ) {
-        XmaxLogger.error(
-            category: "API",
+        XmaxLogger.api.error(
             message: "\(method.rawValue) \(path) 失败 (Request Failed)\n" +
                 "├─ 耗时：\(durationMs) ms\n" +
                 "└─ 原因：\(ErrorMessageFormatter.format(error))"

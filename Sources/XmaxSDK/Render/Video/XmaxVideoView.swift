@@ -399,8 +399,7 @@ extension XmaxVideoView {
         title: String,
         error: any Error
     ) {
-        XmaxLogger.error(
-            category: "Render",
+        XmaxLogger.render.error(
             message: "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription
         )

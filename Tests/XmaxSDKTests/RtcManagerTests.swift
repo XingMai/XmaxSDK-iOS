@@ -142,14 +142,12 @@ final class RtcManagerTests: XCTestCase {
         }
     }
 
-    func testVideoCaptureRejectsInvalidFormatBeforeEngineAccess() {
+    func testVideoEncodingRejectsInvalidFormatBeforeEngineAccess() {
         let manager = RtcManager()
 
         XCTAssertThrowsError(
-            try manager.startVideoCapture(
-                width: 0,
-                height: 1280,
-                frameRate: 24
+            try manager.configureVideoEncoding(
+                VideoEncodingConfiguration(width: 0, height: 1280, frameRate: 24)
             )
         ) { error in
             XCTAssertEqual(

@@ -1,7 +1,7 @@
 import Foundation
 
 /// 协调本地视频播放器、RTC 外部音视频源和预览资源。
-final class VideoController: @unchecked Sendable {
+final class VideoController: VideoControlling, @unchecked Sendable {
 
     // 轨道标识
     private static let localVideoTrackID = "video0"
@@ -214,8 +214,7 @@ private extension VideoController {
         title: String,
         error: any Error
     ) {
-        XmaxLogger.error(
-            category: "Realtime",
+        XmaxLogger.realtime.error(
             message: "\(title)\n└─ 原因：" +
                 (error as NSError).localizedDescription
         )

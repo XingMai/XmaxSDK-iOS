@@ -4,20 +4,15 @@ import Foundation
 /// 将火山 RTC 运行统计输出为统一的 Xmax 调试日志。
 enum RtcStatsLogger {
 
-    // 日志配置
-    private static let category = "RTC"
-
     static func logLocalStreamStats(_ stats: ByteRTCLocalStreamStats) {
-        XmaxLogger.debug(
-            category: category,
+        XmaxLogger.rtc.debug(
             message: localStreamStatsMessage(stats),
             option: .performance
         )
     }
 
     static func logRemoteStreamStats(_ stats: ByteRTCRemoteStreamStats) {
-        XmaxLogger.debug(
-            category: category,
+        XmaxLogger.rtc.debug(
             message: remoteStreamStatsMessage(stats),
             option: .performance
         )
@@ -27,8 +22,7 @@ enum RtcStatsLogger {
         localQuality: ByteRTCNetworkQualityStats,
         remoteQualities: [ByteRTCNetworkQualityStats]
     ) {
-        XmaxLogger.debug(
-            category: category,
+        XmaxLogger.rtc.debug(
             message: networkQualityMessage(
                 localQuality: localQuality,
                 remoteQualities: remoteQualities
@@ -38,8 +32,7 @@ enum RtcStatsLogger {
     }
 
     static func logSystemStats(_ stats: ByteRTCSysStats) {
-        XmaxLogger.debug(
-            category: category,
+        XmaxLogger.rtc.debug(
             message: systemStatsMessage(stats),
             option: .performance
         )
@@ -49,8 +42,7 @@ enum RtcStatsLogger {
         reason: ByteRTCPerformanceAlarmReason,
         data: ByteRTCSourceWantedData
     ) {
-        XmaxLogger.debug(
-            category: category,
+        XmaxLogger.rtc.debug(
             message: performanceAlarmMessage(reason: reason, data: data),
             option: .performance
         )

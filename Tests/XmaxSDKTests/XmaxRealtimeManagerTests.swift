@@ -509,8 +509,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
         XCTAssertEqual(
-            components.imageSource.calls,
-            [.prepareData(imageData, nil), .start]
+            components.imageController.calls,
+            [.createData(imageData, nil)]
         )
         try await components.manager.stopLocalImageStream()
     }
@@ -533,13 +533,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertEqual(stream.videoTrack?.videoFormat, imageFormat)
         let cgImage = try XCTUnwrap(image.cgImage)
         XCTAssertEqual(
-            components.imageSource.calls,
+            components.imageController.calls,
             [
-                .prepareDecoded(
+                .createDecoded(
                     CGSize(width: cgImage.width, height: cgImage.height),
                     nil
-                ),
-                .start
+                )
             ]
         )
         try await components.manager.stopLocalImageStream()
@@ -697,7 +696,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let track = await components.mediaController.currentTrack
         XCTAssertEqual(state.connectionState, .disconnected)
         XCTAssertNil(track)
-        XCTAssertFalse(rtcStub.calls.contains(.switchCamera(.front)))
+        XCTAssertTrue(components.captureManager.calls.isEmpty)
 
         let nextLease = try await engineManager.acquire()
         await engineManager.release(nextLease)
@@ -760,7 +759,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 )
             )
         }
-        XCTAssertFalse(components.rtcManager.calls.contains(
+        XCTAssertFalse(components.captureManager.calls.contains(
             .switchCamera(.back)
         ))
 
@@ -1084,7 +1083,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await manager.disconnect()
         let ownsPreview = await components.mediaController.owns(stream)
         XCTAssertTrue(ownsPreview)
-        XCTAssertFalse(components.rtcManager.calls.contains(.stopVideoCapture))
+        XCTAssertFalse(components.captureManager.calls.contains(.stop))
         XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
 
         _ = try await manager.connect(localStream: stream)
@@ -1545,7 +1544,7 @@ private extension XmaxRealtimeManagerTests {
         let rtcManager: RtcManagingStub
         let captureManager: CameraCaptureManagingStub
         let sessionService: RealtimeSessionServicingStub
-        let imageSource: ImageSourceControllingStub
+        let imageController: ImageControllingStub
         let videoSource: MediaSourceControllingStub
     }
 
@@ -1596,12 +1595,8 @@ private extension XmaxRealtimeManagerTests {
             videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
             errorListener: { errorHandler.forward($0) }
         )
-        let imageSource = ImageSourceControllingStub(
+        let imageController = ImageControllingStub(
             resolvedFormat: imageFormat
-        )
-        let imageController = ImageController(
-            rtcManager: rtcManager,
-            imageSourceController: imageSource
         )
         let videoSource = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
@@ -1668,7 +1663,7 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             captureManager: captureManager,
             sessionService: sessionService,
-            imageSource: imageSource,
+            imageController: imageController,
             videoSource: videoSource
         )
     }

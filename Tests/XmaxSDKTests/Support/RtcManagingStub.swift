@@ -1,18 +1,14 @@
 import Foundation
 import CoreMedia
 import CoreVideo
-import UIKit
 @testable import XmaxSDK
 
 enum RtcManagingCall: Equatable {
     case initialize
     case destroy
     case configureVideoEncoding(VideoEncodingConfiguration)
-    case startVideoCapture(width: Int, height: Int, frameRate: Int)
-    case stopVideoCapture
     case startAudioCapture
     case stopAudioCapture
-    case switchCamera(CameraPosition)
     case configureLocalVideoMirror(CameraPosition)
     case useExternalVideoSource
     case startExternalAudioSource
@@ -29,8 +25,6 @@ enum RtcManagingCall: Equatable {
     case joinRoom(RoomJoinConfiguration)
     case leaveRoom
     case sendRoomMessage(String)
-    case bindLocalVideo(VideoContentMode)
-    case unbindLocalVideo
     case setRemoteVideoFrameListener(RemoteStream, enabled: Bool)
 }
 
@@ -46,11 +40,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let initializationError: (any Error)?
     private let initializationHandler: (@Sendable () async throws -> Void)?
     private let destroyHandler: (@Sendable () async -> Void)?
-    private let startVideoCaptureError: (any Error)?
-    private let stopVideoCaptureError: (any Error)?
     private let startAudioCaptureError: (any Error)?
     private let stopAudioCaptureError: (any Error)?
-    private let switchCameraError: (any Error)?
     private let publishLocalVideoError: (any Error)?
     private let unpublishLocalVideoError: (any Error)?
     private let publishLocalAudioError: (any Error)?
@@ -62,8 +53,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private var sendRoomMessageError: (any Error)?
     private let joinRoomHandler: JoinRoomHandler?
     private let leaveRoomHandler: LeaveRoomHandler?
-    private let bindLocalVideoError: (any Error)?
-    private let unbindLocalVideoError: (any Error)?
     private let setRemoteVideoFrameListenerError: (any Error)?
 
     // 并发状态
@@ -71,8 +60,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private var storedCalls: [RtcManagingCall] = []
     private weak var storedEventListener: (any RtcEventListener)?
     private weak var storedQualityListener: (any RtcQualityListener)?
-    private var storedCameraPreviewReadyListener:
-        RtcCameraPreviewReadyListener?
     private var storedRemoteVideoFrameStream: RemoteStream?
     private var storedRemoteVideoFrameListener:
         RtcRemoteVideoFrameListener?
@@ -82,11 +69,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         initializationHandler: (@Sendable () async throws -> Void)? = nil,
         destroyHandler: (@Sendable () async -> Void)? = nil,
         encodingError: (any Error)? = nil,
-        startVideoCaptureError: (any Error)? = nil,
-        stopVideoCaptureError: (any Error)? = nil,
         startAudioCaptureError: (any Error)? = nil,
         stopAudioCaptureError: (any Error)? = nil,
-        switchCameraError: (any Error)? = nil,
         publishLocalVideoError: (any Error)? = nil,
         unpublishLocalVideoError: (any Error)? = nil,
         publishLocalAudioError: (any Error)? = nil,
@@ -98,19 +82,14 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         sendRoomMessageError: (any Error)? = nil,
         joinRoomHandler: JoinRoomHandler? = nil,
         leaveRoomHandler: LeaveRoomHandler? = nil,
-        bindLocalVideoError: (any Error)? = nil,
-        unbindLocalVideoError: (any Error)? = nil,
         setRemoteVideoFrameListenerError: (any Error)? = nil
     ) {
         self.initializationError = initializationError
         self.initializationHandler = initializationHandler
         self.destroyHandler = destroyHandler
         self.encodingError = encodingError
-        self.startVideoCaptureError = startVideoCaptureError
-        self.stopVideoCaptureError = stopVideoCaptureError
         self.startAudioCaptureError = startAudioCaptureError
         self.stopAudioCaptureError = stopAudioCaptureError
-        self.switchCameraError = switchCameraError
         self.publishLocalVideoError = publishLocalVideoError
         self.unpublishLocalVideoError = unpublishLocalVideoError
         self.publishLocalAudioError = publishLocalAudioError
@@ -122,8 +101,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         self.sendRoomMessageError = sendRoomMessageError
         self.joinRoomHandler = joinRoomHandler
         self.leaveRoomHandler = leaveRoomHandler
-        self.bindLocalVideoError = bindLocalVideoError
-        self.unbindLocalVideoError = unbindLocalVideoError
         self.setRemoteVideoFrameListenerError =
             setRemoteVideoFrameListenerError
     }
@@ -165,41 +142,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
             storedCalls.append(.configureVideoEncoding(configuration))
             if let encodingError {
                 throw encodingError
-            }
-        }
-    }
-
-    func startVideoCapture(
-        width: Int,
-        height: Int,
-        frameRate: Int
-    ) throws {
-        try lock.withLock {
-            storedCalls.append(.startVideoCapture(
-                width: width,
-                height: height,
-                frameRate: frameRate
-            ))
-            if let startVideoCaptureError {
-                throw startVideoCaptureError
-            }
-        }
-    }
-
-    func stopVideoCapture() throws {
-        try lock.withLock {
-            storedCalls.append(.stopVideoCapture)
-            if let stopVideoCaptureError {
-                throw stopVideoCaptureError
-            }
-        }
-    }
-
-    func switchCamera(to position: CameraPosition) throws {
-        try lock.withLock {
-            storedCalls.append(.switchCamera(position))
-            if let switchCameraError {
-                throw switchCameraError
             }
         }
     }
@@ -311,29 +253,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         )
     }
 
-    @MainActor
-    func bindLocalVideo(
-        to view: UIView,
-        contentMode: VideoContentMode
-    ) throws {
-        try lock.withLock {
-            storedCalls.append(.bindLocalVideo(contentMode))
-            if let bindLocalVideoError {
-                throw bindLocalVideoError
-            }
-        }
-    }
-
-    @MainActor
-    func unbindLocalVideo() throws {
-        try lock.withLock {
-            storedCalls.append(.unbindLocalVideo)
-            if let unbindLocalVideoError {
-                throw unbindLocalVideoError
-            }
-        }
-    }
-
     func setRemoteVideoFrameListener(
         _ listener: RtcRemoteVideoFrameListener?,
         for stream: RemoteStream
@@ -379,14 +298,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
-    func setCameraPreviewReadyListener(
-        _ listener: RtcCameraPreviewReadyListener?
-    ) {
-        lock.withLock {
-            storedCameraPreviewReadyListener = listener
-        }
-    }
-
     func setQualityListener(_ listener: (any RtcQualityListener)?) {
         lock.withLock {
             storedQualityListener = listener
@@ -395,12 +306,6 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
 }
 
 extension RtcManagingStub {
-    @MainActor
-    func emitCameraPreviewReady() {
-        let listener = lock.withLock { storedCameraPreviewReadyListener }
-        listener?()
-    }
-
     @MainActor
     func emitRemoteVideoPublished(
         userID: String,

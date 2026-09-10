@@ -7,10 +7,10 @@ actor MediaController: MediaControlling {
     private let rtcManager: any RtcManaging
 
     // 本地媒体组件
-    private let cameraController: CameraController
-    private let imageController: ImageController?
+    private let cameraController: any CameraControlling
+    private let imageController: (any ImageControlling)?
     private let interactionController: any InteractionControlling
-    private let videoController: VideoController?
+    private let videoController: (any VideoControlling)?
 
     // 本地媒体资源
     private var activeSource: ActiveLocalMediaSource?
@@ -55,10 +55,10 @@ actor MediaController: MediaControlling {
 
     init(
         rtcManager: any RtcManaging,
-        cameraController: CameraController,
-        imageController: ImageController? = nil,
+        cameraController: any CameraControlling,
+        imageController: (any ImageControlling)? = nil,
         interactionListener: @escaping InteractionListener = { _, _ in },
-        videoController: VideoController? = nil
+        videoController: (any VideoControlling)? = nil
     ) {
         self.rtcManager = rtcManager
         self.cameraController = cameraController
@@ -380,8 +380,7 @@ private extension MediaController {
                 _ = try await mediaOperation.task.value
             } catch {
                 if !Self.isCancelled(error) {
-                    XmaxLogger.error(
-                        category: "Realtime",
+                    XmaxLogger.realtime.error(
                         message: "等待本地媒体操作结束失败 " +
                             "(Failed to Await Local Media Operation Completion)\n" +
                             "└─ 原因：" +
@@ -423,7 +422,7 @@ private extension MediaController {
         }
     }
 
-    func requiredImageController() throws -> ImageController {
+    func requiredImageController() throws -> any ImageControlling {
         guard let imageController else {
             throw XmaxError(
                 code: .internalError,
@@ -433,7 +432,7 @@ private extension MediaController {
         return imageController
     }
 
-    func requiredVideoController() throws -> VideoController {
+    func requiredVideoController() throws -> any VideoControlling {
         guard let videoController else {
             throw XmaxError(
                 code: .internalError,

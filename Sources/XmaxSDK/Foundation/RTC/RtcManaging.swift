@@ -1,8 +1,6 @@
-import UIKit
+import Foundation
 
-typealias RtcCameraPreviewReadyListener = @MainActor @Sendable () -> Void
-
-/// 定义 RTC 引擎、房间、媒体传输和渲染绑定能力。
+/// 定义 RTC 引擎、房间、媒体传输和远端帧输出能力。
 protocol RtcManaging: Sendable {
 
     /// 初始化 RTC 引擎。
@@ -16,16 +14,6 @@ protocol RtcManaging: Sendable {
         _ configuration: VideoEncodingConfiguration
     ) throws
 
-    /// 按指定格式启动 RTC 内部摄像头采集。
-    func startVideoCapture(
-        width: Int,
-        height: Int,
-        frameRate: Int
-    ) throws
-
-    /// 停止 RTC 内部摄像头采集。
-    func stopVideoCapture() throws
-
     /// 切换到 RTC 内部音频源并启动麦克风采集。
     ///
     /// - Throws: 引擎未初始化、音频源切换或采集启动失败时抛出错误。
@@ -35,9 +23,6 @@ protocol RtcManaging: Sendable {
     ///
     /// - Throws: RTC 音频采集停止失败时抛出错误。
     func stopAudioCapture() throws
-
-    /// 切换 RTC 内部采集使用的摄像头。
-    func switchCamera(to position: CameraPosition) throws
 
     /// 将本地视频源切换为外部视频帧。
     func useExternalVideoSource() throws
@@ -100,17 +85,6 @@ protocol RtcManaging: Sendable {
         for userID: String
     ) throws
 
-    /// 将本地视频绑定到渲染视图。
-    @MainActor
-    func bindLocalVideo(
-        to view: UIView,
-        contentMode: VideoContentMode
-    ) throws
-
-    /// 解除本地视频与渲染视图的绑定。
-    @MainActor
-    func unbindLocalVideo() throws
-
     /// 设置指定远端流的解码视频帧监听器，传入空值时停止帧回调。
     func setRemoteVideoFrameListener(
         _ listener: RtcRemoteVideoFrameListener?,
@@ -122,11 +96,6 @@ protocol RtcManaging: Sendable {
 
     /// 设置 RTC 事件监听器，传入空值时清除监听器。
     func setEventListener(_ listener: (any RtcEventListener)?)
-
-    /// 设置 RTC 摄像头预览就绪监听器，传入空值时清除监听器。
-    func setCameraPreviewReadyListener(
-        _ listener: RtcCameraPreviewReadyListener?
-    )
 
     /// 设置 RTC 质量事件监听器，传入空值时清除监听器。
     func setQualityListener(_ listener: (any RtcQualityListener)?)

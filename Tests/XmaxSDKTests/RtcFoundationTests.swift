@@ -109,8 +109,8 @@ final class RtcFoundationTests: XCTestCase {
             ByteRTCVideoRotation.rotation270.rawValue
         )
         XCTAssertEqual(
-            RtcVideoConverter.convertCameraID(.front).rawValue,
-            ByteRTCCameraID.front.rawValue
+            RtcVideoConverter.convertMirrorType(.front).rawValue,
+            ByteRTCMirrorType.renderAndEncoder.rawValue
         )
         XCTAssertEqual(
             RtcVideoConverter.convertMirrorType(.back).rawValue,
