@@ -320,8 +320,7 @@ input stream or starting generation.
 
 | Listener | Purpose |
 | --- | --- |
-| `setStateListener` | Observe pipeline states during real-time generation. |
-| `setErrorListener` | Handle fatal errors that prevent the realtime workflow from continuing. |
+| `setStateListener` | Observe pipeline states and termination reasons during real-time generation. |
 | `setCameraPreviewReadyListener` | Notify when the initial local camera frame is ready for preview rendering. |
 | `setRemoteVideoFrameListener` | Receive generated frames for recording or custom processing. |
 | `setNetworkQualityListener` | Monitor uplink and downlink network quality. |
@@ -332,12 +331,14 @@ For example, monitor state changes and errors:
 ```swift
 await realtime.setStateListener { state in
     print("State: \(state.connectionState.rawValue)")
-}
-
-await realtime.setErrorListener { error in
-    print("Error: \(error.code.rawValue) \(error.message)")
+    if case .failure(let error) = state.reason {
+        print("Error: \(error.code.rawValue) \(error.message)")
+    }
 }
 ```
+
+Handle errors thrown by async calls with `do/catch`. Failures that end the realtime
+workflow are also available through `state.reason` after cleanup completes.
 
 <br>
 

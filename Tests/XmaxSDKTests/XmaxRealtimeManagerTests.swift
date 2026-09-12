@@ -1759,7 +1759,7 @@ private extension XmaxRealtimeManagerTests {
             mediaService: mediaService,
             captureManager: captureManager,
             videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
-            errorListener: { errorHandler.forward($0) }
+            errorListener: { errorHandler.forward($0, target: .all) }
         )
         let imageController = ImageControllingStub(
             resolvedFormat: imageFormat

@@ -275,7 +275,7 @@ videoView.remoteTrack = nil
 
 In SwiftUI, clear the remote track in your observable state instead.
 
-Register connection-state and fatal-error listeners before starting generation:
+Register a state listener before creating the local stream or starting generation:
 
 ```swift
 await realtime.setStateListener { state in
@@ -283,15 +283,17 @@ await realtime.setStateListener { state in
         "Xmax realtime state: \(state.connectionState.rawValue), " +
         "session: \(state.sessionID ?? "-"), task: \(state.taskID ?? "-")"
     )
-}
-
-await realtime.setErrorListener { error in
-    print("Xmax realtime error: \(error.code.rawValue) \(error.message)")
+    if case .failure(let error) = state.reason {
+        print("Xmax realtime error: \(error.code.rawValue) \(error.message)")
+    }
 }
 ```
 
-The error listener reports fatal realtime errors. Recoverable errors are thrown
-by the corresponding async calls and should be handled by the caller.
+Handle errors thrown by async calls with `do/catch`. Configuration and permission
+failures are reported to the caller without a separate error callback. Failures
+that end the realtime workflow are available through `state.reason` after cleanup
+completes. The final state is `ready` when usable local media is retained, or `idle`
+when it has been released. Normal disconnection reports `.normal`.
 
 <br>
 

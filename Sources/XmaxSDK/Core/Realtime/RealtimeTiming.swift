@@ -53,15 +53,7 @@ final class RealtimeTiming: @unchecked Sendable {
         lock.withLock {
             state.taskID = taskID
             state.signalStartedAt = Self.now
-            state.signalFinishedAt = nil
             state.seiMatchedAt = nil
-        }
-    }
-
-    func finishSignal(taskID: String) {
-        lock.withLock {
-            guard state.taskID == taskID else { return }
-            state.signalFinishedAt = Self.now
         }
     }
 
@@ -117,7 +109,6 @@ private extension RealtimeTiming {
         var roomJoinFinishedAt: UInt64?
         var connectionFinishedAt: UInt64?
         var signalStartedAt: UInt64?
-        var signalFinishedAt: UInt64?
         var seiMatchedAt: UInt64?
         var readyAt: UInt64?
         var failureAt: UInt64?
@@ -146,11 +137,6 @@ private extension RealtimeTiming {
 
         if let connectionStartedAt = state.connectionStartedAt,
            let connectionFinishedAt = state.connectionFinishedAt {
-            appendDetail(
-                "调用与本地准备 (Invocation and Local Preparation)",
-                milliseconds(startedAt, connectionStartedAt),
-                to: &lines
-            )
             let connectionDuration = milliseconds(
                 connectionStartedAt,
                 connectionFinishedAt
@@ -166,47 +152,21 @@ private extension RealtimeTiming {
                 state.roomJoinStartedAt,
                 state.roomJoinFinishedAt
             )
-            let knownConnectionDuration =
-                (sessionDuration ?? 0) + (roomJoinDuration ?? 0)
-            let remainingConnectionDuration = max(
-                0,
-                connectionDuration - knownConnectionDuration
-            )
             appendConnectionDetails(
                 [
                     ("服务端会话创建 (Server Session Creation)", sessionDuration),
-                    ("RTC 房间连接 (RTC Room Connection)", roomJoinDuration),
-                    ("媒体发布与连接准备 (Media Publishing and Connection Setup)", remainingConnectionDuration)
+                    ("RTC 房间连接 (RTC Room Connection)", roomJoinDuration)
                 ],
-                to: &lines
-            )
-            appendDetail(
-                "连接后生成准备 (Post-Connection Generation Preparation)",
-                milliseconds(connectionFinishedAt, signalStartedAt),
-                to: &lines
-            )
-        } else {
-            appendDetail(
-                "生成前准备 (Pre-Generation Preparation)",
-                milliseconds(startedAt, signalStartedAt),
                 to: &lines
             )
         }
 
         lines.append(
-            "├─ 等待生成结果流确认 (Waiting for Result Stream Confirmation)：" +
+            "├─ 等待生成结果流确认 (Waiting for Remote Stream)：" +
                 duration(signalStartedAt, seiMatchedAt)
         )
-        if let signalDuration = milliseconds(
-            signalStartedAt,
-            state.signalFinishedAt
-        ), signalDuration >= minimumDetailMilliseconds {
-            lines.append(
-                "│  └─ 发送生成请求 (Send Generation Request)：\(format(signalDuration))"
-            )
-        }
         lines.append(
-            "└─ 结果流确认到首帧就绪 (Result Stream Confirmation to First Frame Ready)：" +
+            "└─ 结果流确认到首帧就绪 (First Frame Ready)：" +
                 duration(seiMatchedAt, readyAt)
         )
         return lines.joined(separator: "\n")

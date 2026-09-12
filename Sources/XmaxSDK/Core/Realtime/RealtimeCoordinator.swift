@@ -14,18 +14,11 @@ actor RealtimeCoordinator {
     }
 
     enum TerminationScope: Int, Sendable {
-        case generation
         case connection
         case all
 
-        func includes(_ scope: TerminationScope) -> Bool {
-            rawValue >= scope.rawValue
-        }
-
         func affects(_ kind: OperationKind) -> Bool {
             switch self {
-            case .generation:
-                kind == .generation || kind == .cameraSwitch || kind == .configuration
             case .connection:
                 kind != .media
             case .all:
@@ -415,15 +408,13 @@ private extension RealtimeCoordinator {
             pending.waitForOperations.append(origin.waitForCompletion)
         }
 
-        if pending.target.includes(.connection) {
-            await setState(
-                RealtimeState(
-                    connectionState: .disconnecting,
-                    sessionID: state.sessionID,
-                    reason: nil
-                )
+        await setState(
+            RealtimeState(
+                connectionState: .disconnecting,
+                sessionID: state.sessionID,
+                reason: nil
             )
-        }
+        )
         return pending.task
     }
 
@@ -454,10 +445,8 @@ private extension RealtimeCoordinator {
             let connectionState: RealtimeConnectionState
             if requestedTarget == .all {
                 connectionState = .idle
-            } else if requestedTarget.includes(.connection) {
-                connectionState = result.hasLocalMedia ? .ready : .idle
             } else {
-                connectionState = .connected
+                connectionState = result.hasLocalMedia ? .ready : .idle
             }
             let finalState = RealtimeState(
                 connectionState: connectionState,

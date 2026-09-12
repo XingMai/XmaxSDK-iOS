@@ -875,28 +875,21 @@ private extension XmaxRealtimeManager {
         connectionManager: XmaxRealtimeConnectionManager,
         generationManager: XmaxRealtimeGenerationManager
     ) async -> RealtimeCoordinator.CleanupResult {
-        let releasesConnection = scope.includes(.connection)
         if scope == .all {
             await mediaController.setLocalAudioPreviewMuted(true)
         }
 
-        if releasesConnection {
-            do {
-                try await mediaController.stopMicrophoneCapture()
-            } catch {
-                logCleanupFailure(
-                    title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)",
-                    error: error
-                )
-            }
+        do {
+            try await mediaController.stopMicrophoneCapture()
+        } catch {
+            logCleanupFailure(
+                title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)",
+                error: error
+            )
         }
 
         do {
-            if releasesConnection {
-                try await generationManager.reset(taskID: taskID)
-            } else {
-                try await generationManager.stop(taskID: taskID)
-            }
+            try await generationManager.reset(taskID: taskID)
         } catch {
             logCleanupFailure(
                 title: "停止实时生成失败 " +
@@ -905,19 +898,16 @@ private extension XmaxRealtimeManager {
             )
         }
 
-        var sessionID: String?
-        if releasesConnection {
-            let activeSessionID = await connectionManager.currentSessionID
-            sessionID = activeSessionID.isEmpty ? nil : activeSessionID
-            do {
-                sessionID = try await connectionManager.disconnect() ?? sessionID
-            } catch {
-                logCleanupFailure(
-                    title: "断开实时连接失败 " +
-                        "(Failed to Disconnect Realtime)",
-                    error: error
-                )
-            }
+        let activeSessionID = await connectionManager.currentSessionID
+        var sessionID = activeSessionID.isEmpty ? nil : activeSessionID
+        do {
+            sessionID = try await connectionManager.disconnect() ?? sessionID
+        } catch {
+            logCleanupFailure(
+                title: "断开实时连接失败 " +
+                    "(Failed to Disconnect Realtime)",
+                error: error
+            )
         }
 
         if scope == .all {

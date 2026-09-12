@@ -319,11 +319,11 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let probe = RealtimeCoordinatorProbe()
         let coordinator = makeCoordinator(probe: probe)
         let state = RealtimeState(connectionState: .generating, sessionID: "session", taskID: "task")
-        try await coordinator.run(kind: .generation, failureScope: .generation) { token in
+        try await coordinator.run(kind: .generation, failureScope: .connection) { token in
             try await coordinator.commit(state, token: token)
         }
         let changing = Task {
-            try await coordinator.run(kind: kind, failureScope: .generation) { _ in
+            try await coordinator.run(kind: kind, failureScope: .connection) { _ in
                 await probe.markOperationStarted()
                 try await Task.sleep(nanoseconds: 30000000000)
             }
@@ -340,7 +340,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let cleanup = await probe.cleanupScopes
         XCTAssertEqual(current, state)
         XCTAssertTrue(cleanup.isEmpty)
-        try await coordinator.run(kind: .configuration, failureScope: .generation) { _ in }
+        try await coordinator.run(kind: .configuration, failureScope: .connection) { _ in }
     }
 
     func testDisconnectWaitsForConfigurationBeforeCleaningConnection() async throws {
@@ -348,7 +348,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let coordinator = makeCoordinator(probe: probe)
         let events = RealtimeCoordinatorEventRecorder()
         let changing = Task {
-            try await coordinator.run(kind: .configuration, failureScope: .generation) { _ in
+            try await coordinator.run(kind: .configuration, failureScope: .connection) { _ in
                 await probe.markOperationStarted()
                 do {
                     try await Task.sleep(nanoseconds: 30000000000)
@@ -550,7 +550,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         do {
             _ = try await coordinator.run(
                 kind: .generation,
-                failureScope: .generation
+                failureScope: .connection
             ) { _ in
                 2
             }
@@ -633,7 +633,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         do {
             let _: Void = try await coordinator.run(
                 kind: .generation,
-                failureScope: .generation
+                failureScope: .connection
             ) { _ in
                 throw XmaxError(
                     code: .rtcError,
@@ -652,20 +652,19 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let state = await coordinator.currentState
         XCTAssertEqual(
             state.connectionState,
-            .connected
+            .idle
         )
     }
 
-    func testOperationCanNarrowFailureCleanupScope() async {
+    func testOperationCanArmFailureCleanupScope() async {
         let probe = RealtimeCoordinatorProbe()
         let coordinator = makeCoordinator(probe: probe)
 
         do {
             let _: Void = try await coordinator.run(
-                kind: .generation,
-                failureScope: .connection
+                kind: .generation
             ) { token in
-                token.setFailureScope(.generation)
+                token.setFailureScope(.connection)
                 throw XmaxError(
                     code: .rtcError,
                     message: "generation failed"
@@ -677,7 +676,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         }
 
         let cleanupScopes = await probe.cleanupScopes
-        XCTAssertEqual(cleanupScopes, [.generation])
+        XCTAssertEqual(cleanupScopes, [.connection])
     }
 
     func testBackgroundFatalErrorInterruptsActiveOperation() async {

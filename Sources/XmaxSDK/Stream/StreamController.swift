@@ -160,7 +160,6 @@ final class StreamController: StreamControlling, RtcEventListener,
                 targetSize: targetSize,
                 context: context
             )
-            timing.finishSignal(taskID: taskID)
             return confirmation
         } catch {
             confirmation.cancel()
