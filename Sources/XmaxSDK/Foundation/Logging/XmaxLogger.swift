@@ -62,6 +62,10 @@ struct XmaxLogger: Sendable {
         state.update(options)
     }
 
+    static func isEnabled(_ option: XmaxLoggerOption) -> Bool {
+        state.isEnabled(option)
+    }
+
     /// 输出调试日志。
     func debug(
         message: @autoclosure () -> String,

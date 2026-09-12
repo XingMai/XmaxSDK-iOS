@@ -34,10 +34,7 @@ final class RtcVideoFrame {
             )
         }
 
-        let buffers = frame.planes.map { plane in
-            let range = plane.byteOffset..<(plane.byteOffset + plane.byteLength)
-            return NSData(data: plane.data.subdata(in: range))
-        }
+        let buffers = frame.planes.map { $0.data as NSData }
         let dataPointers = UnsafeMutablePointer<UnsafeMutableRawPointer?>
             .allocate(capacity: expectedPlaneCount)
         let stridePointers = UnsafeMutablePointer<Int32>
@@ -57,6 +54,7 @@ final class RtcVideoFrame {
 
             dataPointers.advanced(by: index).initialize(
                 to: UnsafeMutableRawPointer(mutating: buffers[index].bytes)
+                    .advanced(by: frame.planes[index].byteOffset)
             )
             stridePointers.advanced(by: index).initialize(to: stride)
         }

@@ -129,6 +129,18 @@ enum NV12VideoFrameConverter {
                 throw mediaError("Failed to allocate decoded NV12 video data")
             }
 
+            if crop.width == outputWidth, crop.height == outputHeight {
+                let luma = lumaBaseAddress.advanced(by: crop.y * lumaStride + crop.x)
+                let chroma = chromaBaseAddress.advanced(by: crop.y / 2 * chromaStride + crop.x)
+                for row in 0..<outputHeight {
+                    memcpy(destination.advanced(by: row * outputWidth), luma.advanced(by: row * lumaStride), outputWidth)
+                }
+                for row in 0..<(outputHeight / 2) {
+                    memcpy(destination.advanced(by: lumaLength + row * outputWidth), chroma.advanced(by: row * chromaStride), outputWidth)
+                }
+                return
+            }
+
             var sourceLuma = vImage_Buffer(
                 data: lumaBaseAddress.advanced(
                     by: crop.y * lumaStride + crop.x

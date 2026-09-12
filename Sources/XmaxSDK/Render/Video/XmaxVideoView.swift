@@ -72,6 +72,11 @@ public final class XmaxVideoView: UIView {
     private var decodedVideoTimebase: CMTimebase?
     private var nextDecodedVideoPresentationTime = CMTime.invalid
 
+    // 本地预览缓冲资源
+    private var localPreviewPixelBufferPool: CVPixelBufferPool?
+    private var localPreviewFormat: VideoFormat?
+    private var localPreviewFormatDescription: CMVideoFormatDescription?
+
     // 图片预览
     private lazy var imageView: UIImageView = {
         let imageView = UIImageView()
@@ -205,6 +210,7 @@ extension XmaxVideoView {
         _ frame: VideoFrame,
         contentMode: VideoContentMode
     ) {
+        let performanceStart = CameraPerformanceProbe.shared.begin(frameTimestampUs: frame.timestampUs)
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }
@@ -219,16 +225,8 @@ extension XmaxVideoView {
         }
 
         do {
-            let pixelBuffer = try Self.makeNV12PixelBuffer(frame)
-            var formatDescription: CMVideoFormatDescription?
-            guard CMVideoFormatDescriptionCreateForImageBuffer(
-                allocator: kCFAllocatorDefault,
-                imageBuffer: pixelBuffer,
-                formatDescriptionOut: &formatDescription
-            ) == noErr,
-                  let formatDescription else {
-                throw Self.invalidImageFrameError
-            }
+            let pixelBuffer = try makeLocalPreviewPixelBuffer(frame)
+            let formatDescription = try localPreviewDescription(for: pixelBuffer)
             let presentationTime = CMTimebaseGetTime(decodedVideoTimebase)
             var timing = CMSampleTimingInfo(
                 duration: .invalid,
@@ -253,6 +251,7 @@ extension XmaxVideoView {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
             decodedVideoLayer.enqueue(sampleBuffer)
+            CameraPerformanceProbe.shared.finishPreview(timestampUs: frame.timestampUs, since: performanceStart)
             frameDisplayHandler?()
         } catch {
             Self.logRenderingFailure(
@@ -328,6 +327,9 @@ extension XmaxVideoView {
         decodedVideoLayer = nil
         decodedVideoTimebase = nil
         nextDecodedVideoPresentationTime = .invalid
+        localPreviewPixelBufferPool = nil
+        localPreviewFormat = nil
+        localPreviewFormatDescription = nil
     }
 
     func attachCurrentTrackIfNeeded() {
@@ -473,8 +475,48 @@ extension XmaxVideoView {
         return UIImage(cgImage: cgImage)
     }
 
+    func makeLocalPreviewPixelBuffer(_ frame: VideoFrame) throws -> CVPixelBuffer {
+        if localPreviewFormat != frame.format || localPreviewPixelBufferPool == nil {
+            let attributes: [String: Any] = [
+                kCVPixelBufferWidthKey as String: frame.format.width,
+                kCVPixelBufferHeightKey as String: frame.format.height,
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
+            ]
+            var pool: CVPixelBufferPool?
+            guard CVPixelBufferPoolCreate(kCFAllocatorDefault, nil, attributes as CFDictionary, &pool) == kCVReturnSuccess,
+                  let pool else {
+                throw Self.invalidImageFrameError
+            }
+            localPreviewPixelBufferPool = pool
+            localPreviewFormat = frame.format
+            localPreviewFormatDescription = nil
+        }
+
+        return try Self.makeNV12PixelBuffer(frame, pool: localPreviewPixelBufferPool)
+    }
+
+    func localPreviewDescription(for pixelBuffer: CVPixelBuffer) throws -> CMVideoFormatDescription {
+        if let description = localPreviewFormatDescription,
+           CMVideoFormatDescriptionMatchesImageBuffer(description, imageBuffer: pixelBuffer) {
+            return description
+        }
+
+        var description: CMVideoFormatDescription?
+        guard CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            formatDescriptionOut: &description
+        ) == noErr, let description else {
+            throw Self.invalidImageFrameError
+        }
+        localPreviewFormatDescription = description
+        return description
+    }
+
     static func makeNV12PixelBuffer(
-        _ frame: VideoFrame
+        _ frame: VideoFrame,
+        pool: CVPixelBufferPool? = nil
     ) throws -> CVPixelBuffer {
         let width = frame.format.width
         let height = frame.format.height
@@ -491,15 +533,23 @@ extension XmaxVideoView {
         let attributes = [
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary
         ] as CFDictionary
-        guard CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            width,
-            height,
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            attributes,
-            &pixelBuffer
-        ) == kCVReturnSuccess,
-              let pixelBuffer else {
+        let status: CVReturn
+        if let pool {
+            status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBuffer)
+        } else {
+            status = CVPixelBufferCreate(
+                kCFAllocatorDefault,
+                width,
+                height,
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                attributes,
+                &pixelBuffer
+            )
+        }
+        guard status == kCVReturnSuccess, let pixelBuffer,
+              CVPixelBufferGetWidth(pixelBuffer) == width,
+              CVPixelBufferGetHeight(pixelBuffer) == height,
+              CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
             throw invalidImageFrameError
         }
 
@@ -557,6 +607,10 @@ extension XmaxVideoView {
         plane.data.withUnsafeBytes { bytes in
             guard let source = bytes.baseAddress else { return }
             let sourceStart = source.advanced(by: plane.byteOffset)
+            if plane.stride == rowByteCount, destinationStride == rowByteCount {
+                memcpy(destination, sourceStart, sourceLength)
+                return
+            }
             for row in 0..<rowCount {
                 memcpy(
                     destination.advanced(by: row * destinationStride),

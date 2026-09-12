@@ -58,6 +58,9 @@ final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
 
     func enqueue(_ frame: VideoFrame) {
         let shouldSchedule = lock.withLock { () -> Bool in
+            if let pendingFrame {
+                CameraPerformanceProbe.shared.replacedPreview(timestampUs: pendingFrame.timestampUs)
+            }
             pendingFrame = frame
             guard !isDeliveryScheduled else { return false }
             isDeliveryScheduled = true

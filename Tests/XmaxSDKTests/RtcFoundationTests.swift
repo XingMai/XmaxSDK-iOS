@@ -191,6 +191,30 @@ final class RtcFoundationTests: XCTestCase {
         XCTAssertEqual(Data(bytes: secondPlane, count: 2), Data([5, 6]))
     }
 
+    func testVideoConverterRetainsSharedBufferAfterSourceIsReleased() throws {
+        let converted: RtcVideoFrame = try autoreleasepool {
+            var data = Data((0..<24).map(UInt8.init))
+            let frame = try VideoFrame(
+                format: VideoFormat(width: 4, height: 4, pixelFormat: .nv12),
+                timestampUs: 0,
+                planes: [
+                    VideoFramePlane(data: data, stride: 4, byteLength: 16),
+                    VideoFramePlane(data: data, stride: 4, byteOffset: 16, byteLength: 8)
+                ]
+            )
+            let converted = try RtcVideoConverter.convertFrame(frame)
+            data[0] = 255
+            return converted
+        }
+
+        try withExtendedLifetime(converted) {
+            let luma = try XCTUnwrap(converted.value.planeDataArray?[0])
+            let chroma = try XCTUnwrap(converted.value.planeDataArray?[1])
+            XCTAssertEqual(Data(bytes: luma, count: 16), Data((0..<16).map(UInt8.init)))
+            XCTAssertEqual(Data(bytes: chroma, count: 8), Data((16..<24).map(UInt8.init)))
+        }
+    }
+
     func testVideoConverterRejectsWrongPlaneCount() throws {
         let format = try VideoFormat(
             width: 2,
