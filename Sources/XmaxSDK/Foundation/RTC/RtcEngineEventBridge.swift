@@ -9,10 +9,6 @@ final class RtcEngineEventBridge: NSObject, ByteRTCEngineDelegate {
         ByteRTCStreamInfo,
         Data
     ) -> Void
-    typealias SystemStatsHandler = @Sendable (
-        ByteRTCEngine,
-        ByteRTCSysStats
-    ) -> Void
     typealias PerformanceAlarmHandler = @Sendable (
         ByteRTCEngine,
         ByteRTCStreamInfo,
@@ -22,16 +18,13 @@ final class RtcEngineEventBridge: NSObject, ByteRTCEngineDelegate {
 
     // 事件回调
     private let onSei: SeiHandler
-    private let onSystemStats: SystemStatsHandler
     private let onPerformanceAlarm: PerformanceAlarmHandler
 
     init(
         onSei: @escaping SeiHandler,
-        onSystemStats: @escaping SystemStatsHandler,
         onPerformanceAlarm: @escaping PerformanceAlarmHandler
     ) {
         self.onSei = onSei
-        self.onSystemStats = onSystemStats
         self.onPerformanceAlarm = onPerformanceAlarm
     }
 
@@ -42,13 +35,6 @@ final class RtcEngineEventBridge: NSObject, ByteRTCEngineDelegate {
         andMessage message: Data
     ) {
         onSei(engine, streamId, info, message)
-    }
-
-    func rtcEngine(
-        _ engine: ByteRTCEngine,
-        onSysStats stats: ByteRTCSysStats
-    ) {
-        onSystemStats(engine, stats)
     }
 
     func rtcEngine(

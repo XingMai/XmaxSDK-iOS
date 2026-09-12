@@ -15,11 +15,6 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float { get async }
 
-    /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
-    func setCameraPreviewReadyListener(
-        _ listener: RealtimeCameraPreviewReadyListener?
-    )
-
     /// 设置当前相机流的一次性内部就绪处理。
     ///
     /// - Parameter handler: 收到有效帧且预览已绑定时调用；传入空值时清除。

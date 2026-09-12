@@ -18,7 +18,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     // 事件监听
     private let videoFrameListener: MediaVideoFrameListener
     private let errorListener: XmaxErrorListener
-    private var previewReadyListener: RealtimeCameraPreviewReadyListener?
     private var previewReadyHandler: CameraPreviewReadyHandler?
 
     // 并发控制
@@ -31,7 +30,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     // 预览状态
     private var hasCapturedFrame = false
     private var isPreviewAttached = false
-    private var hasReportedPreviewReady = false
 
     // 麦克风配置与采集状态
     private var storedUseMicrophone = false
@@ -80,15 +78,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         stateLock.withLock { activeTrack != nil && storedUseMicrophone }
     }
 
-    /// 设置摄像头预览就绪监听器，传入空值时清除监听器。
-    func setPreviewReadyListener(_ listener: RealtimeCameraPreviewReadyListener?) {
-        let track = stateLock.withLock {
-            previewReadyListener = listener
-            return activeTrack
-        }
-        if let track { notifyPreviewReady(for: track) }
-    }
-
     func setPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?) {
         let track = stateLock.withLock {
             previewReadyHandler = handler
@@ -130,7 +119,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                 storedUseMicrophone = useMicrophone
                 hasCapturedFrame = false
                 isPreviewAttached = false
-                hasReportedPreviewReady = false
             }
             try await captureManager.start(
                 videoFormat: VideoFormat(
@@ -191,7 +179,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             isMicrophoneCapturing = false
             hasCapturedFrame = false
             isPreviewAttached = false
-            hasReportedPreviewReady = false
             return resources
         }
         await captureManager.stop()
@@ -271,31 +258,25 @@ private extension CameraController {
     func notifyPreviewReady(for track: RealtimeVideoTrack) {
         let shouldNotify = stateLock.withLock {
             activeTrack === track && hasCapturedFrame && isPreviewAttached &&
-                (previewReadyHandler != nil ||
-                    (!hasReportedPreviewReady && previewReadyListener != nil))
+                previewReadyHandler != nil
         }
         guard shouldNotify else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let callbacks = stateLock.withLock { () -> (
-                CameraPreviewReadyHandler?, RealtimeCameraPreviewReadyListener?
-            ) in
+            let handler = stateLock.withLock { () -> CameraPreviewReadyHandler? in
                 guard activeTrack === track, hasCapturedFrame, isPreviewAttached else {
-                    return (nil, nil)
+                    return nil
                 }
                 let handler = previewReadyHandler
                 previewReadyHandler = nil
-                let listener = hasReportedPreviewReady ? nil : previewReadyListener
-                if listener != nil { hasReportedPreviewReady = true }
-                return (handler, listener)
+                return handler
             }
-            callbacks.0? { [weak self] in
+            handler? { [weak self] in
                 guard let self else { return false }
                 return stateLock.withLock {
                     activeTrack === track
                 }
             }
-            callbacks.1?()
         }
     }
 

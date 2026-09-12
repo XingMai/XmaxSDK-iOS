@@ -1579,17 +1579,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     func testCameraReadyRequiresCapturedFrameAndAttachedPreview() async throws {
         for frameArrivesFirst in [false, true] {
             let components = makeComponents()
-            var callbackCount = 0
             var states: [RealtimeConnectionState] = []
             let ready = expectation(description: "Camera preview becomes ready")
             await components.manager.setStateListener { state in
                 states.append(state.connectionState)
                 if state.connectionState == .ready { ready.fulfill() }
             }
-            await components.manager.setCameraPreviewReadyListener {
-                callbackCount += 1
-            }
-
             let stream = try await components.manager.createLocalCameraStream()
             let initialState = await components.manager.currentState
             XCTAssertEqual(initialState.connectionState, .preparing)
@@ -1605,7 +1600,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
             let partialState = await components.manager.currentState
             XCTAssertEqual(partialState.connectionState, .preparing)
-            XCTAssertEqual(callbackCount, 0)
 
             if frameArrivesFirst {
                 try binding.attach(to: view, contentMode: .fill)
@@ -1614,33 +1608,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
             await fulfillment(of: [ready], timeout: 2)
             XCTAssertEqual(states, [.idle, .preparing, .ready])
-            XCTAssertEqual(callbackCount, 1)
-
-            await components.manager.setCameraPreviewReadyListener(nil)
             try components.captureManager.emitFrame(frame)
-            XCTAssertEqual(callbackCount, 1)
+            let currentState = await components.manager.currentState
+            XCTAssertEqual(currentState.connectionState, .ready)
+            XCTAssertEqual(states, [.idle, .preparing, .ready])
             await components.manager.close()
         }
-    }
-
-    func testCameraReadyDoesNotRequirePublicPreviewListener() async throws {
-        let components = makeComponents()
-        let ready = expectation(description: "SDK owns camera readiness")
-        await components.manager.setStateListener { state in
-            if state.connectionState == .ready { ready.fulfill() }
-        }
-        let stream = try await components.manager.createLocalCameraStream()
-        let track = try XCTUnwrap(stream.videoTrack)
-        let binding = try XCTUnwrap(VideoRenderRegistry.binding(for: track))
-        let view = XmaxVideoView()
-        try binding.attach(to: view, contentMode: .fill)
-        try components.captureManager.emitFrame(CameraControllerTests.testFrame())
-        await fulfillment(of: [ready], timeout: 2)
-
-        let previewNotification = expectation(description: "Late public listener still works")
-        await components.manager.setCameraPreviewReadyListener { previewNotification.fulfill() }
-        await fulfillment(of: [previewNotification], timeout: 2)
-        await components.manager.close()
     }
 
     func testConnectRejectsStreamOwnedByAnotherManager() async throws {

@@ -178,15 +178,21 @@ final class CameraControllerTests: XCTestCase {
         let binding = try XCTUnwrap(VideoRenderRegistry.binding(for: track))
         let view = XmaxVideoView()
         let ready = expectation(description: "Camera preview ready")
-        controller.setPreviewReadyListener { ready.fulfill() }
+        var previewIsCurrent: (@Sendable () -> Bool)?
+        controller.setPreviewReadyHandler { isCurrent in
+            previewIsCurrent = isCurrent
+            ready.fulfill()
+        }
         try binding.attach(to: view, contentMode: .fit)
         let frame = try Self.testFrame()
         let lateListener = capture.currentFrameListener
         try capture.emitFrame(frame)
         await fulfillment(of: [ready], timeout: 2)
         XCTAssertEqual(recorder.frames, [frame])
+        XCTAssertEqual(previewIsCurrent?(), true)
 
         await controller.stopLocalCameraStream()
+        XCTAssertEqual(previewIsCurrent?(), false)
         try lateListener?(frame)
         XCTAssertEqual(recorder.frames, [frame])
         XCTAssertNil(controller.currentTrack)

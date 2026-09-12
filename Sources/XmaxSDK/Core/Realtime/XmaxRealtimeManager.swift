@@ -178,12 +178,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await coordinator.setStateListener(listener)
     }
 
-    func setCameraPreviewReadyListener(
-        _ listener: RealtimeCameraPreviewReadyListener?
-    ) async {
-        await mediaController.setCameraPreviewReadyListener(listener)
-    }
-
     func setRemoteVideoFrameListener(
         _ listener: RealtimeVideoFrameListener?
     ) async {

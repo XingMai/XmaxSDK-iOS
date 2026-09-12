@@ -14,11 +14,6 @@ protocol CameraControlling: Sendable {
     /// 当前相机流是否配置为使用麦克风。
     var useMicrophone: Bool { get }
 
-    /// 设置摄像头预览就绪监听器。
-    ///
-    /// - Parameter listener: 采集到首帧且预览已绑定时的回调；传入空值时清除监听器。
-    func setPreviewReadyListener(_ listener: RealtimeCameraPreviewReadyListener?)
-
     /// 设置当前相机流的一次性内部就绪处理；条件为已收到有效帧且预览已绑定。
     ///
     /// - Parameter handler: 就绪时调用的处理闭包；传入空值时清除。

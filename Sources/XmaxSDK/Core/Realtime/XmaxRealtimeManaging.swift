@@ -36,14 +36,6 @@ public protocol XmaxRealtimeManaging: Sendable {
 
 
 
-    /// 设置摄像头预览就绪监听器。
-    ///
-    /// - Parameter listener: 预览首帧就绪回调；传入 `nil` 时清除监听器。
-    func setCameraPreviewReadyListener(
-        _ listener: RealtimeCameraPreviewReadyListener?
-    ) async
-
-
     /// 设置远端最终视频帧监听器。
     ///
     /// 监听器接收完成可选插帧处理、即将用于画面显示的视频帧。回调由 SDK

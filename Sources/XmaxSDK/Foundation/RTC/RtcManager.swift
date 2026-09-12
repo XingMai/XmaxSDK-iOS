@@ -614,9 +614,6 @@ private extension RtcManager {
                     message: message
                 )
             },
-            onSystemStats: { [weak self] engine, stats in
-                self?.handleSystemStats(engine: engine, stats: stats)
-            },
             onPerformanceAlarm: { [weak self] engine, info, reason, data in
                 self?.handlePerformanceAlarm(
                     engine: engine,
@@ -898,16 +895,6 @@ private extension RtcManager {
                 message: decodedMessage
             )
         }
-    }
-
-    func handleSystemStats(
-        engine: ByteRTCEngine,
-        stats: ByteRTCSysStats
-    ) {
-        guard stateLock.withLock({ engineLease?.engine === engine }) else {
-            return
-        }
-        RtcStatsLogger.logSystemStats(stats)
     }
 
     func handlePerformanceAlarm(

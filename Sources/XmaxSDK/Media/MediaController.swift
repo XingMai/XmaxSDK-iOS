@@ -104,12 +104,6 @@ actor MediaController: MediaControlling {
     }
 
     /// 设置摄像头预览就绪监听器。
-    func setCameraPreviewReadyListener(
-        _ listener: RealtimeCameraPreviewReadyListener?
-    ) {
-        cameraController.setPreviewReadyListener(listener)
-    }
-
     func setCameraPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?) {
         cameraController.setPreviewReadyHandler(handler)
     }

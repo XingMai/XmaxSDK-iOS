@@ -31,13 +31,6 @@ enum RtcStatsLogger {
         )
     }
 
-    static func logSystemStats(_ stats: ByteRTCSysStats) {
-        XmaxLogger.rtc.debug(
-            message: systemStatsMessage(stats),
-            option: .performance
-        )
-    }
-
     static func logPerformanceAlarm(
         reason: ByteRTCPerformanceAlarmReason,
         data: ByteRTCSourceWantedData
@@ -110,24 +103,6 @@ enum RtcStatsLogger {
             )
         }
         return lines.joined(separator: "\n")
-    }
-
-    private static func systemStatsMessage(_ stats: ByteRTCSysStats) -> String {
-        let cpu = [
-            "应用 (App) \(percentage(stats.cpuAppUsage))",
-            "系统 (System) \(percentage(stats.cpuTotalUsage))",
-            "核心数 (Cores) \(stats.cpuCores)"
-        ].joined(separator: "，")
-        let memory = [
-            "应用 (App) \(String(format: "%.0f", stats.memoryUsage)) MB",
-            "应用占用 (App Usage) \(String(format: "%.2f", stats.memoryRatio))%",
-            "系统占用 (System Usage) \(String(format: "%.2f", stats.totalMemoryRatio))%"
-        ].joined(separator: "，")
-        return """
-        性能统计 (System Performance Metrics)
-        ├─ CPU：\(cpu)
-        └─ 内存 (Memory)：\(memory)
-        """
     }
 
     private static func performanceAlarmMessage(

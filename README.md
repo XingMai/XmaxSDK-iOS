@@ -321,7 +321,6 @@ input stream or starting generation.
 | Listener | Purpose |
 | --- | --- |
 | `setStateListener` | Observe pipeline states and termination reasons during real-time generation. |
-| `setCameraPreviewReadyListener` | Notify when the initial local camera frame is ready for preview rendering. |
 | `setRemoteVideoFrameListener` | Receive generated frames for recording or custom processing. |
 | `setNetworkQualityListener` | Monitor uplink and downlink network quality. |
 | `setPerformanceAlarmListener` | Detect device performance limitations or recovery, with a suggested video format when available. |
@@ -339,6 +338,10 @@ await realtime.setStateListener { state in
 
 Handle errors thrown by async calls with `do/catch`. Failures that end the realtime
 workflow are also available through `state.reason` after cleanup completes.
+
+For camera input, bind the returned video track to a preview view. The SDK enters
+`ready` after it has received a valid frame and the preview view is bound; observe
+this through `setStateListener`.
 
 <br>
 
