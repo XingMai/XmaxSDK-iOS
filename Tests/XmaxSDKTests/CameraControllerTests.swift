@@ -4,6 +4,52 @@ import XCTest
 @testable import XmaxSDK
 
 final class CameraControllerTests: XCTestCase {
+    func testBucketCameraPreservesResolutionAndEncodingOptions() async throws {
+        for (width, height) in [(1024, 1920), (1920, 1024)] {
+            let capture = CameraCaptureManagingStub()
+            let controller = CameraController(
+                rtcManager: RtcManagingStub(),
+                permissionManager: PermissionManagingStub(),
+                mediaService: MediaService(model: .x2_0_pro),
+                captureManager: capture
+            )
+            let requested = RealtimeVideoFormat(
+                width: width, height: height, fps: 30,
+                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+            )
+            let stream = try await controller.createLocalCameraStream(videoFormat: requested, position: .front)
+
+            XCTAssertEqual(stream.videoTrack?.videoFormat, requested)
+            XCTAssertEqual(capture.calls, [.start(try VideoFormat(width: width, height: height, pixelFormat: .nv12), 30, .front)])
+            await controller.stopLocalCameraStream()
+        }
+    }
+
+    func testUnsupportedBucketCameraFailsBeforePermissionAndCapture() async {
+        let capture = CameraCaptureManagingStub()
+        let permissions = PermissionManagingStub()
+        let rtc = RtcManagingStub()
+        let controller = CameraController(
+            rtcManager: rtc,
+            permissionManager: permissions,
+            mediaService: MediaService(model: .x2_0_pro),
+            captureManager: capture
+        )
+        do {
+            _ = try await controller.createLocalCameraStream(
+                videoFormat: RealtimeVideoFormat(width: 832, height: 1472, fps: 24), position: .front
+            )
+            XCTFail("Expected unsupported resolution to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+
+        XCTAssertEqual(permissions.cameraRequestCount, 0)
+        XCTAssertTrue(capture.calls.isEmpty)
+        XCTAssertTrue(rtc.calls.isEmpty)
+        XCTAssertNil(controller.currentTrack)
+    }
+
     func testCameraPreservesEncodingOptionsAfterSizeResolution() async throws {
         let capture = CameraCaptureManagingStub()
         let rtc = RtcManagingStub()

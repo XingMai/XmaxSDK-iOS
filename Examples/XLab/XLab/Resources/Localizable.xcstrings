@@ -375,23 +375,6 @@
         }
       }
     },
-    "feed.model.unsupported": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ does not support this input source. Please choose another model."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 不支持此输入来源，请切换模型"
-          }
-        }
-      }
-    },
     "feed.open": {
       "extractionState": "manual",
       "localizations": {
@@ -541,23 +524,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "已选择"
-          }
-        }
-      }
-    },
-    "feed.source.unsupported": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This model does not support this input source"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前模型不支持此输入来源"
           }
         }
       }

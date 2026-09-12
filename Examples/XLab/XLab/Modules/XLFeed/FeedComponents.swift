@@ -237,8 +237,6 @@ final class FeedRuntimeMetricView: UIView {
 }
 
 final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
-    var onModelSelectionChanged: (() -> Void)?
-
     private static let apiKeyStorageKey = "xlab.realtime.apiKey"
 
     // 模型选择
@@ -457,7 +455,6 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
         selectedModel = model
         RealtimePreferences.selectedModel = model
         updateModelSelection()
-        onModelSelectionChanged?()
     }
 
     private func updateModelSelection() {

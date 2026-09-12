@@ -8,9 +8,9 @@ public protocol MediaServicing: Sendable {
 
     /// 计算满足模型输入约束的尺寸。
     ///
-    /// - Parameter size: 原始媒体的显示尺寸。
-    /// - Returns: 按当前模型的像素面积上下限及对齐要求计算的输入尺寸。
-    /// - Throws: 尺寸无效时抛出 `XmaxError`。
+    /// - Parameter size: 指定的视频格式尺寸；未指定格式时为原始媒体的显示尺寸。
+    /// - Returns: 模型分辨率桶非空时，精确匹配后原样返回；为空时按像素面积上下限及对齐要求计算。
+    /// - Throws: 尺寸无效或未匹配模型支持的分辨率桶时抛出 `XmaxError`。
     func resolveModelInputSize(_ size: CGSize) throws -> CGSize
 
     /// 计算保持原始比例且满足插帧像素预算的回传尺寸。

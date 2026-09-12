@@ -2,6 +2,26 @@ import XCTest
 @testable import XmaxSDK
 
 final class RealtimeModelTests: XCTestCase {
+    func testModelDefaultFormatsAndPixelLimits() {
+        XCTAssertEqual(RealtimeModel.x2_0.defaultFrameRate, 24)
+        XCTAssertEqual(RealtimeModel.x2_0.maximumInputPixels, 1280000)
+        XCTAssertEqual(RealtimeModel.x2_0_pro.defaultFrameRate, 30)
+        XCTAssertEqual(RealtimeModel.x2_0_pro.maximumInputPixels, 2100000)
+        XCTAssertEqual(
+            RealtimeModel.x2_0_pro.defaultCameraVideoFormat,
+            RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
+        )
+    }
+
+    func testModelResolutionBuckets() {
+        XCTAssertTrue(RealtimeModel.x2_0.resolutionBuckets.isEmpty)
+        XCTAssertEqual(RealtimeModel.x2_0_pro.resolutionBuckets, [
+            CGSize(width: 1024, height: 1920),
+            CGSize(width: 1920, height: 1024)
+        ])
+        XCTAssertEqual(RealtimeModel.x2_0_pro.rawValue, "x2.0-pro")
+    }
+
     func testContextNormalizesPromptAndReferencePath() {
         XCTAssertEqual(
             RealtimeContext(

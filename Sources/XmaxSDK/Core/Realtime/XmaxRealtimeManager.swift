@@ -397,7 +397,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         image: UIImage,
         videoFormat: RealtimeVideoFormat?
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(.image)
         let decodedImage = try ImageManager().decode(image)
         return try await createLocalImageStream(
             decodedImage: decodedImage,
@@ -743,7 +742,6 @@ private extension XmaxRealtimeManager {
         prepare: @escaping @Sendable (RealtimeCoordinator.Token) async throws
             -> RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
-        try await validateMediaSource(source)
         return try await coordinator.run(
             kind: .media,
             failureScope: .all
@@ -826,18 +824,6 @@ private extension XmaxRealtimeManager {
         let xmaxError = XmaxError.from(error)
         await errorHandler.report(xmaxError)
         return xmaxError
-    }
-
-    func validateMediaSource(_ source: RealtimeMediaSource) async throws {
-        guard options.model.supportedMediaSources.contains(source) else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Model \(options.model.rawValue) does not support " +
-                        "\(source.rawValue) input"
-                ).withSeverity(.recoverable)
-            )
-        }
     }
 
     static func validateAudioVolume(_ volume: Float) throws {

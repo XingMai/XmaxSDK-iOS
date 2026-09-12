@@ -14,6 +14,19 @@ final class MediaService: MediaServicing, Sendable {
     }
 
     func resolveModelInputSize(_ size: CGSize) throws -> CGSize {
+        let buckets = model.resolutionBuckets
+        if !buckets.isEmpty {
+            guard buckets.contains(size) else {
+                let supportedSizes = buckets.map { "\(Int($0.width))×\(Int($0.height))" }.joined(separator: ", ")
+                throw XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Model \(model.rawValue) does not support input resolution " +
+                        "\(size.width)×\(size.height). Supported resolutions: \(supportedSizes)"
+                )
+            }
+            return size
+        }
+
         let size = try validatedSize(size)
         let pixels = Double(size.width) * Double(size.height)
         let scale: Double

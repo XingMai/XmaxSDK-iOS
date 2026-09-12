@@ -3,6 +3,40 @@ import XCTest
 @testable import XmaxSDK
 
 final class MediaServiceTests: XCTestCase {
+    func testBucketResolutionsArePreservedInBothOrientations() throws {
+        let service = MediaService(model: .x2_0_pro)
+        for size in [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)] {
+            XCTAssertEqual(try service.resolveModelInputSize(size), size)
+        }
+    }
+
+    func testBucketRejectsOtherSizesWithoutResizingOrRounding() {
+        let service = MediaService(model: .x2_0_pro)
+        let sizes: [CGSize] = [
+            CGSize(width: 832, height: 1472),
+            CGSize(width: 1920, height: 1080),
+            CGSize(width: 512, height: 960),
+            CGSize(width: 2048, height: 3840),
+            CGSize(width: 1120, height: 1120),
+            CGSize(width: 1024, height: 1919.9),
+            CGSize(width: 0, height: 1920),
+            CGSize(width: CGFloat.nan, height: 1920),
+            CGSize(width: CGFloat.infinity, height: 1920)
+        ]
+        for size in sizes {
+            XCTAssertThrowsError(try service.resolveModelInputSize(size)) { error in
+                XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+            }
+        }
+    }
+
+    func testInterpolationTargetIsIndependentOfInputBuckets() throws {
+        let target = try MediaService(model: .x2_0_pro).resolveFrameInterpolationSize(
+            CGSize(width: 1024, height: 1920)
+        )
+        XCTAssertEqual(target, CGSize(width: 688, height: 1290))
+    }
+
     func testInterpolationSizePreservesExactAspectRatioWithinPixelBudget() throws {
         let cases: [(CGSize, CGSize)] = [
             (CGSize(width: 832, height: 1472), CGSize(width: 702, height: 1242)),
@@ -63,7 +97,7 @@ final class MediaServiceTests: XCTestCase {
             CGSize(width: 1, height: 100_000),
             CGSize(width: 100_000, height: 1)
         ]
-        for model in RealtimeModel.allCases {
+        for model in RealtimeModel.allCases where model.resolutionBuckets.isEmpty {
             for source in sizes {
                 let size = try MediaService(model: model).resolveModelInputSize(source)
                 let pixels = Int(size.width * size.height)
