@@ -41,8 +41,8 @@ final class RenderController: RenderControlling {
                 outputToken: outputToken
             )
         },
-        errorListener: { [weak self] error in
-            self?.errorListener(error)
+        errorListener: { error in
+            XmaxLogger.realtime.error(message: "插帧已降级 (Frame Interpolation Disabled)\n└─ 原因 (Reason)：\(error.message)")
         }
     )
 

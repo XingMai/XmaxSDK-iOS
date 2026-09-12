@@ -45,12 +45,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             frameInterpolationSupportChecker: {
                 mediaService.supportsFrameInterpolation(for: $0)
             },
-            errorListener: { errorHandler.forward($0) }
+            errorListener: { errorHandler.forward($0, target: .connection) }
         )
 
         let streamController = StreamController(
             rtcManager: rtcManager,
-            errorListener: { errorHandler.forward($0) },
+            errorListener: { errorHandler.forward($0, target: .connection) },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             },
@@ -66,7 +66,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             audioFrameListener: { frame in
                 try streamController.pushLocalAudioFrame(frame)
             },
-            errorListener: { errorHandler.forward($0) },
+            errorListener: { errorHandler.forward($0, target: .all) },
             interactionListener: { taskID, points in
                 try await streamController.sendTracks(
                     taskID: taskID,
@@ -109,6 +109,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.generationManager = generationManager
         self.timing = timing
         self.coordinator = coordinator
+        errorHandler.setFailureHandler { [weak coordinator] error, target, isCurrent in
+            await coordinator?.terminate(with: error, target: target, isCurrent: isCurrent)
+        }
     }
 
     init(
@@ -131,7 +134,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.errorHandler = errorHandler
         self.generationManager = generationManager
         self.timing = timing
-        coordinator = RealtimeCoordinator(
+        let coordinator = RealtimeCoordinator(
             errorHandler: errorHandler,
             cleanup: { scope, taskID in
                 await XmaxRealtimeManager.cleanup(
@@ -143,6 +146,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             }
         )
+        self.coordinator = coordinator
+        errorHandler.setFailureHandler { [weak coordinator] error, target, isCurrent in
+            await coordinator?.terminate(with: error, target: target, isCurrent: isCurrent)
+        }
     }
 
     var currentState: RealtimeState {
@@ -169,10 +176,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func setStateListener(_ listener: RealtimeStateListener?) async {
         await coordinator.setStateListener(listener)
-    }
-
-    func setErrorListener(_ listener: RealtimeErrorListener?) async {
-        errorHandler.setListener(listener)
     }
 
     func setCameraPreviewReadyListener(
@@ -221,8 +224,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func setFrameInterpolationEnabled(_ enabled: Bool) async throws {
         try await coordinator.run(
-            kind: .configuration,
-            failureScope: .generation
+            kind: .configuration
         ) { [self] token in
             do {
                 let current = await coordinator.currentState
@@ -287,15 +289,20 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func stopLocalCameraStream() async throws {
         try await coordinator.run(
-            kind: .media,
-            failureScope: .all
+            kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before stopping the local " +
                     "camera stream"
             )
+            token.setFailureScope(.all)
             await mediaController.stopLocalCameraStream()
             try token.ensureCurrent()
+            errorHandler.invalidatePendingFailures()
+            let hasLocalMedia = await mediaController.currentTrack != nil
+            try await coordinator.commit(
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+            )
         }
     }
 
@@ -323,8 +330,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         return try await coordinator.run(
-            kind: .cameraSwitch,
-            failureScope: .connection
+            kind: .cameraSwitch
         ) { [self] token in
             let current = await coordinator.currentState
             guard current.connectionState != .connecting,
@@ -346,6 +352,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             }
 
             if wasGenerating {
+                token.setFailureScope(.connection)
                 try await generationManager.stop(
                     taskID: current.taskID ?? ""
                 )
@@ -435,15 +442,20 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func stopLocalImageStream() async throws {
         try await coordinator.run(
-            kind: .media,
-            failureScope: .all
+            kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before stopping the local " +
                     "image stream"
             )
+            token.setFailureScope(.all)
             await mediaController.stopLocalImageStream()
             try token.ensureCurrent()
+            errorHandler.invalidatePendingFailures()
+            let hasLocalMedia = await mediaController.currentTrack != nil
+            try await coordinator.commit(
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+            )
         }
     }
 
@@ -475,15 +487,20 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func stopLocalVideoStream() async throws {
         try await coordinator.run(
-            kind: .media,
-            failureScope: .all
+            kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before stopping the local " +
                     "video stream"
             )
+            token.setFailureScope(.all)
             await mediaController.stopLocalVideoStream()
             try token.ensureCurrent()
+            errorHandler.invalidatePendingFailures()
+            let hasLocalMedia = await mediaController.currentTrack != nil
+            try await coordinator.commit(
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+            )
         }
     }
 
@@ -491,8 +508,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
         try await coordinator.run(
-            kind: .connection,
-            failureScope: .connection
+            kind: .connection
         ) { [self] token in
             try await performConnect(
                 localStream: localStream,
@@ -505,17 +521,19 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await coordinator.disconnect()
     }
 
+    func disconnect(reason: RealtimeReason) async {
+        await coordinator.disconnect(reason: reason)
+    }
+
     func close() async {
         await coordinator.terminate(
-            .all,
-            finalState: .disconnected
+            .all
         )
     }
 
     func startGeneration(context: RealtimeContext?) async throws {
         try await coordinator.run(
-            kind: .generation,
-            failureScope: .generation
+            kind: .generation
         ) { [self] token in
             let current = await coordinator.currentState
             try token.ensureCurrent()
@@ -542,15 +560,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         context: RealtimeContext?
     ) async throws -> RealtimeMediaStream {
         try await coordinator.run(
-            kind: .generation,
-            failureScope: .connection
+            kind: .generation
         ) { [self] token in
             let initialState = await coordinator.currentState
             let hasConnection = await connectionManager.currentSessionID != ""
             try token.ensureCurrent()
-            if hasConnection {
-                token.setFailureScope(.generation)
-            }
             let measuresStartup = initialState.connectionState != .connecting &&
                 initialState.connectionState != .disconnecting
             if measuresStartup {
@@ -566,6 +580,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 }
                 try token.ensureCurrent()
 
+                try await generationManager.validateContext(context)
+                try token.ensureCurrent()
                 let remoteStream: RealtimeMediaStream
                 if hasConnection {
                     guard let activeRemoteStream =
@@ -582,7 +598,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                         localStream: localStream,
                         token: token
                     )
-                    token.setFailureScope(.generation)
                 }
 
                 try await performStartGeneration(
@@ -605,14 +620,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ) async throws {
         try token.ensureCurrent()
         let sessionID = await connectionManager.currentSessionID
-        var current = await coordinator.currentState
-        if current.connectionState == .error, !sessionID.isEmpty {
-            current = RealtimeState(
-                connectionState: .connected,
-                sessionID: sessionID
-            )
-            try await coordinator.commit(current, token: token)
-        }
+        let current = await coordinator.currentState
         guard !sessionID.isEmpty,
               current.connectionState == .connected ||
                 current.connectionState == .generating,
@@ -636,6 +644,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             return
         }
 
+        try await generationManager.validateContext(context)
+        try token.ensureCurrent()
+        token.setFailureScope(.connection)
         do {
             await mediaController.setLocalAudioPreviewMuted(true)
             let taskID = try await generationManager.start(
@@ -694,6 +705,7 @@ private extension XmaxRealtimeManager {
             )
         }
 
+        token.setFailureScope(.connection)
         try await generationManager.reset()
         try token.ensureCurrent()
         try await coordinator.commit(
@@ -743,17 +755,38 @@ private extension XmaxRealtimeManager {
             -> RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
         return try await coordinator.run(
-            kind: .media,
-            failureScope: .all
+            kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
                 message: "Local \(source.rawValue) stream is unavailable during " +
                     "a realtime connection"
             )
+            guard await mediaController.currentTrack == nil else {
+                throw XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Stop the current local media stream before creating another one"
+                )
+            }
+            try token.ensureCurrent()
+            errorHandler.invalidatePendingFailures()
+            try await coordinator.commit(RealtimeState(connectionState: .preparing), token: token)
+            try token.ensureCurrent()
+
             let stream = try await prepare(token)
+            try token.ensureCurrent()
+            token.setFailureScope(.all)
             await reconcileFrameInterpolation(for: stream)
             try token.ensureCurrent()
             try streamController.setRemoteAudioVolume(source == .video ? 1 : 0)
+            if source == .camera {
+                await mediaController.setCameraPreviewReadyHandler { [coordinator] isCurrent in
+                    Task {
+                        await coordinator.localPreviewDidBecomeReady(isCurrent: isCurrent)
+                    }
+                }
+            } else {
+                try await coordinator.commit(RealtimeState(connectionState: .ready), token: token)
+            }
             return stream
         }
     }
@@ -892,7 +925,10 @@ private extension XmaxRealtimeManager {
         } else {
             await mediaController.setLocalAudioPreviewMuted(false)
         }
-        return RealtimeCoordinator.CleanupResult(sessionID: sessionID)
+        return RealtimeCoordinator.CleanupResult(
+            sessionID: sessionID,
+            hasLocalMedia: await mediaController.currentTrack != nil
+        )
     }
 
     nonisolated static func logCleanupFailure(

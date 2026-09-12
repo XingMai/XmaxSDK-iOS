@@ -35,16 +35,6 @@ public protocol XmaxRealtimeManaging: Sendable {
     ) async
 
 
-    /// 设置致命实时错误监听器。
-    ///
-    /// SDK 会记录所有实时错误，但只有导致当前实时流程无法继续的致命错误会
-    /// 触发该监听器。可恢复错误仍会通过对应异步接口抛出。
-    ///
-    /// - Parameter listener: 致命实时错误回调；传入 `nil` 时清除监听器。
-    func setErrorListener(
-        _ listener: RealtimeErrorListener?
-    ) async
-
 
     /// 设置摄像头预览就绪监听器。
     ///
@@ -116,6 +106,8 @@ public protocol XmaxRealtimeManaging: Sendable {
 
 
     /// 创建本地相机流并开始预览。
+    ///
+    /// 将返回的轨道绑定到预览视图；收到有效帧且视图已绑定后进入 `ready`。
     ///
     /// - Parameters:
     ///   - videoFormat: 相机采集的视频规格。
@@ -221,6 +213,11 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 断开实时连接并保留当前本地媒体预览。
     func disconnect() async
+
+    /// 按指定业务原因断开实时连接，保留可用的本地媒体流。
+    ///
+    /// - Parameter reason: 本次断开的原因，例如显示方向变化。
+    func disconnect(reason: RealtimeReason) async
 
 
     /// 关闭当前实时生命周期并释放连接、本地媒体和 RTC Engine。

@@ -38,8 +38,7 @@ actor MediaController: MediaControlling {
         imageController = ImageController(
             rtcManager: rtcManager,
             mediaService: mediaService,
-            frameListener: videoFrameListener,
-            errorListener: errorListener
+            frameListener: videoFrameListener
         )
         interactionController = InteractionController(
             listener: interactionListener
@@ -109,6 +108,10 @@ actor MediaController: MediaControlling {
         _ listener: RealtimeCameraPreviewReadyListener?
     ) {
         cameraController.setPreviewReadyListener(listener)
+    }
+
+    func setCameraPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?) {
+        cameraController.setPreviewReadyHandler(handler)
     }
 
     /// 启动指定生成任务的轨迹交互。

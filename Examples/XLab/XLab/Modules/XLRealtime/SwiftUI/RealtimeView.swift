@@ -144,7 +144,7 @@ private extension RealtimeView {
                     realtimeSession.switchCamera()
                 }
                 .disabled(
-                    !realtimeSession.isPreviewReady
+                    !realtimeSession.isMediaReady
                         || realtimeSession.isCameraSwitching
                 )
 
@@ -184,8 +184,8 @@ private extension RealtimeView {
         }
         .padding(.top, 6)
         .padding(.bottom, 10)
-        .disabled(!realtimeSession.isPreviewReady)
-        .opacity(realtimeSession.isPreviewReady ? 1 : 0.55)
+        .disabled(!realtimeSession.isMediaReady)
+        .opacity(realtimeSession.isMediaReady ? 1 : 0.55)
         .background(
             Color(red: 16 / 255, green: 16 / 255, blue: 16 / 255)
                 .ignoresSafeArea(edges: .bottom)

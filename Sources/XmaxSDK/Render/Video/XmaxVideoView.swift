@@ -210,7 +210,6 @@ extension XmaxVideoView {
         _ frame: VideoFrame,
         contentMode: VideoContentMode
     ) {
-        let performanceStart = CameraPerformanceProbe.shared.begin(frameTimestampUs: frame.timestampUs)
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }
@@ -251,7 +250,6 @@ extension XmaxVideoView {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
             decodedVideoLayer.enqueue(sampleBuffer)
-            CameraPerformanceProbe.shared.finishPreview(timestampUs: frame.timestampUs, since: performanceStart)
             frameDisplayHandler?()
         } catch {
             Self.logRenderingFailure(

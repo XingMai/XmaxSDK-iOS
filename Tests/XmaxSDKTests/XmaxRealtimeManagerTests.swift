@@ -30,6 +30,126 @@ private extension XmaxRealtimeManager {
 
 @MainActor
 final class XmaxRealtimeManagerTests: XCTestCase {
+    func testRejectedCameraCreationOnlyThrowsWithoutFailureState() async throws {
+        let failure = XmaxError(code: .cameraPermissionDenied, message: "Camera permission denied")
+        let components = makeComponents(captureManager: CameraCaptureManagingStub(startError: failure))
+        var states: [RealtimeState] = []
+        await components.manager.setStateListener { states.append($0) }
+        do {
+            _ = try await components.manager.createLocalCameraStream()
+            XCTFail("Expected creation failure")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, failure)
+        }
+        XCTAssertEqual(states, [RealtimeConnectionState.idle, .preparing, .idle].map {
+            RealtimeState(connectionState: $0)
+        })
+        await components.manager.close()
+    }
+
+    func testDuplicateCreationDoesNotDestroyCurrentPreview() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalCameraStream()
+        do {
+            _ = try await components.manager.createLocalCameraStream()
+            XCTFail("Expected duplicate creation to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        let ownsLocal = await components.mediaController.owns(local)
+        let state = await components.manager.currentState
+        XCTAssertTrue(ownsLocal)
+        XCTAssertEqual(state, RealtimeState(connectionState: .preparing))
+        XCTAssertFalse(components.captureManager.calls.contains(.stop))
+        await components.manager.close()
+    }
+
+    func testCameraRuntimeFailureReleasesMediaWithAndWithoutSession() async throws {
+        for connects in [false, true] {
+            let components = makeComponents()
+            let local = try await components.manager.createLocalCameraStream()
+            if connects { _ = try await components.manager.connect(localStream: local) }
+            let failure = XmaxError(code: .mediaError, message: "Capture terminated")
+            let ended = expectation(description: "Media failure cleanup finished")
+            await components.manager.setStateListener { state in
+                if state.connectionState == .idle, state.reason == .failure(failure) {
+                    ended.fulfill()
+                }
+            }
+            components.captureManager.emitError(failure)
+            await fulfillment(of: [ended], timeout: 3)
+            let track = await components.mediaController.currentTrack
+            XCTAssertNil(track)
+            XCTAssertEqual(components.captureManager.calls.filter { $0 == .stop }.count, 1)
+            XCTAssertEqual(components.sessionService.calls.filter {
+                $0 == .closeSession("session-id")
+            }.count, connects ? 1 : 0)
+            await components.manager.setStateListener(nil)
+            await components.manager.close()
+        }
+    }
+
+    func testOldCameraFailureDoesNotStopReplacementPreview() async throws {
+        let components = makeComponents()
+        _ = try await components.manager.createLocalCameraStream()
+        let oldListener = components.captureManager.currentErrorListener
+        try await components.manager.stopLocalCameraStream()
+        let replacement = try await components.manager.createLocalCameraStream()
+        oldListener?(XmaxError(code: .mediaError, message: "Old capture failed"))
+        for _ in 0..<20 { await Task.yield() }
+        let state = await components.manager.currentState
+        let ownsReplacement = await components.mediaController.owns(replacement)
+        XCTAssertEqual(state, RealtimeState(connectionState: .preparing))
+        XCTAssertTrue(ownsReplacement)
+        await components.manager.close()
+    }
+
+    func testStartSignalFailureClosesSessionAndPreservesPreview() async throws {
+        for connectFirst in [false, true] {
+            let components = makeComponents()
+            let local = try await components.manager.createLocalCameraStream()
+            if connectFirst { _ = try await components.manager.connect(localStream: local) }
+            let failure = XmaxError(code: .rtcError, message: "Start signal failed")
+            components.rtcManager.setSendRoomMessageError(failure)
+            do {
+                if connectFirst {
+                    try await components.manager.startGeneration(context: RealtimeContext(prompt: "test"))
+                } else {
+                    _ = try await components.manager.startGeneration(
+                        localStream: local, context: RealtimeContext(prompt: "test")
+                    )
+                }
+                XCTFail("Expected start failure")
+            } catch {
+                XCTAssertEqual(error as? XmaxError, failure)
+            }
+            let state = await components.manager.currentState
+            let ownsLocal = await components.mediaController.owns(local)
+            XCTAssertEqual(state.connectionState, .ready)
+            XCTAssertEqual(state.reason, .failure(failure))
+            XCTAssertTrue(ownsLocal)
+            XCTAssertEqual(components.sessionService.calls.filter {
+                $0 == .closeSession("session-id")
+            }.count, 1)
+            await components.manager.close()
+        }
+    }
+
+    func testMissingContextDoesNotCreateSessionOrDisturbPreview() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalCameraStream()
+        do {
+            _ = try await components.manager.startGeneration(localStream: local, context: nil)
+            XCTFail("Expected missing context")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        let state = await components.manager.currentState
+        XCTAssertEqual(state, RealtimeState(connectionState: .preparing))
+        XCTAssertTrue(components.sessionService.calls.isEmpty)
+        await components.manager.close()
+    }
+
     func testCancelledConditionUpdatesPreserveActiveGenerationForBothEntryPoints() async throws {
         let components = makeComponents()
         let local = try await components.manager.createLocalImageStream(
@@ -467,8 +587,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             frameInterpolationSupported: false
         )
         var receivedErrors: [XmaxError] = []
-        await components.manager.setErrorListener { error in
-            receivedErrors.append(error)
+        await components.manager.setStateListener { state in
+            if case .failure(let error) = state.reason { receivedErrors.append(error) }
         }
 
         let stream = try await components.manager.createLocalCameraStream(
@@ -579,7 +699,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             localStream
         )
 
-        XCTAssertEqual(disconnectedState.connectionState, .disconnected)
+        XCTAssertEqual(disconnectedState.connectionState, .ready)
         XCTAssertEqual(disconnectedState.sessionID, "session-id")
         XCTAssertTrue(stillOwnsLocalStream)
         XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
@@ -602,7 +722,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let stillOwnsLocalStream = await components.mediaController.owns(
             localStream
         )
-        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertEqual(state.connectionState, .idle)
         XCTAssertFalse(stillOwnsLocalStream)
         XCTAssertEqual(
             components.sessionService.calls.filter {
@@ -694,7 +814,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         }
         let state = await components.manager.currentState
         let track = await components.mediaController.currentTrack
-        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertEqual(state.connectionState, .idle)
         XCTAssertNil(track)
         XCTAssertTrue(components.captureManager.calls.isEmpty)
 
@@ -925,7 +1045,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         await components.manager.disconnect()
         let stoppedState = await components.manager.currentState
-        XCTAssertEqual(stoppedState.connectionState, .disconnected)
+        XCTAssertEqual(stoppedState.connectionState, .ready)
         XCTAssertNil(stoppedState.taskID)
 
         try await components.manager.stopLocalCameraStream()
@@ -1337,8 +1457,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     func testHeartbeatFailureReportsErrorAndTerminatesConnection() async throws {
         let components = makeComponents()
         var receivedErrors: [XmaxError] = []
-        await components.manager.setErrorListener { error in
-            receivedErrors.append(error)
+        await components.manager.setStateListener { state in
+            if case .failure(let error) = state.reason { receivedErrors.append(error) }
         }
         let localStream = try await components.manager.createLocalCameraStream(
             videoFormat: videoFormat,
@@ -1360,7 +1480,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
 
         let state = await components.manager.currentState
-        XCTAssertEqual(state.connectionState, .error)
+        XCTAssertEqual(state.connectionState, .ready)
         XCTAssertEqual(receivedErrors, [expectedError])
         XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
         try await components.manager.stopLocalCameraStream()
@@ -1369,8 +1489,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     func testDisconnectGenerationFailureDoesNotReportFatalError() async throws {
         let components = makeComponents()
         var receivedErrors: [XmaxError] = []
-        await components.manager.setErrorListener { error in
-            receivedErrors.append(error)
+        await components.manager.setStateListener { state in
+            if case .failure(let error) = state.reason { receivedErrors.append(error) }
         }
         let localStream = try await components.manager.createLocalCameraStream(
             videoFormat: videoFormat,
@@ -1417,8 +1537,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         let components = makeComponents(sessionCloseError: expectedError)
         var receivedErrors: [XmaxError] = []
-        await components.manager.setErrorListener { error in
-            receivedErrors.append(error)
+        await components.manager.setStateListener { state in
+            if case .failure(let error) = state.reason { receivedErrors.append(error) }
         }
         let localStream = try await components.manager.createLocalCameraStream(
             videoFormat: videoFormat,
@@ -1430,7 +1550,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertTrue(receivedErrors.isEmpty)
         let state = await components.manager.currentState
-        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertEqual(state.connectionState, .ready)
         XCTAssertEqual(state.sessionID, "session-id")
         try await components.manager.stopLocalCameraStream()
     }
@@ -1451,37 +1571,83 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertEqual(
             states,
-            [.idle, .connecting, .connected, .disconnecting, .disconnected]
+            [.idle, .preparing, .connecting, .connected, .disconnecting, .ready]
         )
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testCameraPreviewReadyListenerReceivesCapturedFrame() async throws {
-        let components = makeComponents()
-        var callbackCount = 0
-        await components.manager.setCameraPreviewReadyListener {
-            callbackCount += 1
-        }
+    func testCameraReadyRequiresCapturedFrameAndAttachedPreview() async throws {
+        for frameArrivesFirst in [false, true] {
+            let components = makeComponents()
+            var callbackCount = 0
+            var states: [RealtimeConnectionState] = []
+            let ready = expectation(description: "Camera preview becomes ready")
+            await components.manager.setStateListener { state in
+                states.append(state.connectionState)
+                if state.connectionState == .ready { ready.fulfill() }
+            }
+            await components.manager.setCameraPreviewReadyListener {
+                callbackCount += 1
+            }
 
+            let stream = try await components.manager.createLocalCameraStream()
+            let initialState = await components.manager.currentState
+            XCTAssertEqual(initialState.connectionState, .preparing)
+            let track = try XCTUnwrap(stream.videoTrack)
+            let binding = try XCTUnwrap(VideoRenderRegistry.binding(for: track))
+            let view = XmaxVideoView()
+            let frame = try CameraControllerTests.testFrame()
+
+            if frameArrivesFirst {
+                try components.captureManager.emitFrame(frame)
+            } else {
+                try binding.attach(to: view, contentMode: .fill)
+            }
+            let partialState = await components.manager.currentState
+            XCTAssertEqual(partialState.connectionState, .preparing)
+            XCTAssertEqual(callbackCount, 0)
+
+            if frameArrivesFirst {
+                try binding.attach(to: view, contentMode: .fill)
+            } else {
+                try components.captureManager.emitFrame(frame)
+            }
+            await fulfillment(of: [ready], timeout: 2)
+            XCTAssertEqual(states, [.idle, .preparing, .ready])
+            XCTAssertEqual(callbackCount, 1)
+
+            await components.manager.setCameraPreviewReadyListener(nil)
+            try components.captureManager.emitFrame(frame)
+            XCTAssertEqual(callbackCount, 1)
+            await components.manager.close()
+        }
+    }
+
+    func testCameraReadyDoesNotRequirePublicPreviewListener() async throws {
+        let components = makeComponents()
+        let ready = expectation(description: "SDK owns camera readiness")
+        await components.manager.setStateListener { state in
+            if state.connectionState == .ready { ready.fulfill() }
+        }
         let stream = try await components.manager.createLocalCameraStream()
         let track = try XCTUnwrap(stream.videoTrack)
         let binding = try XCTUnwrap(VideoRenderRegistry.binding(for: track))
         let view = XmaxVideoView()
         try binding.attach(to: view, contentMode: .fill)
         try components.captureManager.emitFrame(CameraControllerTests.testFrame())
-        for _ in 0..<100 where callbackCount == 0 { await Task.yield() }
-        await components.manager.setCameraPreviewReadyListener(nil)
-        try components.captureManager.emitFrame(CameraControllerTests.testFrame())
+        await fulfillment(of: [ready], timeout: 2)
 
-        XCTAssertEqual(callbackCount, 1)
+        let previewNotification = expectation(description: "Late public listener still works")
+        await components.manager.setCameraPreviewReadyListener { previewNotification.fulfill() }
+        await fulfillment(of: [previewNotification], timeout: 2)
         await components.manager.close()
     }
 
     func testConnectRejectsStreamOwnedByAnotherManager() async throws {
         let components = makeComponents()
         var receivedError: XmaxError?
-        await components.manager.setErrorListener { error in
-            receivedError = error
+        await components.manager.setStateListener { state in
+            if case .failure(let error) = state.reason { receivedError = error }
         }
         let foreignTrack = RealtimeVideoTrack(
             id: "foreign",
@@ -1575,11 +1741,11 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             frameInterpolationEnabled: frameInterpolationEnabled,
             frameInterpolationSupportChecker: { mediaService.supportsFrameInterpolation(for: $0) },
-            errorListener: { errorHandler.forward($0) }
+            errorListener: { errorHandler.forward($0, target: .connection) }
         )
         let streamController = StreamController(
             rtcManager: rtcManager,
-            errorListener: { errorHandler.forward($0) },
+            errorListener: { errorHandler.forward($0, target: .connection) },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             },
@@ -1722,7 +1888,7 @@ private extension XmaxRealtimeManagerTests {
         }
         let state = await components.manager.currentState
         let ownsLocalStream = await components.mediaController.owns(localStream)
-        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertEqual(state.connectionState, .ready)
         XCTAssertTrue(ownsLocalStream)
         XCTAssertFalse(decodedEvents(components.rtcManager).contains {
             $0["event"] as? String == "start"

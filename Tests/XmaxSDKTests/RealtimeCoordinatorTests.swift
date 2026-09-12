@@ -3,6 +3,264 @@ import XCTest
 
 @MainActor
 final class RealtimeCoordinatorTests: XCTestCase {
+    func testPreviewReadyOnlyAdvancesCurrentPreparation() async throws {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = makeCoordinator(probe: probe)
+        try await coordinator.run(kind: .media) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .preparing), token: token)
+        }
+
+        await coordinator.localPreviewDidBecomeReady(isCurrent: { false })
+        let staleState = await coordinator.currentState
+        XCTAssertEqual(staleState.connectionState, .preparing)
+
+        await coordinator.localPreviewDidBecomeReady(isCurrent: { true })
+        let readyState = await coordinator.currentState
+        XCTAssertEqual(readyState.connectionState, .ready)
+
+        try await coordinator.run(kind: .connection) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .connecting), token: token)
+        }
+        await coordinator.localPreviewDidBecomeReady(isCurrent: { true })
+        let connectingState = await coordinator.currentState
+        XCTAssertEqual(connectingState.connectionState, .connecting)
+
+        await coordinator.terminate(.all)
+        await coordinator.localPreviewDidBecomeReady(isCurrent: { false })
+        let closedState = await coordinator.currentState
+        XCTAssertEqual(closedState.connectionState, .idle)
+    }
+
+    func testNewGenerationWaitsForCancelledDisconnectTaskToFinishCleanup() async throws {
+        let gate = LifecycleFailureGate()
+        let events = RealtimeCoordinatorEventRecorder()
+        let coordinator = RealtimeCoordinator(
+            errorHandler: RealtimeErrorHandler(),
+            cleanup: { _, _ in
+                await gate.wait()
+                events.append("cleanup-finished")
+                return .init(hasLocalMedia: true)
+            }
+        )
+        try await coordinator.run(kind: .generation) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .generating), token: token)
+        }
+
+        let disconnecting = Task { await coordinator.disconnect() }
+        await waitUntil { await gate.isWaiting }
+        disconnecting.cancel()
+        let nextGeneration = Task {
+            await disconnecting.value
+            try await coordinator.run(kind: .generation) { token in
+                events.append("next-generation-started")
+                try await coordinator.commit(RealtimeState(connectionState: .generating), token: token)
+            }
+        }
+
+        let closingState = await coordinator.currentState
+        XCTAssertEqual(closingState.connectionState, .disconnecting)
+        XCTAssertTrue(events.values.isEmpty)
+        await gate.release()
+        try await nextGeneration.value
+
+        let finalState = await coordinator.currentState
+        XCTAssertEqual(finalState, RealtimeState(connectionState: .generating))
+        XCTAssertEqual(events.values, ["cleanup-finished", "next-generation-started"])
+    }
+
+    func testMediaPreparationFailureReturnsToIdleWithoutFailureReason() async {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = makeCoordinator(probe: probe)
+        var states: [RealtimeState] = []
+        await coordinator.setStateListener { states.append($0) }
+
+        do {
+            try await coordinator.run(kind: .media) { token in
+                try await coordinator.commit(RealtimeState(connectionState: .preparing), token: token)
+                throw XmaxError(code: .invalidConfiguration, message: "Invalid media")
+            }
+            XCTFail("Expected creation failure")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+
+        XCTAssertEqual(states.map(\.connectionState), [.idle, .preparing, .idle])
+        XCTAssertTrue(states.allSatisfy { $0.reason == nil })
+        let cleanup = await probe.cleanupScopes
+        XCTAssertTrue(cleanup.isEmpty)
+    }
+
+    func testMediaPreparationCancellationAndCloseReturnToIdle() async {
+        for closes in [false, true] {
+            let probe = RealtimeCoordinatorProbe()
+            let coordinator = makeCoordinator(probe: probe)
+            let preparing = Task {
+                try await coordinator.run(kind: .media) { token in
+                    try await coordinator.commit(RealtimeState(connectionState: .preparing), token: token)
+                    await probe.markOperationStarted()
+                    try await Task.sleep(nanoseconds: 30000000000)
+                    try await coordinator.commit(RealtimeState(connectionState: .ready), token: token)
+                }
+            }
+            await waitUntil { await probe.operationStarted }
+
+            if closes {
+                await coordinator.terminate(.all)
+            } else {
+                preparing.cancel()
+            }
+            do {
+                try await preparing.value
+                XCTFail("Expected preparation cancellation")
+            } catch {
+                XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+            }
+
+            let state = await coordinator.currentState
+            let cleanup = await probe.cleanupScopes
+            XCTAssertEqual(state.connectionState, .idle)
+            XCTAssertEqual(state.reason, closes ? .normal : nil)
+            XCTAssertEqual(cleanup, closes ? [.all] : [])
+        }
+    }
+
+    func testConnectionCleanupKeepsQueuedMediaFailureValidButCloseInvalidatesIt() async {
+        for target: RealtimeCoordinator.TerminationScope in [.connection, .all] {
+            let handler = RealtimeErrorHandler()
+            let gate = LifecycleFailureGate()
+            let delivered = expectation(description: "Queued failure processed")
+            let result = RealtimeCoordinatorEventRecorder()
+            handler.setFailureHandler { _, _, isCurrent in
+                await gate.wait()
+                result.append(isCurrent() ? "valid" : "stale")
+                delivered.fulfill()
+            }
+            handler.forward(XmaxError(code: .mediaError, message: "Capture stopped"), target: .all)
+            await waitUntil { await gate.isWaiting }
+            handler.invalidatePendingFailures(target: target)
+            await gate.release()
+            await fulfillment(of: [delivered], timeout: 2)
+            XCTAssertEqual(result.values, [target == .all ? "stale" : "valid"])
+        }
+    }
+
+
+    func testPreflightFailureDoesNotChangeReadyStateOrCleanUp() async throws {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = makeCoordinator(probe: probe)
+        try await coordinator.run(kind: .media) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .ready), token: token)
+        }
+        do {
+            try await coordinator.run(kind: .generation) { _ in
+                throw XmaxError(code: .invalidConfiguration, message: "Missing context")
+            }
+            XCTFail("Expected preflight failure")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        let state = await coordinator.currentState
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(state, RealtimeState(connectionState: .ready))
+        XCTAssertTrue(scopes.isEmpty)
+    }
+
+    func testStartupFailureClosesConnectionAndPreservesReadyMedia() async throws {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = RealtimeCoordinator(
+            errorHandler: RealtimeErrorHandler(),
+            cleanup: { scope, _ in
+                await probe.recordCleanup(scope)
+                return .init(sessionID: "session", hasLocalMedia: true)
+            }
+        )
+        let failure = XmaxError(code: .timeout, message: "First frame timed out")
+        do {
+            try await coordinator.run(kind: .generation) { token in
+                token.setFailureScope(.connection)
+                try await coordinator.commit(
+                    RealtimeState(connectionState: .connected, sessionID: "session"), token: token
+                )
+                throw failure
+            }
+        } catch {
+            XCTAssertEqual(error as? XmaxError, failure)
+        }
+        let state = await coordinator.currentState
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(state.connectionState, .ready)
+        XCTAssertEqual(state.reason, .failure(failure))
+        XCTAssertEqual(scopes, [.connection])
+    }
+
+    func testMediaTerminationWithoutConnectionReportsIdleFailure() async {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = makeCoordinator(probe: probe)
+        let failure = XmaxError(code: .mediaError, message: "Decoder stopped")
+        await coordinator.terminate(with: failure, target: .all)
+        let state = await coordinator.currentState
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(state.connectionState, .idle)
+        XCTAssertEqual(state.reason, .failure(failure))
+        XCTAssertEqual(scopes, [.all])
+    }
+
+    func testConfigurationFailurePreservesGeneratingEvenWithFatalErrorCode() async throws {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = makeCoordinator(probe: probe)
+        let original = RealtimeState(connectionState: .generating, sessionID: "session", taskID: "task")
+        try await coordinator.run(kind: .generation) { token in
+            try await coordinator.commit(original, token: token)
+        }
+        do {
+            try await coordinator.run(kind: .generation, failureScope: .connection) { _ in
+                throw XmaxError(code: .rtcError, message: "Condition send failed")
+            }
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
+        }
+        let state = await coordinator.currentState
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(state, original)
+        XCTAssertTrue(scopes.isEmpty)
+    }
+
+    func testStaleBackgroundFailureDoesNotCloseCurrentConnection() async throws {
+        let probe = RealtimeCoordinatorProbe()
+        let coordinator = makeCoordinator(probe: probe)
+        let original = RealtimeState(connectionState: .connected, sessionID: "new")
+        try await coordinator.run(kind: .connection) { token in
+            try await coordinator.commit(original, token: token)
+        }
+        await coordinator.terminate(
+            with: XmaxError(code: .mediaError, message: "Old source failed"),
+            target: .all,
+            isCurrent: { false }
+        )
+        let state = await coordinator.currentState
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(state, original)
+        XCTAssertTrue(scopes.isEmpty)
+    }
+
+    func testOrientationDisconnectReturnsReadyAndNextConnectClearsReason() async throws {
+        let coordinator = RealtimeCoordinator(
+            errorHandler: RealtimeErrorHandler(), cleanup: { _, _ in .init(hasLocalMedia: true) }
+        )
+        try await coordinator.run(kind: .connection) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .connected), token: token)
+        }
+        await coordinator.disconnect(reason: .orientationChanged)
+        let ready = await coordinator.currentState
+        XCTAssertEqual(ready.connectionState, .ready)
+        XCTAssertEqual(ready.reason, .orientationChanged)
+        try await coordinator.run(kind: .connection) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .connecting), token: token)
+        }
+        let connecting = await coordinator.currentState
+        XCTAssertNil(connecting.reason)
+    }
+
     func testNormalTerminationReportsReasonAndReconnectClearsIt() async throws {
         for scope: RealtimeCoordinator.TerminationScope in [.connection, .all] {
             let coordinator = makeCoordinator(probe: RealtimeCoordinatorProbe())
@@ -18,18 +276,18 @@ final class RealtimeCoordinatorTests: XCTestCase {
             if scope == .connection {
                 await coordinator.disconnect()
             } else {
-                await coordinator.terminate(.all, finalState: .disconnected)
+                await coordinator.terminate(.all)
             }
 
-            XCTAssertEqual(states.map(\.connectionState), [.idle, .connected, .disconnecting, .disconnected])
-            XCTAssertEqual(states.map(\.disconnectionReason), [nil, nil, .normal, .normal])
-            XCTAssertEqual(states.last?.disconnectionReason?.rawValue, "Normal")
+            XCTAssertEqual(states.map(\.connectionState), [.idle, .connected, .disconnecting, .idle])
+            XCTAssertEqual(states.map(\.reason), [nil, nil, nil, .normal])
+            XCTAssertEqual(states.last?.reason, .normal)
 
             try await coordinator.run(kind: .connection, failureScope: .connection) { token in
                 try await coordinator.commit(RealtimeState(connectionState: .connecting), token: token)
             }
             let state = await coordinator.currentState
-            XCTAssertNil(state.disconnectionReason)
+            XCTAssertNil(state.reason)
         }
     }
 
@@ -45,8 +303,8 @@ final class RealtimeCoordinatorTests: XCTestCase {
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
         }
-        XCTAssertEqual(states.map(\.connectionState), [.idle, .disconnecting, .error])
-        XCTAssertTrue(states.allSatisfy { $0.disconnectionReason == nil })
+        XCTAssertEqual(states.map(\.connectionState), [.idle, .disconnecting, .idle])
+        XCTAssertEqual(states.last?.reason, .failure(XmaxError(code: .rtcError, message: "Connection failed")))
     }
 
     func testCancellingConfigurationDoesNotStopGeneration() async throws {
@@ -120,7 +378,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         await waitUntil { await probe.operationStarted }
         var restarted: Task<Bool, Never>?
         await coordinator.setStateListener { state in
-            guard state.connectionState == .disconnected else { return }
+            guard state.connectionState == .idle else { return }
             let gate = DispatchSemaphore(value: 0)
             restarted = Task.detached {
                 defer { gate.signal() }
@@ -142,12 +400,14 @@ final class RealtimeCoordinatorTests: XCTestCase {
 
     func testDisconnectCancelsOperationBeforeConnectingStateIsCommitted()
         async throws {
-        for initialState: RealtimeConnectionState in [.idle, .disconnected] {
+        for initialState: RealtimeConnectionState in [.idle, .ready] {
             for kind: RealtimeCoordinator.OperationKind in [.connection, .generation] {
                 let probe = RealtimeCoordinatorProbe()
                 let coordinator = makeCoordinator(probe: probe)
-                if initialState == .disconnected {
-                    await coordinator.terminate(.connection, finalState: .disconnected)
+                if initialState == .ready {
+                    try await coordinator.run(kind: .media) { token in
+                        try await coordinator.commit(RealtimeState(connectionState: .ready), token: token)
+                    }
                 }
                 let initialCleanupCount = await probe.cleanupScopes.count
                 let runningTask = Task {
@@ -177,7 +437,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
                 }
                 let state = await coordinator.currentState
                 let cleanupScopes = await probe.cleanupScopes
-                XCTAssertEqual(state.connectionState, .disconnected)
+                XCTAssertEqual(state.connectionState, .idle)
                 XCTAssertEqual(
                     Array(cleanupScopes.dropFirst(initialCleanupCount)),
                     [.connection]
@@ -196,11 +456,11 @@ final class RealtimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(idleState.connectionState, .idle)
         XCTAssertTrue(idleCleanupScopes.isEmpty)
 
-        await coordinator.terminate(.connection, finalState: .disconnected)
+        await coordinator.terminate(.connection)
         await coordinator.disconnect()
         let disconnectedState = await coordinator.currentState
         let cleanupScopes = await probe.cleanupScopes
-        XCTAssertEqual(disconnectedState.connectionState, .disconnected)
+        XCTAssertEqual(disconnectedState.connectionState, .idle)
         XCTAssertEqual(cleanupScopes, [.connection])
     }
 
@@ -208,12 +468,16 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let probe = RealtimeCoordinatorProbe()
         let coordinator = makeCoordinator(probe: probe)
         try await coordinator.run(kind: .media, failureScope: .all) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .preparing), token: token)
             await coordinator.disconnect()
             try token.ensureCurrent()
+            let state = await coordinator.currentState
+            XCTAssertEqual(state.connectionState, .preparing)
+            try await coordinator.commit(RealtimeState(connectionState: .ready), token: token)
         }
         let state = await coordinator.currentState
         let cleanupScopes = await probe.cleanupScopes
-        XCTAssertEqual(state.connectionState, .idle)
+        XCTAssertEqual(state.connectionState, .ready)
         XCTAssertTrue(cleanupScopes.isEmpty)
     }
 
@@ -230,7 +494,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
 
         var closeTask: Task<Bool, Never>?
         await coordinator.setStateListener { state in
-            guard state.connectionState == .disconnected,
+            guard state.connectionState == .idle,
                   closeTask == nil else {
                 return
             }
@@ -239,7 +503,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
             let callbackGate = DispatchSemaphore(value: 0)
             closeTask = Task.detached {
                 let task = Task {
-                    await coordinator.terminate(.all, finalState: .disconnected)
+                    await coordinator.terminate(.all)
                 }
                 let deadline = DispatchTime.now() + 2
                 var closeStarted = false
@@ -265,7 +529,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let state = await coordinator.currentState
         XCTAssertTrue(closeStarted)
         XCTAssertEqual(scopes, [.connection, .all])
-        XCTAssertEqual(state.connectionState, .disconnected)
+        XCTAssertEqual(state.connectionState, .idle)
     }
 
     func testRejectsOverlappingOperations() async throws {
@@ -304,7 +568,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
 
         await coordinator.terminate(
             .connection,
-            finalState: .disconnected
+            reason: .normal
         )
         _ = try? await runningTask.value
 
@@ -313,7 +577,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(cleanupScopes, [.connection])
         XCTAssertEqual(
             state.connectionState,
-            .disconnected
+            .idle
         )
     }
 
@@ -341,23 +605,20 @@ final class RealtimeCoordinatorTests: XCTestCase {
 
         await coordinator.terminate(
             .connection,
-            finalState: .disconnected
+            reason: .normal
         )
         _ = try? await runningTask.value
 
         let state = await coordinator.currentState
         XCTAssertEqual(
             state.connectionState,
-            .disconnected
+            .idle
         )
     }
 
     func testFatalErrorIsReportedAfterCleanup() async {
         let events = RealtimeCoordinatorEventRecorder()
         let errorHandler = RealtimeErrorHandler()
-        errorHandler.setListener { error in
-            events.append("callback:\(error.code.rawValue)")
-        }
         let coordinator = RealtimeCoordinator(
             errorHandler: errorHandler,
             cleanup: { scope, _ in
@@ -366,6 +627,9 @@ final class RealtimeCoordinatorTests: XCTestCase {
             }
         )
 
+        await coordinator.setStateListener { state in
+            if case .failure(let error) = state.reason { events.append("callback:\(error.code.rawValue)") }
+        }
         do {
             let _: Void = try await coordinator.run(
                 kind: .generation,
@@ -388,7 +652,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let state = await coordinator.currentState
         XCTAssertEqual(
             state.connectionState,
-            .error
+            .connected
         )
     }
 
@@ -420,9 +684,6 @@ final class RealtimeCoordinatorTests: XCTestCase {
         let probe = RealtimeCoordinatorProbe()
         let receivedError = RealtimeCoordinatorErrorRecorder()
         let errorHandler = RealtimeErrorHandler()
-        errorHandler.setListener { error in
-            receivedError.record(error)
-        }
         let coordinator = RealtimeCoordinator(
             errorHandler: errorHandler,
             cleanup: { scope, _ in
@@ -430,6 +691,9 @@ final class RealtimeCoordinatorTests: XCTestCase {
                 return RealtimeCoordinator.CleanupResult()
             }
         )
+        await coordinator.setStateListener { state in
+            if case .failure(let error) = state.reason { receivedError.record(error) }
+        }
         let runningTask = Task {
             try await coordinator.run(
                 kind: .connection,
@@ -541,5 +805,19 @@ private final class RealtimeCoordinatorErrorRecorder: @unchecked Sendable {
         lock.withLock {
             self.error = error
         }
+    }
+}
+
+private actor LifecycleFailureGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    var isWaiting: Bool { continuation != nil }
+
+    func wait() async {
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
     }
 }

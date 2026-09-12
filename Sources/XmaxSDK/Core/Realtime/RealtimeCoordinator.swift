@@ -36,9 +36,11 @@ actor RealtimeCoordinator {
 
     struct CleanupResult: Sendable {
         let sessionID: String?
+        let hasLocalMedia: Bool
 
-        init(sessionID: String? = nil) {
+        init(sessionID: String? = nil, hasLocalMedia: Bool = false) {
             self.sessionID = sessionID
+            self.hasLocalMedia = hasLocalMedia
         }
     }
 
@@ -103,7 +105,7 @@ actor RealtimeCoordinator {
      */
     func run<Value: Sendable>(
         kind: OperationKind,
-        failureScope: TerminationScope,
+        failureScope: TerminationScope? = nil,
         operation body: @escaping @Sendable (Token) async throws -> Value
     ) async throws -> Value {
         guard termination == nil, activeOperation == nil else {
@@ -164,40 +166,51 @@ actor RealtimeCoordinator {
         await setState(nextState)
     }
 
+    /// 当前本地预览满足就绪条件后，结束媒体准备状态。
+    func localPreviewDidBecomeReady(isCurrent: @Sendable () -> Bool) async {
+        guard state.connectionState == .preparing, isCurrent() else { return }
+        await setState(RealtimeState(connectionState: .ready))
+    }
+
     /// 断开实时连接；尚未提交连接状态的活跃操作也会被取消。
-    func disconnect() async {
+    func disconnect(reason: RealtimeReason = .normal) async {
         let hasConnectionOperation = activeOperation.map {
             TerminationScope.connection.affects($0.kind)
         } ?? false
         guard hasConnectionOperation || termination != nil ||
                 (state.connectionState != .idle &&
-                    state.connectionState != .disconnected) else {
+                    state.connectionState != .preparing &&
+                    state.connectionState != .ready) else {
             return
         }
-        await terminate(.connection, finalState: .disconnected)
+        await terminate(.connection, reason: reason)
     }
 
     /// 终止指定范围并等待资源清理完成；并发终止请求会合并为最大范围。
     func terminate(
         _ target: TerminationScope,
-        finalState: RealtimeConnectionState? = nil
+        reason: RealtimeReason = .normal
     ) async {
         let task = await requestTermination(
             target,
-            finalState: finalState
+            reason: reason
         )
         await task.value
     }
 
-    /// 登记后台致命故障，并在资源清理后提交错误状态和错误回调。
+    /// 清理仍属于当前生命周期的后台故障，并通过最终状态提供原因。
     func terminate(
         with error: XmaxError,
-        target: TerminationScope
+        target: TerminationScope,
+        isCurrent: @Sendable () -> Bool = { true }
     ) async {
+        guard isCurrent() else { return }
+        // 清理期间的远端迟到错误不覆盖主动结束；本地媒体终止仍需扩大释放范围。
+        if termination != nil, target != .all { return }
         let task = await requestTermination(
             target,
-            error: error.withSeverity(.fatal),
-            finalState: .error
+            error: error,
+            reason: .failure(error)
         )
         await task.value
     }
@@ -210,9 +223,9 @@ private extension RealtimeCoordinator {
         private let lock = NSLock()
         private var valid = true
         private var terminalError: XmaxError?
-        private var storedFailureScope: TerminationScope
+        private var storedFailureScope: TerminationScope?
 
-        init(failureScope: TerminationScope) {
+        init(failureScope: TerminationScope?) {
             storedFailureScope = failureScope
         }
 
@@ -224,7 +237,7 @@ private extension RealtimeCoordinator {
             lock.withLock { terminalError }
         }
 
-        var failureScope: TerminationScope {
+        var failureScope: TerminationScope? {
             lock.withLock { storedFailureScope }
         }
 
@@ -272,7 +285,7 @@ private extension RealtimeCoordinator {
 
         init(
             kind: OperationKind,
-            failureScope: TerminationScope
+            failureScope: TerminationScope?
         ) {
             self.kind = kind
             lease = OperationLease(failureScope: failureScope)
@@ -282,7 +295,7 @@ private extension RealtimeCoordinator {
     final class Termination: @unchecked Sendable {
         let id = UUID()
         var target: TerminationScope
-        var finalState: RealtimeConnectionState?
+        var reason: RealtimeReason
         var error: XmaxError?
         var sessionID: String?
         var waitForOperations: [@Sendable () async -> Void] = []
@@ -290,11 +303,11 @@ private extension RealtimeCoordinator {
 
         init(
             target: TerminationScope,
-            finalState: RealtimeConnectionState?,
+            reason: RealtimeReason,
             error: XmaxError?
         ) {
             self.target = target
-            self.finalState = finalState
+            self.reason = reason
             self.error = error
         }
     }
@@ -308,10 +321,13 @@ private extension RealtimeCoordinator {
 
         if operationWasCancelled {
             // 取消配置请求本身不停止生成；外部断开或关闭仍按已有终止流程等待收尾。
-            if operation.kind == .configuration,
+            if (operation.kind == .configuration || operation.lease.failureScope == nil),
                operation.terminationTask == nil,
                termination == nil {
                 finish(operation)
+                if operation.kind == .media, state.connectionState == .preparing {
+                    await setState(RealtimeState(connectionState: .idle))
+                }
                 throw Self.cancelledError()
             }
             let terminationTask: Task<Void, Never>
@@ -321,7 +337,7 @@ private extension RealtimeCoordinator {
                 terminationTask = termination.task
             } else {
                 terminationTask = await requestTermination(
-                    operation.lease.failureScope,
+                    operation.lease.failureScope ?? .connection,
                     origin: operation
                 )
             }
@@ -334,16 +350,21 @@ private extension RealtimeCoordinator {
         }
 
         let resolvedError = XmaxError.from(error)
-        if resolvedError.severity == .fatal {
+        if operation.kind != .configuration, let scope = operation.lease.failureScope {
             let terminationTask = await requestTermination(
-                operation.lease.failureScope,
+                scope,
                 error: resolvedError,
-                finalState: .error,
+                reason: .failure(resolvedError),
                 origin: operation
             )
             await terminationTask.value
         } else {
+            finish(operation)
+            if operation.kind == .media, state.connectionState == .preparing {
+                await setState(RealtimeState(connectionState: .idle))
+            }
             await errorHandler.report(resolvedError)
+            throw resolvedError
         }
         finish(operation)
         throw resolvedError
@@ -352,7 +373,7 @@ private extension RealtimeCoordinator {
     func requestTermination(
         _ target: TerminationScope,
         error: XmaxError? = nil,
-        finalState: RealtimeConnectionState? = nil,
+        reason: RealtimeReason = .normal,
         origin: Operation? = nil
     ) async -> Task<Void, Never> {
         let pending: Termination
@@ -364,14 +385,13 @@ private extension RealtimeCoordinator {
             if pending.error == nil {
                 pending.error = error
             }
-            pending.finalState = Self.mergeFinalState(
-                pending.finalState,
-                finalState
-            )
+            if let error, pending.error == error {
+                pending.reason = .failure(error)
+            }
         } else {
             pending = Termination(
                 target: target,
-                finalState: finalState,
+                reason: reason,
                 error: error
             )
             termination = pending
@@ -400,8 +420,7 @@ private extension RealtimeCoordinator {
                 RealtimeState(
                     connectionState: .disconnecting,
                     sessionID: state.sessionID,
-                    disconnectionReason: pending.finalState == .disconnected ||
-                        pending.error == nil ? .normal : nil
+                    reason: nil
                 )
             )
         }
@@ -432,12 +451,18 @@ private extension RealtimeCoordinator {
                 continue
             }
 
-            let finalState = Self.resolveFinalState(
-                requested: pending.finalState,
-                error: pending.error,
-                target: requestedTarget,
-                current: state,
-                sessionID: pending.sessionID
+            let connectionState: RealtimeConnectionState
+            if requestedTarget == .all {
+                connectionState = .idle
+            } else if requestedTarget.includes(.connection) {
+                connectionState = result.hasLocalMedia ? .ready : .idle
+            } else {
+                connectionState = .connected
+            }
+            let finalState = RealtimeState(
+                connectionState: connectionState,
+                sessionID: pending.sessionID ?? state.sessionID,
+                reason: pending.reason
             )
             // 先完成内部收尾，再通知监听器，避免旧任务覆盖重入的关闭请求。
             if let activeOperation,
@@ -447,11 +472,12 @@ private extension RealtimeCoordinator {
             let listener = state != finalState ? stateListener : nil
             state = finalState
             termination = nil
+            errorHandler.invalidatePendingFailures(target: requestedTarget)
             if let listener {
                 await listener(finalState)
             }
             if let error = pending.error {
-                await errorHandler.report(error.withSeverity(.fatal))
+                await errorHandler.report(error)
             }
             return
         }
@@ -471,44 +497,6 @@ private extension RealtimeCoordinator {
         if let stateListener {
             await stateListener(nextState)
         }
-    }
-
-    static func resolveFinalState(
-        requested: RealtimeConnectionState?,
-        error: XmaxError?,
-        target: TerminationScope,
-        current: RealtimeState,
-        sessionID: String?
-    ) -> RealtimeState {
-        let connectionState: RealtimeConnectionState
-        if let requested {
-            connectionState = requested
-        } else if error != nil {
-            connectionState = .error
-        } else if target.includes(.connection) {
-            connectionState = .disconnected
-        } else if current.connectionState == .generating {
-            connectionState = .connected
-        } else {
-            connectionState = current.connectionState
-        }
-
-        return RealtimeState(
-            connectionState: connectionState,
-            sessionID: sessionID ?? current.sessionID,
-            taskID: connectionState == .generating ? current.taskID : nil,
-            disconnectionReason: connectionState == .disconnected ? .normal : nil
-        )
-    }
-
-    static func mergeFinalState(
-        _ current: RealtimeConnectionState?,
-        _ requested: RealtimeConnectionState?
-    ) -> RealtimeConnectionState? {
-        if current == .disconnected || requested == .disconnected {
-            return .disconnected
-        }
-        return requested ?? current
     }
 
     static func isCancellation(_ error: any Error) -> Bool {

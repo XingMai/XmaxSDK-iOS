@@ -1,23 +1,50 @@
 import Foundation
 
-/// 汇聚各业务组件上报的错误，并统一通知实时错误监听器。
+/// 记录实时错误，并将后台故障交给 Coordinator 统一结束生命周期。
 final class RealtimeErrorHandler: @unchecked Sendable {
+
+    typealias FailureHandler = @Sendable (
+        XmaxError, RealtimeCoordinator.TerminationScope, @escaping @Sendable () -> Bool
+    ) async -> Void
 
     // 并发控制
     private let lock = NSLock()
+    private var mediaRevision = UUID()
+    private var connectionRevision = UUID()
 
-    // 事件监听
-    private var listener: RealtimeErrorListener?
+    // 内部故障处理
+    private var failureHandler: FailureHandler?
 
-    func setListener(_ listener: RealtimeErrorListener?) {
+    func setFailureHandler(_ handler: @escaping FailureHandler) {
+        lock.withLock { failureHandler = handler }
+    }
+
+    /// 使已结束生命周期中排队等待处理的故障失效。
+    func invalidatePendingFailures(target: RealtimeCoordinator.TerminationScope = .all) {
         lock.withLock {
-            self.listener = listener
+            connectionRevision = UUID()
+            if target == .all { mediaRevision = UUID() }
         }
     }
 
-    func forward(_ error: XmaxError) {
-        Task {
-            await report(error)
+    func forward(
+        _ error: XmaxError,
+        target: RealtimeCoordinator.TerminationScope? = nil
+    ) {
+        let (revision, handler) = lock.withLock {
+            (target == .all ? mediaRevision : connectionRevision, failureHandler)
+        }
+        Task { [self] in
+            guard let target, let handler else {
+                await report(error)
+                return
+            }
+            await handler(error, target, { [weak self] in
+                guard let self else { return false }
+                return lock.withLock {
+                    (target == .all ? mediaRevision : connectionRevision) == revision
+                }
+            })
         }
     }
 
@@ -25,16 +52,7 @@ final class RealtimeErrorHandler: @unchecked Sendable {
         XmaxLogger.realtime.error(
             message: "实时服务错误 (Realtime Service Error)\n" +
                 "├─ 错误码 (Error Code)：\(error.code.rawValue)\n" +
-                "├─ 级别 (Severity)：\(error.severity.rawValue)\n" +
                 "└─ 信息 (Message)：\(error.message)"
         )
-        guard error.severity == .fatal else {
-            return
-        }
-
-        let listener = lock.withLock { listener }
-        if let listener {
-            await listener(error)
-        }
     }
 }

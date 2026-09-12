@@ -26,6 +26,16 @@ actor XmaxRealtimeGenerationManager {
         self.taskIDGenerator = taskIDGenerator
     }
 
+    /// 校验首次生成的上下文，在连接和发送信令前完成。
+    func validateContext(_ context: RealtimeContext?) throws {
+        guard context != nil || currentContext != nil else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "A realtime context is required for the first generation"
+            )
+        }
+    }
+
     func start(
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
@@ -35,8 +45,7 @@ actor XmaxRealtimeGenerationManager {
         guard let resolvedContext = context ?? currentContext else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "A realtime context is required for the first " +
-                    "generation"
+                message: "A realtime context is required for the first generation"
             )
         }
 

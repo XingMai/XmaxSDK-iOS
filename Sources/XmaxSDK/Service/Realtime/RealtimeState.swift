@@ -1,8 +1,14 @@
 /// 实时业务连接状态。
 public enum RealtimeConnectionState: String, CaseIterable, Sendable {
 
-    /// Manager 尚未建立过实时连接。
+    /// 没有可用的本地媒体流。
     case idle = "Idle"
+
+    /// 正在准备本地媒体流；摄像头还需等待有效帧和预览视图绑定。
+    case preparing = "Preparing"
+
+    /// 本地媒体流已就绪，可以预览、连接和生成。
+    case ready = "Ready"
 
     /// 正在创建 Session、加入 Room 并发布本地流。
     case connecting = "Connecting"
@@ -16,18 +22,19 @@ public enum RealtimeConnectionState: String, CaseIterable, Sendable {
     /// 正在清理生成、Room 和 Session 资源。
     case disconnecting = "Disconnecting"
 
-    /// 实时连接已经主动断开。
-    case disconnected = "Disconnected"
-
-    /// 实时连接因错误终止或建立失败。
-    case error = "Error"
 }
 
-/// 实时连接断开原因。
-public enum RealtimeDisconnectionReason: String, CaseIterable, Sendable {
+/// 进入当前实时状态的原因。
+public enum RealtimeReason: Equatable, Sendable {
 
-    /// 正常断开。
-    case normal = "Normal"
+    /// 主动停止或正常释放资源。
+    case normal
+
+    /// 显示方向变化，需要重新配置生成。
+    case orientationChanged
+
+    /// 操作或运行异常导致当前流程结束。
+    case failure(XmaxError)
 }
 
 /// 实时业务当前状态快照。
@@ -42,8 +49,8 @@ public struct RealtimeState: Equatable, Sendable {
     /// 当前生成任务标识。
     public let taskID: String?
 
-    /// 正常断开过程中或断开后的原因；其他状态为 `nil`。
-    public let disconnectionReason: RealtimeDisconnectionReason?
+    /// 进入当前状态的原因；正常开始新的操作时清空。
+    public let reason: RealtimeReason?
 
     /// 创建实时状态快照。
     ///
@@ -51,17 +58,17 @@ public struct RealtimeState: Equatable, Sendable {
     ///   - connectionState: 当前连接生命周期状态。
     ///   - sessionID: 当前或最近一次实时 Session 标识。
     ///   - taskID: 当前生成任务标识。
-    ///   - disconnectionReason: 连接断开原因，默认无。
+    ///   - reason: 状态变化原因，默认无。
     public init(
         connectionState: RealtimeConnectionState,
         sessionID: String? = nil,
         taskID: String? = nil,
-        disconnectionReason: RealtimeDisconnectionReason? = nil
+        reason: RealtimeReason? = nil
     ) {
         self.connectionState = connectionState
         self.sessionID = sessionID
         self.taskID = taskID
-        self.disconnectionReason = disconnectionReason
+        self.reason = reason
     }
 }
 

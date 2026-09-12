@@ -169,16 +169,25 @@ final class VideoPlayerController: VideoPlayerControlling {
                     timeline: timeline,
                     videoHandler: { frame in
                         previewDispatcher.enqueue(frame)
-                        try videoListener(frame)
+                        do {
+                            try videoListener(frame)
+                        } catch {
+                            XmaxLogger.media.error(message: "视频帧推送失败 (Video Frame Push Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                        }
                     },
                     audioHandler: { frame in
                         audioPreviewPlayer.enqueue(frame)
-                        try audioListener(frame)
+                        do {
+                            try audioListener(frame)
+                        } catch {
+                            XmaxLogger.media.error(message: "音频帧推送失败 (Audio Frame Push Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                        }
                     }
                 )
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 errorListener(XmaxError.from(error))
             }
         }
@@ -329,13 +338,19 @@ private extension VideoPlayerController {
                 if now > target, now - target > frameIntervalNanoseconds {
                     continue
                 }
-                let frame = try NV12VideoFrameConverter.convert(
-                    pixelBuffer: pixelBuffer,
-                    outputWidth: configuration.outputWidth,
-                    outputHeight: configuration.outputHeight,
-                    rotation: configuration.rotation,
-                    timestampUs: Int64(target / 1_000)
-                )
+                let frame: VideoFrame
+                do {
+                    frame = try NV12VideoFrameConverter.convert(
+                        pixelBuffer: pixelBuffer,
+                        outputWidth: configuration.outputWidth,
+                        outputHeight: configuration.outputHeight,
+                        rotation: configuration.rotation,
+                        timestampUs: Int64(target / 1_000)
+                    )
+                } catch {
+                    XmaxLogger.media.error(message: "视频帧转换失败 (Video Frame Conversion Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                    continue
+                }
                 try await sleep(untilNanoseconds: target)
                 try handler(frame)
                 yieldedFrame = true

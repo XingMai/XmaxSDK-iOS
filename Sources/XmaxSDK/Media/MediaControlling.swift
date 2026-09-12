@@ -20,6 +20,11 @@ protocol MediaControlling: Actor, InteractionControlling {
         _ listener: RealtimeCameraPreviewReadyListener?
     )
 
+    /// 设置当前相机流的一次性内部就绪处理。
+    ///
+    /// - Parameter handler: 收到有效帧且预览已绑定时调用；传入空值时清除。
+    func setCameraPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?)
+
     /// 创建并持有本地相机媒体流，同时启动采集和本地预览。
     ///
     /// - Parameters:

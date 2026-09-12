@@ -85,7 +85,6 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                         throw Self.cameraError("Camera capture failed to start")
                     }
 
-                    startPerformanceProbe(position: position)
                     continuation.resume()
                 } catch {
                     stopCapture()
@@ -131,7 +130,6 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                         throw error
                     }
 
-                    startPerformanceProbe(position: position)
                     continuation.resume()
                 } catch {
                     continuation.resume(
@@ -155,22 +153,9 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(
         _ output: AVCaptureOutput,
-        didDrop sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
-    ) {
-        let reason = CMGetAttachment(sampleBuffer, key: kCMSampleBufferAttachmentKey_DroppedFrameReason, attachmentModeOut: nil)
-        CameraPerformanceProbe.shared.dropped(reason: reason.map { String(describing: $0) } ?? "Unknown")
-    }
-
-    func captureOutput(
-        _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        let callbackEntry = DispatchTime.now().uptimeNanoseconds
-        let performanceStart = CameraPerformanceProbe.shared.begin()
-        defer { CameraPerformanceProbe.shared.finish(.capture, since: performanceStart.map { _ in callbackEntry }) }
-
         guard let videoFormat, let frameListener,
               connection === self.output.connection(with: .video),
               let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -207,28 +192,13 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         lastTimestampUs = timestampUs
 
-        if CameraPerformanceProbe.captureOnlyEnabled {
-            CameraPerformanceProbe.shared.captureOnlyFrame(
-                timestampUs: timestampUs,
-                callbackEntry: callbackEntry,
-                samplingStart: performanceStart
-            )
-            return
-        }
-
         do {
-            let conversionStart = performanceStart.map { _ in DispatchTime.now().uptimeNanoseconds }
             let frame = try NV12VideoFrameConverter.convert(
                 pixelBuffer: pixelBuffer,
                 outputWidth: videoFormat.width,
                 outputHeight: videoFormat.height,
                 rotation: .rotation0,
                 timestampUs: timestampUs
-            )
-            CameraPerformanceProbe.shared.convertedFrame(
-                timestampUs: timestampUs,
-                callbackEntry: callbackEntry,
-                since: conversionStart
             )
             try frameListener(frame)
         } catch {
@@ -237,21 +207,12 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
 
             hasReportedFrameError = true
-            errorListener?(XmaxError.from(error))
+            XmaxLogger.media.error(message: "摄像头帧处理失败 (Camera Frame Processing Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
         }
     }
 }
 
 private extension CameraCaptureManager {
-    func startPerformanceProbe(position: CameraPosition) {
-        guard let input, let videoFormat else { return }
-        let source = CMVideoFormatDescriptionGetDimensions(input.device.activeFormat.formatDescription)
-        CameraPerformanceProbe.shared.start(
-            description: "\(position)，采集格式 (Source Format)：\(source.width) × \(source.height)，输出 (Output)：\(videoFormat.width) × \(videoFormat.height)",
-            fps: frameRate
-        )
-    }
-
     func replaceInput(position: CameraPosition) throws {
         guard let device = AVCaptureDevice.default(
             .builtInWideAngleCamera,
@@ -343,6 +304,7 @@ private extension CameraCaptureManager {
     }
 
     func observeSession() {
+        let errorListener = errorListener
         observers.append(NotificationCenter.default.addObserver(
             forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
         ) { [weak self] notification in
@@ -354,6 +316,10 @@ private extension CameraCaptureManager {
                     return
                 }
 
+                if error?.code == AVError.mediaServicesWereReset.rawValue {
+                    session.startRunning()
+                    if session.isRunning { return }
+                }
                 errorListener?(Self.cameraError(message))
             }
         })
@@ -367,12 +333,14 @@ private extension CameraCaptureManager {
                 }
 
                 session.startRunning()
+                if !session.isRunning {
+                    errorListener?(Self.cameraError("Camera capture failed to resume"))
+                }
             }
         })
     }
 
     func stopCapture() {
-        CameraPerformanceProbe.shared.stop()
         frameListener = nil
         errorListener = nil
         videoFormat = nil

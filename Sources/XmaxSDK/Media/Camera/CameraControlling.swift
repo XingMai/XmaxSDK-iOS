@@ -1,5 +1,10 @@
 import Foundation
 
+/// 通知摄像头预览就绪，并提供异步处理时检查该预览仍有效的能力。
+typealias CameraPreviewReadyHandler = @MainActor @Sendable (
+    _ isCurrent: @escaping @Sendable () -> Bool
+) -> Void
+
 /// 定义本地摄像头流、麦克风采集和预览资源管理能力。
 protocol CameraControlling: Sendable {
 
@@ -13,6 +18,11 @@ protocol CameraControlling: Sendable {
     ///
     /// - Parameter listener: 采集到首帧且预览已绑定时的回调；传入空值时清除监听器。
     func setPreviewReadyListener(_ listener: RealtimeCameraPreviewReadyListener?)
+
+    /// 设置当前相机流的一次性内部就绪处理；条件为已收到有效帧且预览已绑定。
+    ///
+    /// - Parameter handler: 就绪时调用的处理闭包；传入空值时清除。
+    func setPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?)
 
     /// 创建并启动本地相机流。
     ///

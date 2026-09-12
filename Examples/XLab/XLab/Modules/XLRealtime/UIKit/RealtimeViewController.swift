@@ -29,7 +29,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var currentGenerationContext: RealtimeContext?
     private var isGenerationRequested = false
     private var isTouchAnimationGenerationRequested = false
-    private var hasDisplayedPreview = false
+    private var connectionState: RealtimeConnectionState = .idle
     private var isSuspendedForBackground = false
 
     // 音频状态
@@ -498,7 +498,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         configurePromptKeyboard()
         configureKeyboardDismissal()
         observeNotifications()
-        setPreviewDisplayed(false)
+        controlPanelView.isUserInteractionEnabled = false
         observeRealtimeEvents()
         startLocalMedia()
     }
@@ -628,9 +628,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             guard let self else { return }
             await pendingCleanup?.value
             guard !Task.isCancelled else { return }
-            await realtimeManager.setErrorListener { [weak self] error in
-                self?.presentRealtimeError(error)
-            }
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
             }
@@ -662,7 +659,24 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func renderRealtimeState(_ state: RealtimeState) {
+        connectionState = state.connectionState
+        controlPanelView.isUserInteractionEnabled =
+            state.connectionState != .idle &&
+            state.connectionState != .preparing &&
+            (state.connectionState != .disconnecting || localMediaStream != nil)
+        if let reason = state.reason, reason != .normal {
+            isGenerationRequested = false
+            isTouchAnimationGenerationRequested = false
+            controlPanelView.setGenerationActive(false)
+            currentGenerationContext = nil
+        }
+        if state.connectionState == .idle {
+            localMediaStream = nil
+            previewView.displayLocal(nil)
+        }
         switch state.connectionState {
+        case .preparing:
+            loadingOverlay.startLoading()
         case .connecting, .connected:
             if isGenerationRequested {
                 previewView.hideRealtime()
@@ -675,7 +689,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             }
             previewView.displayRealtime(remoteVideoTrack)
             loadingOverlay.hideLoading()
-        case .idle, .disconnecting, .disconnected, .error:
+        case .idle, .ready, .disconnecting:
             remoteVideoTrack = nil
             previewView.hideRealtime()
             if recordingButtonState == .recording {
@@ -685,17 +699,15 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 setRecordingButtonState(.idle)
             }
             renderPreviewLoadingState()
+            if state.connectionState == .idle { loadingOverlay.hideLoading() }
+        }
+        if case .failure(let error) = state.reason {
+            presentRealtimeError(error)
         }
     }
 
-    private func setPreviewDisplayed(_ isDisplayed: Bool) {
-        hasDisplayedPreview = isDisplayed
-        controlPanelView.isUserInteractionEnabled = isDisplayed
-        renderPreviewLoadingState()
-    }
-
     private func renderPreviewLoadingState() {
-        if !hasDisplayedPreview || isGenerationRequested {
+        if connectionState == .preparing || isGenerationRequested {
             loadingOverlay.startLoading()
         } else {
             loadingOverlay.hideLoading()
@@ -1052,14 +1064,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await pendingCleanup?.value
             await pendingRealtimeListener?.value
             guard !Task.isCancelled else { return }
-            if input == nil {
-                await realtimeManager.setCameraPreviewReadyListener {
-                    [weak self] in
-                    self?.setPreviewDisplayed(true)
-                }
-            } else {
-                await realtimeManager.setCameraPreviewReadyListener(nil)
-            }
             do {
                 let stream = try await createLocalMediaStream(for: input)
                 guard !Task.isCancelled else {
@@ -1070,15 +1074,13 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     await realtimeManager.close()
                     return
                 }
-                if input != nil {
-                    setPreviewDisplayed(true)
-                }
                 cameraActionBar.setSwitchCameraEnabled(localInput == nil)
             } catch {
                 guard !Task.isCancelled else {
                     return
                 }
-                await realtimeManager.close()
+                presentRealtimeError(XmaxError.from(error))
+                loadingOverlay.hideLoading()
             }
         }
     }
@@ -1167,7 +1169,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         controlPanelView.clearReferenceSelection()
         cameraActionBar.setSwitchCameraEnabled(false)
         loadingOverlay.hideLoading()
-        hasDisplayedPreview = false
+        connectionState = .idle
         controlPanelView.isUserInteractionEnabled = false
         previewView.displayLocal(nil)
 
@@ -1176,9 +1178,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await previousCleanup?.value
             await pendingRealtimeListener?.value
 
-            await realtimeManager.setErrorListener(nil)
             await realtimeManager.setStateListener(nil)
-            await realtimeManager.setCameraPreviewReadyListener(nil)
             await realtimeManager.setRemoteVideoFrameListener(nil)
 
             await pendingLocalMediaOperation?.value
@@ -1202,7 +1202,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             return
         }
         isSuspendedForBackground = false
-        setPreviewDisplayed(false)
+        controlPanelView.isUserInteractionEnabled = false
         observeRealtimeEvents()
         startLocalMedia()
     }
@@ -1234,7 +1234,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         localMediaStream = nil
         remoteVideoTrack = nil
         previewView.displayLocal(nil)
-        setPreviewDisplayed(false)
+        controlPanelView.isUserInteractionEnabled = false
 
         localMediaOperationTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -1248,7 +1248,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             guard !Task.isCancelled else { return }
 
             localInput = input
-            loadingOverlay.startLoading()
             do {
                 let stream = try await createLocalMediaStream(for: input)
                 guard !Task.isCancelled else {
@@ -1259,7 +1258,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     await realtimeManager.close()
                     return
                 }
-                setPreviewDisplayed(true)
 
                 if restartsTouchAnimation {
                     startTouchAnimationGeneration()
@@ -1273,8 +1271,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                await realtimeManager.close()
-                renderPreviewLoadingState()
+                presentRealtimeError(XmaxError.from(error))
+                loadingOverlay.hideLoading()
             }
         }
     }
@@ -1330,6 +1328,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 return
             } catch {
                 guard !Task.isCancelled else { return }
+                if await realtimeManager.currentState.connectionState == .generating {
+                    loadingOverlay.hideLoading()
+                    presentRealtimeError(XmaxError.from(error))
+                    return
+                }
                 isGenerationRequested = false
                 isTouchAnimationGenerationRequested = false
                 controlPanelView.setGenerationActive(false)
@@ -1338,8 +1341,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 }
                 loadingOverlay.hideLoading()
                 remoteVideoTrack = nil
-                previewView.displayLocal(localMediaStream.videoTrack)
-                await realtimeManager.disconnect()
+                presentRealtimeError(XmaxError.from(error))
                 if let selectedReferenceID {
                     controlPanelView.clearReferenceSelection(
                         matching: selectedReferenceID
@@ -1367,7 +1369,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         generationOperationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await previousOperation?.value
-            guard !Task.isCancelled else { return }
+            // 新的生成请求会等待本任务；即使被取消，也必须完成旧连接清理。
             await realtimeManager.disconnect()
         }
     }

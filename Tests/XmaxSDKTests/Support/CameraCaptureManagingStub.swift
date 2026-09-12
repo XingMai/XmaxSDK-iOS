@@ -15,6 +15,7 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
     // 调用记录
     private let lock = NSLock()
     private var recordedCalls: [Call] = []
+    private var errorListener: XmaxErrorListener?
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
 
     init(startError: (any Error)? = nil, switchError: (any Error)? = nil) {
@@ -37,6 +38,7 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
         lock.withLock {
             recordedCalls.append(.start(videoFormat, frameRate, position))
             self.frameListener = frameListener
+            self.errorListener = errorListener
         }
         if let startError { throw startError }
     }
@@ -50,7 +52,16 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
         lock.withLock {
             recordedCalls.append(.stop)
             frameListener = nil
+            errorListener = nil
         }
+    }
+
+    var currentErrorListener: XmaxErrorListener? {
+        lock.withLock { errorListener }
+    }
+
+    func emitError(_ error: XmaxError) {
+        currentErrorListener?(error)
     }
 
     func emitFrame(_ frame: VideoFrame) throws {

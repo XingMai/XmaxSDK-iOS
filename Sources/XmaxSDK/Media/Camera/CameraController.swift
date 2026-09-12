@@ -19,6 +19,7 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     private let videoFrameListener: MediaVideoFrameListener
     private let errorListener: XmaxErrorListener
     private var previewReadyListener: RealtimeCameraPreviewReadyListener?
+    private var previewReadyHandler: CameraPreviewReadyHandler?
 
     // 并发控制
     private let stateLock = NSLock()
@@ -83,6 +84,14 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     func setPreviewReadyListener(_ listener: RealtimeCameraPreviewReadyListener?) {
         let track = stateLock.withLock {
             previewReadyListener = listener
+            return activeTrack
+        }
+        if let track { notifyPreviewReady(for: track) }
+    }
+
+    func setPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?) {
+        let track = stateLock.withLock {
+            previewReadyHandler = handler
             return activeTrack
         }
         if let track { notifyPreviewReady(for: track) }
@@ -177,6 +186,7 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             let resources = (activeTrack, preview)
             activeTrack = nil
             preview = nil
+            previewReadyHandler = nil
             storedUseMicrophone = false
             isMicrophoneCapturing = false
             hasCapturedFrame = false
@@ -261,18 +271,31 @@ private extension CameraController {
     func notifyPreviewReady(for track: RealtimeVideoTrack) {
         let shouldNotify = stateLock.withLock {
             activeTrack === track && hasCapturedFrame && isPreviewAttached &&
-                !hasReportedPreviewReady && previewReadyListener != nil
+                (previewReadyHandler != nil ||
+                    (!hasReportedPreviewReady && previewReadyListener != nil))
         }
         guard shouldNotify else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let listener = stateLock.withLock { () -> RealtimeCameraPreviewReadyListener? in
-                guard activeTrack === track, hasCapturedFrame, isPreviewAttached,
-                      !hasReportedPreviewReady, let previewReadyListener else { return nil }
-                hasReportedPreviewReady = true
-                return previewReadyListener
+            let callbacks = stateLock.withLock { () -> (
+                CameraPreviewReadyHandler?, RealtimeCameraPreviewReadyListener?
+            ) in
+                guard activeTrack === track, hasCapturedFrame, isPreviewAttached else {
+                    return (nil, nil)
+                }
+                let handler = previewReadyHandler
+                previewReadyHandler = nil
+                let listener = hasReportedPreviewReady ? nil : previewReadyListener
+                if listener != nil { hasReportedPreviewReady = true }
+                return (handler, listener)
             }
-            listener?()
+            callbacks.0? { [weak self] in
+                guard let self else { return false }
+                return stateLock.withLock {
+                    activeTrack === track
+                }
+            }
+            callbacks.1?()
         }
     }
 

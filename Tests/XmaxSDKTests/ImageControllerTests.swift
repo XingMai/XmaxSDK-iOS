@@ -11,8 +11,7 @@ final class ImageControllerTests: XCTestCase {
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_0
             ),
-            frameListener: { _ in },
-            errorListener: { _ in }
+            frameListener: { _ in }
         )
         let prepared = try await controller.createLocalImageStream(
             imageData: Data("encoded-image".utf8), videoFormat: nil
@@ -30,8 +29,7 @@ final class ImageControllerTests: XCTestCase {
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 832, height: 1_472)
             ),
-            frameListener: { _ in },
-            errorListener: { _ in }
+            frameListener: { _ in }
         )
 
         let prepared = try await controller.createLocalImageStream(
@@ -67,8 +65,7 @@ final class ImageControllerTests: XCTestCase {
             ),
             frameListener: { frame in
                 recorder.append(frame)
-            },
-            errorListener: { _ in }
+            }
         )
 
         let prepared = try await controller.createLocalImageStream(
@@ -107,8 +104,7 @@ final class ImageControllerTests: XCTestCase {
                 decodedImage: DecodedImageStub(width: 400, height: 800)
             ),
             mediaService: mediaService,
-            frameListener: { _ in },
-            errorListener: { _ in }
+            frameListener: { _ in }
         )
 
         let prepared = try await controller.createLocalImageStream(
@@ -146,8 +142,7 @@ final class ImageControllerTests: XCTestCase {
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 832, height: 1_472)
             ),
-            frameListener: { _ in },
-            errorListener: { _ in }
+            frameListener: { _ in }
         )
 
         do {
@@ -267,8 +262,7 @@ final class ImageControllerTests: XCTestCase {
             rtcManager: RtcManagingStub(),
             imageManager: FailingImageManager(),
             mediaService: MediaServicingStub(resolvedSize: CGSize(width: 832, height: 1472)),
-            frameListener: { _ in },
-            errorListener: { _ in }
+            frameListener: { _ in }
         )
 
         let stream = try await controller.createLocalImageStream(
@@ -286,8 +280,7 @@ final class ImageControllerTests: XCTestCase {
         let controller = ImageController(
             rtcManager: rtc,
             imageManager: FailingImageManager(),
-            frameListener: { _ in },
-            errorListener: { _ in }
+            frameListener: { _ in }
         )
 
         do {
@@ -332,8 +325,7 @@ final class ImageControllerTests: XCTestCase {
                 if recorder.frames.count <= 3 {
                     receivedFrames.fulfill()
                 }
-            },
-            errorListener: { _ in }
+            }
         )
 
         _ = try await controller.createLocalImageStream(
@@ -355,29 +347,20 @@ final class ImageControllerTests: XCTestCase {
         XCTAssertEqual(recorder.frames.count, frames.count)
     }
 
-    func testLaterFrameFailureUsesErrorListener() async throws {
-        let expectedError = XmaxError(code: .mediaError, message: "Failed to output frame")
+    func testLaterFrameFailureDoesNotStopFollowingFrames() async throws {
         let recorder = ImageFrameRecorder()
-        let receivedError = expectation(description: "Received later frame error")
-        let controller = makeController(
-            frameListener: { frame in
-                recorder.append(frame)
-                if recorder.frames.count == 2 {
-                    throw expectedError
-                }
-            },
-            errorListener: { error in
-                XCTAssertEqual(error, expectedError)
-                receivedError.fulfill()
+        let continued = expectation(description: "Frame after failed frame")
+        let controller = makeController(frameListener: { frame in
+            recorder.append(frame)
+            if recorder.frames.count == 2 {
+                throw XmaxError(code: .mediaError, message: "One frame failed")
             }
-        )
-
+            if recorder.frames.count == 3 { continued.fulfill() }
+        })
         let stream = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8),
-            videoFormat: nil
+            imageData: Data("image".utf8), videoFormat: nil
         )
-        await fulfillment(of: [receivedError], timeout: 2)
-
+        await fulfillment(of: [continued], timeout: 2)
         XCTAssertTrue(controller.currentTrack === stream.videoTrack)
         await controller.stopLocalImageStream()
     }
@@ -387,15 +370,13 @@ final class ImageControllerTests: XCTestCase {
 private extension ImageControllerTests {
     func makeController(
         rtcManager: RtcManagingStub = RtcManagingStub(),
-        frameListener: @escaping MediaVideoFrameListener = { _ in },
-        errorListener: @escaping XmaxErrorListener = { _ in }
+        frameListener: @escaping MediaVideoFrameListener = { _ in }
     ) -> ImageController {
         ImageController(
             rtcManager: rtcManager,
             imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 800)),
             mediaService: MediaServicingStub(resolvedSize: CGSize(width: 832, height: 1472)),
-            frameListener: frameListener,
-            errorListener: errorListener
+            frameListener: frameListener
         )
     }
 

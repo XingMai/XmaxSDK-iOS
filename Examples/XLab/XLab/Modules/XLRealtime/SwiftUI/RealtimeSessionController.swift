@@ -10,7 +10,7 @@ final class RealtimeSessionController: ObservableObject {
     @Published private(set) var remoteVideoTrack: RealtimeVideoTrack?
 
     // 实时状态
-    @Published private(set) var isPreviewReady = false
+    @Published private(set) var connectionState: RealtimeConnectionState = .idle
     @Published private(set) var isGenerationRequested = false
     @Published private(set) var isLoading = true
 
@@ -35,6 +35,17 @@ final class RealtimeSessionController: ObservableObject {
     private var cameraSwitchTask: Task<Void, Never>?
     private var frameInterpolationTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
+
+    var isMediaReady: Bool {
+        switch connectionState {
+        case .ready, .connecting, .connected, .generating:
+            true
+        case .disconnecting:
+            localMediaStream != nil
+        case .idle, .preparing:
+            false
+        }
+    }
 
     init() {
         let initialFrameInterpolationEnabled: Bool
@@ -73,8 +84,6 @@ final class RealtimeSessionController: ObservableObject {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
-        isLoading = true
-
         let pendingCleanup = cleanupTask
         cleanupTask = nil
         startupTask?.cancel()
@@ -82,18 +91,9 @@ final class RealtimeSessionController: ObservableObject {
             await pendingCleanup?.value
             guard let self, hasStarted, !Task.isCancelled else { return }
 
-            await realtimeManager.setErrorListener { [weak self] error in
-                self?.handleRealtimeError(error)
-            }
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
             }
-            await realtimeManager.setCameraPreviewReadyListener {
-                [weak self] in
-                self?.isPreviewReady = true
-                self?.isLoading = false
-            }
-
             do {
                 let stream = try await realtimeManager.createLocalCameraStream(
                     videoFormat: RealtimePreferences.cameraVideoFormat,
@@ -107,8 +107,7 @@ final class RealtimeSessionController: ObservableObject {
                     await realtimeManager.isFrameInterpolationEnabled
             } catch {
                 guard hasStarted, !Task.isCancelled else { return }
-                isLoading = false
-                await realtimeManager.close()
+                handleRealtimeError(XmaxError.from(error))
             }
         }
     }
@@ -143,10 +142,12 @@ final class RealtimeSessionController: ObservableObject {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
-                isGenerationRequested = false
-                remoteVideoTrack = nil
+                if await realtimeManager.currentState.connectionState != .generating {
+                    isGenerationRequested = false
+                    remoteVideoTrack = nil
+                }
                 isLoading = false
-                await realtimeManager.disconnect()
+                handleRealtimeError(XmaxError.from(error))
             }
         }
     }
@@ -156,13 +157,14 @@ final class RealtimeSessionController: ObservableObject {
 
         isGenerationRequested = false
         remoteVideoTrack = nil
-        isLoading = !isPreviewReady
+        isLoading = connectionState == .preparing
 
         let previousTask = generationTask
         previousTask?.cancel()
         generationTask = Task { [weak self] in
             await previousTask?.value
-            guard let self, !Task.isCancelled else { return }
+            guard let self else { return }
+            // 新的生成请求会等待本任务；即使被取消，也必须完成旧连接清理。
             await realtimeManager.disconnect()
             remoteVideoTrack = nil
         }
@@ -191,15 +193,16 @@ final class RealtimeSessionController: ObservableObject {
                     remoteVideoTrack = retainedRemoteVideoTrack
                     isLoading = false
                 } else {
-                    isLoading = !isPreviewReady
+                    isLoading = connectionState == .preparing
                 }
             } catch is CancellationError {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
                 if !isGenerationRequested {
-                    isLoading = !isPreviewReady
+                    isLoading = connectionState == .preparing
                 }
+                handleRealtimeError(XmaxError.from(error))
             }
         }
     }
@@ -247,7 +250,7 @@ final class RealtimeSessionController: ObservableObject {
         localMediaStream = nil
         localVideoTrack = nil
         remoteVideoTrack = nil
-        isPreviewReady = false
+        connectionState = .idle
         isGenerationRequested = false
         isLoading = false
         isBackCameraSelected = false
@@ -259,15 +262,23 @@ final class RealtimeSessionController: ObservableObject {
             await pendingGeneration?.value
             await pendingCameraSwitch?.value
             await pendingFrameInterpolation?.value
-            await realtimeManager.setErrorListener(nil)
             await realtimeManager.setStateListener(nil)
-            await realtimeManager.setCameraPreviewReadyListener(nil)
             await realtimeManager.close()
         }
     }
 
     private func renderRealtimeState(_ state: RealtimeState) {
+        connectionState = state.connectionState
+        if let reason = state.reason, reason != .normal {
+            isGenerationRequested = false
+        }
+        if state.connectionState == .idle {
+            localMediaStream = nil
+            localVideoTrack = nil
+        }
         switch state.connectionState {
+        case .preparing:
+            isLoading = true
         case .connecting, .connected:
             if isGenerationRequested {
                 remoteVideoTrack = nil
@@ -278,15 +289,15 @@ final class RealtimeSessionController: ObservableObject {
             if remoteVideoTrack != nil {
                 isLoading = false
             }
-        case .idle, .disconnecting, .disconnected:
+        case .idle, .ready, .disconnecting:
             if !isGenerationRequested {
                 remoteVideoTrack = nil
-                isLoading = !isPreviewReady
+                isLoading = false
             }
-        case .error:
-            isGenerationRequested = false
-            remoteVideoTrack = nil
-            isLoading = !isPreviewReady
+        }
+        if state.connectionState == .idle { isLoading = false }
+        if case .failure(let error) = state.reason {
+            handleRealtimeError(error)
         }
     }
 

@@ -208,8 +208,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         _ frame: VideoFrame,
         seiData: Data?
     ) throws {
-        let performanceStart = CameraPerformanceProbe.shared.begin(frameTimestampUs: frame.timestampUs)
-        defer { CameraPerformanceProbe.shared.finish(.rtcTotal, since: performanceStart) }
         try withEngine { engine in
             let rtcFrame = try videoFrameCache.frame(
                 for: frame,

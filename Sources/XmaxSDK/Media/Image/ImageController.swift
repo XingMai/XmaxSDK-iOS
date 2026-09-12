@@ -16,7 +16,6 @@ final class ImageController: ImageControlling, @unchecked Sendable {
 
     // 事件监听
     private let frameListener: MediaVideoFrameListener
-    private let errorListener: XmaxErrorListener
 
     // 并发控制
     private let stateLock = NSLock()
@@ -29,14 +28,12 @@ final class ImageController: ImageControlling, @unchecked Sendable {
         rtcManager: any RtcManaging,
         imageManager: any ImageManaging = ImageManager(),
         mediaService: any MediaServicing = MediaService(),
-        frameListener: @escaping MediaVideoFrameListener,
-        errorListener: @escaping XmaxErrorListener
+        frameListener: @escaping MediaVideoFrameListener
     ) {
         self.rtcManager = rtcManager
         self.imageManager = imageManager
         self.mediaService = mediaService
         self.frameListener = frameListener
-        self.errorListener = errorListener
     }
 
     var currentTrack: RealtimeVideoTrack? {
@@ -236,7 +233,7 @@ private extension ImageController {
                         return
                     }
 
-                    self.errorListener(XmaxError.from(error))
+                    XmaxLogger.media.error(message: "图片帧推送失败 (Image Frame Push Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
                 }
             }
         }

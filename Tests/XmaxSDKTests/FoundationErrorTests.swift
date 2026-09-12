@@ -58,12 +58,11 @@ final class FoundationErrorTests: XCTestCase {
     }
 
     @MainActor
-    func testRealtimeErrorHandlerOnlyNotifiesFatalErrors() async {
+    func testReportingOperationErrorsDoesNotInvokeBackgroundFailureHandler() async {
         let handler = RealtimeErrorHandler()
-        var receivedErrors: [XmaxError] = []
-        handler.setListener { error in
-            receivedErrors.append(error)
-        }
+        let callback = expectation(description: "Operation errors are log-only")
+        callback.isInverted = true
+        handler.setFailureHandler { _, _, _ in callback.fulfill() }
         let recoverableError = XmaxError(
             code: .rtcError,
             message: "Stop signal failed",
@@ -78,7 +77,7 @@ final class FoundationErrorTests: XCTestCase {
         await handler.report(recoverableError)
         await handler.report(fatalError)
 
-        XCTAssertEqual(receivedErrors, [fatalError])
+        await fulfillment(of: [callback], timeout: 0.05)
     }
 
     func testFormatterIncludesXmaxErrorDetails() {
