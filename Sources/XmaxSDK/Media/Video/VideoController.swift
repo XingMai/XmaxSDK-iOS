@@ -120,9 +120,11 @@ final class VideoController: VideoControlling, @unchecked Sendable {
             do {
                 try rtcManager.stopExternalAudioSource()
             } catch {
-                Self.logCleanupFailure(
-                    title: "停止 RTC 外部音频源失败 (Failed to Stop RTC External Audio Source)",
-                    error: error
+                XmaxLogger.realtime.error(
+                    message: """
+                    停止 RTC 外部音频源失败 (Failed to Stop RTC External Audio Source)
+                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                    """
                 )
             }
         }
@@ -177,9 +179,11 @@ private extension VideoController {
                 do {
                     try rtcManager.stopExternalAudioSource()
                 } catch {
-                    Self.logCleanupFailure(
-                        title: "回滚 RTC 外部音频源失败 (Failed to Roll Back RTC External Audio Source)",
-                        error: error
+                    XmaxLogger.realtime.error(
+                        message: """
+                        回滚 RTC 外部音频源失败 (Failed to Roll Back RTC External Audio Source)
+                        └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                        """
                     )
                 }
             }
@@ -207,16 +211,6 @@ private extension VideoController {
                     self.mediaSourceController.detachPreview(from: view)
                 }
             )
-        )
-    }
-
-    static func logCleanupFailure(
-        title: String,
-        error: any Error
-    ) {
-        XmaxLogger.realtime.error(
-            message: "\(title)\n└─ 原因 (Reason)：" +
-                (error as NSError).localizedDescription
         )
     }
 }

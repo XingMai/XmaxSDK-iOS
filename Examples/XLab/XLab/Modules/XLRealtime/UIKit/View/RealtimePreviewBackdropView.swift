@@ -9,6 +9,7 @@ final class RealtimePreviewBackdropView: UIView {
     // 显示配置
     private let videoContentMode: VideoContentMode
     private let trajectoryRenderer: (any TrajectoryEffectRendering)?
+    private var isLandscapeLayout: Bool?
 
     private var gradientLayer: CAGradientLayer {
         layer as! CAGradientLayer
@@ -71,8 +72,17 @@ final class RealtimePreviewBackdropView: UIView {
         videoViewportView.frame = bounds
         let contentFrame = videoViewportView.bounds
         realtimeVideoView.frame = contentFrame
+        let isLandscape = isLandscapeLayout ??
+            window?.windowScene?.interfaceOrientation.isLandscape ?? (bounds.width > bounds.height)
+        realtimeVideoView.videoContentMode = isLandscape ? .fit : videoContentMode
         cameraSwitchBlurView.frame = contentFrame
         realtimeVideoView.layoutIfNeeded()
+    }
+
+    /// 在旋转开始时应用目标布局，不等待窗口方向更新。
+    func setLandscapeLayout(_ isLandscape: Bool) {
+        isLandscapeLayout = isLandscape
+        realtimeVideoView.videoContentMode = isLandscape ? .fit : videoContentMode
     }
 
     func displayLocal(_ track: RealtimeVideoTrack?) {

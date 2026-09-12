@@ -5,6 +5,7 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
     enum Call: Equatable {
         case start(VideoFormat, Int, CameraPosition)
         case switchCamera(CameraPosition)
+        case updateOrientation(CameraOrientation, VideoFormat)
         case stop
     }
 
@@ -54,6 +55,10 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
             frameListener = nil
             errorListener = nil
         }
+    }
+
+    func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws {
+        lock.withLock { recordedCalls.append(.updateOrientation(orientation, videoFormat)) }
     }
 
     var currentErrorListener: XmaxErrorListener? {

@@ -273,10 +273,10 @@ private extension StorageService {
             )
             XmaxLogger.storage.info(
                 message: "开始上传 (Upload Started)\n" +
-                    "├─ 类型 (Type)：\(mediaType.rawValue)\n" +
-                    "├─ 分辨率 (Resolution)：\(resolution)\n" +
-                    "├─ 大小 (Size)：\(formatByteCount(byteCount))\n" +
-                    "└─ 安全检测 (Safety Check)：\(checksSafety)"
+                    "├─ \(XmaxLogger.localized("类型：", "Type: "))\(mediaType.rawValue)\n" +
+                    "├─ \(XmaxLogger.localized("分辨率：", "Resolution: "))\(resolution)\n" +
+                    "├─ \(XmaxLogger.localized("大小：", "Size: "))\(formatByteCount(byteCount))\n" +
+                    "└─ \(XmaxLogger.localized("安全检测：", "Safety Check: "))\(checksSafety)"
             )
 
             let temporary = try await fetchStorageConfiguration()
@@ -308,8 +308,8 @@ private extension StorageService {
 
             XmaxLogger.storage.info(
                 message: "上传完成 (Upload Completed)\n" +
-                    "├─ 地址 (URL)：\(result.url.absoluteString)\n" +
-                    "└─ 耗时 (Duration)：\(formatDuration(since: startedAt))"
+                    "├─ \(XmaxLogger.localized("地址：", "URL: "))\(result.url.absoluteString)\n" +
+                    "└─ \(XmaxLogger.localized("耗时：", "Duration: "))\(formatDuration(since: startedAt))"
             )
             return result
         } catch let error as XmaxError {
@@ -649,9 +649,9 @@ private extension StorageService {
     func logUploadFailure(_ error: XmaxError, startedAt: Date) {
         XmaxLogger.storage.error(
             message: "上传失败 (Upload Failed)\n" +
-                "├─ 错误码 (Error Code)：\(error.code.rawValue)\n" +
-                "├─ 原因 (Reason)：\(error.message)\n" +
-                "└─ 耗时 (Duration)：\(formatDuration(since: startedAt))"
+                "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(error.code.rawValue)\n" +
+                "├─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.message)\n" +
+                "└─ \(XmaxLogger.localized("耗时：", "Duration: "))\(formatDuration(since: startedAt))"
         )
     }
 

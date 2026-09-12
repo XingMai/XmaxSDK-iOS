@@ -132,7 +132,7 @@ private extension RealtimeTiming {
 
         var lines = [
             "实时生成启动耗时 (Realtime Generation Startup Timing)",
-            "├─ 总耗时 (Total Duration)：\(duration(startedAt, readyAt))"
+            "├─ \(XmaxLogger.localized("总耗时：", "Total Duration: "))\(duration(startedAt, readyAt))"
         ]
 
         if let connectionStartedAt = state.connectionStartedAt,
@@ -142,7 +142,7 @@ private extension RealtimeTiming {
                 connectionFinishedAt
             ) ?? 0
             lines.append(
-                "├─ 实时连接 (Realtime Connection)：\(format(connectionDuration))"
+                "├─ \(XmaxLogger.localized("实时连接：", "Realtime Connection: "))\(format(connectionDuration))"
             )
             let sessionDuration = milliseconds(
                 state.sessionStartedAt,
@@ -154,19 +154,19 @@ private extension RealtimeTiming {
             )
             appendConnectionDetails(
                 [
-                    ("服务端会话创建 (Server Session Creation)", sessionDuration),
-                    ("RTC 房间连接 (RTC Room Connection)", roomJoinDuration)
+                    (XmaxLogger.localized("服务端会话创建：", "Server Session Creation: "), sessionDuration),
+                    (XmaxLogger.localized("RTC 房间连接：", "RTC Room Connection: "), roomJoinDuration)
                 ],
                 to: &lines
             )
         }
 
         lines.append(
-            "├─ 等待生成结果流确认 (Waiting for Remote Stream)：" +
+            "├─ \(XmaxLogger.localized("等待生成结果流确认：", "Waiting for Remote Stream: "))" +
                 duration(signalStartedAt, seiMatchedAt)
         )
         lines.append(
-            "└─ 结果流确认到首帧就绪 (First Frame Ready)：" +
+            "└─ \(XmaxLogger.localized("结果流确认到首帧就绪：", "First Frame Ready: "))" +
                 duration(seiMatchedAt, readyAt)
         )
         return lines.joined(separator: "\n")
@@ -185,12 +185,12 @@ private extension RealtimeTiming {
         var lines = [
             "实时生成启动未完成耗时 " +
                 "(Incomplete Realtime Generation Startup Timing)",
-            "├─ 已耗时 (Elapsed Time)：\(duration(startedAt, failureAt))",
-            "├─ 停留阶段 (Current Stage)：\(pendingStage(state))"
+            "├─ \(XmaxLogger.localized("已耗时：", "Elapsed Time: "))\(duration(startedAt, failureAt))",
+            "├─ \(XmaxLogger.localized("停留阶段：", "Current Stage: "))\(pendingStage(state))"
         ]
         if let sessionStartedAt = state.sessionStartedAt {
             appendDetail(
-                "服务端会话创建 (Server Session Creation)",
+                XmaxLogger.localized("服务端会话创建：", "Server Session Creation: "),
                 milliseconds(
                     sessionStartedAt,
                     state.sessionFinishedAt ?? failureAt
@@ -200,7 +200,7 @@ private extension RealtimeTiming {
         }
         if let roomJoinStartedAt = state.roomJoinStartedAt {
             appendDetail(
-                "RTC 房间连接 (RTC Room Connection)",
+                XmaxLogger.localized("RTC 房间连接：", "RTC Room Connection: "),
                 milliseconds(
                     roomJoinStartedAt,
                     state.roomJoinFinishedAt ?? failureAt
@@ -210,7 +210,7 @@ private extension RealtimeTiming {
         }
         if let connectionStartedAt = state.connectionStartedAt {
             appendDetail(
-                "实时连接 (Realtime Connection)",
+                XmaxLogger.localized("实时连接：", "Realtime Connection: "),
                 milliseconds(
                     connectionStartedAt,
                     state.connectionFinishedAt ?? failureAt
@@ -220,7 +220,7 @@ private extension RealtimeTiming {
         }
         if let signalStartedAt = state.signalStartedAt {
             appendDetail(
-                "等待生成结果流确认 (Waiting for Result Stream Confirmation)",
+                XmaxLogger.localized("等待生成结果流确认：", "Waiting for Result Stream Confirmation: "),
                 milliseconds(
                     signalStartedAt,
                     state.seiMatchedAt ?? failureAt
@@ -230,38 +230,38 @@ private extension RealtimeTiming {
         }
         if let seiMatchedAt = state.seiMatchedAt {
             appendDetail(
-                "结果流确认后等待首帧 (Waiting for First Frame After Result Stream Confirmation)",
+                XmaxLogger.localized("结果流确认后等待首帧：", "Waiting for First Frame After Result Stream Confirmation: "),
                 milliseconds(seiMatchedAt, failureAt),
                 to: &lines
             )
         }
         lines.append(
-            "└─ 失败原因 (Failure Reason)：\(error.localizedDescription)"
+            "└─ \(XmaxLogger.localized("失败原因：", "Failure Reason: "))\(error.localizedDescription)"
         )
         return lines.joined(separator: "\n")
     }
 
     static func pendingStage(_ state: State) -> String {
         if state.seiMatchedAt != nil {
-            return "结果流已确认，正在等待首帧 (Result Stream Confirmed, Waiting for First Frame)"
+            return XmaxLogger.localized("结果流已确认，正在等待首帧", "Result Stream Confirmed, Waiting for First Frame")
         }
         if state.signalStartedAt != nil {
-            return "正在等待生成结果流确认 (Waiting for Result Stream Confirmation)"
+            return XmaxLogger.localized("正在等待生成结果流确认", "Waiting for Result Stream Confirmation")
         }
         if state.connectionFinishedAt != nil {
-            return "连接完成后准备生成 (Preparing Generation After Connection)"
+            return XmaxLogger.localized("连接完成后准备生成", "Preparing Generation After Connection")
         }
         if state.roomJoinStartedAt != nil,
            state.roomJoinFinishedAt == nil {
-            return "正在连接 RTC 房间 (Connecting to RTC Room)"
+            return XmaxLogger.localized("正在连接 RTC 房间", "Connecting to RTC Room")
         }
         if state.sessionFinishedAt != nil {
-            return "RTC 连接准备 (RTC Connection Setup)"
+            return XmaxLogger.localized("RTC 连接准备", "RTC Connection Setup")
         }
         if state.sessionStartedAt != nil {
-            return "服务端会话创建 (Server Session Creation)"
+            return XmaxLogger.localized("服务端会话创建", "Server Session Creation")
         }
-        return "调用与本地准备 (Invocation and Local Preparation)"
+        return XmaxLogger.localized("调用与本地准备", "Invocation and Local Preparation")
     }
 
     static func appendDetail(
@@ -273,7 +273,7 @@ private extension RealtimeTiming {
               milliseconds >= minimumDetailMilliseconds else {
             return
         }
-        lines.append("├─ \(title)：\(format(milliseconds))")
+        lines.append("├─ \(title)\(format(milliseconds))")
     }
 
     static func appendConnectionDetails(
@@ -293,7 +293,7 @@ private extension RealtimeTiming {
                 ? "│  └─"
                 : "│  ├─"
             lines.append(
-                "\(branch) \(detail.0)：\(format(detail.1))"
+                "\(branch) \(detail.0)\(format(detail.1))"
             )
         }
     }

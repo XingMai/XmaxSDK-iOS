@@ -5,6 +5,126 @@ import XCTest
 
 @MainActor
 final class XmaxVideoViewTests: XCTestCase {
+    func testRotationObserverNotifiesTargetBeforeTransitionCompletes() {
+        let track = RealtimeVideoTrack(id: "local")
+        var notifications = 0
+        track.orientationChangeHandler = { if $0 { notifications += 1 } }
+        let view = XmaxVideoView(track: track)
+        view.updateInterfaceOrientation(.portrait)
+        let observer = VideoOrientationObserver(videoView: view, deviceOrientation: { .landscapeRight })
+        let transition = VideoRotationTransitionStub(angle: .pi / 2)
+
+        observer.viewWillTransition(to: CGSize(width: 844, height: 390), with: transition)
+
+        XCTAssertTrue(observer.isTransitioning)
+        XCTAssertEqual(track.displayOrientation, .landscapeLeft)
+        XCTAssertEqual(notifications, 1)
+
+        transition.finish()
+        XCTAssertFalse(observer.isTransitioning)
+        XCTAssertEqual(track.displayOrientation, .landscapeLeft)
+        XCTAssertEqual(notifications, 1)
+    }
+
+    func testRotationObserverIgnoresNonRotationResize() {
+        let track = RealtimeVideoTrack(id: "local")
+        let view = XmaxVideoView(track: track)
+        view.updateInterfaceOrientation(.portrait)
+        let observer = VideoOrientationObserver(videoView: view)
+
+        observer.viewWillTransition(
+            to: CGSize(width: 600, height: 400),
+            with: VideoRotationTransitionStub(angle: 0)
+        )
+
+        XCTAssertFalse(observer.isTransitioning)
+        XCTAssertEqual(track.displayOrientation, .portrait)
+    }
+
+    func testDeviceOrientationMapsToInterfaceOrientation() {
+        for (device, expected) in [
+            (UIDeviceOrientation.portrait, UIInterfaceOrientation.portrait),
+            (.portraitUpsideDown, .portraitUpsideDown),
+            (.landscapeLeft, .landscapeRight),
+            (.landscapeRight, .landscapeLeft)
+        ] {
+            XCTAssertEqual(
+                VideoOrientationObserver.interfaceOrientation(for: device),
+                expected
+            )
+        }
+        for device in [UIDeviceOrientation.unknown, .faceUp, .faceDown] {
+            XCTAssertNil(VideoOrientationObserver.interfaceOrientation(for: device))
+        }
+    }
+
+    func testRotationDoesNotRotateAgainWhenLayoutAlreadyAppliedTargetOrientation() {
+        let track = RealtimeVideoTrack(id: "local")
+        let view = XmaxVideoView(track: track)
+        view.updateInterfaceOrientation(.landscapeRight)
+        let observer = VideoOrientationObserver(videoView: view, deviceOrientation: { .landscapeLeft })
+        let transition = VideoRotationTransitionStub(angle: -.pi / 2)
+
+        observer.viewWillTransition(to: CGSize(width: 844, height: 390), with: transition)
+
+        XCTAssertEqual(track.displayOrientation, .landscapeRight)
+        transition.finish()
+        XCTAssertEqual(track.displayOrientation, .landscapeRight)
+    }
+
+    func testRotationObserverIsRemovedWithVideoView() {
+        let track = RealtimeVideoTrack(id: "local")
+        track.orientationChangeHandler = { _ in }
+        let view = XmaxVideoView(track: track)
+        let parent = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.addSubview(parent.view)
+        parent.view.addSubview(view)
+
+        XCTAssertEqual(parent.children.filter { $0 is VideoOrientationObserver }.count, 1)
+        view.removeFromSuperview()
+        XCTAssertTrue(parent.children.isEmpty)
+    }
+
+    func testOrientationChangesOnlyNotifyWhenSwitchingBetweenPortraitAndLandscape() {
+        let track = RealtimeVideoTrack(id: "local")
+        var notifications = 0
+        track.orientationChangeHandler = { if $0 { notifications += 1 } }
+        let view = XmaxVideoView(track: track)
+
+        view.updateInterfaceOrientation(.unknown)
+        view.updateInterfaceOrientation(.portrait)
+        view.updateInterfaceOrientation(.portraitUpsideDown)
+        XCTAssertEqual(notifications, 0)
+        XCTAssertEqual(track.displayOrientation, .portraitUpsideDown)
+
+        view.updateInterfaceOrientation(.landscapeLeft)
+        view.updateInterfaceOrientation(.landscapeRight)
+        view.updateInterfaceOrientation(.unknown)
+        XCTAssertEqual(notifications, 1)
+        XCTAssertEqual(track.displayOrientation, .landscapeRight)
+
+        view.updateInterfaceOrientation(.portrait)
+        XCTAssertEqual(notifications, 2)
+    }
+
+    func testNewTrackStartsWithItsOwnOrientationBaseline() {
+        let first = RealtimeVideoTrack(id: "first")
+        let second = RealtimeVideoTrack(id: "second")
+        var notifications = 0
+        first.orientationChangeHandler = { if $0 { notifications += 1 } }
+        second.orientationChangeHandler = { if $0 { notifications += 1 } }
+        let view = XmaxVideoView(track: first)
+        view.updateInterfaceOrientation(.portrait)
+
+        view.track = second
+        view.updateInterfaceOrientation(.landscapeLeft)
+        XCTAssertEqual(notifications, 0)
+
+        view.updateInterfaceOrientation(.portrait)
+        XCTAssertEqual(notifications, 1)
+    }
+
     func testInitializationUsesPublicRenderingDefaults() {
         let track = RealtimeVideoTrack(id: "track")
 
@@ -204,12 +324,68 @@ final class XmaxVideoViewTests: XCTestCase {
         let layer = try XCTUnwrap(view.layer.sublayers?.compactMap { $0 as? AVSampleBufferDisplayLayer }.first)
         XCTAssertEqual(layer.affineTransform().a, -1)
         XCTAssertEqual(layer.videoGravity, .resizeAspect)
+        for key in ["bounds", "position", "transform", "videoGravity"] {
+            XCTAssertTrue(layer.actions?[key] is NSNull)
+        }
         presenter.setMirrored(false)
         XCTAssertEqual(layer.affineTransform(), .identity)
         presenter.detach(from: view)
         XCTAssertNil(layer.superlayer)
     }
 
+}
+
+@MainActor
+private final class VideoRotationTransitionStub: NSObject, UIViewControllerTransitionCoordinator {
+    // 过渡配置
+    let targetTransform: CGAffineTransform
+    let containerView = UIView()
+    let isAnimated = true
+    let presentationStyle = UIModalPresentationStyle.none
+    let initiallyInteractive = false
+    let isInterruptible = false
+    let isInteractive = false
+    let isCancelled = false
+    let transitionDuration: TimeInterval = 0.3
+    let percentComplete: CGFloat = 0
+    let completionVelocity: CGFloat = 0
+    let completionCurve = UIView.AnimationCurve.easeInOut
+
+    // 完成通知
+    private var completion: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?
+
+    init(angle: CGFloat) {
+        targetTransform = CGAffineTransform(rotationAngle: angle)
+        super.init()
+    }
+
+    func viewController(forKey key: UITransitionContextViewControllerKey) -> UIViewController? { nil }
+    func view(forKey key: UITransitionContextViewKey) -> UIView? { nil }
+
+    func animate(
+        alongsideTransition animation: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?,
+        completion: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?
+    ) -> Bool {
+        animation?(self)
+        self.completion = completion
+        return true
+    }
+
+    func animateAlongsideTransition(
+        in view: UIView?,
+        animation: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?,
+        completion: ((any UIViewControllerTransitionCoordinatorContext) -> Void)?
+    ) -> Bool {
+        animate(alongsideTransition: animation, completion: completion)
+    }
+
+    func notifyWhenInteractionEnds(_ handler: @escaping (any UIViewControllerTransitionCoordinatorContext) -> Void) {}
+    func notifyWhenInteractionChanges(_ handler: @escaping (any UIViewControllerTransitionCoordinatorContext) -> Void) {}
+
+    func finish() {
+        completion?(self)
+        completion = nil
+    }
 }
 
 private extension XmaxVideoViewTests {

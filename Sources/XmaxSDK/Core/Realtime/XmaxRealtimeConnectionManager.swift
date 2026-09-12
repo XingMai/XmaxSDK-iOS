@@ -217,9 +217,11 @@ private extension XmaxRealtimeConnectionManager {
         do {
             try await renderController.resetRemoteTrack(track)
         } catch {
-            Self.logCleanupFailure(
-                title: "重置远端视频渲染失败 (Failed to Reset Remote Video Rendering)",
-                error: error
+            XmaxLogger.realtime.error(
+                message: """
+                重置远端视频渲染失败 (Failed to Reset Remote Video Rendering)
+                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                """
             )
         }
     }
@@ -228,20 +230,12 @@ private extension XmaxRealtimeConnectionManager {
         do {
             try await sessionService.closeSession(sessionID: sessionID)
         } catch {
-            Self.logCleanupFailure(
-                title: "连接回滚关闭会话失败 (Failed to Close Session During Connection Rollback)",
-                error: error
+            XmaxLogger.realtime.error(
+                message: """
+                连接回滚关闭会话失败 (Failed to Close Session During Connection Rollback)
+                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                """
             )
         }
-    }
-
-    nonisolated static func logCleanupFailure(
-        title: String,
-        error: any Error
-    ) {
-        XmaxLogger.realtime.error(
-            message: "\(title)\n└─ 原因 (Reason)：" +
-                (error as NSError).localizedDescription
-        )
     }
 }

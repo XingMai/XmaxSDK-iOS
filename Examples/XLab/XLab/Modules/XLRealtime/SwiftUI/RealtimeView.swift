@@ -41,10 +41,13 @@ struct RealtimeView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            XmaxRealtimeVideo(
-                localTrack: realtimeSession.localVideoTrack,
-                remoteTrack: realtimeSession.remoteVideoTrack
-            )
+            GeometryReader { geometry in
+                XmaxRealtimeVideo(
+                    localTrack: realtimeSession.localVideoTrack,
+                    remoteTrack: realtimeSession.remoteVideoTrack,
+                    videoContentMode: geometry.size.width > geometry.size.height ? .fit : .fill
+                )
+            }
                 .ignoresSafeArea()
                 .simultaneousGesture(
                     TapGesture().onEnded(dismissPromptKeyboard)
@@ -57,6 +60,26 @@ struct RealtimeView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             controlPanel
+        }
+        .overlay {
+            if let message = realtimeSession.toastMessage {
+                Text(message)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(9)
+                    .background(Color(white: 16.0 / 255).opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .padding(.horizontal, 32)
+                    .allowsHitTesting(false)
+            }
+        }
+        .task(id: realtimeSession.toastMessage) {
+            guard realtimeSession.toastMessage != nil else { return }
+            do {
+                try await Task.sleep(nanoseconds: 2000000000)
+                realtimeSession.toastMessage = nil
+            } catch {}
         }
         .sheet(isPresented: $isReferencePickerPresented) {
             RealtimeReferencePhotoPicker {

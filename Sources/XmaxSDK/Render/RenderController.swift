@@ -42,7 +42,7 @@ final class RenderController: RenderControlling {
             )
         },
         errorListener: { error in
-            XmaxLogger.realtime.error(message: "插帧已降级 (Frame Interpolation Disabled)\n└─ 原因 (Reason)：\(error.message)")
+            XmaxLogger.realtime.error(message: "插帧已降级 (Frame Interpolation Disabled)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.message)")
         }
     )
 

@@ -6,7 +6,8 @@ public struct XmaxConfiguration: Equatable, Sendable {
     /// 调用 Xmax 服务使用的 API Key。
     public let apiKey: String
 
-    /// SDK 连接的服务环境。
+    /// SDK 连接的服务环境，同时决定日志细项语言：国内为中文，海外为英文。
+    /// 日志语言全局生效，以最后创建的 Client 为准。
     public let environment: XmaxEnvironment
 
     /// SDK 输出的日志类型；默认为不输出日志。

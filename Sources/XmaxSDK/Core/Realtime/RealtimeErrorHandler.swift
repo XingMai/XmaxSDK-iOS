@@ -51,8 +51,8 @@ final class RealtimeErrorHandler: @unchecked Sendable {
     func report(_ error: XmaxError) async {
         XmaxLogger.realtime.error(
             message: "实时服务错误 (Realtime Service Error)\n" +
-                "├─ 错误码 (Error Code)：\(error.code.rawValue)\n" +
-                "└─ 信息 (Message)：\(error.message)"
+                "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(error.code.rawValue)\n" +
+                "└─ \(XmaxLogger.localized("信息：", "Message: "))\(error.message)"
         )
     }
 }

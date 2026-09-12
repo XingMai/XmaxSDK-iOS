@@ -399,10 +399,10 @@ private final class StorageUploadOperation: @unchecked Sendable {
                 let platformError = error as NSError
                 XmaxLogger.storage.error(
                     message: "上传失败 (Upload Failed)\n" +
-                        "├─ 错误域 (Error Domain)：\(platformError.domain)\n" +
-                        "├─ 错误码 (Error Code)：\(platformError.code)\n" +
-                        "├─ 错误信息 (Error Message)：\(platformError.localizedDescription)\n" +
-                        "└─ 耗时 (Duration)：\(formatDuration())"
+                        "├─ \(XmaxLogger.localized("错误域：", "Error Domain: "))\(platformError.domain)\n" +
+                        "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(platformError.code)\n" +
+                        "├─ \(XmaxLogger.localized("错误信息：", "Error Message: "))\(platformError.localizedDescription)\n" +
+                        "└─ \(XmaxLogger.localized("耗时：", "Duration: "))\(formatDuration())"
                 )
                 finish(.failure(XmaxError(
                     code: .uploadError,

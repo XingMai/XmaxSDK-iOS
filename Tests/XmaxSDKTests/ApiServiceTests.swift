@@ -248,6 +248,9 @@ final class ApiServiceTests: XCTestCase {
     }
 
     func testResponseLogOmitsResponseBodyWhenNotProvided() {
+        XmaxLogger.configure(options: [], environment: .china)
+        defer { XmaxLogger.configure(options: []) }
+
         let message = ApiLogger.responseMessage(
             method: .post,
             path: "/session",
@@ -260,13 +263,16 @@ final class ApiServiceTests: XCTestCase {
         XCTAssertEqual(
             message,
             "POST /session\n" +
-                "├─ 状态 (Status)：400\n" +
-                "├─ 耗时 (Duration)：20 ms\n" +
-                "└─ 响应 (Response Size)：128 bytes"
+                "├─ 状态：400\n" +
+                "├─ 耗时：20 ms\n" +
+                "└─ 响应：128 bytes"
         )
     }
 
     func testResponseLogContainsFailureResponseBody() {
+        XmaxLogger.configure(options: [], environment: .global)
+        defer { XmaxLogger.configure(options: []) }
+
         let body = Data(
             #"{"success":false,"message":"busy"}"#.utf8
         )
@@ -281,7 +287,7 @@ final class ApiServiceTests: XCTestCase {
 
         XCTAssertTrue(
             message.contains(
-                "└─ 正文 (Response Body)：\n" +
+                "└─ Response Body: \n" +
                     "   {\n" +
                     "     \"message\" : \"busy\",\n" +
                     "     \"success\" : false\n" +

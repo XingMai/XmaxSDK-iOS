@@ -3,6 +3,87 @@ import XCTest
 
 @MainActor
 final class RealtimeCoordinatorTests: XCTestCase {
+    func testBeginDisconnectAllowsLocalAdjustmentWhileCleanupIsWaiting() async throws {
+        let gate = LifecycleFailureGate()
+        let events = RealtimeCoordinatorEventRecorder()
+        let coordinator = RealtimeCoordinator(
+            errorHandler: RealtimeErrorHandler(),
+            cleanup: { _, _ in
+                await gate.wait()
+                return .init(hasLocalMedia: true)
+            }
+        )
+        try await coordinator.run(kind: .connection) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .connected), token: token)
+        }
+
+        let operation = Task {
+            let cleanup = await coordinator.beginDisconnect(reason: .orientationChanged)
+            events.append("local-adjustment")
+            await cleanup?.value
+        }
+        await waitUntil { await gate.isWaiting }
+        await waitUntil { events.values.contains("local-adjustment") }
+        let pendingState = await coordinator.currentState
+        XCTAssertEqual(pendingState.connectionState, .disconnecting)
+
+        await gate.release()
+        await operation.value
+        let finalState = await coordinator.currentState
+        XCTAssertEqual(finalState.connectionState, .ready)
+        XCTAssertEqual(finalState.reason, .orientationChanged)
+    }
+
+    func testOrientationChangeDisconnectsActiveConnectionAndPreservesLocalMedia() async throws {
+        for initialState in [
+            RealtimeConnectionState.connecting, .connected, .generating
+        ] {
+            let probe = RealtimeCoordinatorProbe()
+            let coordinator = RealtimeCoordinator(
+                errorHandler: RealtimeErrorHandler(),
+                cleanup: { scope, _ in
+                    await probe.recordCleanup(scope)
+                    return .init(hasLocalMedia: true)
+                }
+            )
+            try await coordinator.run(kind: .connection) { token in
+                try await coordinator.commit(
+                    RealtimeState(connectionState: initialState), token: token
+                )
+            }
+
+            await coordinator.disconnect(reason: .orientationChanged)
+
+            let state = await coordinator.currentState
+            let scopes = await probe.cleanupScopes
+            XCTAssertEqual(state.connectionState, .ready)
+            XCTAssertEqual(state.reason, .orientationChanged)
+            XCTAssertEqual(scopes, [.connection])
+        }
+    }
+
+    func testOrientationChangeDoesNotInterruptUnconnectedLocalPreview() async throws {
+        for initialState in [
+            RealtimeConnectionState.idle, .preparing, .ready
+        ] {
+            let probe = RealtimeCoordinatorProbe()
+            let coordinator = makeCoordinator(probe: probe)
+            try await coordinator.run(kind: .media) { token in
+                try await coordinator.commit(
+                    RealtimeState(connectionState: initialState), token: token
+                )
+            }
+
+            await coordinator.disconnect(reason: .orientationChanged)
+
+            let state = await coordinator.currentState
+            let scopes = await probe.cleanupScopes
+            XCTAssertEqual(state.connectionState, initialState)
+            XCTAssertNil(state.reason)
+            XCTAssertTrue(scopes.isEmpty)
+        }
+    }
+
     func testPreviewReadyOnlyAdvancesCurrentPreparation() async throws {
         let probe = RealtimeCoordinatorProbe()
         let coordinator = makeCoordinator(probe: probe)

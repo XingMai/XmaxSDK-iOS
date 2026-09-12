@@ -57,9 +57,17 @@ struct XmaxLogger: Sendable {
         self.category = category
     }
 
-    /// 更新 SDK 全局日志选项。
-    static func configure(options: XmaxLoggerOption) {
-        state.update(options)
+    /// 更新 SDK 全局日志选项和细项语言，后一次配置覆盖前一次。
+    static func configure(
+        options: XmaxLoggerOption,
+        environment: XmaxEnvironment = .china
+    ) {
+        state.update(options, environment: environment)
+    }
+
+    /// 选择日志细项文案；日志标题保持原有中英双语。
+    static func localized(_ chinese: String, _ english: String) -> String {
+        state.environment == .china ? chinese : english
     }
 
     static func isEnabled(_ option: XmaxLoggerOption) -> Bool {
@@ -156,15 +164,24 @@ struct XmaxLogger: Sendable {
     }
 }
 
-/// 以线程安全方式保存 SDK 全局日志选项。
+/// 以线程安全方式保存 SDK 全局日志配置。
 final class XmaxLoggerState: @unchecked Sendable {
 
     private let lock = NSLock()
     private var options: XmaxLoggerOption = []
+    private var storedEnvironment: XmaxEnvironment = .china
 
-    func update(_ options: XmaxLoggerOption) {
+    var environment: XmaxEnvironment {
+        lock.withLock { storedEnvironment }
+    }
+
+    func update(
+        _ options: XmaxLoggerOption,
+        environment: XmaxEnvironment = .china
+    ) {
         lock.lock()
         self.options = options
+        storedEnvironment = environment
         lock.unlock()
     }
 

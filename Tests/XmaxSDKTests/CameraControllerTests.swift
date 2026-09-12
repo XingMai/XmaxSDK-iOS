@@ -4,6 +4,35 @@ import XCTest
 @testable import XmaxSDK
 
 final class CameraControllerTests: XCTestCase {
+    func testCameraOrientationSwapsBucketDimensionsAndPreservesEncodingConfiguration() async throws {
+        let capture = CameraCaptureManagingStub()
+        let controller = CameraController(
+            rtcManager: RtcManagingStub(),
+            permissionManager: PermissionManagingStub(),
+            mediaService: MediaService(model: .x2_0_pro),
+            captureManager: capture
+        )
+        let portrait = RealtimeVideoFormat(
+            width: 1024, height: 1920, fps: 30,
+            minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+        )
+        let stream = try await controller.createLocalCameraStream(videoFormat: portrait, position: .front)
+
+        for orientation in [CameraOrientation.landscapeLeft, .landscapeRight] {
+            try await controller.updateOrientation(orientation)
+            XCTAssertEqual(stream.videoTrack?.videoFormat, portrait.resized(width: 1920, height: 1024))
+            XCTAssertEqual(
+                capture.calls.last,
+                .updateOrientation(orientation, try VideoFormat(width: 1920, height: 1024, pixelFormat: .nv12))
+            )
+        }
+
+        try await controller.updateOrientation(.portrait)
+        XCTAssertEqual(stream.videoTrack?.videoFormat, portrait)
+        XCTAssertFalse(capture.calls.contains(.stop))
+        await controller.stopLocalCameraStream()
+    }
+
     func testBucketCameraPreservesResolutionAndEncodingOptions() async throws {
         for (width, height) in [(1024, 1920), (1920, 1024)] {
             let capture = CameraCaptureManagingStub()

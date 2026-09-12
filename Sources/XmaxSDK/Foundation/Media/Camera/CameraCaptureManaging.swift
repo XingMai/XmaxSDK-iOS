@@ -1,5 +1,27 @@
 import Foundation
 
+/// 摄像头画面在窗口中的显示方向。
+enum CameraOrientation: Sendable {
+    case portrait
+    case portraitUpsideDown
+    case landscapeLeft
+    case landscapeRight
+
+    var isLandscape: Bool {
+        self == .landscapeLeft || self == .landscapeRight
+    }
+
+    /// 将固定竖向、未镜像的采集帧转为窗口显示方向。
+    var frameRotation: VideoRotation {
+        switch self {
+        case .portrait: .rotation0
+        case .portraitUpsideDown: .rotation180
+        case .landscapeLeft: .rotation270
+        case .landscapeRight: .rotation90
+        }
+    }
+}
+
 /// 管理系统摄像头及其原始视频帧输出。
 protocol CameraCaptureManaging: Sendable {
 
@@ -25,6 +47,14 @@ protocol CameraCaptureManaging: Sendable {
     /// - Parameter position: 目标摄像头位置。
     /// - Throws: 设备不可用或切换失败时抛出错误。
     func switchCamera(to position: CameraPosition) async throws
+
+    /// 更新帧转换方向和输出尺寸，保留采集连接及帧率。
+    ///
+    /// - Parameters:
+    ///   - orientation: 窗口显示方向。
+    ///   - videoFormat: 转正后的输出尺寸和像素格式。
+    /// - Throws: 采集已停止时抛出错误。
+    func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws
 
     /// 停止采集，等待正在处理的帧结束并释放设备。
     func stop() async

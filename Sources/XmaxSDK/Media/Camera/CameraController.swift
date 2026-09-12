@@ -168,7 +168,12 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         do {
             try stopMicrophoneCapture()
         } catch {
-            Self.logCleanupFailure(title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)", error: error)
+            XmaxLogger.realtime.error(
+                message: """
+                停止麦克风采集失败 (Failed to Stop Microphone Capture)
+                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                """
+            )
         }
         let resources = stateLock.withLock {
             let resources = (activeTrack, preview)
@@ -207,6 +212,28 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         let preview = stateLock.withLock { self.preview }
         await preview?.presenter.setMirrored(nextPosition == .front)
         return RealtimeMediaStream(id: StreamID.local.rawValue, videoTrack: track)
+    }
+
+    func updateOrientation(_ orientation: CameraOrientation) async throws {
+        guard let track = currentTrack, let format = track.videoFormat else { return }
+        let longSide = max(format.width, format.height)
+        let shortSide = min(format.width, format.height)
+        let resolved = try resolveVideoFormat(format.resized(
+            width: orientation.isLandscape ? longSide : shortSide,
+            height: orientation.isLandscape ? shortSide : longSide
+        ))
+
+        try await captureManager.updateOrientation(
+            orientation,
+            videoFormat: VideoFormat(width: resolved.width, height: resolved.height, pixelFormat: .nv12)
+        )
+        await MainActor.run {
+            guard track.displayOrientation == nil || track.displayOrientation == orientation else { return }
+            stateLock.withLock {
+                guard activeTrack === track else { return }
+                track.updateVideoFormat(resolved)
+            }
+        }
     }
 }
 
@@ -288,11 +315,5 @@ private extension CameraController {
         let resolvedFormat = videoFormat.resized(width: Int(targetSize.width), height: Int(targetSize.height))
         try resolvedFormat.validate()
         return resolvedFormat
-    }
-
-    static func logCleanupFailure(title: String, error: any Error) {
-        XmaxLogger.realtime.error(
-            message: "\(title)\n└─ 原因 (Reason)：" + (error as NSError).localizedDescription
-        )
     }
 }

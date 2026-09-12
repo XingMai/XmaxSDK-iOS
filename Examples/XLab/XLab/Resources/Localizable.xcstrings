@@ -1,6 +1,23 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "realtime.orientation.changed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen orientation changed. The realtime connection was closed. Please restart generation."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕方向已切换，已断开实时连接，请重新开始生成"
+          }
+        }
+      }
+    },
     "common.ok": {
       "extractionState": "manual",
       "localizations": {

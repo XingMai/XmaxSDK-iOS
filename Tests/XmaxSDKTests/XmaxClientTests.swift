@@ -2,6 +2,25 @@ import XCTest
 @testable import XmaxSDK
 
 final class XmaxClientTests: XCTestCase {
+    func testLastCreatedClientDeterminesGlobalLogLanguage() {
+        defer { XmaxLogger.configure(options: []) }
+
+        for environment in [XmaxEnvironment.global, .china, .global] {
+            let client = XmaxClient(
+                configuration: XmaxConfiguration(
+                    apiKey: "test-key",
+                    environment: environment
+                )
+            )
+            withExtendedLifetime(client) {
+                XCTAssertEqual(
+                    XmaxLogger.localized("分辨率", "Resolution"),
+                    environment == .china ? "分辨率" : "Resolution"
+                )
+            }
+        }
+    }
+
     @MainActor
     func testCreateRealtimeManagerReturnsPublicRealtimeInterface() {
         let client = XmaxClient(

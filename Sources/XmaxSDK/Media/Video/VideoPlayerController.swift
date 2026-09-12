@@ -172,7 +172,7 @@ final class VideoPlayerController: VideoPlayerControlling {
                         do {
                             try videoListener(frame)
                         } catch {
-                            XmaxLogger.media.error(message: "视频帧推送失败 (Video Frame Push Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                            XmaxLogger.media.error(message: "视频帧推送失败 (Video Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
                         }
                     },
                     audioHandler: { frame in
@@ -180,7 +180,7 @@ final class VideoPlayerController: VideoPlayerControlling {
                         do {
                             try audioListener(frame)
                         } catch {
-                            XmaxLogger.media.error(message: "音频帧推送失败 (Audio Frame Push Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                            XmaxLogger.media.error(message: "音频帧推送失败 (Audio Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
                         }
                     }
                 )
@@ -348,7 +348,7 @@ private extension VideoPlayerController {
                         timestampUs: Int64(target / 1_000)
                     )
                 } catch {
-                    XmaxLogger.media.error(message: "视频帧转换失败 (Video Frame Conversion Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                    XmaxLogger.media.error(message: "视频帧转换失败 (Video Frame Conversion Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
                     continue
                 }
                 try await sleep(untilNanoseconds: target)

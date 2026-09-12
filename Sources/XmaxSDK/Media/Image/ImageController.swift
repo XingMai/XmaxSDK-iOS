@@ -79,7 +79,7 @@ final class ImageController: ImageControlling, @unchecked Sendable {
                 } catch {
                     XmaxLogger.realtime.error(
                         message: "解除本地图片预览绑定失败 (Failed to Detach Local Image Preview)\n" +
-                            "└─ 原因 (Reason)：" + (error as NSError).localizedDescription
+                            "└─ \(XmaxLogger.localized("原因：", "Reason: "))" + (error as NSError).localizedDescription
                     )
                 }
 
@@ -233,7 +233,7 @@ private extension ImageController {
                         return
                     }
 
-                    XmaxLogger.media.error(message: "图片帧推送失败 (Image Frame Push Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+                    XmaxLogger.media.error(message: "图片帧推送失败 (Image Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
                 }
             }
         }

@@ -690,13 +690,18 @@ private extension XmaxRealtimeManager {
                 message: "Realtime connection is already open"
             )
         }
-        guard let videoFormat = localStream.videoTrack?.videoFormat,
-              await mediaController.owns(localStream) else {
+        guard await mediaController.owns(localStream) else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: "The local stream must be created and started " +
                     "by this realtime manager"
             )
+        }
+
+        try await mediaController.updateCameraOrientation()
+        try token.ensureCurrent()
+        guard let videoFormat = localStream.videoTrack?.videoFormat else {
+            throw XmaxError(code: .invalidConfiguration, message: "Local video format is unavailable")
         }
 
         token.setFailureScope(.connection)
@@ -769,6 +774,15 @@ private extension XmaxRealtimeManager {
             let stream = try await prepare(token)
             try token.ensureCurrent()
             token.setFailureScope(.all)
+            if let track = stream.videoTrack {
+                await MainActor.run {
+                    track.orientationChangeHandler = { [weak self, weak track] changedAxis in
+                        guard let track else { return }
+                        Task { await self?.handleOrientationChange(for: track, changedAxis: changedAxis) }
+                    }
+                }
+                try token.ensureCurrent()
+            }
             await reconcileFrameInterpolation(for: stream)
             try token.ensureCurrent()
             try streamController.setRemoteAudioVolume(source == .video ? 1 : 0)
@@ -795,6 +809,24 @@ private extension XmaxRealtimeManager {
                 message: message
             )
         }
+    }
+
+    func handleOrientationChange(for track: RealtimeVideoTrack, changedAxis: Bool) async {
+        guard await mediaController.currentTrack === track else { return }
+        let disconnection = changedAxis
+            ? await coordinator.beginDisconnect(reason: .orientationChanged)
+            : nil
+
+        if await mediaController.currentTrack === track {
+            do {
+                try await mediaController.updateCameraOrientation()
+            } catch {
+                if await mediaController.currentTrack === track {
+                    await coordinator.terminate(with: XmaxError.from(error), target: .all)
+                }
+            }
+        }
+        await disconnection?.value
     }
 
     @discardableResult
@@ -876,19 +908,22 @@ private extension XmaxRealtimeManager {
         do {
             try await mediaController.stopMicrophoneCapture()
         } catch {
-            logCleanupFailure(
-                title: "停止麦克风采集失败 (Failed to Stop Microphone Capture)",
-                error: error
+            XmaxLogger.realtime.error(
+                message: """
+                停止麦克风采集失败 (Failed to Stop Microphone Capture)
+                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                """
             )
         }
 
         do {
             try await generationManager.reset(taskID: taskID)
         } catch {
-            logCleanupFailure(
-                title: "停止实时生成失败 " +
-                    "(Failed to Stop Realtime Generation)",
-                error: error
+            XmaxLogger.realtime.error(
+                message: """
+                停止实时生成失败 (Failed to Stop Realtime Generation)
+                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                """
             )
         }
 
@@ -897,10 +932,11 @@ private extension XmaxRealtimeManager {
         do {
             sessionID = try await connectionManager.disconnect() ?? sessionID
         } catch {
-            logCleanupFailure(
-                title: "断开实时连接失败 " +
-                    "(Failed to Disconnect Realtime)",
-                error: error
+            XmaxLogger.realtime.error(
+                message: """
+                断开实时连接失败 (Failed to Disconnect Realtime)
+                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                """
             )
         }
 
@@ -908,20 +944,20 @@ private extension XmaxRealtimeManager {
             await mediaController.stopLocalStream()
         } else {
             await mediaController.setLocalAudioPreviewMuted(false)
+            do {
+                try await mediaController.updateCameraOrientation()
+            } catch {
+                XmaxLogger.realtime.error(
+                    message: """
+                    更新摄像头方向失败 (Failed to Update Camera Orientation)
+                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                    """
+                )
+            }
         }
         return RealtimeCoordinator.CleanupResult(
             sessionID: sessionID,
             hasLocalMedia: await mediaController.currentTrack != nil
-        )
-    }
-
-    nonisolated static func logCleanupFailure(
-        title: String,
-        error: any Error
-    ) {
-        XmaxLogger.realtime.error(
-            message: "\(title)\n└─ 原因 (Reason)：" +
-                (error as NSError).localizedDescription
         )
     }
 }

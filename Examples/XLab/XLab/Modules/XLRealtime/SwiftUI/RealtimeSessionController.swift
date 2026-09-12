@@ -22,6 +22,9 @@ final class RealtimeSessionController: ObservableObject {
     // 错误状态
     @Published private(set) var errorMessage: String?
 
+    // 轻提示
+    @Published var toastMessage: String?
+
     // SDK 资源
     private let realtimeManager: any XmaxRealtimeManaging
     private var localMediaStream: RealtimeMediaStream?
@@ -298,6 +301,8 @@ final class RealtimeSessionController: ObservableObject {
         if state.connectionState == .idle { isLoading = false }
         if case .failure(let error) = state.reason {
             handleRealtimeError(error)
+        } else if state.reason == .orientationChanged {
+            toastMessage = XLLocalization.text("realtime.orientation.changed")
         }
     }
 

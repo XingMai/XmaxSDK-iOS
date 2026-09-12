@@ -13,6 +13,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
     private var input: AVCaptureDeviceInput?
     private var videoFormat: VideoFormat?
     private var frameRate = 0
+    private var orientation: CameraOrientation = .portrait
 
     // 事件监听
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
@@ -46,6 +47,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 
                     self.videoFormat = videoFormat
                     self.frameRate = frameRate
+                    orientation = videoFormat.height >= videoFormat.width ? .portrait : .landscapeRight
                     self.frameListener = frameListener
                     self.errorListener = errorListener
 
@@ -148,6 +150,45 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
             }
         }
     }
+
+    func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws {
+        try Task.checkCancellation()
+        let requestedAt = DispatchTime.now().uptimeNanoseconds
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            captureQueue.async { [self] in
+                let queueEnteredAt = DispatchTime.now().uptimeNanoseconds
+
+                do {
+                    guard self.videoFormat != nil else {
+                        throw Self.cameraError("Camera capture is not running")
+                    }
+                    guard self.orientation != orientation || self.videoFormat != videoFormat else {
+                        continuation.resume()
+                        return
+                    }
+
+                    self.orientation = orientation
+                    self.videoFormat = videoFormat
+
+                    let appliedAt = DispatchTime.now().uptimeNanoseconds
+                    XmaxLogger.media.debug(
+                        message: """
+                        旋转时序 [TEMP] (Rotation Timing)
+                        ├─ \(XmaxLogger.localized("阶段：", "Stage: "))capture_applied
+                        ├─ \(XmaxLogger.localized("时间：", "Time: "))\(appliedAt / 1000000) ms
+                        ├─ \(XmaxLogger.localized("排队及更新耗时：", "Queue and Update Duration: "))\((appliedAt - requestedAt) / 1000000) ms
+                        │  ├─ \(XmaxLogger.localized("采集队列等待：", "Capture Queue Wait: "))\((queueEnteredAt - requestedAt) / 1000000) ms
+                        │  └─ \(XmaxLogger.localized("更新帧转换参数：", "Frame Conversion Update: "))\((appliedAt - queueEnteredAt) / 1000000) ms
+                        └─ \(XmaxLogger.localized("输出：", "Output: "))\(orientation), \(videoFormat.width) × \(videoFormat.height)
+                        """
+                    )
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
 }
 
 extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
@@ -197,7 +238,7 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                 pixelBuffer: pixelBuffer,
                 outputWidth: videoFormat.width,
                 outputHeight: videoFormat.height,
-                rotation: .rotation0,
+                rotation: orientation.frameRotation,
                 timestampUs: timestampUs
             )
             try frameListener(frame)
@@ -207,7 +248,7 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
 
             hasReportedFrameError = true
-            XmaxLogger.media.error(message: "摄像头帧处理失败 (Camera Frame Processing Failed)\n└─ 原因 (Reason)：\(error.localizedDescription)")
+            XmaxLogger.media.error(message: "摄像头帧处理失败 (Camera Frame Processing Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
         }
     }
 }
@@ -291,12 +332,13 @@ private extension CameraCaptureManager {
     }
 
     func configureConnection() throws {
-        guard let videoFormat, let connection = output.connection(with: .video),
+        guard let connection = output.connection(with: .video),
               connection.isVideoOrientationSupported else {
             throw Self.cameraError("Camera video orientation is unavailable")
         }
 
-        connection.videoOrientation = videoFormat.height > videoFormat.width ? .portrait : .landscapeRight
+        // 固定竖向采集基准，窗口旋转由帧转换器处理。
+        connection.videoOrientation = .portrait
         if connection.isVideoMirroringSupported {
             connection.automaticallyAdjustsVideoMirroring = false
             connection.isVideoMirrored = false

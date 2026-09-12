@@ -11,6 +11,10 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
     private let metadataLock = NSLock()
     private var metadata: Metadata
 
+    // 显示方向事件
+    @MainActor var displayOrientation: CameraOrientation?
+    @MainActor var orientationChangeHandler: ((_ changedAxis: Bool) -> Void)?
+
     init(
         id: String,
         videoFormat: RealtimeVideoFormat? = nil,

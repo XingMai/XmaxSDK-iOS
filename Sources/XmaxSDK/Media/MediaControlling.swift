@@ -56,6 +56,11 @@ protocol MediaControlling: Actor, InteractionControlling {
     ///   切换失败时抛出错误。
     func switchCamera() async throws -> RealtimeMediaStream
 
+    /// 将当前摄像头的采集方向和尺寸同步到预览窗口；其他媒体来源保持不变。
+    ///
+    /// - Throws: 模型不支持目标尺寸或采集配置失败时抛出错误。
+    func updateCameraOrientation() async throws
+
     /// 从编码后的图片数据创建并持有本地图片媒体流。
     ///
     /// - Parameters:

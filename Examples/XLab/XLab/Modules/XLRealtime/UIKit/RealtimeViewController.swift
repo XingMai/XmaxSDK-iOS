@@ -509,6 +509,14 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         resumeRealtimeAfterBackgroundIfNeeded()
     }
 
+    override func viewWillTransition(
+        to size: CGSize,
+        with coordinator: any UIViewControllerTransitionCoordinator
+    ) {
+        super.viewWillTransition(to: size, with: coordinator)
+        previewView.setLandscapeLayout(size.width > size.height)
+    }
+
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isMovingFromParent || navigationController?.isBeingDismissed == true {
@@ -703,6 +711,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
         if case .failure(let error) = state.reason {
             presentRealtimeError(error)
+        } else if state.reason == .orientationChanged {
+            XLToast.show(XLLocalization.text("realtime.orientation.changed"), in: view)
         }
     }
 

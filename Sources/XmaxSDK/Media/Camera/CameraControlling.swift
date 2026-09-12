@@ -51,4 +51,10 @@ protocol CameraControlling: Sendable {
     /// - Returns: 包含更新后相机轨道的媒体流。
     /// - Throws: 相机流尚未启动、设备切换或镜像配置失败时抛出错误。
     func switchCamera() async throws -> RealtimeMediaStream
+
+    /// 按窗口方向更新摄像头采集及当前轨道尺寸。
+    ///
+    /// - Parameter orientation: 目标窗口方向。
+    /// - Throws: 模型不支持目标尺寸或采集更新失败时抛出错误。
+    func updateOrientation(_ orientation: CameraOrientation) async throws
 }

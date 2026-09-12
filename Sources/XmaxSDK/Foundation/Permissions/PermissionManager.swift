@@ -41,7 +41,7 @@ final class PermissionManager: PermissionManaging, Sendable {
                 }
             } catch {
                 XmaxLogger.permission.error(
-                    message: "权限申请失败 (Permission Request Failed)\n└─ 原因 (Reason)：\((error as NSError).localizedDescription)"
+                    message: "权限申请失败 (Permission Request Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)"
                 )
             }
         case .restricted, .denied:

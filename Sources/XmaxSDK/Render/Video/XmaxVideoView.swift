@@ -5,6 +5,8 @@ import CoreVideo
 import UIKit
 
 /// 显示本地或远端实时视频轨道的 UIKit 容器。
+///
+/// 显示本地轨道时，所属窗口横竖屏切换会断开该轨道的实时连接，保留本地预览。
 @MainActor
 public final class XmaxVideoView: UIView {
 
@@ -18,8 +20,11 @@ public final class XmaxVideoView: UIView {
             guard oldValue !== track else {
                 return
             }
+            displayOrientation = nil
             detach(track: oldValue)
             attachCurrentTrackIfNeeded()
+            updateOrientationObservation()
+            updateWindowOrientation()
         }
     }
 
@@ -66,6 +71,10 @@ public final class XmaxVideoView: UIView {
     private var customTrajectoryRenderer:
         (any TrajectoryEffectRendering)?
     var frameDisplayHandler: (() -> Void)?
+
+    // 所属窗口的显示方向
+    private(set) var displayOrientation: UIInterfaceOrientation?
+    private var orientationObserver: VideoOrientationObserver?
 
     // 视频预览
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
@@ -134,11 +143,14 @@ public final class XmaxVideoView: UIView {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
+        displayOrientation = nil
         if window == nil {
             detachCurrentTrack()
         } else {
             attachCurrentTrackIfNeeded()
         }
+        updateOrientationObservation()
+        updateWindowOrientation()
     }
 
     public override func layoutSubviews() {
@@ -146,10 +158,64 @@ public final class XmaxVideoView: UIView {
         decodedVideoLayer?.frame = bounds
         trajectoryOverlayView.frame = bounds
         bringSubviewToFront(trajectoryOverlayView)
+        updateWindowOrientation()
     }
 }
 
 extension XmaxVideoView {
+    private func updateOrientationObservation() {
+        var responder: UIResponder? = next
+        while responder != nil && !(responder is UIViewController) {
+            responder = responder?.next
+        }
+        let parent = window != nil && track?.orientationChangeHandler != nil
+            ? responder as? UIViewController : nil
+        guard orientationObserver?.parent !== parent else { return }
+
+        if let observer = orientationObserver {
+            observer.willMove(toParent: nil)
+            observer.view.removeFromSuperview()
+            observer.removeFromParent()
+            orientationObserver = nil
+        }
+        guard let parent else { return }
+
+        let observer = VideoOrientationObserver(videoView: self)
+        orientationObserver = observer
+        parent.addChild(observer)
+        observer.view.frame = bounds
+        observer.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(observer.view)
+        observer.didMove(toParent: parent)
+    }
+
+    func updateWindowOrientation() {
+        guard orientationObserver?.isTransitioning != true,
+              let scene = window?.windowScene else { return }
+        if #available(iOS 26.0, *) {
+            updateInterfaceOrientation(scene.effectiveGeometry.interfaceOrientation)
+        } else {
+            updateInterfaceOrientation(scene.interfaceOrientation)
+        }
+    }
+
+    /// 同步完整显示方向；首次绑定和同轴旋转只调整采集，不触发断开。
+    func updateInterfaceOrientation(_ orientation: UIInterfaceOrientation) {
+        let next: CameraOrientation
+        switch orientation {
+        case .portrait: next = .portrait
+        case .portraitUpsideDown: next = .portraitUpsideDown
+        case .landscapeLeft: next = .landscapeLeft
+        case .landscapeRight: next = .landscapeRight
+        default: return
+        }
+        guard orientation != displayOrientation else { return }
+        let changedAxis = displayOrientation.map { $0.isLandscape != next.isLandscape } ?? false
+        displayOrientation = orientation
+        track?.displayOrientation = next
+        track?.orientationChangeHandler?(changedAxis)
+    }
+
     func configureView() {
         backgroundColor = .black
         clipsToBounds = true
@@ -181,6 +247,13 @@ extension XmaxVideoView {
             decodedVideoLayer = currentLayer
         } else {
             decodedVideoLayer = AVSampleBufferDisplayLayer()
+            // 视频内容跟随旋转布局立即更新，不叠加子图层的隐式缩放和翻转动画。
+            decodedVideoLayer.actions = [
+                "bounds": NSNull(),
+                "position": NSNull(),
+                "transform": NSNull(),
+                "videoGravity": NSNull()
+            ]
             decodedVideoLayer.frame = bounds
             layer.insertSublayer(decodedVideoLayer, at: 0)
             self.decodedVideoLayer = decodedVideoLayer
@@ -224,6 +297,7 @@ extension XmaxVideoView {
         }
 
         do {
+            let formatChanged = localPreviewFormat != frame.format
             let pixelBuffer = try makeLocalPreviewPixelBuffer(frame)
             let formatDescription = try localPreviewDescription(for: pixelBuffer)
             let presentationTime = CMTimebaseGetTime(decodedVideoTimebase)
@@ -250,6 +324,16 @@ extension XmaxVideoView {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
             decodedVideoLayer.enqueue(sampleBuffer)
+            if formatChanged {
+                XmaxLogger.media.debug(
+                    message: """
+                    旋转时序 [TEMP] (Rotation Timing)
+                    ├─ \(XmaxLogger.localized("阶段：", "Stage: "))preview_submitted
+                    ├─ \(XmaxLogger.localized("时间：", "Time: "))\(DispatchTime.now().uptimeNanoseconds / 1000000) ms
+                    └─ \(XmaxLogger.localized("分辨率：", "Resolution: "))\(frame.format.width) × \(frame.format.height)
+                    """
+                )
+            }
             frameDisplayHandler?()
         } catch {
             Self.logRenderingFailure(
@@ -400,7 +484,7 @@ extension XmaxVideoView {
         error: any Error
     ) {
         XmaxLogger.render.error(
-            message: "\(title)\n└─ 原因 (Reason)：" +
+            message: "\(title)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))" +
                 (error as NSError).localizedDescription
         )
     }

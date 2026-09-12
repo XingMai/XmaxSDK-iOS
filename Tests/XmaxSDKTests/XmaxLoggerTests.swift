@@ -2,6 +2,26 @@ import XCTest
 @testable import XmaxSDK
 
 final class XmaxLoggerTests: XCTestCase {
+    func testEnvironmentSelectsDetailsWithoutChangingTitleOrPrefix() {
+        defer { XmaxLogger.configure(options: []) }
+        let title = "远端视频接收 (Remote Video Downlink)"
+
+        for (environment, detail) in [
+            (XmaxEnvironment.china, "分辨率：832 × 1472"),
+            (XmaxEnvironment.global, "Resolution: 832 × 1472"),
+            (XmaxEnvironment.china, "分辨率：832 × 1472")
+        ] {
+            XmaxLogger.configure(options: .all, environment: environment)
+            let message = title + "\n└─ " +
+                XmaxLogger.localized("分辨率：", "Resolution: ") + "832 × 1472"
+
+            XCTAssertEqual(
+                XmaxLogger.rtc.formattedMessage(message: message),
+                "[Xmax][RTC] \(title)\n[Xmax][RTC] └─ \(detail)"
+            )
+        }
+    }
+
     func testFormattedMessagePrefixesEveryLine() {
         XCTAssertEqual(
             XmaxLogger.storage.formattedMessage(

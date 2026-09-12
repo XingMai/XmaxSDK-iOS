@@ -167,6 +167,12 @@ actor RealtimeCoordinator {
 
     /// 断开实时连接；尚未提交连接状态的活跃操作也会被取消。
     func disconnect(reason: RealtimeReason = .normal) async {
+        let task = await beginDisconnect(reason: reason)
+        await task?.value
+    }
+
+    /// 发起断开并返回收尾任务，使本地媒体调整不必等待网络资源释放。
+    func beginDisconnect(reason: RealtimeReason) async -> Task<Void, Never>? {
         let hasConnectionOperation = activeOperation.map {
             TerminationScope.connection.affects($0.kind)
         } ?? false
@@ -174,9 +180,9 @@ actor RealtimeCoordinator {
                 (state.connectionState != .idle &&
                     state.connectionState != .preparing &&
                     state.connectionState != .ready) else {
-            return
+            return nil
         }
-        await terminate(.connection, reason: reason)
+        return await requestTermination(.connection, reason: reason)
     }
 
     /// 终止指定范围并等待资源清理完成；并发终止请求会合并为最大范围。

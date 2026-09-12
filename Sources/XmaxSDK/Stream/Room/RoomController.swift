@@ -257,7 +257,7 @@ private extension RoomController {
                   data: formattedData,
                   encoding: .utf8
               ) else {
-            return "发送房间信令 (Outbound Room Signaling)\n└─ 内容 (Content)：\(message)"
+            return "发送房间信令 (Outbound Room Signaling)\n└─ \(XmaxLogger.localized("内容：", "Content: "))\(message)"
         }
 
         let eventType = event["event"] as? String ?? "unknown"
@@ -266,8 +266,8 @@ private extension RoomController {
             with: "\n   "
         )
         return "发送房间信令 (Outbound Room Signaling)\n" +
-            "├─ 类型 (Type)：\(eventType)\n" +
-            "└─ 内容 (Content)：\n" +
+            "├─ \(XmaxLogger.localized("类型：", "Type: "))\(eventType)\n" +
+            "└─ \(XmaxLogger.localized("内容：", "Content: "))\n" +
             "   \(indentedMessage)"
     }
 

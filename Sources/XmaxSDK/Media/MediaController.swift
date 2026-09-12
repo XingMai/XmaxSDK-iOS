@@ -259,6 +259,14 @@ actor MediaController: MediaControlling {
         return try await cameraController.switchCamera()
     }
 
+    /// 同步摄像头预览窗口的最新方向。
+    func updateCameraOrientation() async throws {
+        guard activeSource?.kind == .camera, let track = currentTrack,
+              let orientation = await track.displayOrientation else { return }
+        guard currentTrack === track else { return }
+        try await cameraController.updateOrientation(orientation)
+    }
+
     /// 判断媒体流是否由当前活动来源创建并持有。
     func owns(_ stream: RealtimeMediaStream) -> Bool {
         guard let videoTrack = stream.videoTrack else {
@@ -380,7 +388,7 @@ private extension MediaController {
                     XmaxLogger.realtime.error(
                         message: "等待本地媒体操作结束失败 " +
                             "(Failed to Await Local Media Operation Completion)\n" +
-                            "└─ 原因 (Reason)：" +
+                            "└─ \(XmaxLogger.localized("原因：", "Reason: "))" +
                             (error as NSError).localizedDescription
                     )
                 }
