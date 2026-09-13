@@ -207,7 +207,7 @@ use_frameworks! :linkage => :static
 target 'YourApp' do
   pod 'XmaxSDK',
       :git => 'https://github.com/XingMai/XmaxSDK-iOS.git',
-      :tag => '1.0.5'
+      :tag => '1.0.6'
 end
 
 post_install do |installer|
@@ -228,7 +228,7 @@ pod install --repo-update
 ### Manual
 
 Download
-[`XmaxSDK-1.0.5.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.5/XmaxSDK-1.0.5.xcframework.zip),
+[`XmaxSDK-1.0.6.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.6/XmaxSDK-1.0.6.xcframework.zip),
 then follow the [manual integration guide](./docs/installation.md#manual-integration)
 to add the required dependencies and configure your Xcode target.
 

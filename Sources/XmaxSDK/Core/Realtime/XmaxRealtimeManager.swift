@@ -109,8 +109,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.generationManager = generationManager
         self.timing = timing
         self.coordinator = coordinator
+
         errorHandler.setFailureHandler { [weak coordinator] error, target, isCurrent in
-            await coordinator?.terminate(with: error, target: target, isCurrent: isCurrent)
+            await coordinator?.terminate(
+                with: error,
+                target: target,
+                isCurrent: isCurrent
+            )
         }
     }
 
