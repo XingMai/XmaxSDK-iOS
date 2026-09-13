@@ -171,8 +171,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
                 error,
                 XmaxError(
                     code: .sessionError,
-                    message: "generation ended",
-                    severity: .fatal
+                    message: "generation ended"
                 )
             )
             failure.fulfill()

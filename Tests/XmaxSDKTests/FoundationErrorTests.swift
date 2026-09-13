@@ -28,31 +28,17 @@ final class FoundationErrorTests: XCTestCase {
         )
     }
 
-    func testDefaultSeverityUsesErrorCode() {
-        let recoverableError = XmaxError(
-            code: .invalidConfiguration,
-            message: "Invalid state"
-        )
-        let fatalError = XmaxError(
-            code: .rtcError,
-            message: "RTC failed"
-        )
-
-        XCTAssertEqual(recoverableError.severity, .recoverable)
-        XCTAssertEqual(fatalError.severity, .fatal)
-    }
-
-    func testUpdatingSeverityPreservesOriginalErrorDetails() {
-        let error = XmaxError(
+    func testFromPreservesOriginalErrorDetails() {
+        let original = XmaxError(
             code: .rtcError,
             message: "send failed",
             apiCode: 1003,
             httpStatus: 500
-        ).withSeverity(.recoverable)
+        )
+        let error = XmaxError.from(original)
 
         XCTAssertEqual(error.code, .rtcError)
         XCTAssertEqual(error.message, "send failed")
-        XCTAssertEqual(error.severity, .recoverable)
         XCTAssertEqual(error.apiCode, 1003)
         XCTAssertEqual(error.httpStatus, 500)
     }
@@ -63,19 +49,17 @@ final class FoundationErrorTests: XCTestCase {
         let callback = expectation(description: "Operation errors are log-only")
         callback.isInverted = true
         handler.setFailureHandler { _, _, _ in callback.fulfill() }
-        let recoverableError = XmaxError(
+        let stopError = XmaxError(
             code: .rtcError,
-            message: "Stop signal failed",
-            severity: .recoverable
+            message: "Stop signal failed"
         )
-        let fatalError = XmaxError(
+        let connectionError = XmaxError(
             code: .rtcError,
-            message: "RTC connection failed",
-            severity: .fatal
+            message: "RTC connection failed"
         )
 
-        await handler.report(recoverableError)
-        await handler.report(fatalError)
+        await handler.report(stopError)
+        await handler.report(connectionError)
 
         await fulfillment(of: [callback], timeout: 0.05)
     }

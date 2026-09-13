@@ -720,8 +720,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     private func renderPreviewLoadingState() {
         if connectionState == .disconnecting {
-            loadingOverlay.hideLoading()
-        } else if connectionState == .preparing || isGenerationRequested {
+            if !isGenerationRequested { loadingOverlay.hideLoading() }
+            return
+        }
+
+        if connectionState == .preparing || isGenerationRequested {
             loadingOverlay.startLoading()
         } else {
             loadingOverlay.hideLoading()

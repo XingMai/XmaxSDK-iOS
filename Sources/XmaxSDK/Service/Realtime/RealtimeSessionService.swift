@@ -75,7 +75,7 @@ final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendabl
                 as: EmptyResponse.self
             )
         } catch {
-            throw XmaxError.from(error).withSeverity(.recoverable)
+            throw XmaxError.from(error)
         }
     }
 }
@@ -192,7 +192,7 @@ private extension RealtimeSessionService {
                 }
                 await context.onFailure(
                     context.sessionID,
-                    XmaxError.from(error).withSeverity(.fatal)
+                    XmaxError.from(error)
                 )
                 return
             }

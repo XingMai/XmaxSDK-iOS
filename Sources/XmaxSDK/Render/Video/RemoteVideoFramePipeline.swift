@@ -204,13 +204,12 @@ private extension RemoteVideoFramePipeline {
             }
             let resolvedError: XmaxError
             if let xmaxError = error as? XmaxError {
-                resolvedError = xmaxError.withSeverity(.recoverable)
+                resolvedError = xmaxError
             } else {
                 resolvedError = XmaxError(
                     code: .mediaError,
                     message: "Frame interpolation failed: " +
-                        (error as NSError).localizedDescription,
-                    severity: .recoverable
+                        (error as NSError).localizedDescription
                 )
             }
             disableAfterFailure(resolvedError)
@@ -281,8 +280,7 @@ private extension RemoteVideoFramePipeline {
         }
         return XmaxError(
             code: .frameInterpolationUnsupported,
-            message: "Frame interpolation is unavailable" + sizeDescription,
-            severity: .recoverable
+            message: "Frame interpolation is unavailable" + sizeDescription
         )
     }
 }

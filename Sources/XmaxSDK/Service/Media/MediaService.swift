@@ -90,8 +90,7 @@ final class MediaService: MediaServicing, Sendable {
         guard evenScale >= 2 else {
             throw XmaxError(
                 code: .frameInterpolationUnsupported,
-                message: "No proportional frame interpolation size is available",
-                severity: .recoverable
+                message: "No proportional frame interpolation size is available"
             )
         }
         return CGSize(

@@ -38,7 +38,6 @@ final class RemoteVideoFramePipelineTests: XCTestCase {
             },
             errorListener: { error in
                 XCTAssertEqual(error.code, .frameInterpolationUnsupported)
-                XCTAssertEqual(error.severity, .recoverable)
                 reportedError.fulfill()
             }
         )

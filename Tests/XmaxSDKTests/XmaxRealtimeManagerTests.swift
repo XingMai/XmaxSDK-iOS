@@ -230,7 +230,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 XCTFail("Expected signaling failure")
             } catch {
                 XCTAssertEqual((error as? XmaxError)?.code, .rtcError)
-                XCTAssertEqual((error as? XmaxError)?.severity, .recoverable)
             }
             let current = await components.manager.currentState
             let interpolationEnabled = await components.manager.isFrameInterpolationEnabled
@@ -1467,8 +1466,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         _ = try await components.manager.connect(localStream: localStream)
         let expectedError = XmaxError(
             code: .sessionError,
-            message: "session closed",
-            severity: .fatal
+            message: "session closed"
         )
 
         await components.sessionService.failHeartbeat(

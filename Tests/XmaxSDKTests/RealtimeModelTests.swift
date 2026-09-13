@@ -3,7 +3,11 @@ import XCTest
 
 final class RealtimeModelTests: XCTestCase {
     func testModelDefaultFormatsAndPixelLimits() {
-        XCTAssertEqual(RealtimeModel.x2_0.defaultFrameRate, 24)
+        XCTAssertEqual(RealtimeModel.x2_0.defaultFrameRate, 30)
+        XCTAssertEqual(
+            RealtimeModel.x2_0.defaultCameraVideoFormat,
+            RealtimeVideoFormat(width: 832, height: 1472, fps: 30)
+        )
         XCTAssertEqual(RealtimeModel.x2_0.maximumInputPixels, 1280000)
         XCTAssertEqual(RealtimeModel.x2_0_pro.defaultFrameRate, 30)
         XCTAssertEqual(RealtimeModel.x2_0_pro.maximumInputPixels, 2100000)

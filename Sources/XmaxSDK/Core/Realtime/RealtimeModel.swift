@@ -38,7 +38,7 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 未指定视频规格时，各媒体来源使用的默认帧率。
     public var defaultFrameRate: Int {
         switch self {
-        case .x2_0: 24
+        case .x2_0: 30
         case .x2_0_pro: 30
         }
     }

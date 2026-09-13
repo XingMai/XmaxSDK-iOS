@@ -74,7 +74,6 @@ final class MediaServiceTests: XCTestCase {
             CGSize(width: 1001, height: 1000)
         )) { error in
             XCTAssertEqual((error as? XmaxError)?.code, .frameInterpolationUnsupported)
-            XCTAssertEqual((error as? XmaxError)?.severity, .recoverable)
         }
     }
 

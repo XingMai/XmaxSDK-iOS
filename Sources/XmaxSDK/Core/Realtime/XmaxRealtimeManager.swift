@@ -216,7 +216,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try streamController.setRemoteAudioVolume(volume)
         } catch {
             throw await reportError(
-                XmaxError.from(error).withSeverity(.recoverable)
+                XmaxError.from(error)
             )
         }
     }
@@ -236,8 +236,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     throw XmaxError(
                         code: .frameInterpolationUnsupported,
                         message: "Frame interpolation is unavailable for " +
-                            "\(Int(targetSize.width)) × \(Int(targetSize.height)) video",
-                        severity: .recoverable
+                            "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
                     )
                 }
                 try token.ensureCurrent()
@@ -265,7 +264,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     videoFormat: returnFormat
                 )
             } catch {
-                throw XmaxError.from(error).withSeverity(.recoverable)
+                throw XmaxError.from(error)
             }
         }
     }
@@ -626,8 +625,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
               let videoFormat = await mediaController.currentVideoFormat else {
             throw XmaxError(
                 code: .rtcError,
-                message: "Realtime connection is not open",
-                severity: .recoverable
+                message: "Realtime connection is not open"
             )
         }
 
@@ -848,8 +846,7 @@ private extension XmaxRealtimeManager {
                 throw XmaxError(
                     code: .frameInterpolationUnsupported,
                     message: "Frame interpolation is unavailable for " +
-                        "\(Int(targetSize.width)) × \(Int(targetSize.height)) video",
-                    severity: .recoverable
+                        "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
                 )
             }
             try await renderController.setFrameInterpolationEnabled(
@@ -865,7 +862,7 @@ private extension XmaxRealtimeManager {
                 false,
                 videoFormat: videoFormat
             )
-            await errorHandler.report(XmaxError.from(error).withSeverity(.recoverable))
+            await errorHandler.report(XmaxError.from(error))
             return nil
         }
     }

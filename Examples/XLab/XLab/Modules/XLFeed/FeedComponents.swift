@@ -403,7 +403,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     private func makeModelRow(for model: RealtimeModel) -> UIView {
         let diamond = makeFeedLabel("◆", size: 7, color: FeedPalette.mint)
         let modelName = makeFeedLabel(
-            model.rawValue.uppercased().replacingOccurrences(of: "-", with: " "),
+            model.rawValue.uppercased(),
             size: 13,
             weight: .bold,
             color: .feed(rgb: 0xF0F2F5)

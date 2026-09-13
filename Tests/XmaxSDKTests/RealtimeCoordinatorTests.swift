@@ -286,7 +286,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         XCTAssertEqual(scopes, [.all])
     }
 
-    func testConfigurationFailurePreservesGeneratingEvenWithFatalErrorCode() async throws {
+    func testConfigurationFailurePreservesGeneratingAfterRtcError() async throws {
         let probe = RealtimeCoordinatorProbe()
         let coordinator = makeCoordinator(probe: probe)
         let original = RealtimeState(connectionState: .generating, sessionID: "session", taskID: "task")
@@ -786,8 +786,7 @@ final class RealtimeCoordinatorTests: XCTestCase {
         await waitUntil { await probe.operationStarted }
         let expectedError = XmaxError(
             code: .sessionError,
-            message: "session closed",
-            severity: .fatal
+            message: "session closed"
         )
 
         await coordinator.terminate(

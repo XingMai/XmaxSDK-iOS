@@ -174,13 +174,12 @@ final class RoomControllerTests: XCTestCase {
         await controller.leave()
     }
 
-    func testGenerationSignalFailuresExposeSeverity() async throws {
-        let rtcManager = RtcManagingStub(
-            sendRoomMessageError: XmaxError(
-                code: .rtcError,
-                message: "send failed"
-            )
+    func testGenerationSignalFailuresPreserveErrorDetails() async throws {
+        let expectedError = XmaxError(
+            code: .rtcError,
+            message: "send failed"
         )
+        let rtcManager = RtcManagingStub(sendRoomMessageError: expectedError)
         let controller = RoomController(rtcManager: rtcManager)
         try await controller.join(
             connection: connection,
@@ -200,14 +199,14 @@ final class RoomControllerTests: XCTestCase {
             )
             XCTFail("Expected start signal to fail")
         } catch {
-            XCTAssertEqual((error as? XmaxError)?.severity, .fatal)
+            XCTAssertEqual(error as? XmaxError, expectedError)
         }
 
         do {
             try await controller.stopGeneration(taskID: "task-id")
             XCTFail("Expected stop signal to fail")
         } catch {
-            XCTAssertEqual((error as? XmaxError)?.severity, .recoverable)
+            XCTAssertEqual(error as? XmaxError, expectedError)
         }
         await controller.leave()
     }
