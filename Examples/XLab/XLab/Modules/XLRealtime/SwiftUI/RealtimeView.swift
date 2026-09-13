@@ -47,14 +47,16 @@ struct RealtimeView: View {
                     remoteTrack: realtimeSession.remoteVideoTrack,
                     videoContentMode: geometry.size.width > geometry.size.height ? .fit : .fill
                 )
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
             }
-                .ignoresSafeArea()
-                .simultaneousGesture(
-                    TapGesture().onEnded(dismissPromptKeyboard)
-                )
+            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
+            .simultaneousGesture(
+                TapGesture().onEnded(dismissPromptKeyboard)
+            )
 
             RealtimeLoadingView(isLoading: realtimeSession.isLoading)
-                .ignoresSafeArea()
+                .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
 
             topControls
         }
@@ -134,6 +136,11 @@ struct RealtimeView: View {
         }
         .onChange(of: scenePhase) { phase in
             handleScenePhase(phase)
+        }
+        .onChange(of: realtimeSession.isGenerationRequested) { isRequested in
+            if !isRequested {
+                referenceStore.clearSelection(notifiesContextChange: false)
+            }
         }
         .background(Color.black)
         .preferredColorScheme(.dark)

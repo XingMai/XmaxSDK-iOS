@@ -58,16 +58,7 @@ final class VideoOrientationObserver: UIViewController {
         guard !coordinator.targetTransform.isIdentity else { return }
 
         isTransitioning = true
-        let device = deviceOrientation()
-        let target = Self.interfaceOrientation(for: device)
-        XmaxLogger.media.debug(
-            message: """
-            旋转时序 [TEMP] (Rotation Timing)
-            ├─ \(XmaxLogger.localized("阶段：", "Stage: "))rotation_begin
-            ├─ \(XmaxLogger.localized("时间：", "Time: "))\(DispatchTime.now().uptimeNanoseconds / 1000000) ms
-            └─ \(XmaxLogger.localized("方向：", "Orientation: "))device=\(device.rawValue), target=\(target?.rawValue ?? 0)
-            """
-        )
+        let target = Self.interfaceOrientation(for: deviceOrientation())
         if let target,
            target.isLandscape == (size.width > size.height) {
             videoView?.updateInterfaceOrientation(target)
@@ -77,13 +68,6 @@ final class VideoOrientationObserver: UIViewController {
             guard let self else { return }
             isTransitioning = false
             videoView?.updateWindowOrientation()
-            XmaxLogger.media.debug(
-                message: """
-                旋转时序 [TEMP] (Rotation Timing)
-                ├─ \(XmaxLogger.localized("阶段：", "Stage: "))rotation_end
-                └─ \(XmaxLogger.localized("时间：", "Time: "))\(DispatchTime.now().uptimeNanoseconds / 1000000) ms
-                """
-            )
         }
         if !registered { isTransitioning = false }
     }

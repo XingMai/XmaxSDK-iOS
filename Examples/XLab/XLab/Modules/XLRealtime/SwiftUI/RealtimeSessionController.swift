@@ -292,7 +292,10 @@ final class RealtimeSessionController: ObservableObject {
             if remoteVideoTrack != nil {
                 isLoading = false
             }
-        case .idle, .ready, .disconnecting:
+        case .disconnecting:
+            remoteVideoTrack = nil
+            isLoading = false
+        case .idle, .ready:
             if !isGenerationRequested {
                 remoteVideoTrack = nil
                 isLoading = false

@@ -1,9 +1,54 @@
+import AVFoundation
 import UIKit
 import XCTest
 @testable import XmaxSDK
 
 @MainActor
 final class XmaxRealtimeVideoViewTests: XCTestCase {
+    func testContentModeChangeUpdatesBothPreviewLayersWithoutReplacingTracks() throws {
+        let localTrack = RealtimeVideoTrack(id: "local")
+        let remoteTrack = RealtimeVideoTrack(id: "remote")
+        let localPresenter = DecodedVideoPreviewPresenter()
+        let remotePresenter = DecodedVideoPreviewPresenter()
+
+        for (track, presenter) in [(localTrack, localPresenter), (remoteTrack, remotePresenter)] {
+            VideoRenderRegistry.register(track, binding: VideoRenderBinding(
+                attachHandler: { view, contentMode in
+                    presenter.attach(to: try XCTUnwrap(view as? XmaxVideoView), contentMode: contentMode)
+                },
+                detachHandler: { view in
+                    presenter.detach(from: try XCTUnwrap(view as? XmaxVideoView))
+                }
+            ))
+        }
+        defer {
+            VideoRenderRegistry.unregister(localTrack)
+            VideoRenderRegistry.unregister(remoteTrack)
+        }
+
+        let view = XmaxRealtimeVideoView(localTrack: localTrack, remoteTrack: remoteTrack)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 844, height: 300))
+        view.frame = window.bounds
+        window.addSubview(view)
+        view.layoutIfNeeded()
+
+        let videoViews = view.subviews.compactMap { $0 as? XmaxVideoView }
+        XCTAssertEqual(videoViews.count, 2)
+        for mode in [VideoContentMode.fit, .fill, .fit] {
+            view.videoContentMode = mode
+
+            for videoView in videoViews {
+                let layer = try XCTUnwrap(videoView.layer.sublayers?.compactMap {
+                    $0 as? AVSampleBufferDisplayLayer
+                }.first)
+                XCTAssertEqual(videoView.videoContentMode, mode)
+                XCTAssertEqual(layer.videoGravity, mode == .fit ? .resizeAspect : .resizeAspectFill)
+            }
+            XCTAssertTrue(videoViews[0].track === localTrack)
+            XCTAssertTrue(videoViews[1].track === remoteTrack)
+        }
+    }
+
     func testTracksAreBoundToLayeredVideoViews() {
         let localTrack = RealtimeVideoTrack(id: "local")
         let remoteTrack = RealtimeVideoTrack(id: "remote")

@@ -677,6 +677,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             isTouchAnimationGenerationRequested = false
             controlPanelView.setGenerationActive(false)
             currentGenerationContext = nil
+            selectedReference = nil
+            controlPanelView.clearReferenceSelection()
         }
         if state.connectionState == .idle {
             localMediaStream = nil
@@ -717,7 +719,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func renderPreviewLoadingState() {
-        if connectionState == .preparing || isGenerationRequested {
+        if connectionState == .disconnecting {
+            loadingOverlay.hideLoading()
+        } else if connectionState == .preparing || isGenerationRequested {
             loadingOverlay.startLoading()
         } else {
             loadingOverlay.hideLoading()

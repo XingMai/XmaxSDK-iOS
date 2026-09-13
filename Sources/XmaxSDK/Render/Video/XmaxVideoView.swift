@@ -297,7 +297,6 @@ extension XmaxVideoView {
         }
 
         do {
-            let formatChanged = localPreviewFormat != frame.format
             let pixelBuffer = try makeLocalPreviewPixelBuffer(frame)
             let formatDescription = try localPreviewDescription(for: pixelBuffer)
             let presentationTime = CMTimebaseGetTime(decodedVideoTimebase)
@@ -324,16 +323,6 @@ extension XmaxVideoView {
                 attachmentMode: kCMAttachmentMode_ShouldPropagate
             )
             decodedVideoLayer.enqueue(sampleBuffer)
-            if formatChanged {
-                XmaxLogger.media.debug(
-                    message: """
-                    旋转时序 [TEMP] (Rotation Timing)
-                    ├─ \(XmaxLogger.localized("阶段：", "Stage: "))preview_submitted
-                    ├─ \(XmaxLogger.localized("时间：", "Time: "))\(DispatchTime.now().uptimeNanoseconds / 1000000) ms
-                    └─ \(XmaxLogger.localized("分辨率：", "Resolution: "))\(frame.format.width) × \(frame.format.height)
-                    """
-                )
-            }
             frameDisplayHandler?()
         } catch {
             Self.logRenderingFailure(

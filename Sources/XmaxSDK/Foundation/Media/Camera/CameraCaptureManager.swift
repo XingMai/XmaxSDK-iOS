@@ -153,11 +153,9 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 
     func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws {
         try Task.checkCancellation()
-        let requestedAt = DispatchTime.now().uptimeNanoseconds
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             captureQueue.async { [self] in
-                let queueEnteredAt = DispatchTime.now().uptimeNanoseconds
-
                 do {
                     guard self.videoFormat != nil else {
                         throw Self.cameraError("Camera capture is not running")
@@ -169,19 +167,6 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 
                     self.orientation = orientation
                     self.videoFormat = videoFormat
-
-                    let appliedAt = DispatchTime.now().uptimeNanoseconds
-                    XmaxLogger.media.debug(
-                        message: """
-                        旋转时序 [TEMP] (Rotation Timing)
-                        ├─ \(XmaxLogger.localized("阶段：", "Stage: "))capture_applied
-                        ├─ \(XmaxLogger.localized("时间：", "Time: "))\(appliedAt / 1000000) ms
-                        ├─ \(XmaxLogger.localized("排队及更新耗时：", "Queue and Update Duration: "))\((appliedAt - requestedAt) / 1000000) ms
-                        │  ├─ \(XmaxLogger.localized("采集队列等待：", "Capture Queue Wait: "))\((queueEnteredAt - requestedAt) / 1000000) ms
-                        │  └─ \(XmaxLogger.localized("更新帧转换参数：", "Frame Conversion Update: "))\((appliedAt - queueEnteredAt) / 1000000) ms
-                        └─ \(XmaxLogger.localized("输出：", "Output: "))\(orientation), \(videoFormat.width) × \(videoFormat.height)
-                        """
-                    )
                     continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
