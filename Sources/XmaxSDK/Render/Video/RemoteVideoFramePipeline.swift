@@ -14,17 +14,25 @@ actor RemoteVideoFramePipeline {
         _ outputToken: UInt64
     ) async -> Void
 
+    typealias InterpolationManagerFactory = @Sendable (
+        _ frame: RealtimeVideoFrame
+    ) throws -> (any FrameInterpolationManaging)?
+
+    // 组件依赖
+    private let frameInterpolationSupportChecker:
+        FrameInterpolationSupportChecker
+    private let interpolationManagerFactory: InterpolationManagerFactory
+
     // 事件监听
     private let outputListener: OutputListener
     private let errorListener: XmaxErrorListener
-    private let frameInterpolationSupportChecker:
-        FrameInterpolationSupportChecker
 
     // 帧处理资源
     private var interpolationManager:
         (any FrameInterpolationManaging)?
     private var pendingFrame: RealtimeVideoFrame?
     private var drainTask: Task<Void, Never>?
+    private var cleanupTask: Task<Void, Never>?
 
     // 运行状态
     private var interpolationEnabled: Bool
@@ -40,6 +48,17 @@ actor RemoteVideoFramePipeline {
             @escaping FrameInterpolationSupportChecker = {
                 FrameInterpolationSupport.supports(size: $0)
             },
+        interpolationManagerFactory: @escaping InterpolationManagerFactory = {
+#if targetEnvironment(simulator)
+            nil
+#else
+            if #available(iOS 26.0, *) {
+                try FrameInterpolationManager(frame: $0)
+            } else {
+                nil
+            }
+#endif
+        },
         outputListener: @escaping OutputListener,
         errorListener: @escaping XmaxErrorListener
     ) {
@@ -47,6 +66,7 @@ actor RemoteVideoFramePipeline {
         self.outputToken = outputToken
         self.frameInterpolationSupportChecker =
             frameInterpolationSupportChecker
+        self.interpolationManagerFactory = interpolationManagerFactory
         self.outputListener = outputListener
         self.errorListener = errorListener
     }
@@ -71,7 +91,8 @@ actor RemoteVideoFramePipeline {
         guard drainTask == nil else { return }
         let activeGeneration = generation
         let activeOutputToken = outputToken
-        drainTask = Task { [weak self] in
+        drainTask = Task { [weak self, cleanupTask] in
+            await cleanupTask?.value
             await self?.drainFrames(
                 generation: activeGeneration,
                 outputToken: activeOutputToken
@@ -83,7 +104,7 @@ actor RemoteVideoFramePipeline {
         _ enabled: Bool,
         videoSize: CGSize?,
         outputToken: UInt64
-    ) throws {
+    ) async throws {
         if enabled {
             let supported = videoSize.map(frameInterpolationSupportChecker)
                 ?? FrameInterpolationSupport.isSupported
@@ -95,11 +116,14 @@ actor RemoteVideoFramePipeline {
         interpolationVideoSize = enabled ? videoSize : nil
         // 模式切换不更换流标识，也不能覆盖异步等待期间已经切换的新流标识。
         resetProcessing(outputToken: max(outputToken, self.outputToken))
+        await cleanupTask?.value
     }
 
-    func reset(outputToken: UInt64) {
-        guard outputToken > self.outputToken else { return }
-        resetProcessing(outputToken: outputToken)
+    func reset(outputToken: UInt64) async {
+        if outputToken > self.outputToken {
+            resetProcessing(outputToken: outputToken)
+        }
+        await cleanupTask?.value
     }
 }
 
@@ -124,11 +148,18 @@ private extension RemoteVideoFramePipeline {
         generation += 1
         self.outputToken = outputToken
         drainTask?.cancel()
+        let previousDrainTask = drainTask
+        let previousCleanupTask = cleanupTask
+        let previousManager = interpolationManager
         drainTask = nil
         pendingFrame = nil
         previousPresentationTimeStamp = nil
-        interpolationManager?.reset()
         interpolationManager = nil
+        cleanupTask = Task {
+            await previousCleanupTask?.value
+            await previousManager?.close()
+            await previousDrainTask?.value
+        }
     }
 
     func drainFrames(
@@ -176,19 +207,27 @@ private extension RemoteVideoFramePipeline {
         let signature = FrameSignature(frame)
         // 调整回传尺寸期间，旧尺寸帧继续显示，不进入插帧器，也不关闭用户开关。
         if let interpolationVideoSize, signature.size != interpolationVideoSize {
-            interpolationManager?.reset()
+            let previousManager = interpolationManager
             interpolationManager = nil
+            await previousManager?.close()
             return [passthrough(frame, duration: sourceDuration)]
         }
         guard frameInterpolationSupportChecker(signature.size) else {
-            disableAfterFailure(Self.unsupportedError(videoSize: signature.size))
+            await disableAfterFailure(Self.unsupportedError(videoSize: signature.size))
             return [passthrough(frame, duration: sourceDuration)]
         }
 
         do {
             if interpolationManager?.matches(frame) != true {
-                interpolationManager?.reset()
-                interpolationManager = try makeInterpolationManager(frame)
+                let previousManager = interpolationManager
+                interpolationManager = nil
+                await previousManager?.close()
+
+                guard !Task.isCancelled,
+                      generation == activeGeneration else {
+                    return []
+                }
+                interpolationManager = try interpolationManagerFactory(frame)
             }
             guard let interpolationManager else {
                 throw Self.unsupportedError(videoSize: signature.size)
@@ -212,30 +251,17 @@ private extension RemoteVideoFramePipeline {
                         (error as NSError).localizedDescription
                 )
             }
-            disableAfterFailure(resolvedError)
+            await disableAfterFailure(resolvedError)
             return [passthrough(frame, duration: sourceDuration)]
         }
     }
 
-    func makeInterpolationManager(
-        _ frame: RealtimeVideoFrame
-    ) throws -> (any FrameInterpolationManaging)? {
-#if targetEnvironment(simulator)
-        nil
-#else
-        if #available(iOS 26.0, *) {
-            try FrameInterpolationManager(frame: frame)
-        } else {
-            nil
-        }
-#endif
-    }
-
-    func disableAfterFailure(_ error: XmaxError) {
+    func disableAfterFailure(_ error: XmaxError) async {
         interpolationEnabled = false
-        interpolationManager?.reset()
+        let previousManager = interpolationManager
         interpolationManager = nil
         errorListener(error)
+        await previousManager?.close()
     }
 
     func passthrough(

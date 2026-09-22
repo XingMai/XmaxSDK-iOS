@@ -47,6 +47,9 @@ protocol RenderControlling: AnyObject, Sendable {
     /// - Throws: 等待被取消、远端流被重置或首帧等待超时时抛出错误。
     func waitUntilRemoteFrameReady() async throws
 
-    /// 注销远端轨道的所有渲染绑定并重置远端画面。
-    func resetRemoteTrack(_ track: RealtimeVideoTrack?) throws
+    /// 注销远端轨道的所有渲染绑定，重置画面并等待在途帧处理结束。
+    ///
+    /// - Parameter track: 需要注销的远端轨道；没有轨道时仍会清理帧处理资源。
+    /// - Throws: 解除 RTC 视频帧监听失败时抛出错误。
+    func resetRemoteTrack(_ track: RealtimeVideoTrack?) async throws
 }

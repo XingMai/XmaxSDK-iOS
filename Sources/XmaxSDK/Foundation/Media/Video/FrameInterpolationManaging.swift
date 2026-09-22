@@ -21,6 +21,6 @@ protocol FrameInterpolationManaging: AnyObject, Sendable {
         sourceDuration: CMTime
     ) async throws -> [RealtimeVideoFrame]
 
-    /// 清除前一帧和时间戳状态。
-    func reset()
+    /// 结束插帧会话并释放历史帧，不再接受新的处理请求。
+    func close() async
 }

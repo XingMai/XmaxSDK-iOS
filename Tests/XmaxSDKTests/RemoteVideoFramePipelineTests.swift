@@ -4,6 +4,14 @@ import XCTest
 @testable import XmaxSDK
 
 final class RemoteVideoFramePipelineTests: XCTestCase {
+    func testResetWaitsForSessionCloseAndInFlightProcessing() async throws {
+        try await verifyResetDuringProcessing(failsProcessing: false)
+    }
+
+    func testLateInterpolationFailureDoesNotDisableNewGeneration() async throws {
+        try await verifyResetDuringProcessing(failsProcessing: true)
+    }
+
     func testEnablingInterpolationPassesThroughOldSizeUntilTargetArrives() async throws {
         let recorder = RealtimeVideoFrameRecorder()
         let target = CGSize(width: 702, height: 1242)
@@ -155,6 +163,71 @@ private actor RealtimeVideoFrameRecorder {
 }
 
 private extension RemoteVideoFramePipelineTests {
+    func verifyResetDuringProcessing(failsProcessing: Bool) async throws {
+        let recorder = RealtimeVideoFrameRecorder()
+        let processingStarted = expectation(description: "Old frame processing started")
+        let closeStarted = expectation(description: "Old session close started")
+        let closeFinished = expectation(description: "Old session closed")
+        let processingGate = InterpolationTestGate()
+        let closeGate = InterpolationTestGate()
+        let oldManager = ControlledInterpolationManager(
+            processingGate: processingGate,
+            closeGate: closeGate,
+            failsProcessing: failsProcessing,
+            processingStarted: processingStarted,
+            closeStarted: closeStarted,
+            closeFinished: closeFinished
+        )
+        let factory = InterpolationTestFactory(firstManager: oldManager)
+        let pipeline = RemoteVideoFramePipeline(
+            interpolationEnabled: true,
+            outputToken: 1,
+            frameInterpolationSupportChecker: { _ in true },
+            interpolationManagerFactory: { _ in factory.make() },
+            outputListener: { frame, token in
+                await recorder.record(frame, token: token)
+            },
+            errorListener: { _ in XCTFail("An old generation must not report errors") }
+        )
+        let frame = RealtimeVideoFrame(
+            pixelBuffer: try makePixelBuffer(width: 16, height: 16),
+            presentationTimeStamp: .zero
+        )
+        await pipeline.enqueue(frame, outputToken: 1)
+        await fulfillment(of: [processingStarted], timeout: 2)
+
+        let resetFinished = InterpolationTestFlag()
+        let resetting = Task {
+            await pipeline.reset(outputToken: 2)
+            resetFinished.set()
+        }
+        await fulfillment(of: [closeStarted], timeout: 2)
+
+        // 新流可以先到达，但必须等待旧会话及其在途帧完整结束。
+        await pipeline.enqueue(frame, outputToken: 3)
+        let latestReset = Task { await pipeline.reset(outputToken: 3) }
+        try await Task.sleep(nanoseconds: 50000000)
+        XCTAssertFalse(resetFinished.value)
+        XCTAssertEqual(factory.creationCount, 1)
+
+        await closeGate.open()
+        await fulfillment(of: [closeFinished], timeout: 2)
+        try await Task.sleep(nanoseconds: 50000000)
+        XCTAssertFalse(resetFinished.value)
+        XCTAssertEqual(factory.creationCount, 1)
+
+        await processingGate.open()
+        await resetting.value
+        await latestReset.value
+        let output = try await waitForOutput(recorder)
+        XCTAssertEqual(output.token, 3)
+        XCTAssertEqual(factory.creationCount, 2)
+        let enabled = await pipeline.isFrameInterpolationEnabled
+        XCTAssertTrue(enabled)
+
+        await pipeline.reset(outputToken: 4)
+    }
+
     func makePixelBuffer(
         width: Int,
         height: Int
@@ -184,4 +257,105 @@ private extension RemoteVideoFramePipelineTests {
         XCTFail("Timed out waiting for a processed video frame")
         throw XmaxError(code: .timeout, message: "Frame output timed out")
     }
+}
+
+private actor InterpolationTestGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        let pending = waiters
+        waiters.removeAll()
+        pending.forEach { $0.resume() }
+    }
+}
+
+private actor ControlledInterpolationManager: FrameInterpolationManaging {
+    private let processingGate: InterpolationTestGate
+    private let closeGate: InterpolationTestGate
+    private let failsProcessing: Bool
+    private let processingStarted: XCTestExpectation
+    private let closeStarted: XCTestExpectation
+    private let closeFinished: XCTestExpectation
+
+    init(
+        processingGate: InterpolationTestGate,
+        closeGate: InterpolationTestGate,
+        failsProcessing: Bool,
+        processingStarted: XCTestExpectation,
+        closeStarted: XCTestExpectation,
+        closeFinished: XCTestExpectation
+    ) {
+        self.processingGate = processingGate
+        self.closeGate = closeGate
+        self.failsProcessing = failsProcessing
+        self.processingStarted = processingStarted
+        self.closeStarted = closeStarted
+        self.closeFinished = closeFinished
+    }
+
+    nonisolated func matches(_ frame: RealtimeVideoFrame) -> Bool { true }
+
+    func process(
+        _ frame: RealtimeVideoFrame,
+        sourceDuration: CMTime
+    ) async throws -> [RealtimeVideoFrame] {
+        processingStarted.fulfill()
+        await processingGate.wait()
+        if failsProcessing {
+            throw XmaxError(code: .mediaError, message: "Late interpolation failure")
+        }
+        return [frame]
+    }
+
+    func close() async {
+        closeStarted.fulfill()
+        await closeGate.wait()
+        closeFinished.fulfill()
+    }
+}
+
+private final class PassthroughInterpolationManager: FrameInterpolationManaging {
+    func matches(_ frame: RealtimeVideoFrame) -> Bool { true }
+
+    func process(
+        _ frame: RealtimeVideoFrame,
+        sourceDuration: CMTime
+    ) async throws -> [RealtimeVideoFrame] { [frame] }
+
+    func close() async {}
+}
+
+private final class InterpolationTestFactory: @unchecked Sendable {
+    private let lock = NSLock()
+    private let firstManager: any FrameInterpolationManaging
+    private var count = 0
+
+    init(firstManager: any FrameInterpolationManaging) {
+        self.firstManager = firstManager
+    }
+
+    var creationCount: Int { lock.withLock { count } }
+
+    func make() -> any FrameInterpolationManaging {
+        lock.withLock {
+            count += 1
+            return count == 1 ? firstManager : PassthroughInterpolationManager()
+        }
+    }
+}
+
+private final class InterpolationTestFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isSet = false
+
+    var value: Bool { lock.withLock { isSet } }
+
+    func set() { lock.withLock { isSet = true } }
 }

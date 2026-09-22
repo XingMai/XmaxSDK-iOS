@@ -7,9 +7,7 @@ import VideoToolbox
 
 /// 使用 VideoToolbox 在相邻视频帧之间生成一个低延迟中间帧。
 @available(iOS 26.0, *)
-final class FrameInterpolationManager:
-    FrameInterpolationManaging,
-    @unchecked Sendable {
+actor FrameInterpolationManager: FrameInterpolationManaging {
 
     // 输入规格
     private let sourceWidth: Int
@@ -25,6 +23,7 @@ final class FrameInterpolationManager:
     // 运行状态
     private var previousSourceFrame: VTFrameProcessorFrame?
     private var lastNormalizedTimeStamp: CMTime?
+    private var isClosed = false
 
     init(frame: RealtimeVideoFrame) throws {
         sourceWidth = CVPixelBufferGetWidth(frame.pixelBuffer)
@@ -69,11 +68,13 @@ final class FrameInterpolationManager:
         }
     }
 
-    deinit {
-        processor.endSession()
+    isolated deinit {
+        if !isClosed {
+            processor.endSession()
+        }
     }
 
-    func matches(_ frame: RealtimeVideoFrame) -> Bool {
+    nonisolated func matches(_ frame: RealtimeVideoFrame) -> Bool {
         CVPixelBufferGetWidth(frame.pixelBuffer) == sourceWidth &&
             CVPixelBufferGetHeight(frame.pixelBuffer) == sourceHeight &&
             CVPixelBufferGetPixelFormatType(frame.pixelBuffer) ==
@@ -84,6 +85,8 @@ final class FrameInterpolationManager:
         _ frame: RealtimeVideoFrame,
         sourceDuration: CMTime
     ) async throws -> [RealtimeVideoFrame] {
+        guard !isClosed else { throw CancellationError() }
+
         let timeStamp = normalizedTimeStamp(
             frame.presentationTimeStamp,
             duration: sourceDuration
@@ -138,6 +141,7 @@ final class FrameInterpolationManager:
         }
 
         try await process(parameters)
+        guard !isClosed else { throw CancellationError() }
         self.previousSourceFrame = sourceFrame
 
         let outputDuration = sourceDuration.divided(by: 2)
@@ -155,7 +159,10 @@ final class FrameInterpolationManager:
         ]
     }
 
-    func reset() {
+    func close() {
+        guard !isClosed else { return }
+        isClosed = true
+        processor.endSession()
         previousSourceFrame = nil
         lastNormalizedTimeStamp = nil
     }

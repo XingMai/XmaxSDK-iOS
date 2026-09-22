@@ -224,12 +224,14 @@ final class RenderController: RenderControlling {
         }
     }
 
-    func resetRemoteTrack(_ track: RealtimeVideoTrack?) throws {
+    func resetRemoteTrack(_ track: RealtimeVideoTrack?) async throws {
         if let track {
             VideoRenderRegistry.unregister(track)
             TrajectoryRegistry.unregister(track)
         }
-        try resetRemoteVideo()
+        let result = Result { try resetRemoteVideo() }
+        await remoteFramePipeline.reset(outputToken: renderingToken)
+        try result.get()
     }
 }
 
@@ -271,12 +273,15 @@ private extension RenderController {
         remoteStream = nil
         remoteContentMode = .fill
 
+        defer {
+            remoteView?.clearDecodedVideoPreview()
+            remoteView = nil
+            refreshRenderingToken()
+        }
+
         if let stream {
             try deactivateRemoteFrames(for: stream)
         }
-        remoteView?.clearDecodedVideoPreview()
-        remoteView = nil
-        refreshRenderingToken()
     }
 
     func activateRemoteFramesIfReady(reportsError: Bool) throws {
