@@ -177,13 +177,14 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
         }
     }
 
-    func sendRoomMessage(_ message: String) throws {
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
         try platform.lock.withLock {
             try requireJoined()
             guard let sender else {
                 throw XmaxError(code: .rtcError, message: "RTC signaling is unavailable")
             }
-            try sender.enqueue(message)
+            return try sender.enqueue(message, reportFailure: reportFailure)
         }
     }
 

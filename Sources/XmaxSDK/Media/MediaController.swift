@@ -81,6 +81,10 @@ actor MediaController: MediaControlling {
         currentTrack?.videoFormat
     }
 
+    var usesContainPadding: Bool {
+        activeSource?.kind == .image || activeSource?.kind == .video
+    }
+
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool {
         switch activeSource?.kind {
@@ -111,11 +115,13 @@ actor MediaController: MediaControlling {
     /// 启动指定生成任务的轨迹交互。
     func startInteraction(
         taskID: String,
-        videoFormat: RealtimeVideoFormat
+        videoFormat: RealtimeVideoFormat,
+        useDisplayedSize: Bool = false
     ) async {
         await interactionController.startInteraction(
             taskID: taskID,
-            videoFormat: videoFormat
+            videoFormat: videoFormat,
+            useDisplayedSize: useDisplayedSize
         )
     }
 
@@ -157,56 +163,48 @@ actor MediaController: MediaControlling {
 
     /// 创建图片数据媒体来源并取得本地媒体所有权。
     func createLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
+        imageData: Data
     ) async throws -> RealtimeMediaStream {
         let imageController = try requiredImageController()
         return try await createSource(kind: .image) {
             try await imageController.createLocalImageStream(
-                imageData: imageData,
-                videoFormat: videoFormat
+                imageData: imageData
             )
         }
     }
 
     /// 创建已解码图片媒体来源并取得本地媒体所有权。
     func createLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
+        decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
         let imageController = try requiredImageController()
         return try await createSource(kind: .image) {
             try await imageController.createLocalImageStream(
-                decodedImage: decodedImage,
-                videoFormat: videoFormat
+                decodedImage: decodedImage
             )
         }
     }
 
     /// 创建图片媒体来源并取得本地媒体所有权。
     func createLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
         let imageController = try requiredImageController()
         return try await createSource(kind: .image) {
             try await imageController.createLocalImageStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
+                fileURL: fileURL
             )
         }
     }
 
     /// 创建文件视频媒体来源并取得本地媒体所有权。
     func createLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
         let videoController = try requiredVideoController()
         return try await createSource(kind: .video) {
             try await videoController.createLocalVideoStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
+                fileURL: fileURL
             )
         }
     }

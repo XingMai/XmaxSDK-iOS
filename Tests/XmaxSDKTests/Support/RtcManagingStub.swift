@@ -275,13 +275,15 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
-    func sendRoomMessage(_ message: String) throws {
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
         try lock.withLock {
             storedCalls.append(.sendRoomMessage(message))
             if let sendRoomMessageError {
                 throw sendRoomMessageError
             }
         }
+        return Task {}
     }
 
     func setSendRoomMessageError(_ error: (any Error)?) {

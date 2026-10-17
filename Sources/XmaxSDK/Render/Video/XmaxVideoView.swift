@@ -336,6 +336,10 @@ extension XmaxVideoView {
         _ frame: RealtimeVideoFrame,
         contentMode: VideoContentMode
     ) {
+        attachedTrajectoryBinding?.update(videoSize: CGSize(
+            width: CVPixelBufferGetWidth(frame.pixelBuffer),
+            height: CVPixelBufferGetHeight(frame.pixelBuffer)
+        ))
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }

@@ -89,7 +89,14 @@ protocol RtcManaging: Sendable {
     ) throws
 
     /// 向当前 RTC 房间发送消息。
-    func sendRoomMessage(_ message: String) throws
+    ///
+    /// - Parameters:
+    ///   - message: 完整 JSON 信令。
+    ///   - reportFailure: 异步发送失败时是否上报房间故障。
+    /// - Returns: 本条信令的发送任务，可用于等待独立的发送结果。
+    /// - Throws: 入队失败时抛出错误。
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool) throws -> Task<Void, any Error>
 
     /// 等待当前已入队的房间信令发送完成。
     func awaitPendingMessages() async throws
@@ -99,4 +106,10 @@ protocol RtcManaging: Sendable {
 
     /// 设置 RTC 质量事件监听器，传入空值时清除监听器。
     func setQualityListener(_ listener: (any RtcQualityListener)?)
+}
+
+extension RtcManaging {
+    func sendRoomMessage(_ message: String) throws {
+        try sendRoomMessage(message, reportFailure: true)
+    }
 }

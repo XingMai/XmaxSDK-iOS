@@ -2,6 +2,31 @@ import XCTest
 @testable import XmaxSDK
 
 final class RoomEventTests: XCTestCase {
+    func testContainCanvasAndReturnBudgetAreIndependent() throws {
+        let canvas = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
+        let target = CGSize(width: 864, height: 1536)
+        let start = try decode(RoomEvent.start(
+            userID: "user", taskID: "task", videoFormat: canvas,
+            targetSize: target, context: RealtimeContext(prompt: "test"), paddingContain: true
+        ))
+        let params = try XCTUnwrap(start["params"] as? [String: Any])
+        XCTAssertEqual(params["size"] as? [Int], [1024, 1920])
+        XCTAssertEqual(params["target_size"] as? [Int], [864, 1536])
+        XCTAssertEqual(params["padding"] as? String, "contain")
+        let budget = try EncodingBitratePolicy.resolve(RealtimeVideoFormat(width: 864, height: 1536, fps: 24))
+        XCTAssertEqual(params["max_bitrate"] as? Int, min(10000, budget.maximum))
+
+        let update = try decode(RoomEvent.changeCondition(
+            userID: "user", taskID: "task", videoFormat: canvas,
+            context: RealtimeContext(prompt: "new"), paddingContain: true
+        ))
+        let changed = try XCTUnwrap(update["params"] as? [String: Any])
+        XCTAssertEqual(changed["padding"] as? String, "contain")
+        XCTAssertNil(changed["target_size"])
+        XCTAssertNil(changed["min_bitrate"])
+        XCTAssertNil(changed["max_bitrate"])
+    }
+
     func testFaceRestorationIsExplicitForStartAndConditionChanges() throws {
         let format = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
         let context = RealtimeContext(prompt: "outfit", referencePath: "reference.png")
@@ -35,7 +60,8 @@ final class RoomEventTests: XCTestCase {
         XCTAssertEqual(event["user_id"] as? String, "user-id")
         XCTAssertEqual(event["uid"] as? String, "task-id")
         let params = try XCTUnwrap(event["params"] as? [String: Any])
-        XCTAssertEqual(Set(params.keys), ["target_size"])
+        XCTAssertEqual(Set(params.keys), ["target_size", "min_bitrate", "max_bitrate"])
+        XCTAssertEqual(params["min_bitrate"] as? Int, 100)
         XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
         try assertRuntime(in: event)
     }

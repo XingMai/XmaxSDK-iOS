@@ -117,7 +117,8 @@ actor RoomController: RoomControlling {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext,
-        faceRestoration: Bool = false
+        faceRestoration: Bool = false,
+        paddingContain: Bool = false
     ) throws {
         try send(
             RoomEvent.start(
@@ -126,7 +127,8 @@ actor RoomController: RoomControlling {
                 videoFormat: videoFormat,
                 targetSize: targetSize,
                 context: context,
-                faceRestoration: faceRestoration
+                faceRestoration: faceRestoration,
+                paddingContain: paddingContain
             )
         )
     }
@@ -136,7 +138,8 @@ actor RoomController: RoomControlling {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext,
-        faceRestoration: Bool = false
+        faceRestoration: Bool = false,
+        paddingContain: Bool = false
     ) throws {
         try Task.checkCancellation()
         try send(
@@ -146,7 +149,8 @@ actor RoomController: RoomControlling {
                 videoFormat: videoFormat,
                 targetSize: targetSize,
                 context: context,
-                faceRestoration: faceRestoration
+                faceRestoration: faceRestoration,
+                paddingContain: paddingContain
             )
         )
     }
@@ -155,15 +159,17 @@ actor RoomController: RoomControlling {
         taskID: String,
         targetSize: CGSize,
         ensureActive: @Sendable () throws -> Void
-    ) throws {
+    ) async throws {
         try ensureActive()
-        try send(
+        let sending = try send(
             RoomEvent.changeTargetSize(
                 userID: try requireUserID(),
                 taskID: taskID,
                 targetSize: targetSize
-            )
+            ),
+            reportFailure: false
         )
+        try await RtcMessageQueue.waitForCompletion(of: sending)
     }
 
     func stopGeneration(taskID: String) throws {
@@ -230,15 +236,18 @@ private extension RoomController {
         }
     }
 
-    func send(_ message: String) throws {
+    @discardableResult
+    func send(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+        let sending: Task<Void, any Error>
         do {
-            try rtcManager.sendRoomMessage(message)
+            sending = try rtcManager.sendRoomMessage(message, reportFailure: reportFailure)
         } catch {
             throw XmaxError.from(error)
         }
         XmaxLogger.room.debug(
             message: formatSignalLog(message)
         )
+        return sending
     }
 
     func formatSignalLog(_ message: String) -> String {

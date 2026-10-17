@@ -52,8 +52,14 @@ final class TrajectoryBinding: @unchecked Sendable {
 
     @MainActor
     func update(videoFormat: RealtimeVideoFormat) {
-        videoSize = videoFormat.size
-        overlayView?.setVideoSize(videoFormat.size)
+        update(videoSize: videoFormat.size)
+    }
+
+    @MainActor
+    func update(videoSize: CGSize) {
+        guard self.videoSize != videoSize else { return }
+        self.videoSize = videoSize
+        overlayView?.setVideoSize(videoSize)
     }
 
     @MainActor
@@ -62,7 +68,8 @@ final class TrajectoryBinding: @unchecked Sendable {
         let frame = InteractionFrame(
             points: points,
             viewportSize: viewportSize,
-            contentMode: contentMode
+            contentMode: contentMode,
+            displayedVideoSize: videoSize
         )
         let interactionListener = interactionListener
         Task {

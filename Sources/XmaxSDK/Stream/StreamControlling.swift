@@ -3,6 +3,41 @@ import Foundation
 /// 定义传输层向 Core 暴露的统一能力。
 protocol StreamControlling: Sendable {
 
+    /// 当前媒体基准及上下行档位。
+    var qualityConfiguration: QualityConfiguration? { get }
+
+    /// 根据媒体基准和模型历史准备上下行档位。
+    ///
+    /// - Parameters:
+    ///   - baseline: 本地媒体原始输出规格，不随调档改变。
+    ///   - model: 用于隔离历史档位的模型标识。
+    /// - Returns: 本次连接的初始上下行配置。
+    func prepareQuality(baseline: RealtimeVideoFormat, model: String) -> QualityConfiguration
+
+    /// 设置内部调档采样回调，不影响公开网络质量监听。
+    ///
+    /// - Parameter listener: 接收网络质量及单调时钟采样时间；nil 表示移除。
+    func setAdaptiveQualityListener(_ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?)
+
+    /// 消费当前网络采样并返回候选档位。
+    ///
+    /// - Parameters:
+    ///   - quality: 当前上下行网络质量。
+    ///   - sampledAt: 单调时钟的采样时间，单位为秒。
+    /// - Returns: 满足连续采样和冷却条件的候选档位。
+    func proposeQuality(_ quality: RealtimeNetworkQuality, sampledAt: TimeInterval) -> QualityChange
+
+    /// 提交调档结果，成功时保存历史档位。
+    ///
+    /// - Parameters:
+    ///   - downlink: true 表示下行，false 表示上行。
+    ///   - level: 本次尝试的档位，范围为 1...5。
+    ///   - success: 配置是否成功应用。
+    func completeQuality(downlink: Bool, level: Int, success: Bool)
+
+    /// 清除连续采样窗口。
+    func resetQualitySamples()
+
     /// 当前是否存在正在启动或已经运行的生成任务。
     var hasGenerationTask: Bool { get }
 
@@ -95,7 +130,8 @@ protocol StreamControlling: Sendable {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
         context: RealtimeContext,
-        faceRestoration: Bool
+        faceRestoration: Bool,
+        paddingContain: Bool
     ) async throws -> Task<Void, any Error>
 
     /// 在远端首帧已经可显示后订阅当前生成流的音频。
@@ -118,7 +154,8 @@ protocol StreamControlling: Sendable {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
         context: RealtimeContext,
-        faceRestoration: Bool
+        faceRestoration: Bool,
+        paddingContain: Bool
     ) async throws
 
     /// 调整当前生成任务的回传尺寸，不重启生成。

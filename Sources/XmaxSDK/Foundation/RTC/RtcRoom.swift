@@ -75,12 +75,22 @@ protocol RtcRoom: AnyObject, Sendable {
 
     /// 将信令加入房间发送队列。
     ///
-    /// - Parameter message: 完整 JSON 信令。
+    /// - Parameters:
+    ///   - message: 完整 JSON 信令。
+    ///   - reportFailure: 异步发送失败时是否通知房间故障；false 仅记录日志并由等待调用抛出。
     /// - Throws: 信令无效或队列不可用时抛出错误。
-    func sendRoomMessage(_ message: String) throws
+    /// - Returns: 本条信令的发送任务。
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool) throws -> Task<Void, any Error>
 
     /// 等待此前排队的信令提交给 RTC。
     ///
     /// - Throws: 发送失败、离房或调用取消时抛出错误。
     func awaitPendingMessages() async throws
+}
+
+extension RtcRoom {
+    func sendRoomMessage(_ message: String) throws {
+        try sendRoomMessage(message, reportFailure: true)
+    }
 }

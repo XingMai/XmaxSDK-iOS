@@ -8,7 +8,8 @@ enum RoomEvent {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext,
-        faceRestoration: Bool = false
+        faceRestoration: Bool = false,
+        paddingContain: Bool = false
     ) throws -> String {
         try encode(
             StartPayload(
@@ -17,6 +18,7 @@ enum RoomEvent {
                     targetSize: targetSize,
                     context: context,
                     faceRestoration: faceRestoration,
+                    paddingContain: paddingContain,
                     mirror: false
                 ),
                 userID: userID,
@@ -31,7 +33,8 @@ enum RoomEvent {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext,
-        faceRestoration: Bool = false
+        faceRestoration: Bool = false,
+        paddingContain: Bool = false
     ) throws -> String {
         try encode(
             ChangeConditionPayload(
@@ -39,7 +42,8 @@ enum RoomEvent {
                     videoFormat: videoFormat,
                     targetSize: targetSize,
                     context: context,
-                    faceRestoration: faceRestoration
+                    faceRestoration: faceRestoration,
+                    paddingContain: paddingContain
                 ),
                 userID: userID,
                 taskID: taskID
@@ -54,7 +58,7 @@ enum RoomEvent {
     ) throws -> String {
         try encode(
             ChangeTargetSizePayload(
-                params: TargetSizeParameters(targetSize: [Int(targetSize.width), Int(targetSize.height)]),
+                params: TargetSizeParameters(size: targetSize),
                 userID: userID,
                 taskID: taskID
             )
@@ -93,6 +97,20 @@ enum RoomEvent {
 }
 
 private extension RoomEvent {
+    static func downlinkBitrates(_ size: CGSize) throws -> (minimum: Int, maximum: Int) {
+        guard size.width.isFinite, size.height.isFinite,
+              size.width >= 2, size.height >= 2,
+              size.width < CGFloat(Int.max), size.height < CGFloat(Int.max),
+              size.width.rounded(.down) == size.width,
+              size.height.rounded(.down) == size.height else {
+            throw XmaxError(code: .invalidConfiguration, message: "Invalid return video dimensions")
+        }
+        let budget = try EncodingBitratePolicy.resolve(RealtimeVideoFormat(
+            width: Int(size.width), height: Int(size.height), fps: 24
+        ))
+        return (100, min(10000, budget.maximum))
+    }
+
     static func encode(_ payload: some Encodable) throws -> String {
         let payloadData = try JSONEncoder().encode(
             Envelope(payload: payload, runtime: .current)
@@ -136,20 +154,33 @@ private extension RoomEvent {
         let referencePath: String?
         let mirror: Bool?
         let faceRestoration: Bool
+        let padding: String?
+        let minimumBitrate: Int?
+        let maximumBitrate: Int?
 
         init(
             videoFormat: RealtimeVideoFormat,
             targetSize: CGSize?,
             context: RealtimeContext,
             faceRestoration: Bool,
+            paddingContain: Bool = false,
             mirror: Bool? = nil
-        ) {
+        ) throws {
             size = [videoFormat.width, videoFormat.height]
             self.targetSize = targetSize.map { [Int($0.width), Int($0.height)] }
             prompt = context.prompt
             referencePath = context.referencePath
             self.mirror = mirror
             self.faceRestoration = faceRestoration
+            padding = paddingContain ? "contain" : nil
+            if mirror != nil {
+                let budget = try RoomEvent.downlinkBitrates(targetSize ?? videoFormat.size)
+                minimumBitrate = budget.minimum
+                maximumBitrate = budget.maximum
+            } else {
+                minimumBitrate = nil
+                maximumBitrate = nil
+            }
         }
 
         enum CodingKeys: String, CodingKey {
@@ -160,6 +191,9 @@ private extension RoomEvent {
             case referencePath = "ref_image_path"
             case mirror
             case faceRestoration = "face_replace"
+            case padding
+            case minimumBitrate = "min_bitrate"
+            case maximumBitrate = "max_bitrate"
         }
     }
 
@@ -193,9 +227,20 @@ private extension RoomEvent {
 
     struct TargetSizeParameters: Encodable {
         let targetSize: [Int]
+        let minimumBitrate: Int
+        let maximumBitrate: Int
+
+        init(size: CGSize) throws {
+            let budget = try RoomEvent.downlinkBitrates(size)
+            targetSize = [Int(size.width), Int(size.height)]
+            minimumBitrate = budget.minimum
+            maximumBitrate = budget.maximum
+        }
 
         enum CodingKeys: String, CodingKey {
             case targetSize = "target_size"
+            case minimumBitrate = "min_bitrate"
+            case maximumBitrate = "max_bitrate"
         }
     }
 

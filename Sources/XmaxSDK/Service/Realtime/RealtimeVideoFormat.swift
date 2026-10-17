@@ -23,7 +23,7 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
     /// 视频帧率。
     public let fps: Int
 
-    /// 最低上传码率，单位为 kbps；nil 使用 SDK 默认值，0 表示不设最低码率。
+    /// 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
     public let minimumBitrate: Int?
 
     /// 最高上传码率，单位为 kbps；nil 使用 SDK 默认值，指定时必须大于 0。
@@ -38,7 +38,7 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
     ///   - width: 视频宽度，单位为像素。
     ///   - height: 视频高度，单位为像素。
     ///   - fps: 视频帧率，必须大于 0。
-    ///   - minimumBitrate: 最低上传码率，单位为 kbps；nil 按最终上传尺寸和帧率计算。
+    ///   - minimumBitrate: 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
     ///   - maximumBitrate: 最高上传码率，单位为 kbps；nil 按最终上传尺寸和帧率计算。
     ///   - encoderPreference: 上传编码策略偏好，默认值为 maintainFramerate。
     public init(

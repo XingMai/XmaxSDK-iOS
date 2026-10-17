@@ -19,8 +19,77 @@ final class QualityController: QualityControlling, RtcQualityListener,
     private var uplinkStatisticsVersion = 0
     private var downlinkStatisticsVersion = 0
 
-    init(rtcManager: any RtcManaging) {
+    // 自动调档
+    private var uplinkQuality: QualityDirection?
+    private var downlinkQuality: QualityDirection?
+    private var history: QualityHistory?
+    private var adaptiveListener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
+    private let historyDefaults: UserDefaults
+
+    init(rtcManager: any RtcManaging, historyDefaults: UserDefaults = .standard) {
+        self.historyDefaults = historyDefaults
         rtcManager.setQualityListener(self)
+    }
+
+    var qualityConfiguration: QualityConfiguration? {
+        listenerLock.withLock { configuration() }
+    }
+
+    func prepareQuality(baseline: RealtimeVideoFormat, model: String) -> QualityConfiguration {
+        listenerLock.withLock {
+            let history = QualityHistory(model: model, defaults: historyDefaults)
+            self.history = history
+            uplinkQuality = QualityDirection(baseline: baseline, level: history.read(downlink: false), downlink: false)
+            downlinkQuality = QualityDirection(baseline: baseline, level: history.read(downlink: true), downlink: true)
+            return configuration()!
+        }
+    }
+
+    func setAdaptiveQualityListener(_ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?) {
+        listenerLock.withLock { adaptiveListener = listener }
+    }
+
+    func proposeQuality(_ quality: RealtimeNetworkQuality, sampledAt: TimeInterval) -> QualityChange {
+        listenerLock.withLock {
+            let now = ProcessInfo.processInfo.systemUptime
+            return QualityChange(
+                uplink: uplinkQuality?.observe(quality.uplink, sampledAt: sampledAt, now: now),
+                downlink: downlinkQuality?.observe(quality.downlink, sampledAt: sampledAt, now: now)
+            )
+        }
+    }
+
+    func completeQuality(downlink: Bool, level: Int, success: Bool) {
+        listenerLock.withLock {
+            let now = ProcessInfo.processInfo.systemUptime
+            if downlink {
+                downlinkQuality?.complete(level: level, success: success, now: now)
+            } else {
+                uplinkQuality?.complete(level: level, success: success, now: now)
+            }
+            if success { history?.write(level: level, downlink: downlink) }
+        }
+    }
+
+    func resetQualitySamples() {
+        listenerLock.withLock {
+            uplinkQuality?.resetSamples()
+            downlinkQuality?.resetSamples()
+        }
+    }
+
+    func resetQuality() {
+        listenerLock.withLock {
+            uplinkQuality = nil
+            downlinkQuality = nil
+            history = nil
+            adaptiveListener = nil
+        }
+    }
+
+    private func configuration() -> QualityConfiguration? {
+        guard let uplinkQuality, let downlinkQuality else { return nil }
+        return QualityConfiguration(baseline: uplinkQuality.baseline, uplinkLevel: uplinkQuality.level, downlinkLevel: downlinkQuality.level)
     }
 
     func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
@@ -107,12 +176,13 @@ final class QualityController: QualityControlling, RtcQualityListener,
         downlink: RtcQualityLevel
     ) {
         let listener = listenerLock.withLock { networkQualityListener }
-        listener?(
-            RealtimeNetworkQuality(
-                uplink: Self.networkQualityLevel(uplink),
-                downlink: Self.networkQualityLevel(downlink)
-            )
+        let quality = RealtimeNetworkQuality(
+            uplink: Self.networkQualityLevel(uplink),
+            downlink: Self.networkQualityLevel(downlink)
         )
+        let adaptive = listenerLock.withLock { adaptiveListener }
+        adaptive?(quality, ProcessInfo.processInfo.systemUptime)
+        listener?(quality)
     }
 
     @MainActor

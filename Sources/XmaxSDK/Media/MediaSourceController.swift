@@ -44,8 +44,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     }
 
     func prepare(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> MediaSourceConfiguration {
         guard stateLock.withLock({ configuration == nil }) else {
             throw XmaxError(
@@ -60,8 +59,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
                 fileURL: fileURL
             )
             let resolvedFormat = try resolveVideoFormat(
-                metadata: metadata,
-                requestedFormat: videoFormat
+                metadata: metadata
             )
             try await playerController.configure(
                 fileURL: fileURL,
@@ -159,34 +157,16 @@ private extension MediaSourceController {
     }
 
     func resolveVideoFormat(
-        metadata: MediaFileMetadata,
-        requestedFormat: RealtimeVideoFormat?
+        metadata: MediaFileMetadata
     ) throws -> RealtimeVideoFormat {
         let swapsDimensions = metadata.rotation == .rotation90 ||
             metadata.rotation == .rotation270
         let displayWidth = swapsDimensions ? metadata.height : metadata.width
         let displayHeight = swapsDimensions ? metadata.width : metadata.height
-        let requestedFormat = requestedFormat ?? RealtimeVideoFormat(
-            width: displayWidth,
-            height: displayHeight,
+        let resolvedFormat = RealtimeVideoFormat(
+            width: displayWidth / 2 * 2,
+            height: displayHeight / 2 * 2,
             fps: mediaService.model.defaultFrameRate
-        )
-        guard requestedFormat.fps > 0 else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Video stream frame rate must be greater than zero"
-            )
-        }
-
-        let targetSize = try mediaService.resolveModelInputSize(
-            CGSize(
-                width: requestedFormat.width,
-                height: requestedFormat.height
-            )
-        )
-        let resolvedFormat = requestedFormat.resized(
-            width: Int(targetSize.width),
-            height: Int(targetSize.height)
         )
         try resolvedFormat.validate()
         return resolvedFormat

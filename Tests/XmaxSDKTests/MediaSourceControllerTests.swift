@@ -6,25 +6,16 @@ import XCTest
 
 @MainActor
 final class MediaSourceControllerTests: XCTestCase {
-    func testModelDefaultsAndExplicitEncodingOptionsSurviveSizeResolution() async throws {
+    func testSourceSizeAndModelDefaultFrameRateAreIndependentOfBuckets() async throws {
         let components = makeComponents(hasAudio: false, model: .x2_1_1_preview_cn)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
         let defaultConfiguration = try await components.controller.prepare(
-            fileURL: fileURL, videoFormat: nil
+            fileURL: fileURL
         )
         XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await components.controller.stop()
-        let explicitConfiguration = try await components.controller.prepare(
-            fileURL: fileURL,
-            videoFormat: RealtimeVideoFormat(
-                width: 640, height: 480, fps: 20,
-                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
-            )
-        )
-        XCTAssertEqual(explicitConfiguration.videoFormat, RealtimeVideoFormat(
-            width: 832, height: 1472, fps: 20,
-            minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
-        ))
+        XCTAssertEqual(defaultConfiguration.videoFormat, RealtimeVideoFormat(width: 1080, height: 1920, fps: 30))
+        XCTAssertTrue(components.mediaService.requestedSizes.isEmpty)
     }
 
     func testPrepareResolvesRotatedSizeAndPreservesMetadataDuration() async throws {
@@ -32,8 +23,7 @@ final class MediaSourceControllerTests: XCTestCase {
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
 
         let configuration = try await components.controller.prepare(
-            fileURL: fileURL,
-            videoFormat: nil
+            fileURL: fileURL
         )
 
         XCTAssertEqual(
@@ -45,15 +35,15 @@ final class MediaSourceControllerTests: XCTestCase {
         )
         XCTAssertEqual(
             components.mediaService.requestedSizes,
-            [CGSize(width: 1_080, height: 1_920)]
+            []
         )
         XCTAssertEqual(components.player.calls, [
             .configure(
                 fileURL: fileURL,
-                outputWidth: 832,
-                outputHeight: 1_472,
+                outputWidth: 1080,
+                outputHeight: 1920,
                 rotation: .rotation90,
-                frameRate: 24,
+                frameRate: 30,
                 hasAudio: true,
                 durationSeconds: 2.0000001
             )
@@ -77,12 +67,12 @@ final class MediaSourceControllerTests: XCTestCase {
     func testRepeatedPrepareAndStartAreRejectedUntilStopped() async throws {
         let components = makeComponents(hasAudio: true)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
-        _ = try await components.controller.prepare(fileURL: fileURL, videoFormat: nil)
+        _ = try await components.controller.prepare(fileURL: fileURL)
         try await components.controller.start()
         let calls = components.player.calls
 
         do {
-            _ = try await components.controller.prepare(fileURL: fileURL, videoFormat: nil)
+            _ = try await components.controller.prepare(fileURL: fileURL)
             XCTFail("Preparing an active source should fail")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
@@ -98,7 +88,7 @@ final class MediaSourceControllerTests: XCTestCase {
 
         await components.controller.stop()
         XCTAssertFalse(components.controller.hasAudio)
-        _ = try await components.controller.prepare(fileURL: fileURL, videoFormat: nil)
+        _ = try await components.controller.prepare(fileURL: fileURL)
         try await components.controller.start()
 
         XCTAssertTrue(components.controller.hasAudio)
@@ -109,8 +99,7 @@ final class MediaSourceControllerTests: XCTestCase {
     func testStartAndStopUseSinglePlayerTimeline() async throws {
         let components = makeComponents(hasAudio: true)
         _ = try await components.controller.prepare(
-            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
-            videoFormat: videoFormat
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
         )
 
         try await components.controller.start()
@@ -126,8 +115,7 @@ final class MediaSourceControllerTests: XCTestCase {
     func testLocalAudioPreviewControlMutesOnlyPlayerOutput() async throws {
         let components = makeComponents(hasAudio: true)
         _ = try await components.controller.prepare(
-            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
-            videoFormat: nil
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
         )
 
         await components.controller.setLocalAudioPreviewMuted(true)
@@ -142,8 +130,7 @@ final class MediaSourceControllerTests: XCTestCase {
     func testSilentVideoIgnoresLocalAudioPreviewControl() async throws {
         let components = makeComponents(hasAudio: false)
         _ = try await components.controller.prepare(
-            fileURL: URL(fileURLWithPath: "/tmp/silent.mp4"),
-            videoFormat: nil
+            fileURL: URL(fileURLWithPath: "/tmp/silent.mp4")
         )
 
         await components.controller.setLocalAudioPreviewMuted(true)
@@ -173,7 +160,7 @@ private extension MediaSourceControllerTests {
     }
 
     var videoFormat: RealtimeVideoFormat {
-        RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
+        RealtimeVideoFormat(width: 1080, height: 1920, fps: 30)
     }
 
     func makeComponents(hasAudio: Bool, model: RealtimeModel = .x2_1_1_preview_cn) -> Components {

@@ -3,9 +3,9 @@ import Foundation
 @testable import XmaxSDK
 
 enum ImageControllingCall: Equatable {
-    case createData(Data, RealtimeVideoFormat?)
-    case createDecoded(CGSize, RealtimeVideoFormat?)
-    case createFile(URL, RealtimeVideoFormat?)
+    case createData(Data)
+    case createDecoded(CGSize)
+    case createFile(URL)
     case stop
 }
 
@@ -32,24 +32,21 @@ final class ImageControllingStub: ImageControlling, @unchecked Sendable {
     }
 
     func createLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
+        imageData: Data
     ) async throws -> RealtimeMediaStream {
-        createStream(call: .createData(imageData, videoFormat))
+        createStream(call: .createData(imageData))
     }
 
     func createLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
+        decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
-        createStream(call: .createDecoded(decodedImage.size, videoFormat))
+        createStream(call: .createDecoded(decodedImage.size))
     }
 
     func createLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
-        createStream(call: .createFile(fileURL, videoFormat))
+        createStream(call: .createFile(fileURL))
     }
 
     func stopLocalImageStream() async {

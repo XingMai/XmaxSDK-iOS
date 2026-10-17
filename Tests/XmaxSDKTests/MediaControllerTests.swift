@@ -196,8 +196,7 @@ final class MediaControllerTests: XCTestCase {
 
         await manager.stopLocalCameraStream()
         let imageStream = try await manager.createLocalImageStream(
-            fileURL: URL(fileURLWithPath: "/tmp/reference.png"),
-            videoFormat: nil
+            fileURL: URL(fileURLWithPath: "/tmp/reference.png")
         )
 
         let ownsImageStream = await manager.owns(imageStream)
@@ -217,7 +216,7 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
         XCTAssertEqual(
             imageController.calls,
-            [.createFile(URL(fileURLWithPath: "/tmp/reference.png"), nil)]
+            [.createFile(URL(fileURLWithPath: "/tmp/reference.png"))]
         )
 
         await manager.stopLocalCameraStream()
@@ -250,8 +249,7 @@ final class MediaControllerTests: XCTestCase {
         )
 
         let stream = try await manager.createLocalVideoStream(
-            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
-            videoFormat: nil
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
         )
         let hasAudio = await manager.hasAudio
         let ownsStream = await manager.owns(stream)

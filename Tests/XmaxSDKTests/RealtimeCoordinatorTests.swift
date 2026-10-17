@@ -3,6 +3,64 @@ import XCTest
 
 @MainActor
 final class RealtimeCoordinatorTests: XCTestCase {
+    func testForegroundWaitsForAdaptiveCommitWithoutConflict() async throws {
+        let gate = LifecycleFailureGate()
+        let events = RealtimeCoordinatorEventRecorder()
+        let coordinator = makeCoordinator(probe: RealtimeCoordinatorProbe())
+        try await coordinator.run(kind: .generation) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .generating, taskID: "task"), token: token)
+        }
+        let background = Task {
+            try await coordinator.runAdaptiveConfiguration { token in
+                events.append("sent")
+                await gate.wait()
+                try token.ensureCurrent()
+                events.append("committed")
+            }
+        }
+        await waitUntil { await gate.isWaiting }
+        let foreground = Task {
+            try await coordinator.run(kind: .configuration) { token in
+                try token.ensureCurrent()
+                events.append("foreground")
+            }
+        }
+        let skipped = try await coordinator.runAdaptiveConfiguration { _ in XCTFail("Busy background must be skipped") }
+        XCTAssertFalse(skipped)
+        await gate.release()
+        _ = try await background.value
+        try await foreground.value
+        XCTAssertEqual(events.values, ["sent", "committed", "foreground"])
+        let state = await coordinator.currentState
+        XCTAssertEqual(state.connectionState, .generating)
+    }
+
+    func testDisconnectInvalidatesAdaptiveTaskBeforeNextGeneration() async throws {
+        let gate = LifecycleFailureGate()
+        let coordinator = makeCoordinator(probe: RealtimeCoordinatorProbe())
+        try await coordinator.run(kind: .generation) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .generating), token: token)
+        }
+        let background = Task {
+            try await coordinator.runAdaptiveConfiguration { token in
+                await gate.wait()
+                try token.ensureCurrent()
+                XCTFail("An ended connection must not commit quality")
+            }
+        }
+        await waitUntil { await gate.isWaiting }
+        let disconnect = Task { await coordinator.disconnect() }
+        await waitUntil { await coordinator.currentState.connectionState == .disconnecting }
+        await gate.release()
+        do { _ = try await background.value; XCTFail("Expected cancellation") } catch {}
+        await disconnect.value
+        try await coordinator.run(kind: .generation) { token in
+            try await coordinator.commit(RealtimeState(connectionState: .generating, taskID: "new"), token: token)
+        }
+        let accepted = try await coordinator.runAdaptiveConfiguration { token in try token.ensureCurrent() }
+        XCTAssertTrue(accepted)
+    }
+
     func testBeginDisconnectAllowsLocalAdjustmentWhileCleanupIsWaiting() async throws {
         let gate = LifecycleFailureGate()
         let events = RealtimeCoordinatorEventRecorder()

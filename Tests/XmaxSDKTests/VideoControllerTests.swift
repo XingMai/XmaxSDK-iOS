@@ -21,8 +21,7 @@ final class VideoControllerTests: XCTestCase {
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
 
         let stream = try await manager.createLocalVideoStream(
-            fileURL: fileURL,
-            videoFormat: nil
+            fileURL: fileURL
         )
 
         XCTAssertEqual(stream.videoTrack?.videoFormat, videoFormat)
@@ -30,7 +29,7 @@ final class VideoControllerTests: XCTestCase {
         XCTAssertEqual(permissionManager.microphoneRequestCount, 1)
         XCTAssertEqual(
             source.calls,
-            [.prepare(fileURL, nil), .start]
+            [.prepare(fileURL), .start]
         )
         XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
         XCTAssertTrue(rtcManager.calls.contains(.startExternalAudioSource))
@@ -52,8 +51,7 @@ final class VideoControllerTests: XCTestCase {
         )
 
         _ = try await manager.createLocalVideoStream(
-            fileURL: URL(fileURLWithPath: "/tmp/silent.mp4"),
-            videoFormat: videoFormat
+            fileURL: URL(fileURLWithPath: "/tmp/silent.mp4")
         )
 
         XCTAssertFalse(manager.hasAudio)
@@ -74,8 +72,7 @@ final class VideoControllerTests: XCTestCase {
             mediaSourceController: source
         )
         _ = try await manager.createLocalVideoStream(
-            fileURL: URL(fileURLWithPath: "/tmp/source.mp4"),
-            videoFormat: nil
+            fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
         )
 
         await manager.stopLocalVideoStream()

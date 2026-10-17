@@ -93,6 +93,26 @@ final class StreamController: StreamControlling, RtcEventListener,
         try encodingController.configure(videoFormat)
     }
 
+    var qualityConfiguration: QualityConfiguration? { qualityController.qualityConfiguration }
+
+    func prepareQuality(baseline: RealtimeVideoFormat, model: String) -> QualityConfiguration {
+        qualityController.prepareQuality(baseline: baseline, model: model)
+    }
+
+    func setAdaptiveQualityListener(_ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?) {
+        qualityController.setAdaptiveQualityListener(listener)
+    }
+
+    func proposeQuality(_ quality: RealtimeNetworkQuality, sampledAt: TimeInterval) -> QualityChange {
+        qualityController.proposeQuality(quality, sampledAt: sampledAt)
+    }
+
+    func completeQuality(downlink: Bool, level: Int, success: Bool) {
+        qualityController.completeQuality(downlink: downlink, level: level, success: success)
+    }
+
+    func resetQualitySamples() { qualityController.resetQualitySamples() }
+
     func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
         qualityController.setUplinkVideoStatisticsListener(listener)
     }
@@ -147,6 +167,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     }
 
     func disconnect() async {
+        qualityController.resetQuality()
         await resetStream()
         await roomController.leave()
     }
@@ -156,7 +177,8 @@ final class StreamController: StreamControlling, RtcEventListener,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext,
-        faceRestoration: Bool = false
+        faceRestoration: Bool = false,
+        paddingContain: Bool = false
     ) async throws -> Task<Void, any Error> {
         timing.beginSignal(taskID: taskID)
         let confirmation = try beginGenerationConfirmation(taskID: taskID)
@@ -166,7 +188,8 @@ final class StreamController: StreamControlling, RtcEventListener,
                 videoFormat: videoFormat,
                 targetSize: targetSize,
                 context: context,
-                faceRestoration: faceRestoration
+                faceRestoration: faceRestoration,
+                paddingContain: paddingContain
             )
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask { try await self.rtcManager.awaitPendingMessages() }
@@ -208,14 +231,16 @@ final class StreamController: StreamControlling, RtcEventListener,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext,
-        faceRestoration: Bool = false
+        faceRestoration: Bool = false,
+        paddingContain: Bool = false
     ) async throws {
         try await roomController.changeGenerationCondition(
             taskID: taskID,
             videoFormat: videoFormat,
             targetSize: targetSize,
             context: context,
-            faceRestoration: faceRestoration
+            faceRestoration: faceRestoration,
+                paddingContain: paddingContain
         )
     }
 

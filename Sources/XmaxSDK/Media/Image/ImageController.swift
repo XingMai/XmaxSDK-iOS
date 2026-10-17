@@ -41,24 +41,21 @@ final class ImageController: ImageControlling, @unchecked Sendable {
     }
 
     func createLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
+        decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
-        try await createStream(input: .decoded(decodedImage), videoFormat: videoFormat)
+        try await createStream(input: .decoded(decodedImage))
     }
 
     func createLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
+        imageData: Data
     ) async throws -> RealtimeMediaStream {
-        try await createStream(input: .data(imageData), videoFormat: videoFormat)
+        try await createStream(input: .data(imageData))
     }
 
     func createLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
-        try await createStream(input: .file(fileURL), videoFormat: videoFormat)
+        try await createStream(input: .file(fileURL))
     }
 
     func stopLocalImageStream() async {
@@ -97,8 +94,7 @@ private extension ImageController {
     }
 
     func createStream(
-        input: ImageInput,
-        videoFormat: RealtimeVideoFormat?
+        input: ImageInput
     ) async throws -> RealtimeMediaStream {
         guard currentTrack == nil else {
             throw XmaxError(
@@ -112,8 +108,7 @@ private extension ImageController {
         do {
             let image = try decode(input)
             let resolvedFormat = try resolveVideoFormat(
-                sourceSize: image.size,
-                requestedFormat: videoFormat
+                sourceSize: image.size
             )
             let frame = try image.makeVideoFrame(
                 width: resolvedFormat.width,
@@ -185,27 +180,18 @@ private extension ImageController {
     }
 
     func resolveVideoFormat(
-        sourceSize: CGSize,
-        requestedFormat: RealtimeVideoFormat?
+        sourceSize: CGSize
     ) throws -> RealtimeVideoFormat {
-        let requestedFormat = requestedFormat ?? RealtimeVideoFormat(
-            width: Int(sourceSize.width),
-            height: Int(sourceSize.height),
-            fps: mediaService.model.defaultFrameRate
-        )
-        guard requestedFormat.fps > 0 else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Image stream frame rate must be greater than zero"
-            )
+        guard sourceSize.width.isFinite, sourceSize.height.isFinite,
+              sourceSize.width >= 2, sourceSize.height >= 2,
+              sourceSize.width < CGFloat(Int.max), sourceSize.height < CGFloat(Int.max) else {
+            throw XmaxError(code: .invalidConfiguration, message: "Image dimensions must be valid pixel dimensions")
         }
 
-        let targetSize = try mediaService.resolveModelInputSize(
-            CGSize(width: requestedFormat.width, height: requestedFormat.height)
-        )
-        let resolvedFormat = requestedFormat.resized(
-            width: Int(targetSize.width),
-            height: Int(targetSize.height)
+        let resolvedFormat = RealtimeVideoFormat(
+            width: Int(sourceSize.width) / 2 * 2,
+            height: Int(sourceSize.height) / 2 * 2,
+            fps: mediaService.model.defaultFrameRate
         )
         try resolvedFormat.validate()
         return resolvedFormat

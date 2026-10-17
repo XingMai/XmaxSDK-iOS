@@ -72,6 +72,7 @@ actor RealtimeCoordinator {
     // 操作管理
     private var activeOperation: Operation?
     private var termination: Termination?
+    private var foregroundRequests = 0
 
     init(
         errorHandler: RealtimeErrorHandler,
@@ -101,6 +102,14 @@ actor RealtimeCoordinator {
         failureScope: TerminationScope? = nil,
         operation body: @escaping @Sendable (Token) async throws -> Value
     ) async throws -> Value {
+        foregroundRequests += 1
+        defer { foregroundRequests -= 1 }
+        if let background = activeOperation, background.background {
+            // 已发出的回传配置先完成本地提交，前台设置再基于最新配置执行。
+            await background.waitForCompletion()
+            finish(background)
+        }
+        try Task.checkCancellation()
         guard termination == nil, activeOperation == nil else {
             let error = XmaxError(
                 code: .invalidConfiguration,
@@ -148,6 +157,33 @@ actor RealtimeCoordinator {
                 operation: operation
             )
         }
+    }
+
+    /// 空闲时执行一次低优先级调档；忙碌时跳过，不影响公开状态。
+    ///
+    /// - Parameter body: 调整传输配置的操作，异步边界后须检查 token。
+    /// - Returns: 是否接纳并成功完成此次调档。
+    /// - Throws: 已接纳的配置操作失败或被终止时抛出错误。
+    func runAdaptiveConfiguration(
+        _ body: @escaping @Sendable (Token) async throws -> Void
+    ) async throws -> Bool {
+        guard termination == nil, activeOperation == nil, foregroundRequests == 0,
+              state.connectionState == .generating else { return false }
+        let operation = Operation(kind: .configuration, failureScope: nil, background: true)
+        let token = Token(lease: operation.lease)
+        let task = Task { try await body(token) }
+        operation.cancel = { task.cancel() }
+        operation.waitForCompletion = { _ = try? await task.value }
+        activeOperation = operation
+        defer { finish(operation) }
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            operation.lease.invalidate()
+            task.cancel()
+        }
+        try token.ensureCurrent()
+        return true
     }
 
     /// 仅当前操作可以提交新的公开状态。
@@ -277,6 +313,7 @@ private extension RealtimeCoordinator {
     final class Operation: @unchecked Sendable {
         let id = UUID()
         let kind: OperationKind
+        let background: Bool
         let lease: OperationLease
         var cancel: @Sendable () -> Void = {}
         var waitForCompletion: @Sendable () async -> Void = {}
@@ -284,9 +321,11 @@ private extension RealtimeCoordinator {
 
         init(
             kind: OperationKind,
-            failureScope: TerminationScope?
+            failureScope: TerminationScope?,
+            background: Bool = false
         ) {
             self.kind = kind
+            self.background = background
             lease = OperationLease(failureScope: failureScope)
         }
     }

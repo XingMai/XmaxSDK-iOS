@@ -3,7 +3,7 @@ import UIKit
 @testable import XmaxSDK
 
 enum MediaSourceControllingCall: Equatable {
-    case prepare(URL, RealtimeVideoFormat?)
+    case prepare(URL)
     case start
     case setLocalAudioPreviewMuted(Bool)
     case setLocalAudioVolume(Float)
@@ -49,11 +49,10 @@ final class MediaSourceControllingStub:
     }
 
     func prepare(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> MediaSourceConfiguration {
         try lock.withLock {
-            storedCalls.append(.prepare(fileURL, videoFormat))
+            storedCalls.append(.prepare(fileURL))
             if let prepareError {
                 throw prepareError
             }

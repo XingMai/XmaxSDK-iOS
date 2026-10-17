@@ -4,7 +4,7 @@ import UIKit
 #endif
 
 /// 实时生成业务公共入口，统一编排本地媒体、连接、生成和状态通知。
-actor XmaxRealtimeManager: XmaxRealtimeManaging {
+actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
 
     // 公共配置
     nonisolated let options: RealtimeConfiguration
@@ -25,6 +25,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // 并发控制
     private let coordinator: RealtimeCoordinator
+
+    // 自动调档
+    private var qualityPending = false
 
     @MainActor
     init(
@@ -179,6 +182,34 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         streamController.remoteAudioVolume
     }
 
+    var qualityDebugState: RealtimeQualityDebugState? {
+        get async {
+            guard await coordinator.currentState.connectionState == .generating,
+                  let quality = streamController.qualityConfiguration else { return nil }
+            let interpolation = await renderController.isFrameInterpolationEnabled
+            guard let downlink = try? resolveReturnFormat(baseline: quality.baseline, level: quality.downlinkLevel, interpolation: interpolation),
+                  await coordinator.currentState.connectionState == .generating else { return nil }
+            return RealtimeQualityDebugState(
+                uplinkLevel: quality.uplinkLevel, downlinkLevel: quality.downlinkLevel,
+                uplink: quality.uplink, downlink: downlink, interpolationEnabled: interpolation
+            )
+        }
+    }
+
+    func selectQualityLevel(_ level: Int, downlink: Bool) async throws {
+        guard (1...5).contains(level) else {
+            throw XmaxError(code: .invalidConfiguration, message: "Quality level must be in 1...5")
+        }
+        try await coordinator.run(kind: .configuration) { [self] token in
+            let state = await coordinator.currentState
+            try token.ensureCurrent()
+            guard state.connectionState == .generating, let taskID = state.taskID else {
+                throw XmaxError(code: .invalidConfiguration, message: "Quality selection requires active generation")
+            }
+            try await applyQualityLevel(level, downlink: downlink, taskID: taskID, token: token)
+        }
+    }
+
     func setStateListener(_ listener: RealtimeStateListener?) async {
         await coordinator.setStateListener(listener)
     }
@@ -235,9 +266,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         ) { [self] token in
             do {
                 let current = await coordinator.currentState
-                let generationFormat = await mediaController.currentVideoFormat
-                let targetSize = try generationFormat.map {
-                    enabled ? try mediaService.resolveFrameInterpolationSize($0.size) : $0.size
+                let mediaFormat = await mediaController.currentVideoFormat
+                let targetSize = try mediaFormat.map {
+                    try resolveReturnFormat(
+                        baseline: $0,
+                        level: streamController.qualityConfiguration?.downlinkLevel ?? 2,
+                        interpolation: enabled
+                    ).size
                 }
                 if enabled, let targetSize,
                    !mediaService.supportsFrameInterpolation(for: targetSize) {
@@ -248,7 +283,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     )
                 }
                 try token.ensureCurrent()
-                if let taskID = current.taskID, let targetSize {
+                if let taskID = current.taskID, let targetSize,
+                   await connectionManager.currentTargetSize != targetSize {
                     try await streamController.changeTargetSize(
                         taskID: taskID,
                         targetSize: targetSize,
@@ -257,12 +293,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 }
 
                 // 信令发出后完成本地配置提交；并发断开会等待当前操作完成再清理。
-                if let generationFormat, let targetSize {
-                    await connectionManager.updateTargetSize(targetSize, videoFormat: generationFormat)
+                if let mediaFormat, let targetSize {
+                    await connectionManager.updateTargetSize(targetSize, videoFormat: mediaFormat)
                 }
-                var returnFormat = generationFormat
-                if let generationFormat, let targetSize {
-                    returnFormat = generationFormat.resized(
+                var returnFormat = mediaFormat
+                if let mediaFormat, let targetSize {
+                    returnFormat = mediaFormat.resized(
                         width: Int(targetSize.width),
                         height: Int(targetSize.height)
                     )
@@ -388,13 +424,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func createLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
+        imageData: Data
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .image) { [self] token in
             let stream = try await mediaController.createLocalImageStream(
-                imageData: imageData,
-                videoFormat: videoFormat
+                imageData: imageData
             )
             try token.ensureCurrent()
             return stream
@@ -406,27 +440,22 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ///
     /// - Parameters:
     ///   - image: 用作本地输入的 UIKit 图片。
-    ///   - videoFormat: 输出视频规格；传入 `nil` 时根据图片原始尺寸生成。
     func createLocalImageStream(
-        image: UIImage,
-        videoFormat: RealtimeVideoFormat?
+        image: UIImage
     ) async throws -> RealtimeMediaStream {
         let decodedImage = try ImageManager().decode(image)
         return try await createLocalImageStream(
-            decodedImage: decodedImage,
-            videoFormat: videoFormat
+            decodedImage: decodedImage
         )
     }
 #endif
 
     func createLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
+        decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .image) { [self] token in
             let stream = try await mediaController.createLocalImageStream(
-                decodedImage: decodedImage,
-                videoFormat: videoFormat
+                decodedImage: decodedImage
             )
             try token.ensureCurrent()
             return stream
@@ -434,13 +463,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func createLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .image) { [self] token in
             let stream = try await mediaController.createLocalImageStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
+                fileURL: fileURL
             )
             try token.ensureCurrent()
             return stream
@@ -467,28 +494,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
     func createLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .video) { [self] token in
             let stream = try await mediaController.createLocalVideoStream(
-                fileURL: fileURL,
-                videoFormat: videoFormat
+                fileURL: fileURL
             )
-            do {
-                guard let resolvedFormat = stream.videoTrack?.videoFormat else {
-                    throw XmaxError(
-                        code: .internalError,
-                        message: "Local video stream has no video format"
-                    )
-                }
-                try streamController.setVideoEncoderConfig(resolvedFormat)
-                try token.ensureCurrent()
-                return stream
-            } catch {
-                await mediaController.stopLocalVideoStream()
-                throw error
-            }
+            try token.ensureCurrent()
+            return stream
         }
     }
 
@@ -642,14 +655,21 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         }
 
+        let paddingContain = await mediaController.usesContainPadding
+        let generationSize = try paddingContain ? mediaService.resolveGenerationSize(videoFormat.size) : videoFormat.size
+        let generationFormat = videoFormat.resized(width: Int(generationSize.width), height: Int(generationSize.height))
+        try token.ensureCurrent()
+
         if current.connectionState == .generating,
            let taskID = current.taskID {
             try await generationManager.update(
                 taskID: taskID,
                 videoFormat: videoFormat,
-                targetSize: await connectionManager.currentTargetSize,
+                targetSize: nil,
                 context: context,
                 faceRestoration: faceRestoration,
+                generationVideoFormat: generationFormat,
+                paddingContain: paddingContain,
                 ensureCurrent: { try token.ensureCurrent() }
             )
             try token.ensureCurrent()
@@ -666,6 +686,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 targetSize: await connectionManager.currentTargetSize,
                 context: context,
                 faceRestoration: faceRestoration,
+                generationVideoFormat: generationFormat,
+                paddingContain: paddingContain,
                 ensureCurrent: {
                     try token.ensureCurrent()
                 }
@@ -687,6 +709,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 ),
                 token: token
             )
+            try token.ensureCurrent()
+            if let quality = streamController.qualityConfiguration {
+                streamController.completeQuality(downlink: false, level: quality.uplinkLevel, success: true)
+                streamController.completeQuality(downlink: true, level: quality.downlinkLevel, success: true)
+            }
+            streamController.setAdaptiveQualityListener { [weak self] quality, time in
+                Task { await self?.adaptQuality(quality, sampledAt: time, taskID: taskID) }
+            }
             timing.finish(taskID: taskID)
         } catch {
             await mediaController.setLocalAudioPreviewMuted(false)
@@ -696,6 +726,96 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 }
 
 private extension XmaxRealtimeManager {
+    nonisolated func resolveReturnFormat(
+        baseline: RealtimeVideoFormat,
+        level: Int,
+        interpolation: Bool
+    ) throws -> RealtimeVideoFormat {
+        let limit = interpolation ? try mediaService.resolveFrameInterpolationSize(baseline.size) : nil
+        return QualityVideoFormat.resolveReturnFormat(baseline, level: level, interpolationSize: limit)
+    }
+
+    func adaptQuality(_ sample: RealtimeNetworkQuality, sampledAt: TimeInterval, taskID: String) async {
+        guard !qualityPending else { return }
+        qualityPending = true
+        defer { qualityPending = false }
+        do {
+            let accepted = try await coordinator.runAdaptiveConfiguration { [self] token in
+                let state = await coordinator.currentState
+                try token.ensureCurrent()
+                guard state.taskID == taskID, state.connectionState == .generating else { return }
+                let change = streamController.proposeQuality(sample, sampledAt: sampledAt)
+                if let level = change.uplink {
+                    try? await applyQualityLevel(level, downlink: false, taskID: taskID, token: token)
+                }
+                try token.ensureCurrent()
+                if let level = change.downlink {
+                    try? await applyQualityLevel(level, downlink: true, taskID: taskID, token: token)
+                }
+            }
+            if !accepted { streamController.resetQualitySamples() }
+        } catch {
+            // 取消与断开不形成新连接的采样，也不覆盖其配置。
+            if !Task.isCancelled, await coordinator.currentState.taskID == taskID {
+                streamController.resetQualitySamples()
+            }
+        }
+    }
+
+    func applyQualityLevel(
+        _ level: Int,
+        downlink: Bool,
+        taskID: String,
+        token: RealtimeCoordinator.Token
+    ) async throws {
+        guard let configuration = streamController.qualityConfiguration else { return }
+        do {
+            try token.ensureCurrent()
+            let format: RealtimeVideoFormat
+            if downlink {
+                let interpolation = await renderController.isFrameInterpolationEnabled
+                try token.ensureCurrent()
+                format = try resolveReturnFormat(
+                    baseline: configuration.baseline,
+                    level: level,
+                    interpolation: interpolation
+                )
+                guard !interpolation || mediaService.supportsFrameInterpolation(for: format.size) else {
+                    throw XmaxError(
+                        code: .frameInterpolationUnsupported,
+                        message: "Frame interpolation is unavailable for the target size"
+                    )
+                }
+
+                if await connectionManager.currentTargetSize != format.size {
+                    try token.ensureCurrent()
+                    try await streamController.changeTargetSize(
+                        taskID: taskID,
+                        targetSize: format.size,
+                        ensureActive: { try token.ensureCurrent() }
+                    )
+                    // 发送后同步预期尺寸；断开会等待本次提交完成再释放资源。
+                    await connectionManager.updateTargetSize(format.size, videoFormat: configuration.baseline)
+                    try await renderController.setFrameInterpolationEnabled(interpolation, videoFormat: format)
+                }
+            } else {
+                format = QualityVideoFormat.resolve(configuration.baseline, level: level, downlink: false)
+                try streamController.setVideoEncoderConfig(format)
+            }
+            try token.ensureCurrent()
+            streamController.completeQuality(downlink: downlink, level: level, success: true)
+            XmaxLogger.realtime.debug(
+                message: "自动调档 (Adaptive Quality)\n" +
+                    "└─ \(downlink ? "Downlink" : "Uplink"): L\(level), \(format.width) × \(format.height)"
+            )
+        } catch {
+            guard token.isCurrent else { throw error }
+            streamController.completeQuality(downlink: downlink, level: level, success: false)
+            XmaxLogger.realtime.warn(message: "自动调档失败 (Adaptive Quality Failed)\n└─ \(ErrorMessageFormatter.format(error))")
+            throw error
+        }
+    }
+
     func performConnect(
         localStream: RealtimeMediaStream,
         token: RealtimeCoordinator.Token
@@ -730,7 +850,8 @@ private extension XmaxRealtimeManager {
             RealtimeState(connectionState: .connecting),
             token: token
         )
-        try streamController.setVideoEncoderConfig(videoFormat)
+        let quality = streamController.prepareQuality(baseline: videoFormat, model: options.model.rawValue)
+        try streamController.setVideoEncoderConfig(quality.uplink)
         let targetSize = await reconcileFrameInterpolation(for: localStream)
         try token.ensureCurrent()
         try await mediaController.startMicrophoneCapture()
@@ -852,13 +973,14 @@ private extension XmaxRealtimeManager {
     func reconcileFrameInterpolation(
         for stream: RealtimeMediaStream
     ) async -> CGSize? {
-        guard await renderController.isFrameInterpolationEnabled,
-              let videoFormat = stream.videoTrack?.videoFormat else {
+        guard let videoFormat = stream.videoTrack?.videoFormat else {
             return nil
         }
+        let level = streamController.qualityConfiguration?.downlinkLevel ?? 2
+        let interpolation = await renderController.isFrameInterpolationEnabled
         do {
-            let targetSize = try mediaService.resolveFrameInterpolationSize(videoFormat.size)
-            guard mediaService.supportsFrameInterpolation(for: targetSize) else {
+            let targetSize = try resolveReturnFormat(baseline: videoFormat, level: level, interpolation: interpolation).size
+            guard !interpolation || mediaService.supportsFrameInterpolation(for: targetSize) else {
                 throw XmaxError(
                     code: .frameInterpolationUnsupported,
                     message: "Frame interpolation is unavailable for " +
@@ -866,20 +988,20 @@ private extension XmaxRealtimeManager {
                 )
             }
             try await renderController.setFrameInterpolationEnabled(
-                true,
+                interpolation,
                 videoFormat: videoFormat.resized(
                     width: Int(targetSize.width),
                     height: Int(targetSize.height)
                 )
             )
-            return targetSize == videoFormat.size ? nil : targetSize
+            return targetSize
         } catch {
             try? await renderController.setFrameInterpolationEnabled(
                 false,
                 videoFormat: videoFormat
             )
             await errorHandler.report(XmaxError.from(error))
-            return nil
+            return QualityVideoFormat.resolve(videoFormat, level: level, downlink: true).size
         }
     }
 

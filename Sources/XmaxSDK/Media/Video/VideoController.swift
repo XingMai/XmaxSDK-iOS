@@ -73,8 +73,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
 
     /// 从本地视频文件创建循环播放的媒体流。
     func createLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
         guard currentTrack == nil else {
             throw XmaxError(
@@ -85,8 +84,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         }
 
         return try await createStream(
-            fileURL: fileURL,
-            videoFormat: videoFormat
+            fileURL: fileURL
         )
     }
 
@@ -138,16 +136,14 @@ final class VideoController: VideoControlling, @unchecked Sendable {
 
 private extension VideoController {
     func createStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream {
         var track: RealtimeVideoTrack?
         var externalAudioStarted = false
 
         do {
             let configuration = try await mediaSourceController.prepare(
-                fileURL: fileURL,
-                videoFormat: videoFormat
+                fileURL: fileURL
             )
             let localTrack = RealtimeVideoTrack(
                 id: Self.localVideoTrackID,

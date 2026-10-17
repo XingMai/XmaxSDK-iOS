@@ -5,6 +5,7 @@ struct InteractionFrame: Sendable {
     let points: [CGPoint]
     let viewportSize: CGSize
     let contentMode: VideoContentMode
+    var displayedVideoSize: CGSize? = nil
 }
 
 extension RealtimeVideoFormat {

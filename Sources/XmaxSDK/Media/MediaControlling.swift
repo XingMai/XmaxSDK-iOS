@@ -9,6 +9,9 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前本地视频格式。
     var currentVideoFormat: RealtimeVideoFormat? { get }
 
+    /// 图片或文件视频使用独立生成画布，媒体本身保持源比例。
+    var usesContainPadding: Bool { get }
+
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool { get }
 
@@ -65,43 +68,34 @@ protocol MediaControlling: Actor, InteractionControlling {
     ///
     /// - Parameters:
     ///   - imageData: PNG、JPEG 等受支持格式的编码图片数据。
-    ///   - videoFormat: 目标本地视频格式；传入空值时根据图片尺寸和
-    ///     默认帧率确定。
     /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
     /// - Throws: 图片数据无效、媒体准备或外部视频源启动失败时抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalImageStream(
-        imageData: Data,
-        videoFormat: RealtimeVideoFormat?
+        imageData: Data
     ) async throws -> RealtimeMediaStream
 
     /// 从已解码图片创建并持有本地图片媒体流。
     ///
     /// - Parameters:
     ///   - decodedImage: 已经完成方向规范化和像素解码的图片。
-    ///   - videoFormat: 目标本地视频格式；传入空值时根据图片尺寸和
-    ///     默认帧率确定。
     /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
     /// - Throws: 图片像素处理、媒体准备或外部视频源启动失败时抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalImageStream(
-        decodedImage: any DecodedImage,
-        videoFormat: RealtimeVideoFormat?
+        decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream
 
     /// 从本地图片文件创建并持有本地图片媒体流。
     ///
     /// - Parameters:
     ///   - fileURL: 可读取的本地图片文件地址。
-    ///   - videoFormat: 目标本地视频格式；传入空值时根据图片尺寸和
-    ///     默认帧率确定。
     /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
     /// - Throws: 文件读取、图片解码、媒体准备或外部视频源启动失败时
     ///   抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalImageStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream
 
     /// 停止并释放当前本地图片媒体流、帧输出、预览绑定和 RTC 资源；
@@ -112,15 +106,12 @@ protocol MediaControlling: Actor, InteractionControlling {
     ///
     /// - Parameters:
     ///   - fileURL: 可读取的本地视频文件地址。
-    ///   - videoFormat: 目标本地视频格式；传入空值时根据视频尺寸和
-    ///     默认帧率确定。
     /// - Returns: 包含循环输出文件视频帧的本地媒体流。
     /// - Throws: 文件读取、音视频准备、权限或外部媒体源启动失败时
     ///   抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream
 
     /// 停止并释放当前本地视频媒体流、音视频输出、预览绑定和 RTC 资源；

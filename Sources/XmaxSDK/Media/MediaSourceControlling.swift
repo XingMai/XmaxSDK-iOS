@@ -11,9 +11,12 @@ protocol MediaSourceControlling: Sendable {
     var hasAudio: Bool { get }
 
     /// 准备本地视频文件和输出格式。
+    ///
+    /// - Parameter fileURL: 可读取的本地视频文件地址。
+    /// - Returns: 保留源视频显示比例的媒体输出配置。
+    /// - Throws: 文件无法读取、视频轨道缺失或输出规格无效时抛出错误。
     func prepare(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> MediaSourceConfiguration
 
     /// 从文件起点开始循环输出音视频帧。

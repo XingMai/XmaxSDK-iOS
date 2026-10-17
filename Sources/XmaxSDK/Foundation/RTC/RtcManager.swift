@@ -237,8 +237,9 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    func sendRoomMessage(_ message: String) throws {
-        try withRoom { try $0.sendRoomMessage(message) }
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+        try withRoom { try $0.sendRoomMessage(message, reportFailure: reportFailure) }
     }
 
     func awaitPendingMessages() async throws {

@@ -3,6 +3,27 @@ import XCTest
 @testable import XmaxSDK
 
 final class RtcMessageQueueTests: XCTestCase {
+    func testRecoverableConfigurationFailureDoesNotPoisonNextMessage() async throws {
+        let recorder = PacketRecorder()
+        let queue = RtcMessageQueue(send: { data in
+            if data == Data("resize".utf8) {
+                throw XmaxError(code: .rtcError, message: "resize failed")
+            }
+            recorder.append(data)
+        }, onFailure: { _ in XCTFail("Recoverable configuration must not terminate the room") })
+        let resize = try queue.enqueue("resize", reportFailure: false)
+        try queue.enqueue("next condition")
+        try await queue.flush()
+        do {
+            try await RtcMessageQueue.waitForCompletion(of: resize)
+            XCTFail("A later successful message must not hide the configuration failure")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.message, "resize failed")
+        }
+        XCTAssertEqual(recorder.packets, [Data("next condition".utf8)])
+        queue.close()
+    }
+
     func testSmallMessageIsSentWithoutEnvelope() throws {
         let message = #"{"event":"heartbeat","user_id":"account"}"#
         XCTAssertEqual(try RtcMessageCodec.encode(message), [Data(message.utf8)])

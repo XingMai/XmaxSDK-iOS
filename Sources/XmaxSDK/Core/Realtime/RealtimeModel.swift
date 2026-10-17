@@ -26,7 +26,8 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
-    /// 模型支持的输入分辨率桶；非空时宽高必须精确匹配，不进行自动缩放。
+    /// 模型支持的生成分辨率桶；摄像头输入须精确匹配。
+    /// 图片和视频保留媒体比例，生成时选择比例最接近的画布。
     /// 空数组表示不限制固定尺寸，按像素面积上下限和对齐规则计算输入尺寸。
     public var resolutionBuckets: [CGSize] {
         [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)]

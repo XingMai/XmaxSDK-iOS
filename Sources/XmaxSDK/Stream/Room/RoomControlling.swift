@@ -26,7 +26,8 @@ protocol RoomControlling: Actor {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
         context: RealtimeContext,
-        faceRestoration: Bool
+        faceRestoration: Bool,
+        paddingContain: Bool
     ) throws
 
     /// 发送生成条件变更信令。
@@ -43,7 +44,8 @@ protocol RoomControlling: Actor {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
         context: RealtimeContext,
-        faceRestoration: Bool
+        faceRestoration: Bool,
+        paddingContain: Bool
     ) throws
 
     /// 调整当前生成任务的回传尺寸。
@@ -57,7 +59,7 @@ protocol RoomControlling: Actor {
         taskID: String,
         targetSize: CGSize,
         ensureActive: @Sendable () throws -> Void
-    ) throws
+    ) async throws
 
     /// 尝试发送生成停止信令，未进房或任务为空时忽略。
     ///

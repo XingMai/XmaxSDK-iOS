@@ -14,7 +14,7 @@ final class ImageControllerTests: XCTestCase {
             frameListener: { _ in }
         )
         let prepared = try await controller.createLocalImageStream(
-            imageData: Data("encoded-image".utf8), videoFormat: nil
+            imageData: Data("encoded-image".utf8)
         )
         XCTAssertEqual(prepared.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await controller.stopLocalImageStream()
@@ -33,18 +33,17 @@ final class ImageControllerTests: XCTestCase {
         )
 
         let prepared = try await controller.createLocalImageStream(
-            imageData: imageData,
-            videoFormat: nil
+            imageData: imageData
         )
         await controller.stopLocalImageStream()
 
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,
-            RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
+            RealtimeVideoFormat(width: 400, height: 800, fps: 30)
         )
         XCTAssertEqual(
             decodedImage.frameSizes,
-            [CGSize(width: 832, height: 1_472)]
+            [CGSize(width: 400, height: 800)]
         )
     }
 
@@ -69,30 +68,29 @@ final class ImageControllerTests: XCTestCase {
         )
 
         let prepared = try await controller.createLocalImageStream(
-            fileURL: fileURL,
-            videoFormat: nil
+            fileURL: fileURL
         )
         await controller.stopLocalImageStream()
 
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,
-            RealtimeVideoFormat(width: 896, height: 672, fps: 24)
+            RealtimeVideoFormat(width: 640, height: 480, fps: 30)
         )
         XCTAssertEqual(
             decodedImage.frameSizes,
-            [CGSize(width: 896, height: 672)]
+            [CGSize(width: 640, height: 480)]
         )
         let frame = try XCTUnwrap(recorder.frames.first)
         XCTAssertEqual(
             frame.format,
-            try VideoFormat(width: 896, height: 672, pixelFormat: .bgra)
+            try VideoFormat(width: 640, height: 480, pixelFormat: .bgra)
         )
-        XCTAssertEqual(frame.planes.first?.stride, 896 * 4)
+        XCTAssertEqual(frame.planes.first?.stride, 640 * 4)
         XCTAssertNotNil(frame.bufferReuseID)
         XCTAssertGreaterThan(frame.timestampUs, 0)
     }
 
-    func testCreatePreservesEncodingOptionsAfterSizeResolution() async throws {
+    func testCreatePreservesSourceInsteadOfApplyingModelBuckets() async throws {
         let fileURL = try makeTemporaryImageDataFile()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         let mediaService = MediaServicingStub(
@@ -108,27 +106,18 @@ final class ImageControllerTests: XCTestCase {
         )
 
         let prepared = try await controller.createLocalImageStream(
-            fileURL: fileURL,
-            videoFormat: RealtimeVideoFormat(
-                width: 720,
-                height: 1_280,
-                fps: 30,
-                minimumBitrate: 1500,
-                maximumBitrate: 3000,
-                encoderPreference: .maintainQuality
-            )
+            fileURL: fileURL
         )
         await controller.stopLocalImageStream()
 
         XCTAssertEqual(
             mediaService.requestedSizes,
-            [CGSize(width: 720, height: 1_280)]
+            []
         )
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,
             RealtimeVideoFormat(
-                width: 832, height: 1472, fps: 30,
-                minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainQuality
+                width: 400, height: 800, fps: 30
             )
         )
     }
@@ -147,8 +136,7 @@ final class ImageControllerTests: XCTestCase {
 
         do {
             _ = try await controller.createLocalImageStream(
-                imageData: Data(),
-                videoFormat: nil
+                imageData: Data()
             )
             XCTFail("Expected empty image data to be rejected")
         } catch {
@@ -165,8 +153,7 @@ final class ImageControllerTests: XCTestCase {
         let rtcManager = RtcManagingStub()
         let controller = makeController(rtcManager: rtcManager)
         let stream = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8),
-            videoFormat: nil
+            imageData: Data("image".utf8)
         )
         let track = try XCTUnwrap(stream.videoTrack)
 
@@ -186,8 +173,7 @@ final class ImageControllerTests: XCTestCase {
     func testStopClearsTrackAndPreviewBinding() async throws {
         let controller = makeController()
         let stream = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8),
-            videoFormat: nil
+            imageData: Data("image".utf8)
         )
         let track = try XCTUnwrap(stream.videoTrack)
 
@@ -218,8 +204,7 @@ final class ImageControllerTests: XCTestCase {
 
         do {
             _ = try await controller.createLocalImageStream(
-                imageData: Data("image".utf8),
-                videoFormat: nil
+                imageData: Data("image".utf8)
             )
             XCTFail("Expected initial frame output to fail")
         } catch {
@@ -228,8 +213,7 @@ final class ImageControllerTests: XCTestCase {
         XCTAssertNil(controller.currentTrack)
 
         let stream = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8),
-            videoFormat: nil
+            imageData: Data("image".utf8)
         )
         XCTAssertTrue(controller.currentTrack === stream.videoTrack)
         await controller.stopLocalImageStream()
@@ -238,14 +222,12 @@ final class ImageControllerTests: XCTestCase {
     func testCreateRejectsDuplicateWithoutStoppingExistingStream() async throws {
         let controller = makeController()
         let stream = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8),
-            videoFormat: nil
+            imageData: Data("image".utf8)
         )
 
         do {
             _ = try await controller.createLocalImageStream(
-                imageData: Data("another-image".utf8),
-                videoFormat: nil
+                imageData: Data("another-image".utf8)
             )
             XCTFail("Expected duplicate image stream to fail")
         } catch {
@@ -266,12 +248,11 @@ final class ImageControllerTests: XCTestCase {
         )
 
         let stream = try await controller.createLocalImageStream(
-            decodedImage: decodedImage,
-            videoFormat: nil
+            decodedImage: decodedImage
         )
 
-        XCTAssertEqual(stream.videoTrack?.videoFormat?.width, 832)
-        XCTAssertEqual(decodedImage.frameSizes, [CGSize(width: 832, height: 1472)])
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.width, 400)
+        XCTAssertEqual(decodedImage.frameSizes, [CGSize(width: 400, height: 800)])
         await controller.stopLocalImageStream()
     }
 
@@ -285,8 +266,7 @@ final class ImageControllerTests: XCTestCase {
 
         do {
             _ = try await controller.createLocalImageStream(
-                imageData: Data("invalid".utf8),
-                videoFormat: nil
+                imageData: Data("invalid".utf8)
             )
             XCTFail("Expected decode failure")
         } catch {
@@ -302,7 +282,7 @@ final class ImageControllerTests: XCTestCase {
         let url = try XCTUnwrap(URL(string: "https://example.com/image.png"))
 
         do {
-            _ = try await controller.createLocalImageStream(fileURL: url, videoFormat: nil)
+            _ = try await controller.createLocalImageStream(fileURL: url)
             XCTFail("Expected remote file URL to be rejected")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
@@ -329,8 +309,7 @@ final class ImageControllerTests: XCTestCase {
         )
 
         _ = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8),
-            videoFormat: RealtimeVideoFormat(width: 832, height: 1472, fps: 30)
+            imageData: Data("image".utf8)
         )
         await fulfillment(of: [receivedFrames], timeout: 2)
         await controller.stopLocalImageStream()
@@ -358,7 +337,7 @@ final class ImageControllerTests: XCTestCase {
             if recorder.frames.count == 3 { continued.fulfill() }
         })
         let stream = try await controller.createLocalImageStream(
-            imageData: Data("image".utf8), videoFormat: nil
+            imageData: Data("image".utf8)
         )
         await fulfillment(of: [continued], timeout: 2)
         XCTAssertTrue(controller.currentTrack === stream.videoTrack)

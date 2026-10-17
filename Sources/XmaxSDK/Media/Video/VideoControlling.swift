@@ -16,12 +16,10 @@ protocol VideoControlling: Sendable {
     ///
     /// - Parameters:
     ///   - fileURL: 可读取的本地视频文件地址。
-    ///   - videoFormat: 期望的输出格式；为空时由视频来源确定，尺寸按模型规则调整。
     /// - Returns: 包含本地文件视频轨道的媒体流。
     /// - Throws: 已有活动视频流、文件或格式无效、权限不足或播放启动失败时抛出错误。
     func createLocalVideoStream(
-        fileURL: URL,
-        videoFormat: RealtimeVideoFormat?
+        fileURL: URL
     ) async throws -> RealtimeMediaStream
 
     /// 静音或恢复本地文件视频的音频预览，不影响上传的音频帧。

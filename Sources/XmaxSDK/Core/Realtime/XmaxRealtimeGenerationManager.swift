@@ -45,6 +45,8 @@ actor XmaxRealtimeGenerationManager {
         targetSize: CGSize? = nil,
         context: RealtimeContext?,
         faceRestoration: Bool = false,
+        generationVideoFormat: RealtimeVideoFormat? = nil,
+        paddingContain: Bool = false,
         ensureCurrent: @escaping RealtimeGenerationValidity
     ) async throws -> String {
         guard let resolvedContext = context ?? currentContext else {
@@ -57,10 +59,11 @@ actor XmaxRealtimeGenerationManager {
         let taskID = taskIDGenerator()
         let confirmation = try await streamController.beginGeneration(
             taskID: taskID,
-            videoFormat: videoFormat,
+            videoFormat: generationVideoFormat ?? videoFormat,
             targetSize: targetSize,
             context: resolvedContext,
-            faceRestoration: faceRestoration
+            faceRestoration: faceRestoration,
+            paddingContain: paddingContain
         )
         do {
             try await withTaskCancellationHandler {
@@ -72,7 +75,8 @@ actor XmaxRealtimeGenerationManager {
 
             await interactionController.startInteraction(
                 taskID: taskID,
-                videoFormat: videoFormat
+                videoFormat: videoFormat,
+                useDisplayedSize: paddingContain
             )
             try ensureCurrent()
             currentContext = resolvedContext
@@ -90,6 +94,8 @@ actor XmaxRealtimeGenerationManager {
         targetSize: CGSize? = nil,
         context: RealtimeContext?,
         faceRestoration: Bool = false,
+        generationVideoFormat: RealtimeVideoFormat? = nil,
+        paddingContain: Bool = false,
         ensureCurrent: RealtimeGenerationValidity = {}
     ) async throws {
         guard let resolvedContext = context ?? currentContext else {
@@ -101,15 +107,17 @@ actor XmaxRealtimeGenerationManager {
 
         try await streamController.updateGeneration(
             taskID: taskID,
-            videoFormat: videoFormat,
+            videoFormat: generationVideoFormat ?? videoFormat,
             targetSize: targetSize,
             context: resolvedContext,
-            faceRestoration: faceRestoration
+            faceRestoration: faceRestoration,
+            paddingContain: paddingContain
         )
         try ensureCurrent()
         await interactionController.startInteraction(
             taskID: taskID,
-            videoFormat: videoFormat
+            videoFormat: videoFormat,
+            useDisplayedSize: paddingContain
         )
         try ensureCurrent()
         currentContext = resolvedContext

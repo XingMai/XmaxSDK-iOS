@@ -24,10 +24,13 @@ final class EncodingControllerTests: XCTestCase {
         )] = [
             (1500, 3000, .auto, 1500, 3000, .auto),
             (0, 500, .maintainQuality, 0, 500, .maintainQuality),
-            (nil, 4000, .maintainFramerate, 1805, 4000, .maintainFramerate),
-            (1500, nil, .auto, 1500, 3611, .auto),
+            (nil, 4000, .maintainFramerate, 100, 4000, .maintainFramerate),
+            (1500, nil, .auto, 1500, 2166, .auto),
             (2000, 2000, .auto, 2000, 2000, .auto),
-            (nil, nil, .maintainQuality, 1805, 3611, .maintainQuality)
+            (nil, nil, .maintainQuality, 100, 2166, .maintainQuality),
+            (nil, 100, .auto, 100, 100, .auto),
+            (0, 50, .auto, 0, 50, .auto),
+            (0, nil, .auto, 0, 2166, .auto)
         ]
 
         for testCase in cases {
@@ -54,7 +57,7 @@ final class EncodingControllerTests: XCTestCase {
         let rtcManager = RtcManagingStub()
         let controller = EncodingController(rtcManager: rtcManager)
         let cases: [(minimum: Int?, maximum: Int?)] = [
-            (-1, nil), (nil, -1), (nil, 0), (3000, 1500), (4000, nil), (nil, 1000)
+            (-1, nil), (nil, -1), (nil, 0), (3000, 1500), (4000, nil), (nil, 99)
         ]
 
         for testCase in cases {
@@ -69,38 +72,38 @@ final class EncodingControllerTests: XCTestCase {
         XCTAssertTrue(rtcManager.encodingConfigurations.isEmpty)
     }
 
-    func testConfigureMatchesEveryOfficialReference() throws {
+    func testConfigureAppliesBudgetToEveryReferencePoint() throws {
         let rtcManager = RtcManagingStub()
         let controller = EncodingController(rtcManager: rtcManager)
         let cases = [
-            (width: 160, height: 120, fps: 15, minimum: 65, maximum: 130),
-            (width: 120, height: 120, fps: 15, minimum: 50, maximum: 100),
-            (width: 320, height: 180, fps: 15, minimum: 140, maximum: 280),
-            (width: 180, height: 180, fps: 15, minimum: 100, maximum: 200),
-            (width: 240, height: 180, fps: 15, minimum: 120, maximum: 240),
-            (width: 320, height: 240, fps: 15, minimum: 200, maximum: 400),
-            (width: 240, height: 240, fps: 15, minimum: 140, maximum: 280),
-            (width: 424, height: 240, fps: 15, minimum: 220, maximum: 440),
-            (width: 640, height: 360, fps: 15, minimum: 400, maximum: 800),
-            (width: 360, height: 360, fps: 15, minimum: 260, maximum: 520),
-            (width: 640, height: 360, fps: 30, minimum: 600, maximum: 1200),
-            (width: 360, height: 360, fps: 30, minimum: 400, maximum: 800),
-            (width: 480, height: 360, fps: 15, minimum: 320, maximum: 640),
-            (width: 480, height: 360, fps: 30, minimum: 490, maximum: 980),
-            (width: 640, height: 480, fps: 15, minimum: 500, maximum: 1000),
-            (width: 480, height: 480, fps: 15, minimum: 400, maximum: 800),
-            (width: 640, height: 480, fps: 30, minimum: 750, maximum: 1500),
-            (width: 480, height: 480, fps: 30, minimum: 600, maximum: 1200),
-            (width: 848, height: 480, fps: 15, minimum: 610, maximum: 1220),
-            (width: 848, height: 480, fps: 30, minimum: 930, maximum: 1860),
-            (width: 640, height: 480, fps: 10, minimum: 400, maximum: 800),
-            (width: 1280, height: 720, fps: 15, minimum: 1130, maximum: 2260),
-            (width: 1280, height: 720, fps: 30, minimum: 1710, maximum: 3420),
-            (width: 960, height: 720, fps: 15, minimum: 910, maximum: 1820),
-            (width: 960, height: 720, fps: 30, minimum: 1380, maximum: 2760),
-            (width: 1920, height: 1080, fps: 15, minimum: 2080, maximum: 4160),
-            (width: 1920, height: 1080, fps: 30, minimum: 3150, maximum: 6300),
-            (width: 1920, height: 1080, fps: 60, minimum: 4780, maximum: 6500)
+            (width: 160, height: 120, fps: 15, minimum: 100, maximum: 100),
+            (width: 120, height: 120, fps: 15, minimum: 100, maximum: 100),
+            (width: 320, height: 180, fps: 15, minimum: 100, maximum: 168),
+            (width: 180, height: 180, fps: 15, minimum: 100, maximum: 120),
+            (width: 240, height: 180, fps: 15, minimum: 100, maximum: 144),
+            (width: 320, height: 240, fps: 15, minimum: 100, maximum: 240),
+            (width: 240, height: 240, fps: 15, minimum: 100, maximum: 168),
+            (width: 424, height: 240, fps: 15, minimum: 100, maximum: 264),
+            (width: 640, height: 360, fps: 15, minimum: 100, maximum: 480),
+            (width: 360, height: 360, fps: 15, minimum: 100, maximum: 312),
+            (width: 640, height: 360, fps: 30, minimum: 100, maximum: 720),
+            (width: 360, height: 360, fps: 30, minimum: 100, maximum: 480),
+            (width: 480, height: 360, fps: 15, minimum: 100, maximum: 384),
+            (width: 480, height: 360, fps: 30, minimum: 100, maximum: 588),
+            (width: 640, height: 480, fps: 15, minimum: 100, maximum: 600),
+            (width: 480, height: 480, fps: 15, minimum: 100, maximum: 480),
+            (width: 640, height: 480, fps: 30, minimum: 100, maximum: 900),
+            (width: 480, height: 480, fps: 30, minimum: 100, maximum: 720),
+            (width: 848, height: 480, fps: 15, minimum: 100, maximum: 732),
+            (width: 848, height: 480, fps: 30, minimum: 100, maximum: 1116),
+            (width: 640, height: 480, fps: 10, minimum: 100, maximum: 480),
+            (width: 1280, height: 720, fps: 15, minimum: 100, maximum: 1356),
+            (width: 1280, height: 720, fps: 30, minimum: 100, maximum: 2052),
+            (width: 960, height: 720, fps: 15, minimum: 100, maximum: 1092),
+            (width: 960, height: 720, fps: 30, minimum: 100, maximum: 1656),
+            (width: 1920, height: 1080, fps: 15, minimum: 100, maximum: 2496),
+            (width: 1920, height: 1080, fps: 30, minimum: 100, maximum: 3780),
+            (width: 1920, height: 1080, fps: 60, minimum: 100, maximum: 3900)
         ]
 
         for testCase in cases {
@@ -124,19 +127,19 @@ final class EncodingControllerTests: XCTestCase {
         let rtcManager = RtcManagingStub()
         let controller = EncodingController(rtcManager: rtcManager)
         let cases = [
-            (width: 1920, height: 1080, fps: 30, minimum: 3150, maximum: 6300),
-            (width: 1920, height: 1080, fps: 24, minimum: 2722, maximum: 5444),
-            (width: 832, height: 1472, fps: 24, minimum: 1805, maximum: 3611),
-            (width: 1472, height: 832, fps: 24, minimum: 1805, maximum: 3611),
-            (width: 1024, height: 1920, fps: 30, minimum: 3016, maximum: 6031),
-            (width: 1024, height: 1920, fps: 24, minimum: 2606, maximum: 5212),
-            (width: 1024, height: 768, fps: 30, minimum: 1516, maximum: 3033),
-            (width: 1024, height: 768, fps: 24, minimum: 1310, maximum: 2620),
-            (width: 1920, height: 1080, fps: 120, minimum: 9560, maximum: 13000),
-            (width: 3840, height: 2160, fps: 30, minimum: 12600, maximum: 25200),
-            (width: 120, height: 120, fps: 30, minimum: 77, maximum: 154),
-            (width: 1920, height: 1080, fps: 1, minimum: 166, maximum: 333),
-            (width: 2, height: 2, fps: 1, minimum: 1, maximum: 2)
+            (width: 1920, height: 1080, fps: 30, minimum: 100, maximum: 3780),
+            (width: 1920, height: 1080, fps: 24, minimum: 100, maximum: 3266),
+            (width: 832, height: 1472, fps: 24, minimum: 100, maximum: 2166),
+            (width: 1472, height: 832, fps: 24, minimum: 100, maximum: 2166),
+            (width: 1024, height: 1920, fps: 30, minimum: 100, maximum: 3619),
+            (width: 1024, height: 1920, fps: 24, minimum: 100, maximum: 3127),
+            (width: 1024, height: 768, fps: 30, minimum: 100, maximum: 1820),
+            (width: 1024, height: 768, fps: 24, minimum: 100, maximum: 1572),
+            (width: 1920, height: 1080, fps: 120, minimum: 100, maximum: 7800),
+            (width: 3840, height: 2160, fps: 30, minimum: 100, maximum: 15120),
+            (width: 120, height: 120, fps: 30, minimum: 100, maximum: 100),
+            (width: 1920, height: 1080, fps: 1, minimum: 100, maximum: 200),
+            (width: 2, height: 2, fps: 1, minimum: 100, maximum: 100)
         ]
 
         for testCase in cases {
@@ -167,8 +170,8 @@ final class EncodingControllerTests: XCTestCase {
             for fps in [1, 9, 10, 11, 14, 15, 16, 24, 29, 30, 31, 59, 60, 61, 120] {
                 try controller.configure(RealtimeVideoFormat(width: width, height: height, fps: fps))
                 let configuration = try XCTUnwrap(rtcManager.encodingConfigurations.last)
-                XCTAssertGreaterThan(configuration.minimumBitrate, 0)
-                XCTAssertGreaterThan(configuration.maximumBitrate, configuration.minimumBitrate)
+                XCTAssertEqual(configuration.minimumBitrate, 100)
+                XCTAssertGreaterThanOrEqual(configuration.maximumBitrate, configuration.minimumBitrate)
                 XCTAssertGreaterThanOrEqual(configuration.minimumBitrate, previousMinimum)
                 XCTAssertGreaterThanOrEqual(configuration.maximumBitrate, previousMaximum)
                 previousMinimum = configuration.minimumBitrate

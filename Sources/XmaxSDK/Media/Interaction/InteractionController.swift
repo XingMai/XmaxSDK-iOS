@@ -10,6 +10,7 @@ actor InteractionController: InteractionControlling {
     private struct ActiveInteraction {
         let taskID: String
         let videoFormat: RealtimeVideoFormat
+        let useDisplayedSize: Bool
     }
 
     // 交互事件监听
@@ -31,12 +32,14 @@ actor InteractionController: InteractionControlling {
 
     func startInteraction(
         taskID: String,
-        videoFormat: RealtimeVideoFormat
+        videoFormat: RealtimeVideoFormat,
+        useDisplayedSize: Bool = false
     ) {
         cancelPendingFrames()
         activeInteraction = ActiveInteraction(
             taskID: taskID,
-            videoFormat: videoFormat
+            videoFormat: videoFormat,
+            useDisplayedSize: useDisplayedSize
         )
     }
 
@@ -51,7 +54,13 @@ actor InteractionController: InteractionControlling {
             return
         }
 
-        let videoSize = activeInteraction.videoFormat.size
+        let videoSize: CGSize
+        if activeInteraction.useDisplayedSize {
+            guard let displayedSize = frame.displayedVideoSize else { return }
+            videoSize = displayedSize
+        } else {
+            videoSize = activeInteraction.videoFormat.size
+        }
         let points = frame.points.compactMap {
             InteractionCoordinateMapper.map(
                 $0,

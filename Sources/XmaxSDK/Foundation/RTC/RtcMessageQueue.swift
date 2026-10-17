@@ -56,26 +56,33 @@ final class RtcMessageQueue: @unchecked Sendable {
     private var closed = false
     private var tasks: [UUID: Task<Void, any Error>] = [:]
     private var lastTask: Task<Void, any Error>?
+    private var lastFailureIsFatal = true
 
     init(send: @escaping @Sendable (Data) throws -> Void, onFailure: @escaping @Sendable (XmaxError) -> Void) {
         self.send = send
         self.onFailure = onFailure
     }
 
-    func enqueue(_ message: String) throws {
+    @discardableResult
+    func enqueue(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
         let packets = try RtcMessageCodec.encode(message)
-        try lock.withLock {
+        return try lock.withLock {
             guard !closed else { throw CancellationError() }
             guard tasks.count < 64 else {
                 throw XmaxError(code: .rtcError, message: "RTC room message queue is full")
             }
 
             let previous = lastTask
+            let previousFailureIsFatal = lastFailureIsFatal
             let id = UUID()
             let task = Task { [self] in
                 defer { _ = lock.withLock { tasks.removeValue(forKey: id) } }
                 do {
-                    try await previous?.value
+                    if previousFailureIsFatal {
+                        try await previous?.value
+                    } else {
+                        _ = try? await previous?.value
+                    }
                     for packet in packets {
                         try await limiter.wait(byteCount: packet.count)
                         try Task.checkCancellation()
@@ -83,18 +90,29 @@ final class RtcMessageQueue: @unchecked Sendable {
                     }
                 } catch {
                     if !Task.isCancelled, !lock.withLock({ closed }) {
-                        onFailure(XmaxError.from(error))
+                        if reportFailure {
+                            onFailure(XmaxError.from(error))
+                        } else {
+                            XmaxLogger.rtc.warn(message: "发送配置失败 (Failed to Send Configuration)\n└─ \(ErrorMessageFormatter.format(error))")
+                        }
                     }
                     throw error
                 }
             }
             tasks[id] = task
             lastTask = task
+            lastFailureIsFatal = reportFailure
+            return task
         }
     }
 
     func flush() async throws {
         let pending = lock.withLock { lastTask }
+        try await Self.waitForCompletion(of: pending)
+    }
+
+    /// 等待指定信令完成，后续入队的心跳或交互信令不改变本次等待的结果。
+    static func waitForCompletion(of pending: Task<Void, any Error>?) async throws {
         let completion = AsyncThrowingStream<Void, any Error> { continuation in
             let observer = Task {
                 do {

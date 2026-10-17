@@ -100,8 +100,10 @@ final class RtcRoomStub: RtcRoom, @unchecked Sendable {
         callback?(frame)
     }
 
-    func sendRoomMessage(_ message: String) throws {
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
         lock.withLock { sentMessages.append(message) }
+        return Task {}
     }
 
     func awaitPendingMessages() async throws {
