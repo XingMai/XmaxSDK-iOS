@@ -26,7 +26,7 @@ final class XmaxClientTests: XCTestCase {
         let client = XmaxClient(
             configuration: XmaxConfiguration(apiKey: "test-key")
         )
-        let options = RealtimeConfiguration(model: .x2_0)
+        let options = RealtimeConfiguration(model: .x2_1_1_preview_cn)
 
         let manager: any XmaxRealtimeManaging = client.createRealtimeManager(
             options: options
@@ -42,10 +42,10 @@ final class XmaxClientTests: XCTestCase {
         )
 
         let manager = client.createRealtimeManager(
-            options: RealtimeConfiguration(model: .x2_0)
+            options: RealtimeConfiguration(model: .x2_1_1_preview_cn)
         )
 
-        XCTAssertEqual(manager.options.model, .x2_0)
+        XCTAssertEqual(manager.options.model, .x2_1_1_preview_cn)
     }
 
     func testCreateStorageManagerReturnsPublicStorageInterface() throws {

@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeGenerationManagerTests: XCTestCase {
-    func testStartSendsSignalAndWaitsForMatchingSei() async throws {
+    func testStartSendsSignalAndWaitsForRemotePublication() async throws {
         let components = try await makeComponents()
         let context = RealtimeContext(prompt: "first prompt")
 
@@ -15,10 +15,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        components.rtcManager.emitSeiMessage(
-            stream: remoteStream,
-            message: "task-fixed"
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: remoteStream)
 
         let taskID = try await startTask.value
 
@@ -78,10 +76,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        components.rtcManager.emitSeiMessage(
-            stream: remoteStream,
-            message: "task-fixed"
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: remoteStream)
         let taskID = try await startTask.value
 
         try await components.manager.update(
@@ -116,10 +112,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        components.rtcManager.emitSeiMessage(
-            stream: remoteStream,
-            message: "task-fixed"
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: remoteStream)
         let taskID = try await startTask.value
 
         try await components.manager.stop(taskID: taskID)
@@ -144,10 +138,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        components.rtcManager.emitSeiMessage(
-            stream: remoteStream,
-            message: "task-fixed"
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: remoteStream)
         let taskID = try await startTask.value
         let frame = InteractionFrame(
             points: [CGPoint(x: 180, y: 320)],
@@ -215,10 +207,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
-        components.rtcManager.emitSeiMessage(
-            stream: remoteStream,
-            message: "task-fixed"
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: remoteStream)
         let firstTaskID = try await firstStart.value
         try await components.manager.stop(taskID: firstTaskID)
 
@@ -234,10 +224,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             count: 2,
             rtcManager: components.rtcManager
         )
-        components.rtcManager.emitSeiMessage(
-            stream: remoteStream,
-            message: "task-fixed"
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: remoteStream)
         let secondTaskID = try await secondStart.value
         try await components.manager.reset(taskID: secondTaskID)
 

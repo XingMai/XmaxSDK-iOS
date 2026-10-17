@@ -1,4 +1,3 @@
-source 'https://github.com/volcengine/volcengine-specs.git'
 source 'https://cdn.cocoapods.org/'
 
 platform :ios, '15.0'

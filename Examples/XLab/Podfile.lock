@@ -1,22 +1,18 @@
 PODS:
+  - AgoraInfra_iOS (1.3.5)
+  - AgoraRtcEngine_iOS/RtcBasic (4.6.4):
+    - AgoraInfra_iOS (= 1.3.5)
   - Kingfisher (8.10.0)
   - QCloudCore/WithoutMTA (6.5.7)
   - QCloudCOSXML/Transfer (6.5.7):
     - QCloudCore/WithoutMTA (= 6.5.7)
   - SnapKit (5.7.1)
-  - VolcEngineRTC/Core (3.60.106.600)
-  - VolcEngineRTC/RealXBase (3.60.106.600)
-  - VolcEngineRTC/RTCFFmpeg (3.60.106.600)
   - XmaxSDK (1.0.7):
+    - AgoraRtcEngine_iOS/RtcBasic (= 4.6.4)
     - QCloudCOSXML/Transfer (= 6.5.7)
-    - VolcEngineRTC/Core (= 3.60.106.600)
-    - VolcEngineRTC/RealXBase (= 3.60.106.600)
-    - VolcEngineRTC/RTCFFmpeg (= 3.60.106.600)
   - XmaxSDK/Tests (1.0.7):
+    - AgoraRtcEngine_iOS/RtcBasic (= 4.6.4)
     - QCloudCOSXML/Transfer (= 6.5.7)
-    - VolcEngineRTC/Core (= 3.60.106.600)
-    - VolcEngineRTC/RealXBase (= 3.60.106.600)
-    - VolcEngineRTC/RTCFFmpeg (= 3.60.106.600)
 
 DEPENDENCIES:
   - Kingfisher (= 8.10.0)
@@ -25,9 +21,9 @@ DEPENDENCIES:
   - XmaxSDK/Tests (from `../..`)
 
 SPEC REPOS:
-  https://github.com/volcengine/volcengine-specs.git:
-    - VolcEngineRTC
   trunk:
+    - AgoraInfra_iOS
+    - AgoraRtcEngine_iOS
     - Kingfisher
     - QCloudCore
     - QCloudCOSXML
@@ -38,13 +34,14 @@ EXTERNAL SOURCES:
     :path: "../.."
 
 SPEC CHECKSUMS:
+  AgoraInfra_iOS: 0bf927aad4fc425b24ca5d094b333361960f5cb0
+  AgoraRtcEngine_iOS: 2ac3c06dd68eff8e895b5529e59a10a05da63878
   Kingfisher: db468f911dd666c9134dcbeec4db8bed52e4132d
   QCloudCore: ff21b867b51f1d7e043c5013a3f876cd29bdca63
   QCloudCOSXML: 35ef870a55a58d193eeb62c37c8904630740480e
   SnapKit: d612e99e678a2d3b95bf60b0705ed0a35c03484a
-  VolcEngineRTC: 3dae32878b5edec218ddea722e90934e55fabb1e
-  XmaxSDK: f1baebffe4b58b861bc0ccfff6265481f4c00e00
+  XmaxSDK: da51fccd1aed361c870eeed285b95244e917d64e
 
-PODFILE CHECKSUM: ed82cbd05bf30a352319abbb9794c5d8bb5cd67f
+PODFILE CHECKSUM: 10484a40b93ffd06e55bbbceb2a284c997fc575f
 
 COCOAPODS: 1.17.0

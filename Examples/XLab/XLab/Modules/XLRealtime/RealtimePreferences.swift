@@ -19,9 +19,9 @@ enum RealtimePreferences {
             guard let rawValue = UserDefaults.standard.string(
                 forKey: modelStorageKey
             ) else {
-                return .x2_0
+                return .x2_1_1_preview_cn
             }
-            return RealtimeModel(rawValue: rawValue) ?? .x2_0
+            return RealtimeModel(rawValue: rawValue) ?? .x2_1_1_preview_cn
         }
         set {
             UserDefaults.standard.set(

@@ -233,7 +233,7 @@ final class StreamControllerTests: XCTestCase {
             roomID: "room-id",
             botName: "bot-user"
         )
-        let confirmation = try controller.beginGenerationConfirmation(
+        let confirmation = try await startGeneration(controller,
             taskID: "task-id"
         )
         let matchingStream = RemoteStream(
@@ -241,21 +241,9 @@ final class StreamControllerTests: XCTestCase {
             userID: "bot-user"
         )
 
-        rtcManager.emitSeiMessage(
-            stream: RemoteStream(
-                roomID: "another-room",
-                userID: "bot-user"
-            ),
-            message: "task-id"
-        )
-        rtcManager.emitSeiMessage(
-            stream: matchingStream,
-            message: "another-task"
-        )
-        rtcManager.emitSeiMessage(
-            stream: matchingStream,
-            message: " task-id "
-        )
+        rtcManager.emitRemoteVideoPublished(userID: "other-user", published: true)
+        rtcManager.emitRemoteVideoAvailable(stream: matchingStream)
+        rtcManager.emitRemoteVideoAvailable(stream: matchingStream)
         try await confirmation.value
 
         XCTAssertEqual(receivedStreams.count, 1)
@@ -299,17 +287,14 @@ final class StreamControllerTests: XCTestCase {
             roomID: "room-id",
             botName: "bot-user"
         )
-        let confirmation = try controller.beginGenerationConfirmation(
+        let confirmation = try await startGeneration(controller,
             taskID: "task-id"
         )
 
-        rtcManager.emitSeiMessage(
-            stream: RemoteStream(
+        rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: "task-id"
-        )
+            ))
         try await confirmation.value
         try controller.activateRemoteAudio()
 
@@ -395,17 +380,14 @@ final class StreamControllerTests: XCTestCase {
             roomID: "room-id",
             botName: "bot-user"
         )
-        let confirmation = try controller.beginGenerationConfirmation(
+        let confirmation = try await startGeneration(controller,
             taskID: "current-task"
         )
         let currentStream = RemoteStream(
             roomID: "room-id",
             userID: "bot-user"
         )
-        rtcManager.emitSeiMessage(
-            stream: currentStream,
-            message: "current-task"
-        )
+        rtcManager.emitRemoteVideoAvailable(stream: currentStream)
         try await confirmation.value
 
         let stoppedTaskID = await controller.stopStreamGeneration(
@@ -447,69 +429,63 @@ final class StreamControllerTests: XCTestCase {
     }
 
     @MainActor
-    func testTaskSeiMatchesOnlyCurrentTaskRoomAndBot() async throws {
-        let rtcManager = RtcManagingStub()
-        let taskID = XmaxRealtimeGenerationManager.createTaskID()
-        let baseID = taskID.components(separatedBy: "?")[0]
-        var receivedStreams: [RemoteStream?] = []
-        let controller = StreamController(
-            rtcManager: rtcManager,
-            remoteStreamListener: { receivedStreams.append($0) }
-        )
-        try controller.configureRoom(roomID: "room-id", botName: "bot-user")
-        let confirmation = try controller.beginGenerationConfirmation(taskID: taskID)
-        let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
+    func testPublishedBotBeforeStartIsConfirmedAfterSignalFlush() async throws {
+        let rtc = RtcManagingStub()
+        var streams: [RemoteStream?] = []
+        let controller = StreamController(rtcManager: rtc, remoteStreamListener: { streams.append($0) })
+        try await controller.connect(connection: RealtimeSessionConnection(
+            roomID: "room-id", userID: "user-id", token: "token", botName: "bot-user"
+        ), includeLocalAudio: false, ensureActive: {})
+        rtc.emitRemoteVideoPublished(userID: "other-user", published: true)
+        rtc.emitRemoteVideoPublished(userID: "bot-user", published: true)
+        XCTAssertTrue(streams.isEmpty)
 
-        for message in [
-            "task-other?os=ios&index=0", "\(baseID)-other?os=ios&index=0",
-            "", "  ", "?os=ios&index=0"
-        ] {
-            rtcManager.emitSeiMessage(stream: stream, message: message)
-        }
-        rtcManager.emitSeiMessage(
-            stream: RemoteStream(roomID: "other-room", userID: "bot-user"),
-            message: "\(taskID)&index=0"
+        let confirmation = try await controller.beginGeneration(
+            taskID: "task", videoFormat: RealtimeVideoFormat(width: 1024, height: 1920, fps: 30),
+            context: RealtimeContext(prompt: "test")
         )
-        rtcManager.emitSeiMessage(
-            stream: RemoteStream(roomID: "room-id", userID: "other-user"),
-            message: "\(taskID)&index=0"
-        )
-        XCTAssertTrue(receivedStreams.isEmpty)
-
-        rtcManager.emitSeiMessage(stream: stream, message: " \(taskID)&index=12 ")
         try await confirmation.value
-        XCTAssertEqual(receivedStreams, [stream])
-        _ = await controller.stopStreamGeneration(taskID: taskID)
+        XCTAssertEqual(streams, [RemoteStream(roomID: "room-id", userID: "bot-user")])
+        await controller.disconnect()
     }
 
     @MainActor
-    func testTaskSeiIgnoresQueryParameters() async throws {
-        let taskID = XmaxRealtimeGenerationManager.createTaskID()
-        let baseID = taskID.components(separatedBy: "?")[0]
-        for message in [
-            baseID, taskID, " \(baseID) ", "\(baseID)?",
-            "\(baseID)?os=harmony&index=12", "\(baseID)?index=12&os=ios",
-            "\(taskID)&index=", "\(taskID)&index=-1", "\(taskID)&index=1.5",
-            "\(taskID)&index=abc", "\(taskID)&index=1&index=2"
-        ] {
-            let rtcManager = RtcManagingStub()
-            var receivedStreams: [RemoteStream?] = []
-            let controller = StreamController(
-                rtcManager: rtcManager,
-                remoteStreamListener: { receivedStreams.append($0) }
-            )
-            try controller.configureRoom(roomID: "room-id", botName: "bot-user")
-            let confirmation = try controller.beginGenerationConfirmation(taskID: taskID)
-            let stream = RemoteStream(roomID: "room-id", userID: "bot-user")
-            rtcManager.emitSeiMessage(stream: stream, message: message)
-            try await confirmation.value
-            XCTAssertEqual(receivedStreams, [stream], message)
-            _ = await controller.stopStreamGeneration(taskID: taskID)
+    func testPublicationWaitsForSignalFlushAndDisconnectCancelsConfirmation() async throws {
+        let rtc = RtcManagingStub()
+        let gate = AsyncStream<Void>.makeStream()
+        rtc.flushHandler = {
+            for await _ in gate.stream { break }
+            try Task.checkCancellation()
         }
+        var streams: [RemoteStream?] = []
+        let controller = StreamController(rtcManager: rtc, remoteStreamListener: { streams.append($0) })
+        try await controller.connect(connection: RealtimeSessionConnection(
+            roomID: "room-id", userID: "user-id", token: "token", botName: "bot-user"
+        ), includeLocalAudio: false, ensureActive: {})
+        let start = Task {
+            try await controller.beginGeneration(
+                taskID: "task", videoFormat: RealtimeVideoFormat(width: 1024, height: 1920, fps: 30),
+                context: RealtimeContext(prompt: "test")
+            )
+        }
+        for _ in 0..<100 where !controller.hasGenerationTask { await Task.yield() }
+        rtc.emitRemoteVideoPublished(userID: "bot-user", published: true)
+        XCTAssertTrue(streams.isEmpty)
+        await controller.disconnect()
+        gate.continuation.yield()
+        gate.continuation.finish()
+        let confirmation = try await start.value
+        do {
+            try await confirmation.value
+            XCTFail("Expected cancelled generation")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        XCTAssertTrue(streams.allSatisfy { $0 == nil })
     }
 
     @MainActor
-    func testExternalFrameIndicesIncreaseAcrossConditionChangesAndResetForNewTask() async throws {
+    func testExternalFramesDoNotCarryLegacySEI() async throws {
         let rtcManager = RtcManagingStub()
         let controller = StreamController(rtcManager: rtcManager)
         try await controller.connect(
@@ -539,9 +515,9 @@ final class StreamControllerTests: XCTestCase {
             ]
         )
 
-        // 尚未生成时不推送，也不消耗新任务的帧序号。
+        // 尚未生成时不推送视频帧。
         try controller.pushLocalVideoFrame(frame)
-        let taskID = XmaxRealtimeGenerationManager.createTaskID()
+        let taskID = UUID().uuidString
         let videoFormat = RealtimeVideoFormat(width: 832, height: 1472, fps: 24)
         let confirmation = try await controller.beginGeneration(
             taskID: taskID, videoFormat: videoFormat, context: RealtimeContext(prompt: "first")
@@ -574,17 +550,11 @@ final class StreamControllerTests: XCTestCase {
             XCTAssertEqual(event["uid"] as? String, taskID)
         }
         try controller.pushLocalVideoFrame(frame)
-        let nextTaskID = XmaxRealtimeGenerationManager.createTaskID()
+        let nextTaskID = UUID().uuidString
         let nextConfirmation = try controller.beginGenerationConfirmation(taskID: nextTaskID)
         try controller.pushLocalVideoFrame(frame)
-        let frameIDs = rtcManager.calls.compactMap { call -> String? in
-            guard case .pushExternalVideoFrame(let data) = call, let data else { return nil }
-            return String(data: data, encoding: .utf8)
-        }
-        XCTAssertEqual(frameIDs, [
-            "\(taskID)&index=0", "\(taskID)&index=1", "\(taskID)&index=2",
-            "\(taskID)&index=3", "\(nextTaskID)&index=0"
-        ])
+        let frames = rtcManager.calls.filter { $0 == .pushExternalVideoFrame }
+        XCTAssertEqual(frames.count, 5)
         _ = await controller.stopStreamGeneration(taskID: nextTaskID)
         do {
             try await nextConfirmation.value
@@ -593,6 +563,16 @@ final class StreamControllerTests: XCTestCase {
             XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
         }
         await controller.disconnect()
+    }
+    @MainActor
+    private func startGeneration(_ controller: StreamController, taskID: String) async throws -> Task<Void, any Error> {
+        try await controller.connect(connection: RealtimeSessionConnection(
+            roomID: "room-id", userID: "user-id", token: "token", botName: "bot-user"
+        ), includeLocalAudio: false, ensureActive: {})
+        return try await controller.beginGeneration(
+            taskID: taskID, videoFormat: RealtimeVideoFormat(width: 1024, height: 1920, fps: 30),
+            context: RealtimeContext(prompt: "test")
+        )
     }
 }
 

@@ -4,14 +4,14 @@ import XCTest
 
 final class MediaServiceTests: XCTestCase {
     func testBucketResolutionsArePreservedInBothOrientations() throws {
-        let service = MediaService(model: .x2_0_pro)
+        let service = MediaService(model: .x2_1_1_preview_us)
         for size in [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)] {
             XCTAssertEqual(try service.resolveModelInputSize(size), size)
         }
     }
 
     func testBucketRejectsOtherSizesWithoutResizingOrRounding() {
-        let service = MediaService(model: .x2_0_pro)
+        let service = MediaService(model: .x2_1_1_preview_us)
         let sizes: [CGSize] = [
             CGSize(width: 832, height: 1472),
             CGSize(width: 1920, height: 1080),
@@ -31,7 +31,7 @@ final class MediaServiceTests: XCTestCase {
     }
 
     func testInterpolationTargetIsIndependentOfInputBuckets() throws {
-        let target = try MediaService(model: .x2_0_pro).resolveFrameInterpolationSize(
+        let target = try MediaService(model: .x2_1_1_preview_us).resolveFrameInterpolationSize(
             CGSize(width: 1024, height: 1920)
         )
         XCTAssertEqual(target, CGSize(width: 688, height: 1290))
@@ -86,66 +86,17 @@ final class MediaServiceTests: XCTestCase {
         }
     }
 
-    func testAlignedSizesStayWithinEachModelsPixelBounds() throws {
-        let sizes: [CGSize] = [
-            CGSize(width: 799, height: 751),
-            CGSize(width: 1_130, height: 1_130),
-            CGSize(width: 1_445, height: 1_445),
-            CGSize(width: 1_024, height: 1_920),
-            CGSize(width: 3_840, height: 2_160),
-            CGSize(width: 1, height: 100_000),
-            CGSize(width: 100_000, height: 1)
-        ]
-        for model in RealtimeModel.allCases where model.resolutionBuckets.isEmpty {
-            for source in sizes {
-                let size = try MediaService(model: model).resolveModelInputSize(source)
-                let pixels = Int(size.width * size.height)
-                XCTAssertGreaterThanOrEqual(pixels, model.minimumInputPixels)
-                XCTAssertLessThanOrEqual(pixels, model.maximumInputPixels)
-                XCTAssertTrue(Int(size.width).isMultiple(of: model.inputSizeAlignment))
-                XCTAssertTrue(Int(size.height).isMultiple(of: model.inputSizeAlignment))
+    func testBothAgoraModelsRequireExactResolutionBuckets() throws {
+        for model in RealtimeModel.allCases {
+            let service = MediaService(model: model)
+            for size in model.resolutionBuckets {
+                XCTAssertEqual(try service.resolveModelInputSize(size), size)
             }
-        }
-    }
-
-    func testResolveModelInputSizeUpscalesAndAlignsSmallImage() throws {
-        let size = try MediaService().resolveModelInputSize(
-            CGSize(width: 640, height: 480)
-        )
-
-        XCTAssertEqual(size, CGSize(width: 896, height: 672))
-    }
-
-    func testResolveModelInputSizeDownscalesAndAlignsLargeImage() throws {
-        let size = try MediaService().resolveModelInputSize(
-            CGSize(width: 1_920, height: 1_080)
-        )
-
-        XCTAssertEqual(size, CGSize(width: 1_504, height: 832))
-    }
-
-    func testResolveModelInputSizeAlignsImageInsidePixelRange() throws {
-        let size = try MediaService().resolveModelInputSize(
-            CGSize(width: 1_010, height: 770)
-        )
-
-        XCTAssertEqual(size, CGSize(width: 1_024, height: 768))
-    }
-
-    func testResolveModelInputSizeRejectsInvalidCGSize() {
-        XCTAssertThrowsError(
-            try MediaService().resolveModelInputSize(
-                CGSize(width: CGFloat.nan, height: 480)
-            )
-        ) { error in
-            XCTAssertEqual(
-                error as? XmaxError,
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Image width and height must be finite numbers " +
-                        "greater than zero"
-                )
-            )
+            for size in [CGSize(width: 640, height: 480), CGSize(width: 1920, height: 1080), CGSize(width: CGFloat.nan, height: 480)] {
+                XCTAssertThrowsError(try service.resolveModelInputSize(size)) { error in
+                    XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+                }
+            }
         }
     }
 

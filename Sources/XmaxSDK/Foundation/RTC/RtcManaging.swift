@@ -38,11 +38,8 @@ protocol RtcManaging: Sendable {
         for position: CameraPosition
     ) throws
 
-    /// 推送一帧外部视频数据及其可选 SEI。
-    func pushExternalVideoFrame(
-        _ frame: VideoFrame,
-        seiData: Data?
-    ) throws
+    /// 推送一帧外部视频数据。
+    func pushExternalVideoFrame(_ frame: VideoFrame) throws
 
     /// 推送一帧 10 ms PCM 外部音频数据。
     func pushExternalAudioFrame(_ frame: AudioFrame) throws
@@ -93,6 +90,9 @@ protocol RtcManaging: Sendable {
 
     /// 向当前 RTC 房间发送消息。
     func sendRoomMessage(_ message: String) throws
+
+    /// 等待当前已入队的房间信令发送完成。
+    func awaitPendingMessages() async throws
 
     /// 设置 RTC 事件监听器，传入空值时清除监听器。
     func setEventListener(_ listener: (any RtcEventListener)?)

@@ -1,5 +1,4 @@
 import Foundation
-@preconcurrency import VolcEngineRTC
 import XCTest
 @testable import XmaxSDK
 
@@ -160,12 +159,12 @@ final class RtcEngineLifecycleRecorder: @unchecked Sendable {
         return destructions
     }
 
-    func create(appID: String) -> ByteRTCEngine? {
+    func create(appID: String) -> (any RtcPlatform)? {
         lock.lock()
         appIDs.append(appID)
         lock.unlock()
 
-        return shouldFailCreation ? nil : ByteRTCEngine()
+        return shouldFailCreation ? nil : RtcPlatformStub()
     }
 
     func destroy() {

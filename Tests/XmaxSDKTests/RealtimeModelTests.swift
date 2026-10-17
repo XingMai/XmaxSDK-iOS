@@ -3,27 +3,27 @@ import XCTest
 
 final class RealtimeModelTests: XCTestCase {
     func testModelDefaultFormatsAndPixelLimits() {
-        XCTAssertEqual(RealtimeModel.x2_0.defaultFrameRate, 30)
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.defaultFrameRate, 30)
         XCTAssertEqual(
-            RealtimeModel.x2_0.defaultCameraVideoFormat,
-            RealtimeVideoFormat(width: 832, height: 1472, fps: 30)
+            RealtimeModel.x2_1_1_preview_cn.defaultCameraVideoFormat,
+            RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
         )
-        XCTAssertEqual(RealtimeModel.x2_0.maximumInputPixels, 1280000)
-        XCTAssertEqual(RealtimeModel.x2_0_pro.defaultFrameRate, 30)
-        XCTAssertEqual(RealtimeModel.x2_0_pro.maximumInputPixels, 2100000)
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.maximumInputPixels, 2100000)
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.defaultFrameRate, 30)
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.maximumInputPixels, 2100000)
         XCTAssertEqual(
-            RealtimeModel.x2_0_pro.defaultCameraVideoFormat,
+            RealtimeModel.x2_1_1_preview_us.defaultCameraVideoFormat,
             RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
         )
     }
 
     func testModelResolutionBuckets() {
-        XCTAssertTrue(RealtimeModel.x2_0.resolutionBuckets.isEmpty)
-        XCTAssertEqual(RealtimeModel.x2_0_pro.resolutionBuckets, [
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.resolutionBuckets, RealtimeModel.x2_1_1_preview_us.resolutionBuckets)
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.resolutionBuckets, [
             CGSize(width: 1024, height: 1920),
             CGSize(width: 1920, height: 1024)
         ])
-        XCTAssertEqual(RealtimeModel.x2_0_pro.rawValue, "x2.0-pro")
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.rawValue, "x2.1.1-preview-us")
     }
 
     func testContextNormalizesPromptAndReferencePath() {
@@ -95,7 +95,7 @@ final class RealtimeModelTests: XCTestCase {
     }
 
     func testRealtimeEnumRawValuesMatchCrossPlatformContract() {
-        XCTAssertEqual(RealtimeModel.x2_0.rawValue, "x2.0")
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.rawValue, "x2.1.1-preview-cn")
         XCTAssertEqual(RealtimeConnectionState.generating.rawValue, "Generating")
         XCTAssertEqual(RealtimeNetworkQualityLevel.veryBad.rawValue, "VeryBad")
         XCTAssertEqual(RealtimePerformanceStatus.recovered.rawValue, "Recovered")

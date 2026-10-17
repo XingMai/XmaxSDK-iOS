@@ -9,7 +9,7 @@ final class MediaService: MediaServicing, Sendable {
     // 插帧约束
     private static let maximumFrameInterpolationPixels = 900000
 
-    init(model: RealtimeModel = .x2_0) {
+    init(model: RealtimeModel = .x2_1_1_preview_cn) {
         self.model = model
     }
 

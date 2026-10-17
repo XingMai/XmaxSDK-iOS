@@ -1,158 +1,80 @@
 import CoreMedia
 import Foundation
-@preconcurrency import VolcEngineRTC
+@preconcurrency import AgoraRtcKit
 
-/// 保存可同步推送给火山 RTC 的视频帧及其底层内存。
+/// 保存声网外部视频帧及其连续像素数据。
 final class RtcVideoFrame {
 
     // RTC 资源
-    let value: ByteRTCVideoFrameData
+    let value: AgoraVideoFrame
 
-    // 内存资源
-    private let planeBuffers: [NSData]
-    private let planeData: UnsafeMutablePointer<UnsafeMutableRawPointer?>
-    private let planeStrides: UnsafeMutablePointer<Int32>
-
-    init(
-        frame: VideoFrame,
-        seiData: Data?
-    ) throws {
-        let expectedPlaneCount = Self.expectedPlaneCount(
-            for: frame.format.pixelFormat
-        )
-        guard frame.planes.count == expectedPlaneCount else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Video frame requires \(expectedPlaneCount) data planes"
-            )
-        }
-        guard let width = Int32(exactly: frame.format.width),
-              let height = Int32(exactly: frame.format.height) else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Video frame dimensions exceed the RTC range"
-            )
+    init(frame: VideoFrame) throws {
+        let width = frame.format.width
+        let height = frame.format.height
+        guard let rtcWidth = Int32(exactly: width),
+              let rtcHeight = Int32(exactly: height) else {
+            throw XmaxError(code: .invalidConfiguration, message: "Video frame dimensions exceed the RTC range")
         }
 
-        let buffers = frame.planes.map { $0.data as NSData }
-        let dataPointers = UnsafeMutablePointer<UnsafeMutableRawPointer?>
-            .allocate(capacity: expectedPlaneCount)
-        let stridePointers = UnsafeMutablePointer<Int32>
-            .allocate(capacity: expectedPlaneCount)
-
-        for index in 0..<expectedPlaneCount {
-            guard let stride = Int32(exactly: frame.planes[index].stride) else {
-                dataPointers.deinitialize(count: index)
-                dataPointers.deallocate()
-                stridePointers.deinitialize(count: index)
-                stridePointers.deallocate()
-                throw XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Video frame stride exceeds the RTC range"
-                )
-            }
-
-            dataPointers.advanced(by: index).initialize(
-                to: UnsafeMutableRawPointer(mutating: buffers[index].bytes)
-                    .advanced(by: frame.planes[index].byteOffset)
-            )
-            stridePointers.advanced(by: index).initialize(to: stride)
-        }
-
-        let rtcFrame = ByteRTCVideoFrameData()
-        rtcFrame.bufferType = .rawMemory
-        rtcFrame.pixelFormat = RtcVideoConverter.convertPixelFormat(
-            frame.format.pixelFormat
-        )
-        rtcFrame.contentType = .normalFrame
-        rtcFrame.timestamp = CMTime(
-            value: frame.timestampUs,
-            timescale: 1_000_000
-        )
-        rtcFrame.width = width
-        rtcFrame.height = height
-        rtcFrame.rotation = RtcVideoConverter.convertRotation(frame.rotation)
-        rtcFrame.seiData = seiData
-        rtcFrame.numberOfPlanes = Int32(expectedPlaneCount)
-        rtcFrame.planeDataArray = dataPointers
-        rtcFrame.planeStrideArray = stridePointers
-
-        value = rtcFrame
-        planeBuffers = buffers
-        planeData = dataPointers
-        planeStrides = stridePointers
-    }
-
-    /// 在复用同一像素缓冲区时更新逐帧变化的 RTC 元数据。
-    func updateMetadata(
-        from frame: VideoFrame,
-        seiData: Data?
-    ) {
-        value.timestamp = CMTime(
-            value: frame.timestampUs,
-            timescale: 1_000_000
-        )
-        value.rotation = RtcVideoConverter.convertRotation(frame.rotation)
-        value.seiData = seiData
-    }
-
-    deinit {
-        planeData.deinitialize(count: planeBuffers.count)
-        planeData.deallocate()
-        planeStrides.deinitialize(count: planeBuffers.count)
-        planeStrides.deallocate()
-    }
-
-    private static func expectedPlaneCount(
-        for pixelFormat: VideoPixelFormat
-    ) -> Int {
-        switch pixelFormat {
+        let layout: [(bytes: Int, rows: Int)]
+        switch frame.format.pixelFormat {
         case .i420:
-            3
+            layout = [(width, height), ((width + 1) / 2, (height + 1) / 2), ((width + 1) / 2, (height + 1) / 2)]
         case .nv12, .nv21:
-            2
+            layout = [(width, height), (((width + 1) / 2) * 2, (height + 1) / 2)]
         case .rgba, .bgra, .argb:
-            1
+            layout = [(width * 4, height)]
         }
+        guard frame.planes.count == layout.count else {
+            throw XmaxError(code: .invalidConfiguration, message: "Video frame requires \(layout.count) data planes")
+        }
+
+        var data = Data()
+        for (plane, size) in zip(frame.planes, layout) {
+            guard plane.stride >= size.bytes,
+                  size.rows > 0,
+                  plane.byteLength >= size.bytes,
+                  size.rows - 1 <= (plane.byteLength - size.bytes) / plane.stride else {
+                throw XmaxError(code: .invalidConfiguration, message: "Video frame plane is smaller than its dimensions")
+            }
+            plane.data.withUnsafeBytes { bytes in
+                for row in 0..<size.rows {
+                    let start = bytes.baseAddress!.advanced(by: plane.byteOffset + row * plane.stride)
+                    data.append(start.assumingMemoryBound(to: UInt8.self), count: size.bytes)
+                }
+            }
+        }
+
+        value = AgoraVideoFrame()
+        value.format = RtcVideoConverter.convertPixelFormat(frame.format.pixelFormat)
+        value.strideInPixels = rtcWidth
+        value.height = rtcHeight
+        value.dataBuf = data
+        updateMetadata(from: frame)
+    }
+
+    /// 复用不可变像素时，仅更新时间戳和方向。
+    func updateMetadata(from frame: VideoFrame) {
+        value.time = CMTime(value: frame.timestampUs, timescale: 1000000)
+        value.rotation = Int32(frame.rotation.rawValue)
     }
 }
 
-/// 仅为显式声明像素不变的视频帧复用 RTC 底层内存。
+/// 为显式声明像素不变的视频帧复用 RTC 数据。
 final class RtcVideoFrameCache {
 
-    // RTC 帧缓存
-    private var cachedFrame: CachedFrame?
+    // 帧缓存
+    private var cachedFrame: (id: UUID, frame: RtcVideoFrame)?
 
-    func frame(
-        for frame: VideoFrame,
-        seiData: Data?
-    ) throws -> RtcVideoFrame {
-        guard let bufferReuseID = frame.bufferReuseID else {
-            cachedFrame = nil
-            return try RtcVideoConverter.convertFrame(
-                frame,
-                seiData: seiData
-            )
-        }
-
-        if let cachedFrame,
-           cachedFrame.bufferReuseID == bufferReuseID {
-            cachedFrame.frame.updateMetadata(
-                from: frame,
-                seiData: seiData
-            )
+    func frame(for frame: VideoFrame) throws -> RtcVideoFrame {
+        if let id = frame.bufferReuseID, let cachedFrame, cachedFrame.id == id {
+            cachedFrame.frame.updateMetadata(from: frame)
             return cachedFrame.frame
         }
 
-        let rtcFrame = try RtcVideoConverter.convertFrame(
-            frame,
-            seiData: seiData
-        )
-        cachedFrame = CachedFrame(
-            bufferReuseID: bufferReuseID,
-            frame: rtcFrame
-        )
-        return rtcFrame
+        let converted = try RtcVideoConverter.convertFrame(frame)
+        cachedFrame = frame.bufferReuseID.map { ($0, converted) }
+        return converted
     }
 
     func removeAll() {
@@ -160,85 +82,37 @@ final class RtcVideoFrameCache {
     }
 }
 
-private extension RtcVideoFrameCache {
-    struct CachedFrame {
-        let bufferReuseID: UUID
-        let frame: RtcVideoFrame
-    }
-}
-
-/// 在中性视频模型和火山 RTC 视频类型之间转换。
+/// 在中性视频模型与声网类型之间转换。
 enum RtcVideoConverter {
-
-    /// 创建由调用方同步推送的火山 RTC 视频帧。
-    static func convertFrame(
-        _ frame: VideoFrame,
-        seiData: Data? = nil
-    ) throws -> RtcVideoFrame {
-        try RtcVideoFrame(frame: frame, seiData: seiData)
+    static func convertFrame(_ frame: VideoFrame) throws -> RtcVideoFrame {
+        try RtcVideoFrame(frame: frame)
     }
 
-    /// 根据摄像头方向生成本地镜像策略。
-    static func convertMirrorType(
-        _ position: CameraPosition
-    ) -> ByteRTCMirrorType {
-        switch position {
-        case .front:
-            .renderAndEncoder
-        case .back:
-            .none
-        }
-    }
-
-    /// 创建火山 RTC 视频编码配置。
-    static func makeEncoderConfiguration(
-        _ configuration: VideoEncodingConfiguration
-    ) -> ByteRTCVideoEncoderConfig {
-        let rtcConfiguration = ByteRTCVideoEncoderConfig()
-        rtcConfiguration.width = configuration.width
-        rtcConfiguration.height = configuration.height
-        rtcConfiguration.frameRate = configuration.frameRate
-        rtcConfiguration.minBitrate = configuration.minimumBitrate
-        rtcConfiguration.maxBitrate = configuration.maximumBitrate
-        rtcConfiguration.encoderPreference = switch configuration.encoderPreference {
-        case .auto: .auto
+    static func makeEncoderConfiguration(_ configuration: VideoEncodingConfiguration) -> AgoraVideoEncoderConfiguration {
+        let result = AgoraVideoEncoderConfiguration(
+            size: CGSize(width: configuration.width, height: configuration.height),
+            frameRate: configuration.frameRate,
+            bitrate: max(0, configuration.maximumBitrate),
+            orientationMode: .adaptative,
+            mirrorMode: .disabled
+        )
+        result.minBitrate = configuration.minimumBitrate
+        result.degradationPreference = switch configuration.encoderPreference {
+        case .auto: .maintainAuto
         case .maintainFramerate: .maintainFramerate
         case .maintainQuality: .maintainQuality
         }
-        return rtcConfiguration
+        return result
     }
 
-    static func convertPixelFormat(
-        _ pixelFormat: VideoPixelFormat
-    ) -> ByteRTCVideoPixelFormat {
-        switch pixelFormat {
-        case .i420:
-            .I420
-        case .nv12:
-            .NV12
-        case .nv21:
-            .NV21
-        case .rgba:
-            .RGBA
-        case .bgra:
-            .BGRA
-        case .argb:
-            .ARGB
-        }
-    }
-
-    static func convertRotation(
-        _ rotation: VideoRotation
-    ) -> ByteRTCVideoRotation {
-        switch rotation {
-        case .rotation0:
-            .rotation0
-        case .rotation90:
-            .rotation90
-        case .rotation180:
-            .rotation180
-        case .rotation270:
-            .rotation270
+    static func convertPixelFormat(_ format: VideoPixelFormat) -> Int {
+        switch format {
+        case .i420: 1
+        case .bgra: 2
+        case .nv21: 3
+        case .rgba: 4
+        case .argb: 7
+        case .nv12: 8
         }
     }
 }

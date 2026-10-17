@@ -28,9 +28,7 @@ Pod::Spec.new do |spec|
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => ''
   }
 
-  spec.dependency 'VolcEngineRTC/Core', '3.60.106.600'
-  spec.dependency 'VolcEngineRTC/RealXBase', '3.60.106.600'
-  spec.dependency 'VolcEngineRTC/RTCFFmpeg', '3.60.106.600'
+  spec.dependency 'AgoraRtcEngine_iOS/RtcBasic', '4.6.4'
   spec.dependency 'QCloudCOSXML/Transfer', '6.5.7'
 
   spec.test_spec 'Tests' do |tests|

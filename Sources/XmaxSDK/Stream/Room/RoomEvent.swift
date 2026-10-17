@@ -14,7 +14,8 @@ enum RoomEvent {
                 params: GenerationParameters(
                     videoFormat: videoFormat,
                     targetSize: targetSize,
-                    context: context
+                    context: context,
+                    mirror: false
                 ),
                 userID: userID,
                 taskID: taskID
@@ -89,9 +90,16 @@ enum RoomEvent {
 
 private extension RoomEvent {
     static func encode(_ payload: some Encodable) throws -> String {
-        let data = try JSONEncoder().encode(
+        let payloadData = try JSONEncoder().encode(
             Envelope(payload: payload, runtime: .current)
         )
+        guard var object = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
+            throw XmaxError(code: .internalError, message: "Failed to encode RTC room event")
+        }
+        if let taskID = object["uid"] {
+            object["session_uid"] = taskID
+        }
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
         guard let message = String(data: data, encoding: .utf8) else {
             throw XmaxError(
                 code: .internalError,
@@ -122,16 +130,19 @@ private extension RoomEvent {
         let targetSize: [Int]?
         let prompt: String
         let referencePath: String?
+        let mirror: Bool?
 
         init(
             videoFormat: RealtimeVideoFormat,
             targetSize: CGSize?,
-            context: RealtimeContext
+            context: RealtimeContext,
+            mirror: Bool? = nil
         ) {
             size = [videoFormat.width, videoFormat.height]
             self.targetSize = targetSize.map { [Int($0.width), Int($0.height)] }
             prompt = context.prompt
             referencePath = context.referencePath
+            self.mirror = mirror
         }
 
         enum CodingKeys: String, CodingKey {
@@ -140,6 +151,7 @@ private extension RoomEvent {
             case targetSize = "target_size"
             case prompt
             case referencePath = "ref_image_path"
+            case mirror
         }
     }
 

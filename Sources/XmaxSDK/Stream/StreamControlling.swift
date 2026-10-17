@@ -72,7 +72,7 @@ protocol StreamControlling: Sendable {
     /// 建立生成任务并发送开始信令。
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务的唯一标识，同时用于 SEI 匹配。
+    ///   - taskID: 当前生成任务的唯一标识。
     ///   - videoFormat: 当前本地媒体使用的视频格式。
     ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 当前生成任务使用的条件上下文。
@@ -107,7 +107,7 @@ protocol StreamControlling: Sendable {
         context: RealtimeContext
     ) async throws
 
-    /// 调整当前生成任务的回传尺寸，不重启生成或等待 SEI。
+    /// 调整当前生成任务的回传尺寸，不重启生成。
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务标识。

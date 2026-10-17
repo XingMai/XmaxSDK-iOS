@@ -9,7 +9,7 @@ final class CameraControllerTests: XCTestCase {
         let controller = CameraController(
             rtcManager: RtcManagingStub(),
             permissionManager: PermissionManagingStub(),
-            mediaService: MediaService(model: .x2_0_pro),
+            mediaService: MediaService(model: .x2_1_1_preview_us),
             captureManager: capture
         )
         let portrait = RealtimeVideoFormat(
@@ -39,7 +39,7 @@ final class CameraControllerTests: XCTestCase {
             let controller = CameraController(
                 rtcManager: RtcManagingStub(),
                 permissionManager: PermissionManagingStub(),
-                mediaService: MediaService(model: .x2_0_pro),
+                mediaService: MediaService(model: .x2_1_1_preview_us),
                 captureManager: capture
             )
             let requested = RealtimeVideoFormat(
@@ -61,7 +61,7 @@ final class CameraControllerTests: XCTestCase {
         let controller = CameraController(
             rtcManager: rtc,
             permissionManager: permissions,
-            mediaService: MediaService(model: .x2_0_pro),
+            mediaService: MediaService(model: .x2_1_1_preview_us),
             captureManager: capture
         )
         do {
@@ -85,7 +85,7 @@ final class CameraControllerTests: XCTestCase {
         let controller = CameraController(
             rtcManager: rtc,
             permissionManager: PermissionManagingStub(),
-            mediaService: MediaService(model: .x2_0),
+            mediaService: MediaServicingStub(resolvedSize: CGSize(width: 896, height: 672)),
             captureManager: capture
         )
         let requested = RealtimeVideoFormat(
@@ -245,18 +245,20 @@ final class CameraControllerTests: XCTestCase {
         let frame = try Self.testFrame()
         try capture.emitFrame(frame)
         let taskID = XmaxRealtimeGenerationManager.createTaskID()
-        let confirmation = try streamController.beginGenerationConfirmation(taskID: taskID)
+        try await streamController.connect(connection: RealtimeSessionConnection(
+            roomID: "room", userID: "user", token: "token", botName: "bot"
+        ), includeLocalAudio: false, ensureActive: {})
+        let confirmation = try await streamController.beginGeneration(
+            taskID: taskID, videoFormat: RealtimeVideoFormat(width: 1024, height: 1920, fps: 30),
+            context: RealtimeContext(prompt: "test")
+        )
         try capture.emitFrame(frame)
         try capture.emitFrame(frame.updating(timestampUs: frame.timestampUs + 33333))
-        rtc.emitSeiMessage(stream: RemoteStream(roomID: "room", userID: "bot"), message: "\(taskID)&index=0")
+        rtc.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room", userID: "bot"))
         try await confirmation.value
         _ = await streamController.stopStreamGeneration(taskID: taskID)
         try capture.emitFrame(frame)
-        let identifiers = rtc.calls.compactMap { call -> String? in
-            guard case let .pushExternalVideoFrame(data) = call, let data else { return nil }
-            return String(data: data, encoding: .utf8)
-        }
-        XCTAssertEqual(identifiers, ["\(taskID)&index=0", "\(taskID)&index=1"])
+        XCTAssertEqual(rtc.calls.filter { $0 == .pushExternalVideoFrame }.count, 2)
         XCTAssertFalse(capture.calls.contains(.stop))
         await controller.stopLocalCameraStream()
     }

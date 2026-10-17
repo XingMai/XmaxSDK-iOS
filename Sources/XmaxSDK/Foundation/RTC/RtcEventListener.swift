@@ -8,10 +8,7 @@ protocol RtcEventListener: AnyObject {
         published: Bool
     )
 
-    /// 处理远端视频流携带的 SEI 消息。
+    /// 处理当前 RTC 连接或信令传输无法继续的错误。
     @MainActor
-    func onSeiMessageReceived(
-        stream: RemoteStream,
-        message: String
-    )
+    func onRtcFailure(_ error: XmaxError)
 }

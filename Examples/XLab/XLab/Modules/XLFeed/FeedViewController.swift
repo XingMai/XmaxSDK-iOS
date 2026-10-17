@@ -646,7 +646,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private func makeMetrics() -> UIView {
         let runtime = FeedRuntimeMetricView(label: XLLocalization.text("feed.runtime"), value: "iOS")
         let minimum = FeedRuntimeMetricView(label: XLLocalization.text("feed.os"), value: "15+")
-        let latestModel = RealtimeModel.allCases.last?.rawValue.uppercased() ?? "—"
+        let latestModel = RealtimePreferences.selectedModel.displayName
         let model = FeedRuntimeMetricView(label: XLLocalization.text("feed.latestModel"), value: latestModel)
         let stack = feedHorizontalStack([runtime, minimum, model], spacing: 8)
 

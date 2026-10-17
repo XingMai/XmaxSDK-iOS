@@ -1,299 +1,113 @@
 import CoreMedia
 import Foundation
-import UIKit
-@preconcurrency import VolcEngineRTC
+@preconcurrency import AgoraRtcKit
 import XCTest
 @testable import XmaxSDK
 
 final class RtcFoundationTests: XCTestCase {
-    func testRemoteStreamBuildsStableKey() {
-        let stream = RemoteStream(roomID: "room-a", userID: "user-b")
+    func testEncoderConverterPreservesBitratesAndMapsPreferences() {
+        let cases: [(VideoEncodingConfiguration.EncoderPreference, AgoraDegradationPreference)] = [
+            (.auto, .maintainAuto),
+            (.maintainFramerate, .maintainFramerate),
+            (.maintainQuality, .maintainQuality)
+        ]
+        for (preference, expected) in cases {
+            let converted = RtcVideoConverter.makeEncoderConfiguration(VideoEncodingConfiguration(
+                width: 832, height: 1472, frameRate: 24,
+                minimumBitrate: 1500, maximumBitrate: 3000,
+                encoderPreference: preference
+            ))
+            XCTAssertEqual(converted.dimensions.width, 832)
+            XCTAssertEqual(converted.dimensions.height, 1472)
+            XCTAssertEqual(converted.frameRate, 24)
+            XCTAssertEqual(converted.minBitrate, 1500)
+            XCTAssertEqual(converted.bitrate, 3000)
+            XCTAssertEqual(converted.degradationPreference, expected)
+        }
+    }
 
-        XCTAssertEqual(stream.key, "room-a:user-b")
+
+    func testRemoteStreamBuildsStableKey() {
+        XCTAssertEqual(RemoteStream(roomID: "room-a", userID: "user-b").key, "room-a:user-b")
     }
 
     func testVideoEncodingConfigurationUsesAdaptiveBitrateDefaults() {
-        let configuration = VideoEncodingConfiguration(
-            width: 720,
-            height: 1280,
-            frameRate: 24
-        )
-
+        let configuration = VideoEncodingConfiguration(width: 720, height: 1280, frameRate: 24)
         XCTAssertEqual(configuration.minimumBitrate, 0)
         XCTAssertEqual(configuration.maximumBitrate, -1)
     }
 
-    func testQualityConverterMapsAllKnownLevels() {
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.unknown), .unknown)
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.excellent), .excellent)
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.good), .good)
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.poor), .poor)
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.bad), .bad)
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.veryBad), .veryBad)
-        XCTAssertEqual(RtcQualityConverter.convertLevel(.down), .down)
-    }
-
-    func testQualityConverterUsesWorstRemoteDownlink() {
-        let excellent = ByteRTCNetworkQualityStats()
-        excellent.rxQuality = .excellent
-        let bad = ByteRTCNetworkQualityStats()
-        bad.rxQuality = .bad
-        let good = ByteRTCNetworkQualityStats()
-        good.rxQuality = .good
-
-        XCTAssertEqual(
-            RtcQualityConverter.resolveDownlinkLevel([excellent, bad, good]),
-            .bad
-        )
-        XCTAssertEqual(RtcQualityConverter.resolveDownlinkLevel([]), .unknown)
-    }
-
-    func testQualityConverterResolvesPerformanceState() {
-        XCTAssertEqual(
-            RtcQualityConverter.resolvePerformanceLimited(.bandwidthFallback),
-            true
-        )
-        XCTAssertEqual(
-            RtcQualityConverter.resolvePerformanceLimited(.fallback),
-            true
-        )
-        XCTAssertEqual(
-            RtcQualityConverter.resolvePerformanceLimited(.bandwidthResumed),
-            false
-        )
-        XCTAssertEqual(
-            RtcQualityConverter.resolvePerformanceLimited(.resumed),
-            false
-        )
-    }
-
-    func testAudioConverterBuildsExternalPCMFrame() throws {
-        let data = Data(repeating: 7, count: 960)
-        let rtcFrame = try RtcAudioConverter.convertFrame(
-            AudioFrame(data: data, timestampUs: 10_000)
-        )
-
-        XCTAssertEqual(rtcFrame.buffer, data)
-        XCTAssertEqual(rtcFrame.samples, 480)
-        XCTAssertEqual(rtcFrame.channel.rawValue, 1)
-        XCTAssertEqual(rtcFrame.sampleRate.rawValue, 48_000)
-    }
-
-    func testAudioConverterRejectsIncompleteFrame() {
-        XCTAssertThrowsError(
-            try RtcAudioConverter.convertFrame(
-                AudioFrame(data: Data(repeating: 0, count: 958), timestampUs: 0)
-            )
-        ) { error in
-            XCTAssertEqual(
-                error as? XmaxError,
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Audio frame must contain exactly 960 bytes"
-                )
-            )
+    func testQualityConverterMapsKnownAndUnsupportedLevels() {
+        for level in RtcQualityLevel.allCases {
+            let agora = AgoraNetworkQuality(rawValue: UInt(level.rawValue))!
+            XCTAssertEqual(RtcQualityConverter.convertLevel(agora), level)
         }
+        XCTAssertEqual(RtcQualityConverter.convertLevel(.detecting), .unknown)
     }
 
-    func testVideoConverterMapsNeutralEnumsAndEncodingConfiguration() {
-        XCTAssertEqual(
-            RtcVideoConverter.convertPixelFormat(.i420).rawValue,
-            ByteRTCVideoPixelFormat.I420.rawValue
-        )
-        XCTAssertEqual(
-            RtcVideoConverter.convertPixelFormat(.nv12).rawValue,
-            ByteRTCVideoPixelFormat.NV12.rawValue
-        )
-        XCTAssertEqual(
-            RtcVideoConverter.convertRotation(.rotation270).rawValue,
-            ByteRTCVideoRotation.rotation270.rawValue
-        )
-        XCTAssertEqual(
-            RtcVideoConverter.convertMirrorType(.front).rawValue,
-            ByteRTCMirrorType.renderAndEncoder.rawValue
-        )
-        XCTAssertEqual(
-            RtcVideoConverter.convertMirrorType(.back).rawValue,
-            ByteRTCMirrorType.none.rawValue
-        )
-
-        let rtcConfiguration = RtcVideoConverter.makeEncoderConfiguration(
-            VideoEncodingConfiguration(
-                width: 1080,
-                height: 1920,
-                frameRate: 30,
-                minimumBitrate: 500,
-                maximumBitrate: 3_000
-            )
-        )
-        XCTAssertEqual(rtcConfiguration.width, 1080)
-        XCTAssertEqual(rtcConfiguration.height, 1920)
-        XCTAssertEqual(rtcConfiguration.frameRate, 30)
-        XCTAssertEqual(rtcConfiguration.minBitrate, 500)
-        XCTAssertEqual(rtcConfiguration.maxBitrate, 3_000)
-        XCTAssertEqual(
-            rtcConfiguration.encoderPreference.rawValue,
-            ByteRTCVideoEncoderPreference.auto.rawValue
-        )
+    func testAudioConverterPreservesPCMDataAndRejectsIncompleteFrame() throws {
+        let data = Data(repeating: 7, count: 960)
+        XCTAssertEqual(try RtcAudioConverter.convertFrame(AudioFrame(data: data, timestampUs: 10000)), data)
+        XCTAssertThrowsError(try RtcAudioConverter.convertFrame(AudioFrame(data: Data(repeating: 0, count: 958), timestampUs: 0)))
     }
 
-    func testVideoConverterOwnsSelectedPlaneRanges() throws {
-        let format = try VideoFormat(
-            width: 2,
-            height: 2,
-            pixelFormat: .nv12
-        )
+    func testVideoConverterOwnsSelectedPlaneRangesAndRemovesPadding() throws {
         let frame = try VideoFrame(
-            format: format,
-            timestampUs: 12_345,
+            format: VideoFormat(width: 2, height: 2, pixelFormat: .nv12),
+            timestampUs: 12345,
             planes: [
-                try VideoFramePlane(
-                    data: Data([99, 1, 2, 3, 4, 98]),
-                    stride: 2,
-                    byteOffset: 1,
-                    byteLength: 4
-                ),
-                try VideoFramePlane(
-                    data: Data([97, 5, 6, 96]),
-                    stride: 2,
-                    byteOffset: 1,
-                    byteLength: 2
-                )
+                VideoFramePlane(data: Data([99, 1, 2, 88, 3, 4, 98]), stride: 3, byteOffset: 1, byteLength: 5),
+                VideoFramePlane(data: Data([97, 5, 6, 96]), stride: 2, byteOffset: 1, byteLength: 2)
             ],
             rotation: .rotation90
         )
-        let converted = try RtcVideoConverter.convertFrame(
-            frame,
-            seiData: Data("sei".utf8)
-        )
-        let rtcFrame = converted.value
-
-        XCTAssertEqual(rtcFrame.bufferType.rawValue, 0)
-        XCTAssertEqual(rtcFrame.pixelFormat.rawValue, 2)
-        XCTAssertEqual(rtcFrame.width, 2)
-        XCTAssertEqual(rtcFrame.height, 2)
-        XCTAssertEqual(rtcFrame.numberOfPlanes, 2)
-        XCTAssertEqual(rtcFrame.planeStrideArray?[0], 2)
-        XCTAssertEqual(rtcFrame.planeStrideArray?[1], 2)
-        XCTAssertEqual(rtcFrame.seiData, Data("sei".utf8))
-        XCTAssertEqual(
-            CMTimeConvertScale(
-                rtcFrame.timestamp,
-                timescale: 1_000_000,
-                method: .default
-            ).value,
-            12_345
-        )
-
-        let firstPlane = try XCTUnwrap(rtcFrame.planeDataArray?[0])
-        let secondPlane = try XCTUnwrap(rtcFrame.planeDataArray?[1])
-        XCTAssertEqual(Data(bytes: firstPlane, count: 4), Data([1, 2, 3, 4]))
-        XCTAssertEqual(Data(bytes: secondPlane, count: 2), Data([5, 6]))
+        let converted = try RtcVideoConverter.convertFrame(frame).value
+        XCTAssertEqual(converted.format, 8)
+        XCTAssertEqual(converted.strideInPixels, 2)
+        XCTAssertEqual(converted.height, 2)
+        XCTAssertEqual(converted.rotation, 90)
+        XCTAssertEqual(converted.dataBuf, Data([1, 2, 3, 4, 5, 6]))
+        XCTAssertEqual(CMTimeConvertScale(converted.time, timescale: 1000000, method: .default).value, 12345)
     }
 
-    func testVideoConverterRetainsSharedBufferAfterSourceIsReleased() throws {
+    func testVideoConverterRetainsDataAfterSourceIsReleased() throws {
         let converted: RtcVideoFrame = try autoreleasepool {
             var data = Data((0..<24).map(UInt8.init))
             let frame = try VideoFrame(
-                format: VideoFormat(width: 4, height: 4, pixelFormat: .nv12),
-                timestampUs: 0,
+                format: VideoFormat(width: 4, height: 4, pixelFormat: .nv12), timestampUs: 0,
                 planes: [
                     VideoFramePlane(data: data, stride: 4, byteLength: 16),
                     VideoFramePlane(data: data, stride: 4, byteOffset: 16, byteLength: 8)
                 ]
             )
-            let converted = try RtcVideoConverter.convertFrame(frame)
+            let result = try RtcVideoConverter.convertFrame(frame)
             data[0] = 255
-            return converted
+            return result
         }
-
-        try withExtendedLifetime(converted) {
-            let luma = try XCTUnwrap(converted.value.planeDataArray?[0])
-            let chroma = try XCTUnwrap(converted.value.planeDataArray?[1])
-            XCTAssertEqual(Data(bytes: luma, count: 16), Data((0..<16).map(UInt8.init)))
-            XCTAssertEqual(Data(bytes: chroma, count: 8), Data((16..<24).map(UInt8.init)))
-        }
+        XCTAssertEqual(converted.value.dataBuf, Data((0..<24).map(UInt8.init)))
     }
 
-    func testVideoConverterRejectsWrongPlaneCount() throws {
-        let format = try VideoFormat(
-            width: 2,
-            height: 2,
-            pixelFormat: .i420
+    func testVideoConverterRejectsWrongPlaneCountAndShortRows() throws {
+        let missingPlane = try VideoFrame(
+            format: VideoFormat(width: 2, height: 2, pixelFormat: .i420), timestampUs: 0,
+            planes: [VideoFramePlane(data: Data(repeating: 0, count: 4), stride: 2)]
         )
-        let frame = try VideoFrame(
-            format: format,
-            timestampUs: 0,
-            planes: [
-                try VideoFramePlane(
-                    data: Data(repeating: 0, count: 4),
-                    stride: 2
-                )
-            ]
+        XCTAssertThrowsError(try RtcVideoConverter.convertFrame(missingPlane))
+        let shortPlane = try VideoFrame(
+            format: VideoFormat(width: 2, height: 2, pixelFormat: .bgra), timestampUs: 0,
+            planes: [VideoFramePlane(data: Data(repeating: 0, count: 8), stride: 8)]
         )
-
-        XCTAssertThrowsError(try RtcVideoConverter.convertFrame(frame)) { error in
-            XCTAssertEqual(
-                error as? XmaxError,
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Video frame requires 3 data planes"
-                )
-            )
-        }
+        XCTAssertThrowsError(try RtcVideoConverter.convertFrame(shortPlane))
     }
 
-    func testVideoFrameCacheReusesStaticPixelBufferAndUpdatesMetadata() throws {
-        let format = try VideoFormat(
-            width: 2,
-            height: 2,
-            pixelFormat: .bgra
-        )
-        let plane = try VideoFramePlane(
-            data: Data(repeating: 7, count: 16),
-            stride: 8
-        )
-        let bufferReuseID = UUID()
+    func testVideoFrameCacheReusesStaticPixelsAndUpdatesTimestamp() throws {
+        let format = try VideoFormat(width: 2, height: 2, pixelFormat: .bgra)
+        let plane = try VideoFramePlane(data: Data(repeating: 7, count: 16), stride: 8)
+        let id = UUID()
         let cache = RtcVideoFrameCache()
-        let firstFrame = try VideoFrame(
-            format: format,
-            timestampUs: 1_000,
-            planes: [plane],
-            bufferReuseID: bufferReuseID
-        )
-        let secondFrame = try VideoFrame(
-            format: format,
-            timestampUs: 2_000,
-            planes: [plane],
-            bufferReuseID: bufferReuseID
-        )
-
-        let firstRtcFrame = try cache.frame(
-            for: firstFrame,
-            seiData: nil
-        )
-        let firstPlaneAddress = firstRtcFrame.value.planeDataArray?[0]
-        let secondRtcFrame = try cache.frame(
-            for: secondFrame,
-            seiData: Data("task-id".utf8)
-        )
-
-        XCTAssertTrue(firstRtcFrame === secondRtcFrame)
-        XCTAssertEqual(
-            firstPlaneAddress,
-            secondRtcFrame.value.planeDataArray?[0]
-        )
-        XCTAssertEqual(
-            CMTimeConvertScale(
-                secondRtcFrame.value.timestamp,
-                timescale: 1_000_000,
-                method: .default
-            ).value,
-            2_000
-        )
-        XCTAssertEqual(
-            secondRtcFrame.value.seiData,
-            Data("task-id".utf8)
-        )
+        let first = try cache.frame(for: VideoFrame(format: format, timestampUs: 1000, planes: [plane], bufferReuseID: id))
+        let second = try cache.frame(for: VideoFrame(format: format, timestampUs: 2000, planes: [plane], bufferReuseID: id))
+        XCTAssertTrue(first === second)
+        XCTAssertEqual(CMTimeConvertScale(second.value.time, timescale: 1000000, method: .default).value, 2000)
     }
 }

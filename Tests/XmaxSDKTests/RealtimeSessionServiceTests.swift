@@ -3,6 +3,32 @@ import XCTest
 @testable import XmaxSDK
 
 final class RealtimeSessionServiceTests: XCTestCase {
+    func testInvalidAgoraAppIDClosesCreatedSessionAndPreservesOriginalError() async throws {
+        let payload = Data(#"{"sessionUid":"invalid-app","userUid":"user","modelExtra":{"room_id":"room","room_token":"token","rtc_user_id":"account","rtc_bot_id":"bot","rtc_app_id":"other-app"}}"#.utf8)
+        let api = RealtimeApiServiceStub(responses: [.success(payload), .success(Data("{}".utf8))])
+        let service = RealtimeSessionService(apiService: api)
+        do {
+            _ = try await service.createSession(model: .x2_1_1_preview_cn)
+            XCTFail("Expected invalid Agora app ID")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .sessionError)
+        }
+        XCTAssertEqual(api.requests.map(\.path), ["/session", "/session/invalid-app"])
+        XCTAssertEqual(api.requests.last?.method, .delete)
+    }
+
+    func testMissingRTCAccountDoesNotFallBackToBusinessUserID() async throws {
+        let payload = Data(#"{"sessionUid":"missing-account","userUid":"business-user","modelExtra":{"room_id":"room","room_token":"token","rtc_bot_id":"bot","rtc_app_id":"5588dfe2e7874bd08ea28f4968ec2d40"}}"#.utf8)
+        let api = RealtimeApiServiceStub(responses: [.success(payload), .success(Data("{}".utf8))])
+        do {
+            _ = try await RealtimeSessionService(apiService: api).createSession(model: .x2_1_1_preview_us)
+            XCTFail("Expected missing RTC account")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .sessionError)
+        }
+        XCTAssertEqual(api.requests.last?.path, "/session/missing-account")
+    }
+
     func testCreateSessionParsesObjectConnectionAndNormalizesValues() async throws {
         let payload = try JSONSerialization.data(
             withJSONObject: [
@@ -12,8 +38,9 @@ final class RealtimeSessionServiceTests: XCTestCase {
                 "modelExtra": [
                     "room_id": " room-1 ",
                     "room_token": " token-1 ",
-                    "user_id": " rtc-user-1 ",
-                    "bot_name": " bot-1 "
+                    "rtc_user_id": " rtc-user-1 ",
+                    "rtc_bot_id": " bot-1 ",
+                    "rtc_app_id": RtcEngineManager.defaultAppID
                 ]
             ]
         )
@@ -22,7 +49,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         )
         let service = RealtimeSessionService(apiService: apiService)
 
-        let session = try await service.createSession(model: .x2_0)
+        let session = try await service.createSession(model: .x2_1_1_preview_cn)
 
         XCTAssertEqual(
             session,
@@ -45,12 +72,12 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let body = try XCTUnwrap(request.body)
         XCTAssertEqual(
             try JSONSerialization.jsonObject(with: body) as? [String: String],
-            ["model": "x2.0"]
+            ["model": "x2.1.1-preview-cn"]
         )
     }
 
-    func testCreateSessionParsesJSONStringAndFallsBackToSessionUser() async throws {
-        let modelExtra = #"{"room_id":"room-2","room_token":"token-2"}"#
+    func testCreateSessionParsesJSONStringWithSeparateRTCAccount() async throws {
+        let modelExtra = #"{"room_id":"room-2","room_token":"token-2","rtc_user_id":"rtc-user-2","rtc_bot_id":"bot-2","rtc_app_id":"5588dfe2e7874bd08ea28f4968ec2d40"}"#
         let payload = try JSONSerialization.data(
             withJSONObject: [
                 "sessionUid": "session-2",
@@ -63,15 +90,15 @@ final class RealtimeSessionServiceTests: XCTestCase {
         )
         let service = RealtimeSessionService(apiService: apiService)
 
-        let session = try await service.createSession(model: .x2_0)
+        let session = try await service.createSession(model: .x2_1_1_preview_cn)
 
         XCTAssertEqual(
             session.connection,
             RealtimeSessionConnection(
                 roomID: "room-2",
-                userID: "user-2",
+                userID: "rtc-user-2",
                 token: "token-2",
-                botName: nil
+                botName: "bot-2"
             )
         )
     }
@@ -83,7 +110,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let service = RealtimeSessionService(apiService: apiService)
 
         do {
-            _ = try await service.createSession(model: .x2_0)
+            _ = try await service.createSession(model: .x2_1_1_preview_cn)
             XCTFail("Expected invalid session data to fail")
         } catch {
             XCTAssertEqual(
@@ -109,7 +136,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let service = RealtimeSessionService(apiService: apiService)
 
         do {
-            _ = try await service.createSession(model: .x2_0)
+            _ = try await service.createSession(model: .x2_1_1_preview_cn)
             XCTFail("Expected incomplete RTC information to fail")
         } catch {
             XCTAssertEqual(

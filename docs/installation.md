@@ -1,19 +1,22 @@
 # Installation guide
 
 For CocoaPods, follow the [README installation steps](../README.md#cocoapods).
-This guide covers manual integration of XmaxSDK 1.0.5.
+This guide covers the Agora-based implementation on the current development branch.
+For a published release, use the installation guide from its matching Git tag;
+older XmaxSDK binaries require their original RTC dependencies.
 
 ## Manual integration
 
 ### Download the frameworks
 
-Download
-[`XmaxSDK-1.0.5.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.5/XmaxSDK-1.0.5.xcframework.zip)
-and extract `XmaxSDK.xcframework`. Use the exact dependency versions below:
+Build `XmaxSDK.xcframework` from this branch. Do not combine an older published
+XmaxSDK binary with the Agora dependencies below. Use these exact versions:
 
-- [VolcEngineRTC `3.60.106.600`](https://hstob-cdn-tos.volccdn.com/volcengine/VolcEngineRTC/3.60.106.600/VolcEngineRTC.zip):
-  use `VolcEngineRTC.xcframework`, `RealXBase.xcframework`, and
-  `RTCFFmpeg.xcframework` from the downloaded archive.
+- [Agora RTC `4.6.4`](https://download.agora.io/sdk/release/AgoraRtcEngine_iOS-4.6.4.zip):
+  use `AgoraRtcKit.xcframework`, `Agorafdkaac.xcframework`,
+  `Agoraffmpeg.xcframework`, `AgoraSoundTouch.xcframework`, and `video_dec.xcframework`.
+- [Agora Infrastructure `1.3.5`](https://download.agora.io/sdk/release/AgoraInfra_iOS-1.3.5.zip):
+  use `aosl.xcframework`.
 - [Tencent Cloud COS iOS SDK `6.5.7`](https://github.com/tencentyun/qcloud-sdk-ios/releases/download/6.5.7/QCloudCOSXML-6.5.7.zip):
   use `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` from the official
   release archive.
@@ -28,11 +31,14 @@ Embedded Content**:
 | `XmaxSDK.xcframework` | Do Not Embed |
 | `QCloudCOSXML.xcframework` | Do Not Embed |
 | `QCloudCore.xcframework` | Do Not Embed |
-| `VolcEngineRTC.xcframework` | Embed & Sign |
-| `RealXBase.xcframework` | Embed & Sign |
-| `RTCFFmpeg.xcframework` | Embed & Sign |
+| `AgoraRtcKit.xcframework` | Embed & Sign |
+| `Agorafdkaac.xcframework` | Embed & Sign |
+| `Agoraffmpeg.xcframework` | Embed & Sign |
+| `AgoraSoundTouch.xcframework` | Embed & Sign |
+| `video_dec.xcframework` | Embed & Sign |
+| `aosl.xcframework` | Embed & Sign |
 
-The XmaxSDK and COS binaries are static. The three VolcEngine binaries are dynamic
+The XmaxSDK and COS binaries are static. The six Agora binaries are dynamic
 and must be embedded and signed by the application target.
 
 ### Configure the target
@@ -52,7 +58,7 @@ and must be embedded and signed by the application target.
 Only `QCloudCOSXML.xcframework` and `QCloudCore.xcframework` are required for COS.
 Do not add `QCloudTrack.xcframework`, `COSBeaconAPI_Base.xcframework`, or QimeiSDK.
 The third-party frameworks must be present when importing XmaxSDK because its stable
-Swift module interface imports `QCloudCOSXML` and `VolcEngineRTC`.
+Swift module interface imports `QCloudCOSXML` and `AgoraRtcKit`.
 
 Continue with the [Quick Start](../README.md#quick-start) to configure permissions
 and start generation.

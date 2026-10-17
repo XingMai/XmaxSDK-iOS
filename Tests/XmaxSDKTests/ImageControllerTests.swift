@@ -9,14 +9,14 @@ final class ImageControllerTests: XCTestCase {
             rtcManager: RtcManagingStub(),
             imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 800)),
             mediaService: MediaServicingStub(
-                resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_0
+                resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_1_1_preview_cn
             ),
             frameListener: { _ in }
         )
         let prepared = try await controller.createLocalImageStream(
             imageData: Data("encoded-image".utf8), videoFormat: nil
         )
-        XCTAssertEqual(prepared.videoTrack?.videoFormat?.fps, RealtimeModel.x2_0.defaultFrameRate)
+        XCTAssertEqual(prepared.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await controller.stopLocalImageStream()
     }
 

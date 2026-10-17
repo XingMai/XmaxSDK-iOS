@@ -53,14 +53,14 @@ final class RealtimeTiming: @unchecked Sendable {
         lock.withLock {
             state.taskID = taskID
             state.signalStartedAt = Self.now
-            state.seiMatchedAt = nil
+            state.remoteStreamConfirmedAt = nil
         }
     }
 
-    func matchSEI(taskID: String) {
+    func confirmRemoteStream(taskID: String) {
         lock.withLock {
             guard state.taskID == taskID else { return }
-            state.seiMatchedAt = Self.now
+            state.remoteStreamConfirmedAt = Self.now
         }
     }
 
@@ -109,7 +109,7 @@ private extension RealtimeTiming {
         var roomJoinFinishedAt: UInt64?
         var connectionFinishedAt: UInt64?
         var signalStartedAt: UInt64?
-        var seiMatchedAt: UInt64?
+        var remoteStreamConfirmedAt: UInt64?
         var readyAt: UInt64?
         var failureAt: UInt64?
         var taskID: String?
@@ -124,7 +124,7 @@ private extension RealtimeTiming {
     static func format(_ state: State) -> String {
         guard let startedAt = state.startedAt,
               let signalStartedAt = state.signalStartedAt,
-              let seiMatchedAt = state.seiMatchedAt,
+              let remoteStreamConfirmedAt = state.remoteStreamConfirmedAt,
               let readyAt = state.readyAt else {
             return "实时生成启动耗时不可用 " +
                 "(Realtime Generation Startup Timing Unavailable)"
@@ -163,11 +163,11 @@ private extension RealtimeTiming {
 
         lines.append(
             "├─ \(XmaxLogger.localized("等待生成结果流确认：", "Waiting for Remote Stream: "))" +
-                duration(signalStartedAt, seiMatchedAt)
+                duration(signalStartedAt, remoteStreamConfirmedAt)
         )
         lines.append(
             "└─ \(XmaxLogger.localized("结果流确认到首帧就绪：", "First Frame Ready: "))" +
-                duration(seiMatchedAt, readyAt)
+                duration(remoteStreamConfirmedAt, readyAt)
         )
         return lines.joined(separator: "\n")
     }
@@ -223,15 +223,15 @@ private extension RealtimeTiming {
                 XmaxLogger.localized("等待生成结果流确认：", "Waiting for Result Stream Confirmation: "),
                 milliseconds(
                     signalStartedAt,
-                    state.seiMatchedAt ?? failureAt
+                    state.remoteStreamConfirmedAt ?? failureAt
                 ),
                 to: &lines
             )
         }
-        if let seiMatchedAt = state.seiMatchedAt {
+        if let remoteStreamConfirmedAt = state.remoteStreamConfirmedAt {
             appendDetail(
                 XmaxLogger.localized("结果流确认后等待首帧：", "Waiting for First Frame After Result Stream Confirmation: "),
-                milliseconds(seiMatchedAt, failureAt),
+                milliseconds(remoteStreamConfirmedAt, failureAt),
                 to: &lines
             )
         }
@@ -242,7 +242,7 @@ private extension RealtimeTiming {
     }
 
     static func pendingStage(_ state: State) -> String {
-        if state.seiMatchedAt != nil {
+        if state.remoteStreamConfirmedAt != nil {
             return XmaxLogger.localized("结果流已确认，正在等待首帧", "Result Stream Confirmed, Waiting for First Frame")
         }
         if state.signalStartedAt != nil {

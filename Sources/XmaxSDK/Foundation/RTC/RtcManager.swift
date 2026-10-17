@@ -1,28 +1,23 @@
 import Foundation
-@preconcurrency import VolcEngineRTC
 
-/// 提供基于火山引擎的 RTC 基础能力。
+/// 管理 RTC 租约、连接等待、取消及事件有效期。
 final class RtcManager: RtcManaging, @unchecked Sendable {
 
     // RTC 配置
-    /// RTC 进房回调的最长等待时间。
-    static let joinTimeoutNanoseconds: UInt64 = 15_000_000_000
+    static let joinTimeoutNanoseconds: UInt64 = 15000000000
 
     // 依赖
     private let engineManager: RtcEngineManager
+    private let joinTimeout: UInt64
 
     // 并发控制
     private let stateLock = NSLock()
     private let operationLock = NSRecursiveLock()
 
     // RTC 资源
-    private var remoteStreamIDs: [RemoteStream: String] = [:]
     private var engineLease: RtcEngineLease?
-    private var engineBridge: RtcEngineEventBridge?
     private var activeRoom: RoomContext?
     private var pendingJoin: PendingJoin?
-    private let videoFrameCache = RtcVideoFrameCache()
-    private var remoteVideoSinks: [RemoteStream: RtcRemoteVideoSink] = [:]
 
     // 事件监听
     private weak var eventListener: (any RtcEventListener)?
@@ -30,10 +25,13 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
 
     // 运行状态
     private var initialization: Initialization?
-    private var localVideoMirrorType = ByteRTCMirrorType.none
 
-    init(engineManager: RtcEngineManager = .shared) {
+    init(
+        engineManager: RtcEngineManager = .shared,
+        joinTimeoutNanoseconds: UInt64 = RtcManager.joinTimeoutNanoseconds
+    ) {
         self.engineManager = engineManager
+        joinTimeout = joinTimeoutNanoseconds
     }
 
     func initialize() async throws {
@@ -90,490 +88,217 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
 
     func destroy() async {
         await leaveRoom()
-
         let resources = operationLock.withLock {
-            stateLock.withLock { () -> EngineResources in
-                let resources = EngineResources(
-                    lease: engineLease,
-                    initialization: initialization
-                )
-                engineLease?.engine.delegate = nil
+            stateLock.withLock { () -> (RtcEngineLease?, Initialization?) in
+                let resources = (engineLease, initialization)
                 engineLease = nil
-                engineBridge = nil
                 initialization = nil
-                remoteStreamIDs.removeAll()
-                remoteVideoSinks.removeAll()
-                videoFrameCache.removeAll()
                 return resources
             }
         }
 
-        resources.initialization?.task.cancel()
-        if let lease = resources.lease {
+        resources.1?.task.cancel()
+        if let lease = resources.0 {
             await engineManager.release(lease)
         }
     }
 
-    func configureVideoEncoding(
-        _ configuration: VideoEncodingConfiguration
-    ) throws {
-        try validateVideoDimensions(
-            width: configuration.width,
-            height: configuration.height,
-            frameRate: configuration.frameRate
-        )
-        try withEngine { engine in
-            try checkResult(
-                engine.setVideoEncoderConfig(
-                    RtcVideoConverter.makeEncoderConfiguration(configuration)
-                ),
-                operation: "setVideoEncoderConfig"
-            )
+    func configureVideoEncoding(_ configuration: VideoEncodingConfiguration) throws {
+        guard configuration.width > 0, configuration.height > 0, configuration.frameRate > 0 else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Video width, height, and frame rate must be positive")
         }
+        try withEngine { try $0.configureVideoEncoding(configuration) }
     }
 
     func useExternalVideoSource() throws {
-        try withEngine { engine in
-            videoFrameCache.removeAll()
-            try checkResult(
-                engine.setVideoSourceType(.external),
-                operation: "setVideoSourceType"
-            )
-            try checkResult(
-                engine.setLocalVideoMirrorType(.none),
-                operation: "setLocalVideoMirrorType"
-            )
-            stateLock.withLock {
-                localVideoMirrorType = .none
-            }
-        }
+        try withEngine { try $0.useExternalVideoSource() }
+    }
+
+    func configureLocalVideoMirror(for position: CameraPosition) throws {
+        try withOptionalEngine { try $0.configureLocalVideoMirror(for: position) }
     }
 
     func startAudioCapture() throws {
-        try withEngine { engine in
-            try checkResult(
-                engine.setAudioSourceType(.internal),
-                operation: "setAudioSourceType"
-            )
-            try checkResult(
-                engine.startAudioCapture(),
-                operation: "startAudioCapture"
-            )
-        }
+        try withEngine { try $0.startAudioCapture() }
     }
 
     func stopAudioCapture() throws {
-        try withOptionalEngine { engine in
-            try checkResult(
-                engine.stopAudioCapture(),
-                operation: "stopAudioCapture"
-            )
-        }
+        try withOptionalEngine { try $0.stopAudioCapture() }
     }
 
     func startExternalAudioSource() throws {
-        try withEngine { engine in
-            try checkResult(
-                engine.setAudioSourceType(.external),
-                operation: "setAudioSourceType"
-            )
-        }
+        try withEngine { try $0.startExternalAudioSource() }
     }
 
     func stopExternalAudioSource() throws {
-        try withOptionalEngine { engine in
-            try checkResult(
-                engine.stopAudioCapture(),
-                operation: "stopAudioCapture"
-            )
-        }
+        try withOptionalEngine { try $0.stopExternalAudioSource() }
     }
 
-    func configureLocalVideoMirror(
-        for position: CameraPosition
-    ) throws {
-        let mirrorType = RtcVideoConverter.convertMirrorType(position)
-        stateLock.withLock {
-            localVideoMirrorType = mirrorType
-        }
-        try withOptionalEngine { engine in
-            try checkResult(
-                engine.setLocalVideoMirrorType(mirrorType),
-                operation: "setLocalVideoMirrorType"
-            )
-        }
-    }
-
-    func pushExternalVideoFrame(
-        _ frame: VideoFrame,
-        seiData: Data?
-    ) throws {
-        try withEngine { engine in
-            let rtcFrame = try videoFrameCache.frame(
-                for: frame,
-                seiData: seiData
-            )
-            _ = withExtendedLifetime(rtcFrame) {
-                engine.pushExternalVideoFrame(rtcFrame.value)
-            }
-        }
+    func pushExternalVideoFrame(_ frame: VideoFrame) throws {
+        try withEngine { try $0.pushExternalVideoFrame(frame) }
     }
 
     func pushExternalAudioFrame(_ frame: AudioFrame) throws {
-        let rtcFrame = try RtcAudioConverter.convertFrame(frame)
-        try withEngine { engine in
-            _ = engine.pushExternalAudioFrame(rtcFrame)
-        }
+        try withEngine { try $0.pushExternalAudioFrame(frame) }
     }
 
-    func joinRoom(
-        configuration: RoomJoinConfiguration
-    ) async throws {
-        try validateJoinConfiguration(configuration)
+    func joinRoom(configuration: RoomJoinConfiguration) async throws {
+        guard !configuration.roomID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            !configuration.userID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw XmaxError(
+                code: .invalidConfiguration, message: "RTC room ID and user account cannot be empty"
+            )
+        }
 
+        let id = UUID()
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation {
-                (continuation: CheckedContinuation<Void, any Error>) in
-                beginJoin(
-                    configuration: configuration,
-                    continuation: continuation
-                )
+            try await withCheckedThrowingContinuation { continuation in
+                beginJoin(id: id, configuration: configuration, continuation: continuation)
             }
         } onCancel: {
-            cancelPendingJoin(
-                error: Self.cancelledError(operation: "RTC join room")
-            )
+            self.failPendingJoin(id: id, error: Self.cancelledError(operation: "RTC join room"))
         }
     }
 
     func leaveRoom() async {
         operationLock.withLock {
-            let resources = stateLock.withLock { () -> RoomResources in
-                let resources = RoomResources(
-                    activeRoom: activeRoom,
-                    pendingJoin: pendingJoin
-                )
+            let resources = stateLock.withLock { () -> (RoomContext?, PendingJoin?) in
+                let result = (activeRoom, pendingJoin)
                 activeRoom = nil
                 pendingJoin = nil
-                remoteStreamIDs.removeAll()
-                remoteVideoSinks.removeAll()
-                return resources
+                return result
             }
-            resources.pendingJoin?.timeoutTask?.cancel()
-            resources.pendingJoin?.continuation.resume(
-                throwing: Self.cancelledError(operation: "RTC join room")
-            )
-            tearDownRoom(resources.pendingJoin?.context.room, leave: false)
-            tearDownRoom(resources.activeRoom?.room, leave: true)
+            resources.1?.timeoutTask?.cancel()
+            resources.1?.continuation.resume(
+                throwing: Self.cancelledError(operation: "RTC join room"))
+            tearDownRoom(resources.1?.context)
+            tearDownRoom(resources.0)
         }
     }
 
     func publishLocalVideo() throws {
-        try operationLock.withLock {
-            let resources = try requireRoomResources()
-            let mirrorType = stateLock.withLock { localVideoMirrorType }
-            try checkResult(
-                resources.engine.setLocalVideoMirrorType(mirrorType),
-                operation: "setLocalVideoMirrorType"
-            )
-            try checkResult(
-                resources.room.publishStreamVideo(true),
-                operation: "publishStreamVideo"
-            )
-        }
+        try withRoom { try $0.publishLocalVideo(true) }
     }
 
     func unpublishLocalVideo() throws {
-        try withOptionalRoom { room in
-            try checkResult(
-                room.publishStreamVideo(false),
-                operation: "publishStreamVideo"
-            )
-        }
+        try withOptionalRoom { try $0.publishLocalVideo(false) }
     }
 
     func publishLocalAudio() throws {
-        try withRoom { room in
-            try checkResult(
-                room.publishStreamAudio(true),
-                operation: "publishStreamAudio"
-            )
-        }
+        try withRoom { try $0.publishLocalAudio(true) }
     }
 
     func unpublishLocalAudio() throws {
-        try withOptionalRoom { room in
-            try checkResult(
-                room.publishStreamAudio(false),
-                operation: "publishStreamAudio"
-            )
-        }
+        try withOptionalRoom { try $0.publishLocalAudio(false) }
     }
 
-    func subscribeRemoteVideo(
-        userID: String,
-        subscribe: Bool
-    ) throws {
-        let normalizedUserID = userID.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        guard !normalizedUserID.isEmpty else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC user ID cannot be empty"
-            )
-        }
-
-        try operationLock.withLock {
-            let room = try requireRoom()
-            let streamID = stateLock.withLock {
-                remoteStreamIDs.first { stream, _ in
-                    stream.userID == normalizedUserID
-                }?.value ?? normalizedUserID
-            }
-            try checkResult(
-                room.subscribeStreamVideo(streamID, subscribe: subscribe),
-                operation: "subscribeStreamVideo"
-            )
-        }
+    func subscribeRemoteVideo(userID: String, subscribe: Bool) throws {
+        try withRoom { try $0.subscribeRemoteVideo(userID: userID, subscribe: subscribe) }
     }
 
-    func subscribeRemoteAudio(
-        userID: String,
-        subscribe: Bool
-    ) throws {
-        let normalizedUserID = userID.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        guard !normalizedUserID.isEmpty else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC user ID cannot be empty"
-            )
-        }
-
-        try operationLock.withLock {
-            let room = try requireRoom()
-            let streamID = stateLock.withLock {
-                remoteStreamIDs.first { stream, _ in
-                    stream.userID == normalizedUserID
-                }?.value ?? normalizedUserID
-            }
-            try checkResult(
-                room.subscribeStreamAudio(streamID, subscribe: subscribe),
-                operation: "subscribeStreamAudio"
-            )
-        }
+    func subscribeRemoteAudio(userID: String, subscribe: Bool) throws {
+        try withRoom { try $0.subscribeRemoteAudio(userID: userID, subscribe: subscribe) }
     }
 
-    func setRemoteAudioVolume(
-        _ volume: Int,
-        for userID: String
-    ) throws {
-        let normalizedUserID = userID.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        guard !normalizedUserID.isEmpty else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC user ID cannot be empty"
-            )
-        }
+    func setRemoteAudioVolume(_ volume: Int, for userID: String) throws {
         guard (0...100).contains(volume) else {
             throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC audio volume must be between 0 and 100"
-            )
+                code: .invalidConfiguration, message: "RTC audio volume must be between 0 and 100")
         }
-
-        try operationLock.withLock {
-            let engine = try requireEngine()
-            let streamID = stateLock.withLock {
-                remoteStreamIDs.first { stream, _ in
-                    stream.userID == normalizedUserID
-                }?.value ?? normalizedUserID
-            }
-            try checkResult(
-                engine.setRemoteAudioPlaybackVolume(
-                    streamID,
-                    volume: Int32(volume)
-                ),
-                operation: "setRemoteAudioPlaybackVolume"
-            )
-        }
+        try withRoom { try $0.setRemoteAudioVolume(volume, for: userID) }
     }
 
     func setRemoteVideoFrameListener(
-        _ listener: RtcRemoteVideoFrameListener?,
-        for stream: RemoteStream
+        _ listener: RtcRemoteVideoFrameListener?, for stream: RemoteStream
     ) throws {
         try operationLock.withLock {
-            let streamID = stateLock.withLock { remoteStreamIDs[stream] }
-            if listener == nil {
-                _ = stateLock.withLock {
-                    remoteVideoSinks.removeValue(forKey: stream)
+            guard let context = stateLock.withLock({ activeRoom }), context.roomID == stream.roomID
+            else {
+                if listener == nil { return }
+                throw XmaxError(code: .rtcError, message: "Remote stream is unavailable")
+            }
+
+            let id = context.id
+            let guardedListener: RtcRemoteVideoFrameListener?
+            if let listener {
+                guardedListener = { [weak self] frame in
+                    guard let self, self.stateLock.withLock({ self.activeRoom?.id == id }) else {
+                        return
+                    }
+                    listener(frame)
                 }
-                guard let streamID else { return }
-                try withOptionalEngine { engine in
-                    try checkResult(
-                        engine.setRemoteVideoSink(
-                            streamID,
-                            withSink: nil,
-                            withRemoteRenderConfig:
-                                Self.makeRemoteVideoSinkConfiguration()
-                        ),
-                        operation: "setRemoteVideoSink"
-                    )
-                }
-                return
+            } else {
+                guardedListener = nil
             }
-            guard let streamID, let listener else {
-                throw XmaxError(
-                    code: .rtcError,
-                    message: "Remote stream is unavailable"
-                )
-            }
-            let engine = try requireEngine()
-            let sink = RtcRemoteVideoSink(frameListener: listener)
-            let configuration = Self.makeRemoteVideoSinkConfiguration()
-            try checkResult(
-                engine.setRemoteVideoSink(
-                    streamID,
-                    withSink: sink,
-                    withRemoteRenderConfig: configuration
-                ),
-                operation: "setRemoteVideoSink"
-            )
-            stateLock.withLock {
-                remoteVideoSinks[stream] = sink
-            }
+            try context.room.setRemoteVideoFrameListener(guardedListener, for: stream.userID)
         }
     }
 
     func sendRoomMessage(_ message: String) throws {
-        guard !message.isEmpty else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC room message cannot be empty"
-            )
-        }
-        try withRoom { room in
-            try checkResult(
-                room.sendMessage(message),
-                operation: "sendRoomMessage"
-            )
-        }
+        try withRoom { try $0.sendRoomMessage(message) }
+    }
+
+    func awaitPendingMessages() async throws {
+        let room = try operationLock.withLock { try requireRoom().room }
+        try await room.awaitPendingMessages()
     }
 
     func setEventListener(_ listener: (any RtcEventListener)?) {
-        stateLock.withLock {
-            eventListener = listener
-        }
+        stateLock.withLock { eventListener = listener }
     }
 
     func setQualityListener(_ listener: (any RtcQualityListener)?) {
-        stateLock.withLock {
-            qualityListener = listener
-        }
+        stateLock.withLock { qualityListener = listener }
     }
 }
 
 private extension RtcManager {
-
-    static func makeRemoteVideoSinkConfiguration()
-        -> ByteRTCRemoteVideoSinkConfig {
-        let configuration = ByteRTCRemoteVideoSinkConfig()
-        configuration.position = ByteRTCRemoteVideoSinkPosition(rawValue: 1)!
-        configuration.requiredPixelFormat =
-            ByteRTCVideoSinkPixelFormat(rawValue: 7)!
-        configuration.applyRotation = ByteRTCVideoApplyRotation(rawValue: 0)!
-        configuration.mirrorType = ByteRTCVideoSinkMirrorType(rawValue: 2)!
-        return configuration
-    }
-
-    /// 保存一次共享初始化任务。
     struct Initialization {
         let id: UUID
         let task: Task<RtcEngineLease, any Error>
         var waiterIDs: Set<UUID>
     }
 
-    /// 保存销毁 Engine 时需要在锁外处理的资源。
-    struct EngineResources {
-        let lease: RtcEngineLease?
-        let initialization: Initialization?
-    }
-
-    /// 保存一个已创建 RTC 房间及其回调桥。
-    final class RoomContext: @unchecked Sendable {
+    /// 关联一次连接的身份与平台房间，隔离旧连接的迟到事件。
+    final class RoomContext: Sendable {
+        let id: UUID
         let roomID: String
-        let room: ByteRTCRoom
-        let bridge: RtcRoomEventBridge
+        let room: any RtcRoom
 
-        init(
-            roomID: String,
-            room: ByteRTCRoom,
-            bridge: RtcRoomEventBridge
-        ) {
+        init(id: UUID, roomID: String, room: any RtcRoom) {
+            self.id = id
             self.roomID = roomID
             self.room = room
-            self.bridge = bridge
         }
     }
 
-    /// 保存等待进房结果的 continuation 和超时任务。
     final class PendingJoin: @unchecked Sendable {
-        let id: UUID
         let context: RoomContext
         let continuation: CheckedContinuation<Void, any Error>
         var timeoutTask: Task<Void, Never>?
 
-        init(
-            id: UUID,
-            context: RoomContext,
-            continuation: CheckedContinuation<Void, any Error>
-        ) {
-            self.id = id
+        init(context: RoomContext, continuation: CheckedContinuation<Void, any Error>) {
             self.context = context
             self.continuation = continuation
         }
     }
 
-    /// 保存离开房间时需要处理的活动和等待中资源。
-    struct RoomResources {
-        let activeRoom: RoomContext?
-        let pendingJoin: PendingJoin?
-    }
-
-    /// 保存需要同时使用的 Engine 和 Room。
-    struct ActiveRoomResources {
-        let engine: ByteRTCEngine
-        let room: ByteRTCRoom
-    }
-
-    func finishInitialization(
-        initializationID: UUID,
-        lease: RtcEngineLease
-    ) async throws {
-        let outcome = operationLock.withLock {
-            stateLock.withLock { () -> InitializationOutcome in
-                if engineLease?.id == lease.id {
-                    return .alreadyInstalled
-                }
-                guard initialization?.id == initializationID else {
-                    return .cancelled
-                }
-
-                let bridge = makeEngineBridge()
-                lease.engine.delegate = bridge
+    func finishInitialization(initializationID: UUID, lease: RtcEngineLease)
+        async throws
+    {
+        let installed = operationLock.withLock {
+            stateLock.withLock { () -> Bool in
+                if engineLease?.id == lease.id { return true }
+                guard initialization?.id == initializationID else { return false }
                 engineLease = lease
-                engineBridge = bridge
                 initialization = nil
-                return .installed
+                return true
             }
         }
-
-        if outcome == .cancelled {
+        if !installed {
             await engineManager.release(lease)
             throw Self.cancelledError(operation: "RTC initialization")
         }
@@ -582,8 +307,9 @@ private extension RtcManager {
     func cancelInitializationWaiter(initializationID: UUID, waiterID: UUID) {
         let task = stateLock.withLock { () -> Task<RtcEngineLease, any Error>? in
             guard var initialization,
-                  initialization.id == initializationID,
-                  initialization.waiterIDs.remove(waiterID) != nil else {
+                initialization.id == initializationID,
+                initialization.waiterIDs.remove(waiterID) != nil
+            else {
                 return nil
             }
             guard initialization.waiterIDs.isEmpty else {
@@ -604,526 +330,173 @@ private extension RtcManager {
         }
     }
 
-    func makeEngineBridge() -> RtcEngineEventBridge {
-        RtcEngineEventBridge(
-            onSei: { [weak self] engine, streamID, info, message in
-                self?.handleSei(
-                    engine: engine,
-                    streamID: streamID,
-                    info: info,
-                    message: message
-                )
-            },
-            onPerformanceAlarm: { [weak self] engine, info, reason, data in
-                self?.handlePerformanceAlarm(
-                    engine: engine,
-                    roomID: info.roomId,
-                    reason: reason,
-                    data: data
-                )
-            }
-        )
-    }
-
-    func makeRoomBridge() -> RtcRoomEventBridge {
-        RtcRoomEventBridge(
-            onRoomState: { [weak self] room, roomID, _, state, _ in
-                self?.handleRoomState(room: room, roomID: roomID, state: state)
-            },
-            onRemoteVideo: { [weak self] room, streamID, info, published in
-                self?.handleRemoteVideo(
-                    room: room,
-                    streamID: streamID,
-                    info: info,
-                    published: published
-                )
-            },
-            onNetworkQuality: { [weak self] room, local, remote in
-                self?.handleNetworkQuality(
-                    room: room,
-                    local: local,
-                    remote: remote
-                )
-            },
-            onLocalStats: { [weak self] room, stats in
-                self?.handleLocalStats(room: room, stats: stats)
-            },
-            onRemoteStats: { [weak self] room, stats in
-                self?.handleRemoteStats(room: room, stats: stats)
-            }
-        )
-    }
-
     func beginJoin(
-        configuration: RoomJoinConfiguration,
+        id: UUID, configuration: RoomJoinConfiguration,
         continuation: CheckedContinuation<Void, any Error>
     ) {
-        operationLock.lock()
-        defer { operationLock.unlock() }
+        operationLock.withLock {
+            do {
+                try Task.checkCancellation()
+                let engine = try requireEngine()
+                guard stateLock.withLock({ activeRoom == nil && pendingJoin == nil }) else {
+                    throw XmaxError(code: .rtcError, message: "RTC room is already active")
+                }
 
-        if Task.isCancelled {
-            continuation.resume(
-                throwing: Self.cancelledError(operation: "RTC join room")
-            )
+                let room = try engine.createRoom(roomID: configuration.roomID)
+                let context = RoomContext(id: id, roomID: configuration.roomID, room: room)
+                let pending = PendingJoin(context: context, continuation: continuation)
+                stateLock.withLock { pendingJoin = pending }
+                room.setEventListener { [weak self] event in
+                    self?.handleRoomEvent(event, id: id)
+                }
+
+                pending.timeoutTask = Task { [weak self, joinTimeout] in
+                    try? await Task.sleep(nanoseconds: joinTimeout)
+                    guard !Task.isCancelled else { return }
+                    self?.failPendingJoin(
+                        id: id, error: XmaxError(code: .timeout, message: "RTC join room timed out")
+                    )
+                }
+                try room.join(configuration: configuration)
+            } catch {
+                if stateLock.withLock({ pendingJoin?.context.id == id }) {
+                    failPendingJoin(id: id, error: XmaxError.from(error))
+                } else {
+                    continuation.resume(throwing: XmaxError.from(error))
+                }
+            }
+        }
+    }
+
+    func handleRoomEvent(_ event: RtcRoomEvent, id: UUID) {
+        operationLock.withLock {
+            guard
+                let context = stateLock.withLock({
+                    activeRoom?.id == id ? activeRoom : pendingJoin?.context
+                }),
+                context.id == id
+            else { return }
+
+            switch event {
+            case .joined:
+                finishJoin(context)
+            case .publication(let userID, let published):
+                notifyPublication(id: id, userID: userID, published: published)
+            case .failure(let error):
+                failRoom(id: id, error: error)
+            case .quality(let uplink, let downlink):
+                notifyQuality(id: id) { $0.onNetworkQuality(uplink: uplink, downlink: downlink) }
+            case .performance(let limited, let width, let height, let fps):
+                notifyQuality(id: id) {
+                    $0.onPerformanceAlarm(
+                        limited: limited,
+                        suggestedWidth: width,
+                        suggestedHeight: height,
+                        suggestedFrameRate: fps
+                    )
+                }
+            }
+        }
+    }
+
+    func finishJoin(_ context: RoomContext) {
+        guard let pending = stateLock.withLock({ pendingJoin }), pending.context === context else {
             return
         }
-
-        let engine: ByteRTCEngine
-        do {
-            engine = try requireEngine()
-        } catch {
-            continuation.resume(throwing: error)
-            return
-        }
-
-        let canJoin = stateLock.withLock {
-            activeRoom == nil && pendingJoin == nil
-        }
-        guard canJoin else {
-            continuation.resume(
-                throwing: XmaxError(
-                    code: .rtcError,
-                    message: "RTC room is already active"
-                )
-            )
-            return
-        }
-        guard let room = engine.createRTCRoom(configuration.roomID) else {
-            continuation.resume(
-                throwing: XmaxError(
-                    code: .rtcError,
-                    message: "Failed to create RTC room"
-                )
-            )
-            return
-        }
-
-        let bridge = makeRoomBridge()
-        let context = RoomContext(
-            roomID: configuration.roomID,
-            room: room,
-            bridge: bridge
-        )
-        let pendingJoin = PendingJoin(
-            id: UUID(),
-            context: context,
-            continuation: continuation
-        )
-        room.delegate = bridge
         stateLock.withLock {
-            self.pendingJoin = pendingJoin
-        }
-        if Task.isCancelled {
-            failPendingJoin(
-                id: pendingJoin.id,
-                error: Self.cancelledError(operation: "RTC join room")
-            )
-            return
-        }
-        pendingJoin.timeoutTask = Task { [weak self, weak pendingJoin] in
-            try? await Task.sleep(nanoseconds: Self.joinTimeoutNanoseconds)
-            guard !Task.isCancelled, let pendingJoin else {
-                return
-            }
-            self?.failPendingJoin(
-                id: pendingJoin.id,
-                error: XmaxError(
-                    code: .timeout,
-                    message: "RTC join room timed out"
-                )
-            )
-        }
-
-        let userInfo = ByteRTCUserInfo()
-        userInfo.userId = configuration.userID
-        userInfo.extraInfo = ""
-        let roomConfiguration = ByteRTCRoomConfig()
-        roomConfiguration.profile = .communication
-        roomConfiguration.streamId = configuration.userID
-        roomConfiguration.isPublishVideo = false
-        roomConfiguration.isPublishAudio = false
-        roomConfiguration.isAutoSubscribeVideo = true
-        roomConfiguration.isAutoSubscribeAudio = false
-
-        let result = room.joinRoom(
-            configuration.token,
-            userInfo: userInfo,
-            userVisibility: true,
-            roomConfig: roomConfiguration
-        )
-        if result < 0 {
-            failPendingJoin(
-                id: pendingJoin.id,
-                error: rtcError(operation: "joinRoom", result: result)
-            )
-        }
-    }
-
-    func handleRoomState(
-        room: ByteRTCRoom,
-        roomID: String,
-        state: Int
-    ) {
-        let pending = stateLock.withLock { pendingJoin }
-        guard let pending,
-              pending.context.room === room,
-              pending.context.roomID == roomID else {
-            return
-        }
-
-        if state == 0 {
-            succeedPendingJoin(id: pending.id)
-        } else {
-            failPendingJoin(
-                id: pending.id,
-                error: XmaxError(
-                    code: .rtcError,
-                    message: "RTC join room failed: \(state)"
-                )
-            )
-        }
-    }
-
-    func succeedPendingJoin(id: UUID) {
-        operationLock.lock()
-        let pending = stateLock.withLock { () -> PendingJoin? in
-            guard pendingJoin?.id == id else {
-                return nil
-            }
-            let pending = pendingJoin
-            activeRoom = pending?.context
+            activeRoom = context
             pendingJoin = nil
-            return pending
         }
-        pending?.timeoutTask?.cancel()
-        pending?.continuation.resume()
-        operationLock.unlock()
+        pending.timeoutTask?.cancel()
+        pending.continuation.resume()
     }
 
     func failPendingJoin(id: UUID, error: any Error) {
-        operationLock.lock()
-        let pending = stateLock.withLock { () -> PendingJoin? in
-            guard pendingJoin?.id == id else {
-                return nil
+        operationLock.withLock {
+            let pending = stateLock.withLock { () -> PendingJoin? in
+                guard pendingJoin?.context.id == id else { return nil }
+                let value = pendingJoin
+                pendingJoin = nil
+                return value
             }
-            let pending = pendingJoin
-            pendingJoin = nil
-            return pending
-        }
-        pending?.timeoutTask?.cancel()
-        if let pending {
-            tearDownRoom(pending.context.room, leave: false)
+            guard let pending else { return }
+            pending.timeoutTask?.cancel()
+            tearDownRoom(pending.context)
             pending.continuation.resume(throwing: error)
         }
-        operationLock.unlock()
     }
 
-    func cancelPendingJoin(error: any Error) {
-        guard let id = stateLock.withLock({ pendingJoin?.id }) else {
+    func failRoom(id: UUID, error: XmaxError) {
+        if stateLock.withLock({ pendingJoin?.context.id == id }) {
+            failPendingJoin(id: id, error: error)
             return
         }
-        failPendingJoin(id: id, error: error)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let listener = stateLock.withLock { activeRoom?.id == id ? eventListener : nil }
+            listener?.onRtcFailure(error)
+        }
     }
 
-    func handleRemoteVideo(
-        room: ByteRTCRoom,
-        streamID: String,
-        info: ByteRTCStreamInfo,
-        published: Bool
+    func notifyPublication(id: UUID, userID: String, published: Bool) {
+        guard stateLock.withLock({ activeRoom?.id == id }) else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let listener = stateLock.withLock { activeRoom?.id == id ? eventListener : nil }
+            listener?.onRemoteVideoPublished(userID: userID, published: published)
+        }
+    }
+
+    func notifyQuality(
+        id: UUID, _ action: @escaping @MainActor @Sendable (any RtcQualityListener) -> Void
     ) {
-        let result = stateLock.withLock {
-            () -> ((any RtcEventListener)?, RemoteStream)? in
-            guard activeRoom?.room === room else {
-                return nil
-            }
-            let stream = RemoteStream(
-                roomID: activeRoom?.roomID ?? info.roomId,
-                userID: info.userId
-            )
-            if published {
-                remoteStreamIDs[stream] = streamID
-            } else {
-                remoteStreamIDs.removeValue(forKey: stream)
-                remoteVideoSinks.removeValue(forKey: stream)
-            }
-            return (eventListener, stream)
-        }
-        guard let (listener, stream) = result else {
-            return
-        }
-        Task { @MainActor in
-            listener?.onRemoteVideoPublished(
-                userID: stream.userID,
-                published: published
-            )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let listener = stateLock.withLock { activeRoom?.id == id ? qualityListener : nil }
+            if let listener { action(listener) }
         }
     }
 
-    func handleSei(
-        engine: ByteRTCEngine,
-        streamID: String,
-        info: ByteRTCStreamInfo,
-        message: Data
-    ) {
-        guard let decodedMessage = String(data: message, encoding: .utf8) else {
-            XmaxLogger.rtc.warn(
-                message: "收到无法解码的 RTC SEI 消息 (Failed to Decode Incoming RTC SEI Message)"
-            )
-            return
-        }
-
-        let result = stateLock.withLock {
-            () -> ((any RtcEventListener)?, RemoteStream)? in
-            guard engineLease?.engine === engine,
-                  let activeRoom,
-                  activeRoom.roomID == info.roomId else {
-                return nil
-            }
-            let stream = RemoteStream(
-                roomID: activeRoom.roomID,
-                userID: info.userId
-            )
-            remoteStreamIDs[stream] = streamID
-            return (eventListener, stream)
-        }
-        guard let (listener, stream) = result else {
-            return
-        }
-        Task { @MainActor in
-            listener?.onSeiMessageReceived(
-                stream: stream,
-                message: decodedMessage
-            )
-        }
+    func tearDownRoom(_ context: RoomContext?) {
+        context?.room.setEventListener(nil)
+        context?.room.destroy()
     }
 
-    func handlePerformanceAlarm(
-        engine: ByteRTCEngine,
-        roomID: String,
-        reason: ByteRTCPerformanceAlarmReason,
-        data: ByteRTCSourceWantedData
-    ) {
-        let listener = stateLock.withLock {
-            () -> (any RtcQualityListener)? in
-            guard engineLease?.engine === engine,
-                  activeRoom?.roomID == roomID else {
-                return nil
-            }
-            return qualityListener
-        }
-        guard stateLock.withLock({
-            engineLease?.engine === engine && activeRoom?.roomID == roomID
-        }) else {
-            return
-        }
-        RtcStatsLogger.logPerformanceAlarm(reason: reason, data: data)
-        guard let limited = RtcQualityConverter.resolvePerformanceLimited(reason) else {
-            return
-        }
-        let suggestedWidth = Int(data.width)
-        let suggestedHeight = Int(data.height)
-        let suggestedFrameRate = Int(data.frameRate)
-        Task { @MainActor in
-            listener?.onPerformanceAlarm(
-                limited: limited,
-                suggestedWidth: suggestedWidth,
-                suggestedHeight: suggestedHeight,
-                suggestedFrameRate: suggestedFrameRate
-            )
-        }
-    }
-
-    func handleNetworkQuality(
-        room: ByteRTCRoom,
-        local: ByteRTCNetworkQualityStats,
-        remote: [ByteRTCNetworkQualityStats]
-    ) {
-        let state = stateLock.withLock {
-            () -> (Bool, (any RtcQualityListener)?) in
-            guard activeRoom?.room === room else {
-                return (false, nil)
-            }
-            return (true, qualityListener)
-        }
-        guard state.0 else {
-            return
-        }
-        let listener = state.1
-        RtcStatsLogger.logNetworkQuality(
-            localQuality: local,
-            remoteQualities: remote
-        )
-        let uplink = RtcQualityConverter.convertLevel(local.txQuality)
-        let downlink = RtcQualityConverter.resolveDownlinkLevel(remote)
-        Task { @MainActor in
-            listener?.onNetworkQuality(
-                uplink: uplink,
-                downlink: downlink
-            )
-        }
-    }
-
-    func handleLocalStats(
-        room: ByteRTCRoom,
-        stats: ByteRTCLocalStreamStats
-    ) {
-        guard stateLock.withLock({ activeRoom?.room === room }) else {
-            return
-        }
-        RtcStatsLogger.logLocalStreamStats(stats)
-    }
-
-    func handleRemoteStats(
-        room: ByteRTCRoom,
-        stats: ByteRTCRemoteStreamStats
-    ) {
-        guard stateLock.withLock({ activeRoom?.room === room }) else {
-            return
-        }
-        RtcStatsLogger.logRemoteStreamStats(stats)
-    }
-
-    func tearDownRoom(_ room: ByteRTCRoom?, leave: Bool) {
-        guard let room else {
-            return
-        }
-        room.delegate = nil
-        if leave {
-            _ = room.publishStreamVideo(false)
-            _ = room.publishStreamAudio(false)
-            _ = room.leave()
-        }
-        room.destroy()
-    }
-
-    func withEngine<T>(
-        _ operation: (ByteRTCEngine) throws -> T
-    ) throws -> T {
-        try operationLock.withLock {
-            try operation(try requireEngine())
-        }
-    }
-
-    func withOptionalEngine<T>(
-        _ operation: (ByteRTCEngine) throws -> T
-    ) throws -> T? {
-        try operationLock.withLock {
-            guard let engine = stateLock.withLock({ engineLease?.engine }) else {
-                return nil
-            }
-            return try operation(engine)
-        }
-    }
-
-    func withRoom<T>(
-        _ operation: (ByteRTCRoom) throws -> T
-    ) throws -> T {
-        try operationLock.withLock {
-            try operation(try requireRoom())
-        }
-    }
-
-    func withOptionalRoom<T>(
-        _ operation: (ByteRTCRoom) throws -> T
-    ) throws -> T? {
-        try operationLock.withLock {
-            guard let room = stateLock.withLock({ activeRoom?.room }) else {
-                return nil
-            }
-            return try operation(room)
-        }
-    }
-
-    func requireEngine() throws -> ByteRTCEngine {
+    func requireEngine() throws -> any RtcPlatform {
         guard let engine = stateLock.withLock({ engineLease?.engine }) else {
-            throw XmaxError(
-                code: .rtcError,
-                message: "RTC engine is not initialized"
-            )
+            throw XmaxError(code: .rtcError, message: "RTC engine is not initialized")
         }
         return engine
     }
 
-    func requireRoom() throws -> ByteRTCRoom {
-        guard let room = stateLock.withLock({ activeRoom?.room }) else {
-            throw XmaxError(
-                code: .rtcError,
-                message: "RTC room is not joined"
-            )
+    func requireRoom() throws -> RoomContext {
+        guard let context = stateLock.withLock({ activeRoom }) else {
+            throw XmaxError(code: .rtcError, message: "RTC room is not joined")
         }
-        return room
+        return context
     }
 
-    func requireRoomResources() throws -> ActiveRoomResources {
-        ActiveRoomResources(
-            engine: try requireEngine(),
-            room: try requireRoom()
-        )
+    func withEngine<T>(_ operation: (any RtcPlatform) throws -> T) throws -> T {
+        try operationLock.withLock { try operation(requireEngine()) }
     }
 
-    func checkResult<T: BinaryInteger>(
-        _ result: T,
-        operation: String
-    ) throws {
-        if result < 0 {
-            throw rtcError(operation: operation, result: result)
+    func withOptionalEngine(_ operation: (any RtcPlatform) throws -> Void) throws {
+        try operationLock.withLock {
+            if let engine = stateLock.withLock({ engineLease?.engine }) { try operation(engine) }
         }
     }
 
-    func rtcError<T: BinaryInteger>(
-        operation: String,
-        result: T
-    ) -> XmaxError {
-        XmaxError(
-            code: .rtcError,
-            message: "\(operation) failed: \(result)"
-        )
+    func withRoom<T>(_ operation: (any RtcRoom) throws -> T) throws -> T {
+        try operationLock.withLock { try operation(requireRoom().room) }
     }
 
-    func validateVideoDimensions(
-        width: Int,
-        height: Int,
-        frameRate: Int
-    ) throws {
-        guard width > 0, height > 0, frameRate > 0 else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Video width, height, and frame rate must be positive"
-            )
-        }
-    }
-
-    func validateJoinConfiguration(
-        _ configuration: RoomJoinConfiguration
-    ) throws {
-        guard !configuration.roomID.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        ).isEmpty else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC room ID cannot be empty"
-            )
-        }
-        guard !configuration.userID.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        ).isEmpty else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "RTC user ID cannot be empty"
-            )
+    func withOptionalRoom(_ operation: (any RtcRoom) throws -> Void) throws {
+        try operationLock.withLock {
+            if let context = stateLock.withLock({ activeRoom }) { try operation(context.room) }
         }
     }
 
     static func cancelledError(operation: String) -> XmaxError {
-        XmaxError(
-            code: .cancelled,
-            message: "\(operation) was cancelled"
-        )
-    }
-
-    enum InitializationOutcome {
-        case installed
-        case alreadyInstalled
-        case cancelled
+        XmaxError(code: .cancelled, message: "\(operation) was cancelled")
     }
 }

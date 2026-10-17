@@ -13,7 +13,7 @@ enum RtcManagingCall: Equatable {
     case useExternalVideoSource
     case startExternalAudioSource
     case stopExternalAudioSource
-    case pushExternalVideoFrame(seiData: Data?)
+    case pushExternalVideoFrame
     case pushExternalAudioFrame(AudioFrame)
     case publishLocalVideo
     case unpublishLocalVideo
@@ -54,6 +54,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let joinRoomHandler: JoinRoomHandler?
     private let leaveRoomHandler: LeaveRoomHandler?
     private let setRemoteVideoFrameListenerError: (any Error)?
+    var flushHandler: (@Sendable () async throws -> Void)?
 
     // 并发状态
     private let lock = NSLock()
@@ -178,12 +179,9 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         lock.withLock { storedCalls.append(.configureLocalVideoMirror(position)) }
     }
 
-    func pushExternalVideoFrame(
-        _ frame: VideoFrame,
-        seiData: Data?
-    ) throws {
+    func pushExternalVideoFrame(_ frame: VideoFrame) throws {
         lock.withLock {
-            storedCalls.append(.pushExternalVideoFrame(seiData: seiData))
+            storedCalls.append(.pushExternalVideoFrame)
         }
     }
 
@@ -298,6 +296,10 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         }
     }
 
+    func awaitPendingMessages() async throws {
+        try await flushHandler?()
+    }
+
     func setQualityListener(_ listener: (any RtcQualityListener)?) {
         lock.withLock {
             storedQualityListener = listener
@@ -347,15 +349,15 @@ extension RtcManagingStub {
     }
 
     @MainActor
-    func emitSeiMessage(
-        stream: RemoteStream,
-        message: String
-    ) {
+    func emitRemoteVideoAvailable(stream: RemoteStream) {
         let listener = lock.withLock { storedEventListener }
-        listener?.onSeiMessageReceived(
-            stream: stream,
-            message: message
-        )
+        listener?.onRemoteVideoPublished(userID: stream.userID, published: true)
+    }
+
+    @MainActor
+    func emitRtcFailure(_ error: XmaxError) {
+        let listener = lock.withLock { storedEventListener }
+        listener?.onRtcFailure(error)
     }
 
     @discardableResult

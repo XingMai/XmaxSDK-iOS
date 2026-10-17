@@ -25,12 +25,12 @@ final class XmaxPublicAPITests: XCTestCase {
 
         let manager: any XmaxRealtimeManaging = client.createRealtimeManager(
             options: RealtimeConfiguration(
-                model: .x2_0,
+                model: .x2_1_1_preview_cn,
                 isFrameInterpolationEnabled: true
             )
         )
 
-        XCTAssertEqual(manager.options.model, .x2_0)
+        XCTAssertEqual(manager.options.model, .x2_1_1_preview_cn)
         XCTAssertTrue(manager.options.isFrameInterpolationEnabled)
     }
 
@@ -40,7 +40,7 @@ final class XmaxPublicAPITests: XCTestCase {
             configuration: XmaxConfiguration(apiKey: "test-key")
         )
         let manager = client.createRealtimeManager(
-            options: RealtimeConfiguration(model: .x2_0)
+            options: RealtimeConfiguration(model: .x2_1_1_preview_cn)
         )
         let listener: RealtimeVideoFrameListener = { frame in
             _ = frame.pixelBuffer

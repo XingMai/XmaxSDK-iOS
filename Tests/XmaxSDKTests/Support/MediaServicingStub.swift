@@ -16,7 +16,7 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
 
     init(
         resolvedSize: CGSize,
-        model: RealtimeModel = .x2_0,
+        model: RealtimeModel = .x2_1_1_preview_cn,
         resolutionError: (any Error)? = nil,
         frameInterpolationSupported: Bool = false
     ) {

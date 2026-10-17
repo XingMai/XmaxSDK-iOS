@@ -7,12 +7,12 @@ import XCTest
 @MainActor
 final class MediaSourceControllerTests: XCTestCase {
     func testModelDefaultsAndExplicitEncodingOptionsSurviveSizeResolution() async throws {
-        let components = makeComponents(hasAudio: false, model: .x2_0)
+        let components = makeComponents(hasAudio: false, model: .x2_1_1_preview_cn)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
         let defaultConfiguration = try await components.controller.prepare(
             fileURL: fileURL, videoFormat: nil
         )
-        XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_0.defaultFrameRate)
+        XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await components.controller.stop()
         let explicitConfiguration = try await components.controller.prepare(
             fileURL: fileURL,
@@ -176,7 +176,7 @@ private extension MediaSourceControllerTests {
         RealtimeVideoFormat(width: 832, height: 1_472, fps: 24)
     }
 
-    func makeComponents(hasAudio: Bool, model: RealtimeModel = .x2_0) -> Components {
+    func makeComponents(hasAudio: Bool, model: RealtimeModel = .x2_1_1_preview_cn) -> Components {
         let metadataManager = MediaFileMetadataManagingStub(
             metadata: MediaFileMetadata(
                 width: 1_920,

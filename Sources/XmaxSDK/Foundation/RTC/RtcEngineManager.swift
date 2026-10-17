@@ -1,30 +1,29 @@
 import Foundation
-@preconcurrency import VolcEngineRTC
 
-/// 表示对进程级火山 RTC Engine 的独占使用权。
+/// 表示对进程级 RTC 引擎的独占使用权。
 final class RtcEngineLease: @unchecked Sendable {
 
     // RTC 资源
-    let engine: ByteRTCEngine
+    let engine: any RtcPlatform
 
     // 运行标识
     let id = UUID()
 
-    fileprivate init(engine: ByteRTCEngine) {
+    fileprivate init(engine: any RtcPlatform) {
         self.engine = engine
     }
 }
 
-/// 管理进程级火山 RTC Engine 的独占创建、排队租用和销毁。
+/// 管理进程级 RTC 引擎的独占创建、排队租用和销毁。
 actor RtcEngineManager {
-    typealias EngineFactory = @Sendable (String) -> ByteRTCEngine?
+    typealias EngineFactory = @Sendable (String) -> (any RtcPlatform)?
     typealias EngineDestructor = @Sendable () -> Void
 
     // 共享实例
     static let shared = RtcEngineManager()
 
     // RTC 配置
-    private static let defaultAppID = "69a177e226e9b90176a86b96"
+    static let defaultAppID = "5588dfe2e7874bd08ea28f4968ec2d40"
 
     // 依赖
     private let appID: String
@@ -39,8 +38,8 @@ actor RtcEngineManager {
 
     init(
         appID: String = RtcEngineManager.defaultAppID,
-        makeEngine: @escaping EngineFactory = RtcEngineManager.createEngine,
-        destroyEngine: @escaping EngineDestructor = RtcEngineManager.destroyEngine
+        makeEngine: @escaping EngineFactory = AgoraRtcPlatform.create,
+        destroyEngine: @escaping EngineDestructor = AgoraRtcPlatform.destroyEngine
     ) {
         self.appID = appID
         self.makeEngine = makeEngine
@@ -161,21 +160,6 @@ actor RtcEngineManager {
         request.continuation.resume(throwing: CancellationError())
     }
 
-    private static func createEngine(appID: String) -> ByteRTCEngine? {
-        let configuration = ByteRTCEngineConfig()
-        configuration.appID = appID
-        configuration.isGameScene = false
-        configuration.parameters = [:]
-
-        return ByteRTCEngine.createRTCEngine(
-            configuration,
-            delegate: nil
-        )
-    }
-
-    private static func destroyEngine() {
-        ByteRTCEngine.destroyRTCEngine()
-    }
 }
 
 private extension RtcEngineManager {

@@ -7,12 +7,14 @@ public final class XmaxClient: Sendable {
 
     // 服务层组件
     private let apiService: any ApiServicing
+    private let realtimeApiOverride: (any ApiServicing)?
 
     /// 创建 SDK 客户端。
     ///
     /// - Parameter configuration: SDK 全局配置。
     public init(configuration: XmaxConfiguration) {
         self.configuration = configuration
+        realtimeApiOverride = nil
         XmaxLogger.configure(options: configuration.loggerOptions, environment: configuration.environment)
         apiService = ApiService(
             apiKey: configuration.apiKey,
@@ -27,6 +29,7 @@ public final class XmaxClient: Sendable {
         self.configuration = configuration
         XmaxLogger.configure(options: configuration.loggerOptions, environment: configuration.environment)
         self.apiService = apiService
+        realtimeApiOverride = apiService
     }
 
     /// 创建实时媒体 Manager。
@@ -41,7 +44,10 @@ public final class XmaxClient: Sendable {
     ) -> any XmaxRealtimeManaging {
         XmaxRealtimeManager(
             options: options,
-            apiService: apiService
+            apiService: realtimeApiOverride ?? ApiService(
+                apiKey: configuration.apiKey,
+                baseURL: options.model.apiBaseURL
+            )
         )
     }
 
@@ -56,9 +62,9 @@ public final class XmaxClient: Sendable {
 
     /// 创建媒体处理与能力查询 Service。
     ///
-    /// - Parameter model: 媒体输入规则使用的模型，默认为 `x2.0`。
+    /// - Parameter model: 媒体输入规则使用的模型，默认为 `x2.1.1-preview-cn`。
     /// - Returns: 可用于计算模型输入尺寸和查询平台媒体能力的 Service。
-    public func createMediaService(model: RealtimeModel = .x2_0) -> any MediaServicing {
+    public func createMediaService(model: RealtimeModel = .x2_1_1_preview_cn) -> any MediaServicing {
         MediaService(model: model)
     }
 }

@@ -32,6 +32,12 @@ final class RoomEventTests: XCTestCase {
             let params = try XCTUnwrap(event["params"] as? [String: Any])
             XCTAssertEqual(params["size"] as? [Int], [832, 1472])
             XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
+            XCTAssertEqual(event["session_uid"] as? String, "task")
+            if event["event"] as? String == "start" {
+                XCTAssertEqual(params["mirror"] as? Bool, false)
+            } else {
+                XCTAssertNil(params["mirror"])
+            }
         }
     }
 

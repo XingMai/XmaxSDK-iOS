@@ -128,15 +128,13 @@ final class StreamController: StreamControlling, RtcEventListener,
         includeLocalAudio: Bool,
         ensureActive: @escaping @Sendable () throws -> Void
     ) async throws {
+        try ensureActive()
+        try configureRoom(roomID: connection.roomID, botName: connection.botName)
         try await roomController.join(
             connection: connection,
             ensureActive: ensureActive
         )
         try ensureActive()
-        try configureRoom(
-            roomID: connection.roomID,
-            botName: connection.botName
-        )
         try publishLocalStream(includeAudio: includeLocalAudio)
     }
 
@@ -160,6 +158,17 @@ final class StreamController: StreamControlling, RtcEventListener,
                 targetSize: targetSize,
                 context: context
             )
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { try await self.rtcManager.awaitPendingMessages() }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: self.generationTiming.timeoutNanoseconds)
+                    throw XmaxError(code: .timeout, message: "Realtime generation start timed out")
+                }
+                defer { group.cancelAll() }
+                try await group.next()
+            }
+            try Task.checkCancellation()
+            await confirmPublishedRemoteStream(taskID: taskID)
             return confirmation
         } catch {
             confirmation.cancel()
@@ -285,13 +294,11 @@ final class StreamController: StreamControlling, RtcEventListener,
     }
 
     func pushLocalVideoFrame(_ frame: VideoFrame) throws {
-        guard let seiData = stateLock.withLock({
-            state.generationTask?.nextFrameSeiData()
-        }) else {
+        guard stateLock.withLock({ state.generationTask != nil }) else {
             return
         }
         do {
-            try rtcManager.pushExternalVideoFrame(frame, seiData: seiData)
+            try rtcManager.pushExternalVideoFrame(frame)
         } catch {
             throw XmaxError.from(error)
         }
@@ -505,6 +512,7 @@ final class StreamController: StreamControlling, RtcEventListener,
 
             if published {
                 subscribeRemoteVideo(userID: userID)
+                confirmRemoteStream(RemoteStream(roomID: currentState.roomID, userID: userID))
             } else {
                 _ = stateLock.withLock {
                     state.subscribedRemoteUserIDs.remove(userID)
@@ -521,16 +529,39 @@ final class StreamController: StreamControlling, RtcEventListener,
     }
 
     @MainActor
-    func onSeiMessageReceived(
-        stream: RemoteStream,
-        message: String
-    ) {
+    func onRtcFailure(_ error: XmaxError) {
+        let taskID = stateLock.withLock { state.generationWaiter?.taskID }
+        if let taskID {
+            rejectGenerationStart(taskID: taskID, error: error)
+        } else {
+            errorListener(error)
+        }
+    }
+}
+
+private extension StreamController {
+    @MainActor
+    func confirmPublishedRemoteStream(taskID: String) {
+        let stream = stateLock.withLock { () -> RemoteStream? in
+            guard let waiter = state.generationWaiter, waiter.taskID == taskID else { return nil }
+            waiter.signalSent = true
+            guard let userID = state.subscribedRemoteUserIDs.first(where: {
+                state.botName.isEmpty || $0 == state.botName
+            }) else { return nil }
+            return RemoteStream(roomID: state.roomID, userID: userID)
+        }
+        if let stream { confirmRemoteStream(stream) }
+    }
+
+    @MainActor
+    func confirmRemoteStream(_ stream: RemoteStream) {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
-                guard let task = state.generationTask,
+                guard state.generationTask != nil,
                       let waiter = state.generationWaiter,
+                      waiter.signalSent,
                       !waiter.confirmationPending,
-                      matchesTaskSei(message, taskID: task.id),
+                      state.subscribedRemoteUserIDs.contains(stream.userID),
                       stream.roomID == state.roomID,
                       state.botName.isEmpty ||
                         stream.userID == state.botName else {
@@ -543,7 +574,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         guard let waiter else {
             return
         }
-        timing.matchSEI(taskID: waiter.taskID)
+        timing.confirmRemoteStream(taskID: waiter.taskID)
 
         do {
             try remoteStreamListener(stream)
@@ -565,14 +596,6 @@ final class StreamController: StreamControlling, RtcEventListener,
 }
 
 private extension StreamController {
-    /// 仅用查询参数前的任务标识匹配；os、index 等附加信息不参与任务身份判断。
-    func matchesTaskSei(_ message: String, taskID: String) -> Bool {
-        let receivedID = message.trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: "?")[0]
-        let currentID = taskID.components(separatedBy: "?")[0]
-        return !receivedID.isEmpty && receivedID == currentID
-    }
-
     struct State {
         var roomID = ""
         var botName = ""
@@ -587,19 +610,6 @@ private extension StreamController {
 
     struct GenerationTask {
         let id: String
-
-        // 当前任务的外部视频帧序号。
-        private var nextFrameIndex: UInt64 = 0
-
-        init(id: String) {
-            self.id = id
-        }
-
-        mutating func nextFrameSeiData() -> Data {
-            let data = Data("\(id)&index=\(nextFrameIndex)".utf8)
-            nextFrameIndex &+= 1
-            return data
-        }
     }
 
     final class GenerationWaiter: @unchecked Sendable {
@@ -607,6 +617,7 @@ private extension StreamController {
         let continuation: AsyncThrowingStream<Void, any Error>.Continuation
         var timeoutTask: Task<Void, Never>?
         var confirmationPending = false
+        var signalSent = false
 
         init(
             taskID: String,

@@ -164,9 +164,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             $0["event"] as? String == "start"
         })
         let taskID = try XCTUnwrap(start["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
-            stream: RemoteStream(roomID: "room-id", userID: "bot-user"), message: taskID
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
         try components.rtcManager.emitRemoteVideoFrame()
         try await starting.value
         let previousState = await components.manager.currentState
@@ -214,9 +213,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             $0["event"] as? String == "start"
         })
         let taskID = try XCTUnwrap(start["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
-            stream: RemoteStream(roomID: "room-id", userID: "bot-user"), message: taskID
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
         try components.rtcManager.emitRemoteVideoFrame()
         try await starting.value
         let state = await components.manager.currentState
@@ -284,10 +282,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             $0["event"] as? String == "start"
         })
         let taskID = try XCTUnwrap(start["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
-            stream: RemoteStream(roomID: "room-id", userID: "bot-user"),
-            message: taskID
-        )
+        components.rtcManager.emitRemoteVideoAvailable(
+            stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
         let beforeToggle = await components.manager.currentState
@@ -421,12 +417,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     }
 
     func testCameraUsesModelDefaultFrameRate() async throws {
-        let components = makeComponents(model: .x2_0)
+        let components = makeComponents(model: .x2_1_1_preview_cn)
         let manager: any XmaxRealtimeManaging = components.manager
         let stream = try await manager.createLocalCameraStream()
         let currentTrack = await components.mediaController.currentTrack
         XCTAssertTrue(currentTrack === stream.videoTrack)
-        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_0.defaultFrameRate)
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await manager.close()
     }
 
@@ -513,13 +509,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: taskID
-        )
+            ))
         XCTAssertFalse(components.rtcManager.calls.contains(
             .subscribeRemoteAudio(
                 userID: "bot-user",
@@ -572,7 +566,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let switchedStream = try await manager.switchCamera()
         try await manager.stopLocalCameraStream()
 
-        XCTAssertEqual(manager.options.model, .x2_0)
+        XCTAssertEqual(manager.options.model, .x2_1_1_preview_cn)
         XCTAssertTrue(stream.videoTrack === switchedStream.videoTrack)
         XCTAssertEqual(switchedStream.videoTrack?.position, .back)
         XCTAssertEqual(components.rtcManager.calls.first, .initialize)
@@ -887,13 +881,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 $0["event"] as? String == "start"
             }?["uid"] as? String
         )
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: taskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
@@ -920,13 +912,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 $0["event"] as? String == "start"
             }?["uid"] as? String
         )
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: firstTaskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
         try await firstStartTask.value
 
@@ -952,13 +942,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             startEvents.last?["uid"] as? String
         )
         XCTAssertNotEqual(restartedTaskID, firstTaskID)
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: restartedTaskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
 
         let switchedStream = try await switchTask.value
@@ -974,7 +962,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         XCTAssertEqual(
             components.sessionService.calls.filter {
-                $0 == .createSession(.x2_0)
+                $0 == .createSession(.x2_1_1_preview_cn)
             }.count,
             1
         )
@@ -1017,13 +1005,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: taskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
@@ -1070,13 +1056,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: taskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
 
@@ -1116,7 +1100,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
 
         XCTAssertFalse(
-            components.sessionService.calls.contains(.createSession(.x2_0))
+            components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn))
         )
 
         let startTask = Task {
@@ -1132,20 +1116,18 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: taskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
 
         let remoteStream = try await startTask.value
 
         XCTAssertEqual(remoteStream.id, StreamID.remote.rawValue)
         XCTAssertTrue(
-            components.sessionService.calls.contains(.createSession(.x2_0))
+            components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn))
         )
 
         await components.manager.disconnect()
@@ -1268,7 +1250,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         }
         XCTAssertTrue(components.rtcManager.calls.contains(.stopAudioCapture))
         XCTAssertFalse(components.rtcManager.calls.contains(.publishLocalAudio))
-        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_0)))
+        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn)))
         let ownsPreview = await components.mediaController.owns(stream)
         XCTAssertTrue(ownsPreview)
         await components.manager.close()
@@ -1507,13 +1489,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             }
         )
         let taskID = try XCTUnwrap(startEvent["uid"] as? String)
-        components.rtcManager.emitSeiMessage(
+        components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",
                 userID: "bot-user"
-            ),
-            message: taskID
-        )
+            ))
         try components.rtcManager.emitRemoteVideoFrame()
         try await startTask.value
         let signalingError = XmaxError(
@@ -1697,7 +1677,7 @@ private extension XmaxRealtimeManagerTests {
         rtcManager: RtcManagingStub = RtcManagingStub(),
         captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
-        model: RealtimeModel = .x2_0,
+        model: RealtimeModel = .x2_1_1_preview_cn,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
         frameInterpolationEnabled: Bool = false,

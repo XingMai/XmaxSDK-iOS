@@ -32,10 +32,18 @@ final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendabl
             body: CreateSessionRequest(model: model.rawValue),
             as: SessionPayload.self
         )
-        return try Self.makeSession(
-            from: payload,
-            requiresConnection: true
-        )
+        do {
+            return try Self.makeSession(from: payload, requiresConnection: true)
+        } catch {
+            if let sessionID = Self.nonEmpty(payload.sessionUID) {
+                do {
+                    try await closeSession(sessionID: sessionID)
+                } catch {
+                    XmaxLogger.realtime.error(message: "关闭无效会话失败 (Failed to Close Invalid Session)\n└─ \(error.localizedDescription)")
+                }
+            }
+            throw error
+        }
     }
 
     func startHeartbeat(
@@ -152,12 +160,14 @@ private extension RealtimeSessionService {
         let token: String?
         let userID: String?
         let botName: String?
+        let appID: String?
 
         enum CodingKeys: String, CodingKey {
             case roomID = "room_id"
             case token = "room_token"
-            case userID = "user_id"
-            case botName = "bot_name"
+            case userID = "rtc_user_id"
+            case botName = "rtc_bot_id"
+            case appID = "rtc_app_id"
         }
 
         init(from decoder: any Decoder) throws {
@@ -166,6 +176,7 @@ private extension RealtimeSessionService {
             token = try? container.decode(String.self, forKey: .token)
             userID = try? container.decode(String.self, forKey: .userID)
             botName = try? container.decode(String.self, forKey: .botName)
+            appID = try? container.decode(String.self, forKey: .appID)
         }
     }
 
@@ -236,10 +247,7 @@ private extension RealtimeSessionService {
         }
 
         let userID = nonEmpty(payload.userUID)
-        let connection = makeConnection(
-            from: payload.modelExtra,
-            fallbackUserID: userID
-        )
+        let connection = makeConnection(from: payload.modelExtra)
         if requiresConnection, connection == nil {
             throw XmaxError(
                 code: .sessionError,
@@ -257,8 +265,7 @@ private extension RealtimeSessionService {
     }
 
     static func makeConnection(
-        from modelExtra: ModelExtra?,
-        fallbackUserID: String?
+        from modelExtra: ModelExtra?
     ) -> RealtimeSessionConnection? {
         let payload: ConnectionPayload
         switch modelExtra {
@@ -279,14 +286,16 @@ private extension RealtimeSessionService {
 
         guard let roomID = nonEmpty(payload.roomID),
               let token = nonEmpty(payload.token),
-              let userID = nonEmpty(payload.userID) ?? fallbackUserID else {
+              let userID = nonEmpty(payload.userID),
+              let botName = nonEmpty(payload.botName),
+              nonEmpty(payload.appID) == RtcEngineManager.defaultAppID else {
             return nil
         }
         return RealtimeSessionConnection(
             roomID: roomID,
             userID: userID,
             token: token,
-            botName: nonEmpty(payload.botName)
+            botName: botName
         )
     }
 
