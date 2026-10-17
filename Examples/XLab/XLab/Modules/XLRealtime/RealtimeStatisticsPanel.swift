@@ -72,37 +72,51 @@ struct RealtimeStatisticsPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
+                qualityControls
+                Divider().background(Color.white.opacity(0.2))
+
                 heading("uplink")
-                qualityMenu(downlink: false)
-                row("requested", format(statistics.adaptiveQuality?.uplink))
                 row("resolution", resolution(statistics.uplink?.width, statistics.uplink?.height))
-                row("captureFPS", value(statistics.uplink?.captureFrameRate, " fps"))
-                row("encodeFPS", value(statistics.uplink?.encodeFrameRate, " fps"))
-                row("sendFPS", value(statistics.uplink?.sendFrameRate, " fps"))
-                row("bitrate", value(statistics.uplink?.bitrateKbps, " kbps"))
+                row("sendBitrate", value(statistics.uplink?.bitrateKbps, "kbps"))
+                row("captureFPS", value(statistics.uplink?.captureFrameRate, "fps"))
+                row("encodeFPS", value(statistics.uplink?.encodeFrameRate, "fps"))
+                row("sendFPS", value(statistics.uplink?.sendFrameRate, "fps"))
                 row("loss", value(statistics.uplink?.packetLossPercent, "%"))
-                row("quality", quality(statistics.uplink == nil ? nil : statistics.networkQuality?.uplink))
 
                 Divider().background(Color.white.opacity(0.2))
                 heading("downlink")
-                qualityMenu(downlink: true)
-                row("requested", format(statistics.adaptiveQuality?.downlink))
-                row("interpolation", statistics.adaptiveQuality.map { XLLocalization.text($0.interpolationEnabled ? "common.enabled" : "common.disabled") } ?? "—")
                 row("resolution", resolution(statistics.downlink?.width, statistics.downlink?.height))
-                row("decodeFPS", value(statistics.downlink?.decodeFrameRate, " fps"))
-                row("renderFPS", value(statistics.downlink?.renderFrameRate, " fps"))
-                row("bitrate", value(statistics.downlink?.bitrateKbps, " kbps"))
+                row("receiveBitrate", value(statistics.downlink?.bitrateKbps, "kbps"))
+                row("decodeFPS", value(statistics.downlink?.decodeFrameRate, "fps"))
+                row("renderFPS", value(statistics.downlink?.renderFrameRate, "fps"))
                 row("loss", value(statistics.downlink?.packetLossPercent, "%"))
-                row("quality", quality(statistics.downlink == nil ? nil : statistics.networkQuality?.downlink))
-                row("delay", value(statistics.downlink?.endToEndDelayMs, " ms"))
+                row("delay", value(statistics.downlink?.endToEndDelayMs, "ms"))
                 Text(XLLocalization.text("statistics.note"))
                     .font(.system(size: 9))
                     .foregroundStyle(.white.opacity(0.6))
+
+                Divider().background(Color.white.opacity(0.2))
+                heading("quality")
+                row("uplink", quality(statistics.networkQuality?.uplink))
+                row("downlink", quality(statistics.networkQuality?.downlink))
             }
             .padding(10)
         }
         .background(Color.black.opacity(0.64))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var qualityControls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            heading("qualityDebug")
+            qualityMenu(downlink: false)
+            row("requested", format(statistics.adaptiveQuality?.uplink))
+            qualityMenu(downlink: true)
+            row("requested", format(statistics.adaptiveQuality?.downlink))
+            row("interpolation", statistics.adaptiveQuality.map {
+                XLLocalization.text($0.interpolationEnabled ? "common.enabled" : "common.disabled")
+            } ?? "—")
+        }
     }
 
     private func heading(_ key: String) -> some View {
@@ -117,7 +131,9 @@ struct RealtimeStatisticsPanel: View {
                 Button("L\(level)") { statistics.selectQuality(level, downlink: downlink) }
             }
         } label: {
-            row("tier", statistics.adaptiveQuality.map { "L\(downlink ? $0.downlinkLevel : $0.uplinkLevel) ▾" } ?? "—")
+            row(downlink ? "downlinkTier" : "uplinkTier", statistics.adaptiveQuality.map {
+                "L\(downlink ? $0.downlinkLevel : $0.uplinkLevel) ▾"
+            } ?? "—")
         }
         .disabled(statistics.adaptiveQuality == nil || statistics.isSelectingQuality)
     }
@@ -147,7 +163,7 @@ struct RealtimeStatisticsPanel: View {
     }
 
     private func value(_ number: Int?, _ unit: String) -> String {
-        number.map { "\($0)\(unit)" } ?? "—"
+        number.map { "\($0) \(unit)" } ?? "—"
     }
 
     private func quality(_ quality: RealtimeNetworkQualityLevel?) -> String {

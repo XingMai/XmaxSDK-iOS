@@ -75,7 +75,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Capture FPS"
+            "value": "Capture Frame Rate"
           }
         },
         "zh-Hans": {
@@ -92,7 +92,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encode FPS"
+            "value": "Encode Frame Rate"
           }
         },
         "zh-Hans": {
@@ -109,7 +109,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send FPS"
+            "value": "Send Frame Rate"
           }
         },
         "zh-Hans": {
@@ -126,7 +126,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Decode FPS"
+            "value": "Decode Frame Rate"
           }
         },
         "zh-Hans": {
@@ -143,7 +143,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Render FPS"
+            "value": "Render Frame Rate"
           }
         },
         "zh-Hans": {
@@ -154,19 +154,36 @@
         }
       }
     },
-    "statistics.bitrate": {
+    "statistics.sendBitrate": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bitrate"
+            "value": "Send Bitrate"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "码率"
+            "value": "发送码率"
+          }
+        }
+      }
+    },
+    "statistics.receiveBitrate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receive Bitrate"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接收码率"
           }
         }
       }
@@ -2841,19 +2858,53 @@
         }
       }
     },
-    "statistics.tier": {
+    "statistics.qualityDebug": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tier"
+            "value": "Quality Debugging"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "传输档位"
+            "value": "调档调试"
+          }
+        }
+      }
+    },
+    "statistics.downlinkTier": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downlink Tier"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下行档位"
+          }
+        }
+      }
+    },
+    "statistics.uplinkTier": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uplink Tier"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上行档位"
           }
         }
       }
