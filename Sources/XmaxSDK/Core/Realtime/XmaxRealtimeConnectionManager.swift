@@ -86,7 +86,6 @@ actor XmaxRealtimeConnectionManager {
         isCurrent: @escaping RealtimeConnectionValidity,
         onHeartbeatFailure: @escaping RealtimeConnectionHeartbeatFailureHandler
     ) async throws -> RealtimeMediaStream {
-        timing.beginConnection()
         currentTargetSize = targetSize
         var session: RealtimeSession?
         var sessionActivated = false
@@ -128,7 +127,6 @@ actor XmaxRealtimeConnectionManager {
             activeRemoteTrack = remoteTrack
             sessionActivated = true
             try Self.ensureCurrent(isCurrent)
-            timing.finishConnection()
 
             return RealtimeMediaStream(
                 id: StreamID.remote.rawValue,

@@ -694,6 +694,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
             )
             try await renderController.waitUntilRemoteFrameReady()
             try token.ensureCurrent()
+            timing.finishFirstFrame(taskID: taskID)
             try streamController.activateRemoteAudio()
             guard await connectionManager.currentSessionID == sessionID else {
                 throw XmaxError(

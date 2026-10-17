@@ -13,54 +13,43 @@ final class RealtimeTiming: @unchecked Sendable {
         }
     }
 
-    func beginConnection() {
-        lock.withLock {
-            state.connectionStartedAt = Self.now
-        }
-    }
-
     func beginSessionCreation() {
-        lock.withLock {
-            state.sessionStartedAt = Self.now
-        }
+        lock.withLock { state.sessionStartedAt = Self.now }
     }
 
     func finishSessionCreation() {
-        lock.withLock {
-            state.sessionFinishedAt = Self.now
-        }
+        lock.withLock { state.sessionFinishedAt = Self.now }
     }
 
     func beginRoomJoin() {
-        lock.withLock {
-            state.roomJoinStartedAt = Self.now
-        }
+        lock.withLock { state.roomJoinStartedAt = Self.now }
     }
 
     func finishRoomJoin() {
-        lock.withLock {
-            state.roomJoinFinishedAt = Self.now
-        }
+        lock.withLock { state.roomJoinFinishedAt = Self.now }
     }
 
-    func finishConnection() {
-        lock.withLock {
-            state.connectionFinishedAt = Self.now
-        }
+    func beginLocalPublication() {
+        lock.withLock { state.publicationStartedAt = Self.now }
+    }
+
+    func finishLocalPublication() {
+        lock.withLock { state.publicationFinishedAt = Self.now }
     }
 
     func beginSignal(taskID: String) {
         lock.withLock {
             state.taskID = taskID
             state.signalStartedAt = Self.now
-            state.remoteStreamConfirmedAt = nil
+            state.firstFrameAt = nil
         }
     }
 
-    func confirmRemoteStream(taskID: String) {
+    /// 生成请求发出后，首个结果帧已经可以显示。
+    func finishFirstFrame(taskID: String) {
         lock.withLock {
             guard state.taskID == taskID else { return }
-            state.remoteStreamConfirmedAt = Self.now
+            state.firstFrameAt = Self.now
         }
     }
 
@@ -99,218 +88,107 @@ final class RealtimeTiming: @unchecked Sendable {
     }
 }
 
-private extension RealtimeTiming {
+extension RealtimeTiming {
     struct State {
         var startedAt: UInt64?
-        var connectionStartedAt: UInt64?
         var sessionStartedAt: UInt64?
         var sessionFinishedAt: UInt64?
         var roomJoinStartedAt: UInt64?
         var roomJoinFinishedAt: UInt64?
-        var connectionFinishedAt: UInt64?
+        var publicationStartedAt: UInt64?
+        var publicationFinishedAt: UInt64?
         var signalStartedAt: UInt64?
-        var remoteStreamConfirmedAt: UInt64?
+        var firstFrameAt: UInt64?
         var readyAt: UInt64?
         var failureAt: UInt64?
         var taskID: String?
     }
 
-    static var now: UInt64 {
-        DispatchTime.now().uptimeNanoseconds
-    }
-
-    static let minimumDetailMilliseconds = 1.0
-
     static func format(_ state: State) -> String {
         guard let startedAt = state.startedAt,
-              let signalStartedAt = state.signalStartedAt,
-              let remoteStreamConfirmedAt = state.remoteStreamConfirmedAt,
+              state.firstFrameAt != nil,
               let readyAt = state.readyAt else {
             return "实时生成启动耗时不可用 " +
                 "(Realtime Generation Startup Timing Unavailable)"
         }
 
-        var lines = [
+        let lines = [
             "实时生成启动耗时 (Realtime Generation Startup Timing)",
-            "├─ \(XmaxLogger.localized("总耗时：", "Total Duration: "))\(duration(startedAt, readyAt))"
-        ]
-
-        if let connectionStartedAt = state.connectionStartedAt,
-           let connectionFinishedAt = state.connectionFinishedAt {
-            let connectionDuration = milliseconds(
-                connectionStartedAt,
-                connectionFinishedAt
-            ) ?? 0
-            lines.append(
-                "├─ \(XmaxLogger.localized("实时连接：", "Realtime Connection: "))\(format(connectionDuration))"
-            )
-            let sessionDuration = milliseconds(
-                state.sessionStartedAt,
-                state.sessionFinishedAt
-            )
-            let roomJoinDuration = milliseconds(
-                state.roomJoinStartedAt,
-                state.roomJoinFinishedAt
-            )
-            appendConnectionDetails(
-                [
-                    (XmaxLogger.localized("服务端会话创建：", "Server Session Creation: "), sessionDuration),
-                    (XmaxLogger.localized("RTC 房间连接：", "RTC Room Connection: "), roomJoinDuration)
-                ],
-                to: &lines
-            )
-        }
-
-        lines.append(
-            "├─ \(XmaxLogger.localized("等待生成结果流确认：", "Waiting for Remote Stream: "))" +
-                duration(signalStartedAt, remoteStreamConfirmedAt)
-        )
-        lines.append(
-            "└─ \(XmaxLogger.localized("结果流确认到首帧就绪：", "First Frame Ready: "))" +
-                duration(remoteStreamConfirmedAt, readyAt)
-        )
+            "└─ \(XmaxLogger.localized("总耗时：", "Total Duration: "))\(duration(startedAt, readyAt))"
+        ] + stageDetails(state)
         return lines.joined(separator: "\n")
     }
 
-    static func formatFailure(
-        _ state: State,
-        error: XmaxError
-    ) -> String {
+    static func formatFailure(_ state: State, error: XmaxError) -> String {
         guard let startedAt = state.startedAt,
               let failureAt = state.failureAt else {
             return "实时生成启动失败耗时不可用 " +
                 "(Realtime Generation Startup Failure Timing Unavailable)"
         }
 
-        var lines = [
-            "实时生成启动未完成耗时 " +
-                "(Incomplete Realtime Generation Startup Timing)",
-            "├─ \(XmaxLogger.localized("已耗时：", "Elapsed Time: "))\(duration(startedAt, failureAt))",
-            "├─ \(XmaxLogger.localized("停留阶段：", "Current Stage: "))\(pendingStage(state))"
-        ]
-        if let sessionStartedAt = state.sessionStartedAt {
-            appendDetail(
-                XmaxLogger.localized("服务端会话创建：", "Server Session Creation: "),
-                milliseconds(
-                    sessionStartedAt,
-                    state.sessionFinishedAt ?? failureAt
-                ),
-                to: &lines
-            )
-        }
-        if let roomJoinStartedAt = state.roomJoinStartedAt {
-            appendDetail(
-                XmaxLogger.localized("RTC 房间连接：", "RTC Room Connection: "),
-                milliseconds(
-                    roomJoinStartedAt,
-                    state.roomJoinFinishedAt ?? failureAt
-                ),
-                to: &lines
-            )
-        }
-        if let connectionStartedAt = state.connectionStartedAt {
-            appendDetail(
-                XmaxLogger.localized("实时连接：", "Realtime Connection: "),
-                milliseconds(
-                    connectionStartedAt,
-                    state.connectionFinishedAt ?? failureAt
-                ),
-                to: &lines
-            )
-        }
-        if let signalStartedAt = state.signalStartedAt {
-            appendDetail(
-                XmaxLogger.localized("等待生成结果流确认：", "Waiting for Result Stream Confirmation: "),
-                milliseconds(
-                    signalStartedAt,
-                    state.remoteStreamConfirmedAt ?? failureAt
-                ),
-                to: &lines
-            )
-        }
-        if let remoteStreamConfirmedAt = state.remoteStreamConfirmedAt {
-            appendDetail(
-                XmaxLogger.localized("结果流确认后等待首帧：", "Waiting for First Frame After Result Stream Confirmation: "),
-                milliseconds(remoteStreamConfirmedAt, failureAt),
-                to: &lines
-            )
-        }
-        lines.append(
+        let lines = [
+            "实时生成启动未完成耗时 (Incomplete Realtime Generation Startup Timing)",
+            "├─ \(XmaxLogger.localized("已耗时：", "Elapsed Time: "))\(duration(startedAt, failureAt))"
+        ] + stageDetails(state, failureAt: failureAt) + [
+            "├─ \(XmaxLogger.localized("停留阶段：", "Current Stage: "))\(pendingStage(state))",
             "└─ \(XmaxLogger.localized("失败原因：", "Failure Reason: "))\(error.localizedDescription)"
-        )
+        ]
         return lines.joined(separator: "\n")
+    }
+}
+
+private extension RealtimeTiming {
+    static var now: UInt64 { DispatchTime.now().uptimeNanoseconds }
+
+    static func stageDetails(_ state: State, failureAt: UInt64? = nil) -> [String] {
+        let stages: [(String, UInt64?, UInt64?)] = [
+            (XmaxLogger.localized("创建会话：", "Session Creation: "),
+             state.sessionStartedAt, state.sessionFinishedAt),
+            (XmaxLogger.localized("RTC 进房：", "RTC Room Join: "),
+             state.roomJoinStartedAt, state.roomJoinFinishedAt),
+            (XmaxLogger.localized("发布本地流：", "Local Stream Publication: "),
+             state.publicationStartedAt, state.publicationFinishedAt),
+            (XmaxLogger.localized("首帧到达：", "First Frame Arrival: "),
+             state.signalStartedAt, state.firstFrameAt)
+        ]
+
+        return stages.enumerated().map { index, stage in
+            let indent = failureAt == nil ? "   " : "│  "
+            let branch = index == stages.count - 1 ? "└─" : "├─"
+            return "\(indent)\(branch) \(stage.0)\(duration(stage.1, stage.2 ?? failureAt))"
+        }
     }
 
     static func pendingStage(_ state: State) -> String {
-        if state.remoteStreamConfirmedAt != nil {
-            return XmaxLogger.localized("结果流已确认，正在等待首帧", "Result Stream Confirmed, Waiting for First Frame")
+        if state.firstFrameAt != nil {
+            return XmaxLogger.localized("首帧已就绪，正在完成启动", "First Frame Ready, Completing Startup")
         }
         if state.signalStartedAt != nil {
-            return XmaxLogger.localized("正在等待生成结果流确认", "Waiting for Result Stream Confirmation")
+            return XmaxLogger.localized("等待首帧到达", "Waiting for First Frame")
         }
-        if state.connectionFinishedAt != nil {
-            return XmaxLogger.localized("连接完成后准备生成", "Preparing Generation After Connection")
+        if state.publicationFinishedAt != nil {
+            return XmaxLogger.localized("准备生成", "Preparing Generation")
         }
-        if state.roomJoinStartedAt != nil,
-           state.roomJoinFinishedAt == nil {
-            return XmaxLogger.localized("正在连接 RTC 房间", "Connecting to RTC Room")
+        if state.publicationStartedAt != nil {
+            return XmaxLogger.localized("发布本地流", "Publishing Local Stream")
+        }
+        if state.roomJoinFinishedAt != nil {
+            return XmaxLogger.localized("准备发布本地流", "Preparing Local Stream Publication")
+        }
+        if state.roomJoinStartedAt != nil {
+            return XmaxLogger.localized("RTC 进房", "Joining RTC Room")
         }
         if state.sessionFinishedAt != nil {
             return XmaxLogger.localized("RTC 连接准备", "RTC Connection Setup")
         }
         if state.sessionStartedAt != nil {
-            return XmaxLogger.localized("服务端会话创建", "Server Session Creation")
+            return XmaxLogger.localized("创建会话", "Creating Session")
         }
         return XmaxLogger.localized("调用与本地准备", "Invocation and Local Preparation")
     }
 
-    static func appendDetail(
-        _ title: String,
-        _ milliseconds: Double?,
-        to lines: inout [String]
-    ) {
-        guard let milliseconds,
-              milliseconds >= minimumDetailMilliseconds else {
-            return
-        }
-        lines.append("├─ \(title)\(format(milliseconds))")
-    }
-
-    static func appendConnectionDetails(
-        _ details: [(String, Double?)],
-        to lines: inout [String]
-    ) {
-        let visibleDetails = details.compactMap {
-            detail -> (String, Double)? in
-            guard let milliseconds = detail.1,
-                  milliseconds >= minimumDetailMilliseconds else {
-                return nil
-            }
-            return (detail.0, milliseconds)
-        }
-        for (index, detail) in visibleDetails.enumerated() {
-            let branch = index == visibleDetails.count - 1
-                ? "│  └─"
-                : "│  ├─"
-            lines.append(
-                "\(branch) \(detail.0)\(format(detail.1))"
-            )
-        }
-    }
-
-    static func duration(_ start: UInt64, _ end: UInt64) -> String {
-        format(milliseconds(start, end) ?? 0)
-    }
-
-    static func milliseconds(
-        _ start: UInt64?,
-        _ end: UInt64?
-    ) -> Double? {
-        guard let start, let end, end >= start else { return nil }
-        return Double(end - start) / 1_000_000
-    }
-
-    static func format(_ milliseconds: Double) -> String {
-        String(format: "%.1f ms", milliseconds)
+    static func duration(_ start: UInt64?, _ end: UInt64?) -> String {
+        guard let start, let end, end >= start else { return "—" }
+        return String(format: "%.1f ms", Double(end - start) / 1000000)
     }
 }

@@ -163,7 +163,9 @@ final class StreamController: StreamControlling, RtcEventListener,
             ensureActive: ensureActive
         )
         try ensureActive()
+        timing.beginLocalPublication()
         try publishLocalStream(includeAudio: includeLocalAudio)
+        timing.finishLocalPublication()
     }
 
     func disconnect() async {
@@ -613,8 +615,6 @@ private extension StreamController {
         guard let waiter else {
             return
         }
-        timing.confirmRemoteStream(taskID: waiter.taskID)
-
         do {
             try remoteStreamListener(stream)
             stateLock.withLock {
