@@ -12,6 +12,14 @@ enum RtcQualityLevel: Int, CaseIterable, Sendable {
 /// 接收 RTC 网络质量和性能回退事件。
 protocol RtcQualityListener: AnyObject {
 
+    /// 处理实际视频上行统计。
+    @MainActor
+    func onUplinkVideoStatistics(_ statistics: UplinkVideoStatistics)
+
+    /// 处理实际视频下行统计。
+    @MainActor
+    func onDownlinkVideoStatistics(_ statistics: DownlinkVideoStatistics)
+
     /// 处理本地发送和远端接收的实时网络质量。
     @MainActor
     func onNetworkQuality(

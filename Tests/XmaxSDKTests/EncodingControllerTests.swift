@@ -2,6 +2,18 @@ import XCTest
 @testable import XmaxSDK
 
 final class EncodingControllerTests: XCTestCase {
+    func testDefaultPreferenceMaintainsFramerateThroughResizeAndConfiguration() throws {
+        let rtcManager = RtcManagingStub()
+        let controller = EncodingController(rtcManager: rtcManager)
+        let format = RealtimeVideoFormat(width: 832, height: 1472, fps: 30)
+
+        XCTAssertEqual(format.encoderPreference, .maintainFramerate)
+        let resized = format.resized(width: 704, height: 1280)
+        XCTAssertEqual(resized.encoderPreference, .maintainFramerate)
+        try controller.configure(resized)
+        XCTAssertEqual(rtcManager.encodingConfigurations.last?.encoderPreference, .maintainFramerate)
+    }
+
     func testConfigureAppliesExplicitBitratesAndEncoderPreference() throws {
         let rtcManager = RtcManagingStub()
         let controller = EncodingController(rtcManager: rtcManager)

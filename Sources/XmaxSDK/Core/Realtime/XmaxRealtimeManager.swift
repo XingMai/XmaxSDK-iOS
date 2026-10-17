@@ -189,6 +189,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await renderController.setRemoteVideoFrameListener(listener)
     }
 
+    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
+        streamController.setUplinkVideoStatisticsListener(listener)
+    }
+
+    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) {
+        streamController.setDownlinkVideoStatisticsListener(listener)
+    }
+
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {
@@ -371,6 +379,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 try await performStartGeneration(
                     context: nil,
+                    faceRestoration: await generationManager.cachedFaceRestoration,
                     token: token
                 )
             }
@@ -529,7 +538,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         )
     }
 
-    func startGeneration(context: RealtimeContext?) async throws {
+    func startGeneration(context: RealtimeContext?, faceRestoration: Bool = false) async throws {
         try await coordinator.run(
             kind: .generation
         ) { [self] token in
@@ -542,6 +551,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             do {
                 try await performStartGeneration(
                     context: context,
+                    faceRestoration: faceRestoration,
                     token: token
                 )
             } catch {
@@ -555,7 +565,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     func startGeneration(
         localStream: RealtimeMediaStream,
-        context: RealtimeContext?
+        context: RealtimeContext?,
+        faceRestoration: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await coordinator.run(
             kind: .generation
@@ -600,6 +611,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
                 try await performStartGeneration(
                     context: context,
+                    faceRestoration: faceRestoration,
                     token: token
                 )
                 return remoteStream
@@ -614,6 +626,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     private func performStartGeneration(
         context: RealtimeContext?,
+        faceRestoration: Bool,
         token: RealtimeCoordinator.Token
     ) async throws {
         try token.ensureCurrent()
@@ -635,7 +648,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 taskID: taskID,
                 videoFormat: videoFormat,
                 targetSize: await connectionManager.currentTargetSize,
-                context: context
+                context: context,
+                faceRestoration: faceRestoration,
+                ensureCurrent: { try token.ensureCurrent() }
             )
             try token.ensureCurrent()
             return
@@ -650,6 +665,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 videoFormat: videoFormat,
                 targetSize: await connectionManager.currentTargetSize,
                 context: context,
+                faceRestoration: faceRestoration,
                 ensureCurrent: {
                     try token.ensureCurrent()
                 }

@@ -166,6 +166,52 @@ final class RtcRoomLifecycleTests: XCTestCase {
         await manager.destroy()
     }
 
+    @MainActor
+    func testStatisticsForwardOnlyCurrentRoomAfterRejoin() async throws {
+        let firstStarted = expectation(description: "First room")
+        let secondStarted = expectation(description: "Second room")
+        let first = RtcRoomStub(onJoin: { firstStarted.fulfill() })
+        let second = RtcRoomStub(onJoin: { secondStarted.fulfill() })
+        let manager = makeManager { $0 == "first" ? first : second }
+        let quality = QualityController(rtcManager: manager)
+        quality.setUplinkVideoStatisticsEnabled(true)
+        quality.setDownlinkVideoStatisticsUser("bot")
+        var uplinkRates: [Int] = []
+        var downlinkRates: [Int] = []
+        let delivered = expectation(description: "Current statistics")
+        delivered.expectedFulfillmentCount = 2
+        quality.setUplinkVideoStatisticsListener {
+            guard let rate = $0?.sendFrameRate else { return }
+            uplinkRates.append(rate)
+            delivered.fulfill()
+        }
+        quality.setDownlinkVideoStatisticsListener {
+            guard let rate = $0?.decodeFrameRate else { return }
+            downlinkRates.append(rate)
+            delivered.fulfill()
+        }
+        try await manager.initialize()
+        let firstJoin = Task { try await manager.joinRoom(configuration: config("first")) }
+        await fulfillment(of: [firstStarted], timeout: 2)
+        first.emit(.joined)
+        try await firstJoin.value
+        await manager.leaveRoom()
+
+        let secondJoin = Task { try await manager.joinRoom(configuration: config("second")) }
+        await fulfillment(of: [secondStarted], timeout: 2)
+        second.emit(.joined)
+        try await secondJoin.value
+        first.emit(.uplinkVideoStatistics(UplinkVideoStatistics(sendFrameRate: 60)), late: true)
+        first.emit(.downlinkVideoStatistics(DownlinkVideoStatistics(userID: "bot", decodeFrameRate: 60)), late: true)
+        second.emit(.uplinkVideoStatistics(UplinkVideoStatistics(sendFrameRate: 30)))
+        second.emit(.downlinkVideoStatistics(DownlinkVideoStatistics(userID: "bot", decodeFrameRate: 24)))
+        await fulfillment(of: [delivered], timeout: 2)
+
+        XCTAssertEqual(uplinkRates, [30])
+        XCTAssertEqual(downlinkRates, [24])
+        await manager.destroy()
+    }
+
     private func makeManager(
         timeout: UInt64 = RtcManager.joinTimeoutNanoseconds,
         makeRoom: @escaping @Sendable (String) throws -> any RtcRoom

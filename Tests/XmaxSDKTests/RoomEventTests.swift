@@ -2,6 +2,29 @@ import XCTest
 @testable import XmaxSDK
 
 final class RoomEventTests: XCTestCase {
+    func testFaceRestorationIsExplicitForStartAndConditionChanges() throws {
+        let format = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
+        let context = RealtimeContext(prompt: "outfit", referencePath: "reference.png")
+        for enabled in [false, true] {
+            let messages = try [
+                RoomEvent.start(
+                    userID: "user", taskID: "task", videoFormat: format,
+                    context: context, faceRestoration: enabled
+                ),
+                RoomEvent.changeCondition(
+                    userID: "user", taskID: "task", videoFormat: format,
+                    context: context, faceRestoration: enabled
+                )
+            ]
+            for message in messages {
+                let event = try decode(message)
+                let params = try XCTUnwrap(event["params"] as? [String: Any])
+                XCTAssertEqual(params["face_replace"] as? Bool, enabled)
+                XCTAssertNil(params["faceRestoration"])
+            }
+        }
+    }
+
     func testChangeTargetSizeOnlyUpdatesReturnDimensions() throws {
         let event = try decode(RoomEvent.changeTargetSize(
             userID: "user-id",
@@ -32,6 +55,7 @@ final class RoomEventTests: XCTestCase {
             let params = try XCTUnwrap(event["params"] as? [String: Any])
             XCTAssertEqual(params["size"] as? [Int], [832, 1472])
             XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
+            XCTAssertEqual(params["face_replace"] as? Bool, false)
             XCTAssertEqual(event["session_uid"] as? String, "task")
             if event["event"] as? String == "start" {
                 XCTAssertEqual(params["mirror"] as? Bool, false)

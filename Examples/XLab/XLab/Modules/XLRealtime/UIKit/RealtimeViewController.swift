@@ -1,6 +1,7 @@
 import Photos
 import PhotosUI
 import SnapKit
+import SwiftUI
 import UIKit
 import XmaxSDK
 
@@ -31,6 +32,13 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var isTouchAnimationGenerationRequested = false
     private var connectionState: RealtimeConnectionState = .idle
     private var isSuspendedForBackground = false
+
+    // 统计展示
+    private let statistics = RealtimeStatisticsStore()
+    private var isStatisticsVisible = false
+    private lazy var statisticsPanel = UIHostingController(
+        rootView: RealtimeStatisticsPanel(statistics: statistics)
+    )
 
     // 音频状态
     private var localAudioVolume: Float?
@@ -171,6 +179,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         actionBar.onOpenAudioVolume = { [weak self] sourceView in
             self?.presentAudioVolumeMenu(from: sourceView)
         }
+        actionBar.onToggleStatistics = { [weak self] in
+            self?.toggleStatistics()
+        }
         actionBar.setFrameInterpolationEnabled(
             Self.initialFrameInterpolationEnabled
         )
@@ -196,6 +207,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         }
         topBar.onFrameInterpolationChanged = { [weak self] enabled in
             self?.setFrameInterpolationEnabled(enabled)
+        }
+        topBar.onToggleStatistics = { [weak self] in
+            self?.toggleStatistics()
         }
         topBar.setFrameInterpolationEnabled(
             Self.initialFrameInterpolationEnabled
@@ -495,6 +509,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         configurePreview()
         configureTopControls()
         configureControlPanel()
+        configureStatisticsPanel()
         configurePromptKeyboard()
         configureKeyboardDismissal()
         observeNotifications()
@@ -574,11 +589,13 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
             make.trailing.equalToSuperview().inset(8)
             make.width.equalTo(58)
-            make.height.equalTo(186)
+            make.height.equalTo(248).priority(750)
+            make.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).offset(-94)
         }
         mediaTopBar.snp.makeConstraints { make in
             make.centerY.equalTo(backButton)
-            make.trailing.equalToSuperview().inset(12)
+            make.leading.greaterThanOrEqualTo(backButton.snp.trailing).offset(8)
+            make.trailing.equalTo(view.safeAreaLayoutGuide).inset(12)
         }
     }
 
@@ -593,6 +610,28 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.bottom.equalTo(controlPanelView.snp.top)
         }
 
+    }
+
+    private func toggleStatistics() {
+        isStatisticsVisible.toggle()
+        statisticsPanel.view.isHidden = !isStatisticsVisible
+        cameraActionBar.setStatisticsVisible(isStatisticsVisible)
+        mediaTopBar.setStatisticsVisible(isStatisticsVisible)
+    }
+
+    private func configureStatisticsPanel() {
+        addChild(statisticsPanel)
+        statisticsPanel.view.backgroundColor = .clear
+        statisticsPanel.view.isHidden = true
+        view.addSubview(statisticsPanel.view)
+        statisticsPanel.view.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(64)
+            make.leading.equalTo(view.safeAreaLayoutGuide).offset(12)
+            make.width.equalTo(184)
+            make.height.equalTo(340).priority(750)
+            make.bottom.lessThanOrEqualTo(controlPanelView.snp.top).offset(-8)
+        }
+        statisticsPanel.didMove(toParent: self)
     }
 
     private func configurePromptKeyboard() {
@@ -639,6 +678,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
             }
+            await statistics.observe(realtimeManager)
             await realtimeManager.setRemoteVideoFrameListener { frame in
                 videoRecorder.append(frame)
             }
@@ -834,7 +874,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             guard let context = reference.context else { return }
             startGeneration(
                 context: context,
-                selectedReferenceID: reference.id
+                selectedReferenceID: reference.id,
+                faceRestoration: reference.categoryID == "clothx"
             )
         case .uploading:
             break
@@ -1033,7 +1074,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                let context = reference.context {
                 startGeneration(
                     context: context,
-                    selectedReferenceID: reference.id
+                    selectedReferenceID: reference.id,
+                    faceRestoration: reference.categoryID == "clothx"
                 )
             }
         case .failure:
@@ -1191,10 +1233,16 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         previewView.displayLocal(nil)
 
         let realtimeManager = realtimeManager
+        let statistics = statistics
+        statistics.clear()
         mediaCleanupTask = Task {
             await previousCleanup?.value
             await pendingRealtimeListener?.value
 
+            await realtimeManager.setUplinkVideoStatisticsListener(nil)
+            await realtimeManager.setDownlinkVideoStatisticsListener(nil)
+            await realtimeManager.setNetworkQualityListener(nil)
+            statistics.clear()
             await realtimeManager.setStateListener(nil)
             await realtimeManager.setRemoteVideoFrameListener(nil)
 
@@ -1243,6 +1291,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             ? currentGenerationContext
             : nil
         let selectedReferenceID = selectedReference?.id
+        let faceRestoration = selectedReference?.categoryID == "clothx"
         isGenerationRequested = false
         isTouchAnimationGenerationRequested = false
         controlPanelView.setGenerationActive(false)
@@ -1281,7 +1330,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 } else if let restartContext {
                     startGeneration(
                         context: restartContext,
-                        selectedReferenceID: selectedReferenceID
+                        selectedReferenceID: selectedReferenceID,
+                        faceRestoration: faceRestoration
                     )
                 } else {
                     renderPreviewLoadingState()
@@ -1297,6 +1347,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func startGeneration(
         context: RealtimeContext,
         selectedReferenceID: String?,
+        faceRestoration: Bool = false,
         isTouchAnimation: Bool = false
     ) {
         if !isTouchAnimation {
@@ -1332,7 +1383,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             do {
                 let remoteStream = try await realtimeManager.startGeneration(
                     localStream: localMediaStream,
-                    context: context
+                    context: context,
+                    faceRestoration: faceRestoration
                 )
                 guard !Task.isCancelled else {
                     await realtimeManager.disconnect()

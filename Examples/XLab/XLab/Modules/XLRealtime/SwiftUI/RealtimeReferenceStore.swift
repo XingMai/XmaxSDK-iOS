@@ -6,7 +6,7 @@ import XmaxSDK
 final class RealtimeReferenceStore: ObservableObject {
 
     // 参考图事件
-    var onSelectedContextChanged: ((RealtimeContext?) -> Void)?
+    var onSelectedContextChanged: ((RealtimeContext?, Bool) -> Void)?
 
     // 参考图数据
     @Published private(set) var referencesByCategory: [
@@ -70,17 +70,17 @@ final class RealtimeReferenceStore: ObservableObject {
         }
         if selectedReferenceID == reference.id {
             selectedReferenceID = nil
-            onSelectedContextChanged?(nil)
+            onSelectedContextChanged?(nil, false)
         } else {
             selectedReferenceID = reference.id
-            onSelectedContextChanged?(reference.context)
+            onSelectedContextChanged?(reference.context, reference.categoryID == "clothx")
         }
     }
 
     func clearSelection(notifiesContextChange: Bool = true) {
         selectedReferenceID = nil
         if notifiesContextChange {
-            onSelectedContextChanged?(nil)
+            onSelectedContextChanged?(nil, false)
         }
     }
 
@@ -178,7 +178,7 @@ final class RealtimeReferenceStore: ObservableObject {
             reference.referencePath = remoteURL.absoluteString
             reference.uploadState = .ready
             if selectedReferenceID == reference.id {
-                onSelectedContextChanged?(reference.context)
+                onSelectedContextChanged?(reference.context, reference.categoryID == "clothx")
             }
         case .failure:
             reference.uploadState = .failed

@@ -16,6 +16,7 @@ final class RealtimeMediaTopBar: UIView {
     }
 
     // 事件监听
+    var onToggleStatistics: (() -> Void)?
     var onOpenGallery: (() -> Void)?
     var onToggleRecording: (() -> Void)?
     var onOpenAudioVolume: ((UIView) -> Void)?
@@ -30,6 +31,17 @@ final class RealtimeMediaTopBar: UIView {
     private var isFrameInterpolationEnabled = false
 
     // 界面组件
+    private lazy var statisticsButton: RealtimeMediaActionButton = {
+        let button = makeActionButton(
+            title: XLLocalization.text("statistics.title"),
+            systemName: "chart.bar.fill",
+            accessibilityLabel: XLLocalization.text("statistics.title")
+        )
+        button.accessibilityLabel = XLLocalization.text("statistics.title")
+        button.addTarget(self, action: #selector(toggleStatistics), for: .touchUpInside)
+        return button
+    }()
+
     private lazy var recordingButton: RealtimeMediaActionButton = {
         let button = makeActionButton(
             title: XLLocalization.text("record.title"),
@@ -109,7 +121,7 @@ final class RealtimeMediaTopBar: UIView {
     }()
 
     private lazy var stackView: UIStackView = {
-        var buttons: [UIView] = []
+        var buttons: [UIView] = [statisticsButton]
         if showsVideoControls {
             buttons.append(recordingButton)
             buttons.append(audioVolumeButton)
@@ -142,7 +154,7 @@ final class RealtimeMediaTopBar: UIView {
 
     override var intrinsicContentSize: CGSize {
         CGSize(
-            width: CGFloat(showsVideoControls ? 5 : 2) * Layout.itemWidth,
+            width: CGFloat(showsVideoControls ? 6 : 3) * Layout.itemWidth,
             height: Layout.height
         )
     }
@@ -242,6 +254,18 @@ final class RealtimeMediaTopBar: UIView {
         )
         muteButton.accessibilityLabel = isMuted ? XLLocalization.text("realtime.sound.enable") : XLLocalization.text("realtime.sound.disable")
         muteButton.accessibilityValue = isMuted ? XLLocalization.text("realtime.muted") : XLLocalization.text("common.enabled")
+    }
+
+    func setStatisticsVisible(_ visible: Bool) {
+        statisticsButton.setActive(visible)
+        statisticsButton.setTintColor(visible ? .systemBlue : .white)
+        statisticsButton.accessibilityValue = XLLocalization.text(
+            visible ? "common.enabled" : "common.disabled"
+        )
+    }
+
+    @objc private func toggleStatistics() {
+        onToggleStatistics?()
     }
 
     @objc private func openAudioVolume() {

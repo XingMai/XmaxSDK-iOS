@@ -903,7 +903,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         _ = try await components.manager.connect(localStream: localStream)
         let firstStartTask = Task {
             try await components.manager.startGeneration(
-                context: RealtimeContext(prompt: "prompt")
+                context: RealtimeContext(prompt: "prompt"),
+                faceRestoration: true
             )
         }
         await waitForEvent("start", rtcManager: components.rtcManager)
@@ -942,6 +943,10 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             startEvents.last?["uid"] as? String
         )
         XCTAssertNotEqual(restartedTaskID, firstTaskID)
+        XCTAssertEqual(
+            startEvents.compactMap { ($0["params"] as? [String: Any])?["face_replace"] as? Bool },
+            [true, true]
+        )
         components.rtcManager.emitRemoteVideoAvailable(
             stream: RemoteStream(
                 roomID: "room-id",

@@ -130,9 +130,38 @@ public extension XmaxRealtimeManaging {
     ///
     /// 首次开始生成时没有缓存条件，因此仍需调用带 `context` 参数的重载。
     ///
+    /// - Parameter faceRestoration: 是否回贴原始人脸，默认关闭。
     /// - Throws: 没有可复用条件，或生成启动及更新失败时抛出错误。
-    func startGeneration() async throws {
-        try await startGeneration(context: nil)
+    func startGeneration(faceRestoration: Bool = false) async throws {
+        try await startGeneration(context: nil, faceRestoration: faceRestoration)
+    }
+
+
+    /// 开始或更新生成，默认关闭人脸还原。
+    ///
+    /// - Parameter context: 本次生成条件；传入 nil 时复用缓存条件。
+    /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
+    func startGeneration(context: RealtimeContext?) async throws {
+        try await startGeneration(context: context, faceRestoration: false)
+    }
+
+
+    /// 使用当前本地流按需连接并开始生成，默认关闭人脸还原。
+    ///
+    /// - Parameters:
+    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
+    ///   - context: 本次生成条件；首次生成不能为空。
+    /// - Returns: 当前连接对应的远端媒体流。
+    /// - Throws: 本地流无效、连接失败或生成启动失败时抛出错误。
+    func startGeneration(
+        localStream: RealtimeMediaStream,
+        context: RealtimeContext?
+    ) async throws -> RealtimeMediaStream {
+        try await startGeneration(
+            localStream: localStream,
+            context: context,
+            faceRestoration: false
+        )
     }
 
 
@@ -140,15 +169,19 @@ public extension XmaxRealtimeManaging {
     ///
     /// 首次开始生成时没有缓存条件，因此仍需调用带 `context` 参数的重载。
     ///
-    /// - Parameter localStream: 当前 Manager 创建并持有的本地媒体流。
+    /// - Parameters:
+    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
+    ///   - faceRestoration: 是否回贴原始人脸，默认关闭。
     /// - Returns: 当前 RTC 连接对应的远端媒体流。
     /// - Throws: 没有可复用条件、本地流无效，或连接及生成启动失败时抛出错误。
     func startGeneration(
-        localStream: RealtimeMediaStream
+        localStream: RealtimeMediaStream,
+        faceRestoration: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await startGeneration(
             localStream: localStream,
-            context: nil
+            context: nil,
+            faceRestoration: faceRestoration
         )
     }
 }

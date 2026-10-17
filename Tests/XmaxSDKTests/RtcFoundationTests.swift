@@ -35,6 +35,11 @@ final class RtcFoundationTests: XCTestCase {
         let configuration = VideoEncodingConfiguration(width: 720, height: 1280, frameRate: 24)
         XCTAssertEqual(configuration.minimumBitrate, 0)
         XCTAssertEqual(configuration.maximumBitrate, -1)
+        XCTAssertEqual(configuration.encoderPreference, .maintainFramerate)
+        XCTAssertEqual(
+            RtcVideoConverter.makeEncoderConfiguration(configuration).degradationPreference,
+            .maintainFramerate
+        )
     }
 
     func testQualityConverterMapsKnownAndUnsupportedLevels() {

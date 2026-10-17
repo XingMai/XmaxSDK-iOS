@@ -6,6 +6,8 @@ enum RtcRoomEvent: Sendable {
     case publication(userID: String, published: Bool)
     case failure(XmaxError)
     case quality(uplink: RtcQualityLevel, downlink: RtcQualityLevel)
+    case uplinkVideoStatistics(UplinkVideoStatistics)
+    case downlinkVideoStatistics(DownlinkVideoStatistics)
     case performance(limited: Bool, width: Int, height: Int, frameRate: Int)
 }
 

@@ -93,6 +93,14 @@ final class StreamController: StreamControlling, RtcEventListener,
         try encodingController.configure(videoFormat)
     }
 
+    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
+        qualityController.setUplinkVideoStatisticsListener(listener)
+    }
+
+    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) {
+        qualityController.setDownlinkVideoStatisticsListener(listener)
+    }
+
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {
@@ -147,7 +155,8 @@ final class StreamController: StreamControlling, RtcEventListener,
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool = false
     ) async throws -> Task<Void, any Error> {
         timing.beginSignal(taskID: taskID)
         let confirmation = try beginGenerationConfirmation(taskID: taskID)
@@ -156,7 +165,8 @@ final class StreamController: StreamControlling, RtcEventListener,
                 taskID: taskID,
                 videoFormat: videoFormat,
                 targetSize: targetSize,
-                context: context
+                context: context,
+                faceRestoration: faceRestoration
             )
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask { try await self.rtcManager.awaitPendingMessages() }
@@ -197,13 +207,15 @@ final class StreamController: StreamControlling, RtcEventListener,
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool = false
     ) async throws {
         try await roomController.changeGenerationCondition(
             taskID: taskID,
             videoFormat: videoFormat,
             targetSize: targetSize,
-            context: context
+            context: context,
+            faceRestoration: faceRestoration
         )
     }
 
@@ -275,6 +287,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                     stateLock.withLock {
                         state.localVideoPublished = true
                     }
+                    qualityController.setUplinkVideoStatisticsEnabled(true)
                     publishedVideoInOperation = true
                 }
 
@@ -463,6 +476,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     }
 
     func resetStream() async {
+        qualityController.setUplinkVideoStatisticsEnabled(false)
         _ = await stopStreamGeneration(taskID: "")
         operationLock.withLock {
             let previousState = stateLock.withLock { () -> State in
@@ -581,6 +595,7 @@ private extension StreamController {
             stateLock.withLock {
                 if state.generationTask?.id == waiter.taskID {
                     state.activeRemoteStream = stream
+                    qualityController.setDownlinkVideoStatisticsUser(stream.userID)
                 }
             }
         } catch {
@@ -759,6 +774,7 @@ private extension StreamController {
 
     @MainActor
     func clearRemoteStream() {
+        qualityController.setDownlinkVideoStatisticsUser(nil)
         do {
             try remoteStreamListener(nil)
         } catch {
@@ -771,6 +787,7 @@ private extension StreamController {
     }
 
     func rollbackLocalVideoPublication() {
+        qualityController.setUplinkVideoStatisticsEnabled(false)
         do {
             try rtcManager.unpublishLocalVideo()
             stateLock.withLock {

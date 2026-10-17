@@ -3,6 +3,74 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeGenerationManagerTests: XCTestCase {
+    func testFaceRestorationCanChangeWithCachedContextAndDefaultsBackToFalse() async throws {
+        let components = try await makeComponents()
+        let context = RealtimeContext(prompt: "cached", referencePath: "reference.png")
+        let start = Task {
+            try await components.manager.start(
+                videoFormat: videoFormat,
+                context: context,
+                faceRestoration: true,
+                ensureCurrent: {}
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: remoteStream)
+        let taskID = try await start.value
+        let initiallyEnabled = await components.manager.cachedFaceRestoration
+        XCTAssertTrue(initiallyEnabled)
+
+        try await components.manager.update(
+            taskID: taskID, videoFormat: videoFormat, context: nil,
+            faceRestoration: true
+        )
+        try await components.manager.update(
+            taskID: taskID, videoFormat: videoFormat, context: nil
+        )
+        let events = decodedEvents(components.rtcManager).filter {
+            ["start", "change_condition"].contains($0["event"] as? String ?? "")
+        }
+        XCTAssertEqual(events.count, 3)
+        let params = try events.map { try XCTUnwrap($0["params"] as? [String: Any]) }
+        XCTAssertEqual(params.compactMap { $0["face_replace"] as? Bool }, [true, true, false])
+        XCTAssertTrue(params.allSatisfy { $0["prompt"] as? String == "cached" })
+        XCTAssertTrue(params.allSatisfy { $0["ref_image_path"] as? String == "reference.png" })
+        let finallyEnabled = await components.manager.cachedFaceRestoration
+        XCTAssertFalse(finallyEnabled)
+        try await components.manager.reset(taskID: taskID)
+        await components.roomController.leave()
+    }
+
+    func testFailedUpdateDoesNotOverwriteCachedFaceRestoration() async throws {
+        let components = try await makeComponents()
+        let start = Task {
+            try await components.manager.start(
+                videoFormat: videoFormat,
+                context: RealtimeContext(prompt: "first"),
+                faceRestoration: true,
+                ensureCurrent: {}
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: remoteStream)
+        let taskID = try await start.value
+
+        do {
+            try await components.manager.update(
+                taskID: taskID, videoFormat: videoFormat, context: nil,
+                faceRestoration: false,
+                ensureCurrent: { throw CancellationError() }
+            )
+            XCTFail("Expected cancelled update")
+        } catch is CancellationError {}
+        let enabled = await components.manager.cachedFaceRestoration
+        XCTAssertTrue(enabled)
+        try await components.manager.reset(taskID: taskID)
+        let resetEnabled = await components.manager.cachedFaceRestoration
+        XCTAssertFalse(resetEnabled)
+        await components.roomController.leave()
+    }
+
     func testStartSendsSignalAndWaitsForRemotePublication() async throws {
         let components = try await makeComponents()
         let context = RealtimeContext(prompt: "first prompt")
@@ -203,6 +271,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: RealtimeContext(prompt: "cached prompt"),
+                faceRestoration: true,
                 ensureCurrent: {}
             )
         }
@@ -211,11 +280,14 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             stream: remoteStream)
         let firstTaskID = try await firstStart.value
         try await components.manager.stop(taskID: firstTaskID)
+        let cachedFaceRestoration = await components.manager.cachedFaceRestoration
+        XCTAssertTrue(cachedFaceRestoration)
 
         let secondStart = Task {
             try await components.manager.start(
                 videoFormat: videoFormat,
                 context: nil,
+                faceRestoration: cachedFaceRestoration,
                 ensureCurrent: {}
             )
         }
@@ -227,6 +299,8 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         components.rtcManager.emitRemoteVideoAvailable(
             stream: remoteStream)
         let secondTaskID = try await secondStart.value
+        let starts = decodedEvents(components.rtcManager).filter { $0["event"] as? String == "start" }
+        XCTAssertEqual(starts.compactMap { ($0["params"] as? [String: Any])?["face_replace"] as? Bool }, [true, true])
         try await components.manager.reset(taskID: secondTaskID)
 
         do {

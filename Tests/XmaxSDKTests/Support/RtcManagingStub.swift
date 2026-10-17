@@ -321,6 +321,18 @@ extension RtcManagingStub {
     }
 
     @MainActor
+    func emitUplinkVideoStatistics(_ statistics: UplinkVideoStatistics) {
+        let listener = lock.withLock { storedQualityListener }
+        listener?.onUplinkVideoStatistics(statistics)
+    }
+
+    @MainActor
+    func emitDownlinkVideoStatistics(_ statistics: DownlinkVideoStatistics) {
+        let listener = lock.withLock { storedQualityListener }
+        listener?.onDownlinkVideoStatistics(statistics)
+    }
+
+    @MainActor
     func emitNetworkQuality(
         uplink: RtcQualityLevel,
         downlink: RtcQualityLevel

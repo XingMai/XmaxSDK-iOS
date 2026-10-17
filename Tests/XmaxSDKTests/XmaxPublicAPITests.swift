@@ -207,11 +207,13 @@ final class XmaxPublicAPITests: XCTestCase {
     private func startGeneration(
         using manager: any XmaxRealtimeManaging,
         localStream: RealtimeMediaStream,
-        context: RealtimeContext?
+        context: RealtimeContext?,
+        faceRestoration: Bool = false
     ) async throws -> RealtimeMediaStream {
         try await manager.startGeneration(
             localStream: localStream,
-            context: context
+            context: context,
+            faceRestoration: faceRestoration
         )
     }
 

@@ -232,10 +232,12 @@ private extension AgoraRtcRoom {
                     )
                 ]
             case .localStats(let stats):
-                RtcStatsLogger.logLocalStreamStats(stats)
+                let statistics = RtcQualityConverter.uplinkVideoStatistics(stats)
+                RtcStatsLogger.logUplinkVideoStatistics(statistics)
                 let adaptation = stats.qualityAdaptIndication.rawValue
-                guard adaptation == 1 || adaptation == 2 else { return [] }
-                return [
+                let events: [RtcRoomEvent] = [.uplinkVideoStatistics(statistics)]
+                guard adaptation == 1 || adaptation == 2 else { return events }
+                return events + [
                     .performance(
                         limited: adaptation == 2,
                         width: stats.encodedFrameWidth,
@@ -244,8 +246,11 @@ private extension AgoraRtcRoom {
                     )
                 ]
             case .remoteStats(let stats):
-                RtcStatsLogger.logRemoteStreamStats(stats)
-                return []
+                resolveAccount(uid: stats.uid)
+                guard let account = accounts[stats.uid] else { return [] }
+                let statistics = RtcQualityConverter.downlinkVideoStatistics(userID: account, stats)
+                RtcStatsLogger.logDownlinkVideoStatistics(statistics)
+                return [.downlinkVideoStatistics(statistics)]
             }
         }
 

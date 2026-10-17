@@ -19,12 +19,14 @@ protocol RoomControlling: Actor {
     ///   - videoFormat: 模型生成使用的视频规格。
     ///   - targetSize: 服务端生成后的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 当前生成条件。
+    ///   - faceRestoration: 是否回贴原始人脸。
     /// - Throws: 房间未就绪、参数无效或信令发送失败时抛出错误。
     func startGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool
     ) throws
 
     /// 发送生成条件变更信令。
@@ -34,12 +36,14 @@ protocol RoomControlling: Actor {
     ///   - videoFormat: 模型生成使用的视频规格。
     ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 更新后的生成条件。
+    ///   - faceRestoration: 是否回贴原始人脸。
     /// - Throws: 房间未就绪、参数无效或信令发送失败时抛出错误。
     func changeGenerationCondition(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool
     ) throws
 
     /// 调整当前生成任务的回传尺寸。

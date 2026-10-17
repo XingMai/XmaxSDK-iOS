@@ -20,7 +20,7 @@ struct VideoEncodingConfiguration: Equatable, Sendable {
         frameRate: Int,
         minimumBitrate: Int = 0,
         maximumBitrate: Int = -1,
-        encoderPreference: EncoderPreference = .auto
+        encoderPreference: EncoderPreference = .maintainFramerate
     ) {
         self.width = width
         self.height = height

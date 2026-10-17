@@ -4,6 +4,7 @@ import UIKit
 final class RealtimeCameraActionBar: UIView {
 
     // 事件监听
+    var onToggleStatistics: (() -> Void)?
     var onSwitchCamera: (() -> Void)?
     var onFrameInterpolationChanged: ((Bool) -> Void)?
     var onOpenAudioVolume: ((UIView) -> Void)?
@@ -12,6 +13,16 @@ final class RealtimeCameraActionBar: UIView {
     private var isFrameInterpolationEnabled = false
 
     // 界面组件
+    private lazy var statisticsButton: RealtimeLabeledActionButton = {
+        let button = RealtimeLabeledActionButton(
+            title: XLLocalization.text("statistics.title"),
+            image: UIImage(systemName: "chart.bar.fill")
+        )
+        button.accessibilityLabel = XLLocalization.text("statistics.title")
+        button.addTarget(self, action: #selector(toggleStatistics), for: .touchUpInside)
+        return button
+    }()
+
     private lazy var switchCameraButton: RealtimeLabeledActionButton = {
         let button = RealtimeLabeledActionButton(
             title: XLLocalization.text("realtime.flip"),
@@ -72,7 +83,8 @@ final class RealtimeCameraActionBar: UIView {
             arrangedSubviews: [
                 switchCameraButton,
                 frameInterpolationButton,
-                audioVolumeButton
+                audioVolumeButton,
+                statisticsButton
             ]
         )
         stackView.axis = .vertical
@@ -116,6 +128,18 @@ final class RealtimeCameraActionBar: UIView {
 
     @objc private func toggleFrameInterpolation() {
         onFrameInterpolationChanged?(!isFrameInterpolationEnabled)
+    }
+
+    func setStatisticsVisible(_ visible: Bool) {
+        statisticsButton.setActive(visible, color: .systemBlue)
+
+        statisticsButton.accessibilityValue = XLLocalization.text(
+            visible ? "common.enabled" : "common.disabled"
+        )
+    }
+
+    @objc private func toggleStatistics() {
+        onToggleStatistics?()
     }
 
     @objc private func openAudioVolume() {
@@ -173,8 +197,8 @@ private final class RealtimeLabeledActionButton: UIControl {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func setActive(_ isActive: Bool) {
-        iconView.tintColor = isActive ? .systemYellow : .white
+    func setActive(_ isActive: Bool, color: UIColor = .systemYellow) {
+        iconView.tintColor = isActive ? color : .white
         if isActive {
             accessibilityTraits.insert(.selected)
         } else {

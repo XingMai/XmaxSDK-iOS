@@ -9,6 +9,9 @@ final class RealtimeSessionController: ObservableObject {
     @Published private(set) var localVideoTrack: RealtimeVideoTrack?
     @Published private(set) var remoteVideoTrack: RealtimeVideoTrack?
 
+    // 统计展示
+    let statistics = RealtimeStatisticsStore()
+
     // 实时状态
     @Published private(set) var connectionState: RealtimeConnectionState = .idle
     @Published private(set) var isGenerationRequested = false
@@ -97,6 +100,7 @@ final class RealtimeSessionController: ObservableObject {
             await realtimeManager.setStateListener { [weak self] state in
                 self?.renderRealtimeState(state)
             }
+            await statistics.observe(realtimeManager)
             do {
                 let stream = try await realtimeManager.createLocalCameraStream(
                     videoFormat: RealtimePreferences.cameraVideoFormat,
@@ -115,7 +119,7 @@ final class RealtimeSessionController: ObservableObject {
         }
     }
 
-    func startGeneration(context: RealtimeContext) {
+    func startGeneration(context: RealtimeContext, faceRestoration: Bool = false) {
         guard let localMediaStream else {
             errorMessage = XLLocalization.text("realtime.media.notReady")
             return
@@ -133,7 +137,8 @@ final class RealtimeSessionController: ObservableObject {
             do {
                 let remoteStream = try await realtimeManager.startGeneration(
                     localStream: localMediaStream,
-                    context: context
+                    context: context,
+                    faceRestoration: faceRestoration
                 )
                 guard !Task.isCancelled else {
                     await realtimeManager.disconnect()
@@ -254,17 +259,23 @@ final class RealtimeSessionController: ObservableObject {
         localVideoTrack = nil
         remoteVideoTrack = nil
         connectionState = .idle
+        statistics.clear()
         isGenerationRequested = false
         isLoading = false
         isBackCameraSelected = false
         isCameraSwitching = false
 
         let realtimeManager = realtimeManager
+        let statistics = statistics
         cleanupTask = Task {
             await pendingStartup?.value
             await pendingGeneration?.value
             await pendingCameraSwitch?.value
             await pendingFrameInterpolation?.value
+            await realtimeManager.setUplinkVideoStatisticsListener(nil)
+            await realtimeManager.setDownlinkVideoStatisticsListener(nil)
+            await realtimeManager.setNetworkQualityListener(nil)
+            statistics.clear()
             await realtimeManager.setStateListener(nil)
             await realtimeManager.close()
         }

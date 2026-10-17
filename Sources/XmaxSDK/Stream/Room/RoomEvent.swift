@@ -7,7 +7,8 @@ enum RoomEvent {
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool = false
     ) throws -> String {
         try encode(
             StartPayload(
@@ -15,6 +16,7 @@ enum RoomEvent {
                     videoFormat: videoFormat,
                     targetSize: targetSize,
                     context: context,
+                    faceRestoration: faceRestoration,
                     mirror: false
                 ),
                 userID: userID,
@@ -28,14 +30,16 @@ enum RoomEvent {
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool = false
     ) throws -> String {
         try encode(
             ChangeConditionPayload(
                 params: GenerationParameters(
                     videoFormat: videoFormat,
                     targetSize: targetSize,
-                    context: context
+                    context: context,
+                    faceRestoration: faceRestoration
                 ),
                 userID: userID,
                 taskID: taskID
@@ -131,11 +135,13 @@ private extension RoomEvent {
         let prompt: String
         let referencePath: String?
         let mirror: Bool?
+        let faceRestoration: Bool
 
         init(
             videoFormat: RealtimeVideoFormat,
             targetSize: CGSize?,
             context: RealtimeContext,
+            faceRestoration: Bool,
             mirror: Bool? = nil
         ) {
             size = [videoFormat.width, videoFormat.height]
@@ -143,6 +149,7 @@ private extension RoomEvent {
             prompt = context.prompt
             referencePath = context.referencePath
             self.mirror = mirror
+            self.faceRestoration = faceRestoration
         }
 
         enum CodingKeys: String, CodingKey {
@@ -152,6 +159,7 @@ private extension RoomEvent {
             case prompt
             case referencePath = "ref_image_path"
             case mirror
+            case faceRestoration = "face_replace"
         }
     }
 

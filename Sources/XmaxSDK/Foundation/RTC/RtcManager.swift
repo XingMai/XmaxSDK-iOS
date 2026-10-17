@@ -386,6 +386,10 @@ private extension RtcManager {
                 failRoom(id: id, error: error)
             case .quality(let uplink, let downlink):
                 notifyQuality(id: id) { $0.onNetworkQuality(uplink: uplink, downlink: downlink) }
+            case .uplinkVideoStatistics(let statistics):
+                notifyQuality(id: id) { $0.onUplinkVideoStatistics(statistics) }
+            case .downlinkVideoStatistics(let statistics):
+                notifyQuality(id: id) { $0.onDownlinkVideoStatistics(statistics) }
             case .performance(let limited, let width, let height, let fps):
                 notifyQuality(id: id) {
                     $0.onPerformanceAlarm(

@@ -15,6 +15,16 @@ protocol StreamControlling: Sendable {
     /// - Throws: 视频格式无效或 RTC 编码配置失败时抛出错误。
     func setVideoEncoderConfig(_ videoFormat: RealtimeVideoFormat) throws
 
+    /// 设置视频上行统计监听器。
+    ///
+    /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
+    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?)
+
+    /// 设置视频下行统计监听器。
+    ///
+    /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
+    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?)
+
     /// 设置网络质量监听器，传入空值时清除监听器。
     ///
     /// - Parameter listener: 接收上行和下行网络质量事件的监听器；
@@ -76,6 +86,7 @@ protocol StreamControlling: Sendable {
     ///   - videoFormat: 当前本地媒体使用的视频格式。
     ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 当前生成任务使用的条件上下文。
+    ///   - faceRestoration: 是否回贴原始人脸。
     /// - Returns: 等待匹配远端结果流确认的任务。
     /// - Throws: 任务标识无效、RTC 房间未就绪、已有生成任务，或开始信令
     ///   发送失败时抛出错误。
@@ -83,7 +94,8 @@ protocol StreamControlling: Sendable {
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool
     ) async throws -> Task<Void, any Error>
 
     /// 在远端首帧已经可显示后订阅当前生成流的音频。
@@ -98,13 +110,15 @@ protocol StreamControlling: Sendable {
     ///   - videoFormat: 当前本地媒体使用的视频格式。
     ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
     ///   - context: 更新后的生成条件上下文。
+    ///   - faceRestoration: 是否回贴原始人脸。
     /// - Throws: RTC 房间未就绪、参数无效或条件变更信令发送失败时
     ///   抛出错误。
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize?,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool
     ) async throws
 
     /// 调整当前生成任务的回传尺寸，不重启生成。

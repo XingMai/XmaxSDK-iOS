@@ -10,9 +10,79 @@ final class QualityController: QualityControlling, RtcQualityListener,
     // 事件监听
     private var networkQualityListener: RealtimeNetworkQualityListener?
     private var performanceAlarmListener: RealtimePerformanceAlarmListener?
+    private var uplinkStatisticsListener: UplinkVideoStatisticsListener?
+    private var downlinkStatisticsListener: DownlinkVideoStatisticsListener?
+
+    // 统计生命周期
+    private var uplinkStatisticsEnabled = false
+    private var downlinkStatisticsUser: String?
+    private var uplinkStatisticsVersion = 0
+    private var downlinkStatisticsVersion = 0
 
     init(rtcManager: any RtcManaging) {
         rtcManager.setQualityListener(self)
+    }
+
+    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
+        listenerLock.withLock {
+            uplinkStatisticsVersion &+= 1
+            uplinkStatisticsListener = listener
+        }
+    }
+
+    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) {
+        listenerLock.withLock {
+            downlinkStatisticsVersion &+= 1
+            downlinkStatisticsListener = listener
+        }
+    }
+
+    func setUplinkVideoStatisticsEnabled(_ enabled: Bool) {
+        let version = listenerLock.withLock {
+            uplinkStatisticsVersion &+= 1
+            uplinkStatisticsEnabled = enabled
+            return uplinkStatisticsVersion
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let listener = listenerLock.withLock {
+                uplinkStatisticsVersion == version ? uplinkStatisticsListener : nil
+            }
+            listener?(nil)
+        }
+    }
+
+    func setDownlinkVideoStatisticsUser(_ userID: String?) {
+        let version = listenerLock.withLock {
+            downlinkStatisticsVersion &+= 1
+            downlinkStatisticsUser = userID
+            return downlinkStatisticsVersion
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let listener = listenerLock.withLock {
+                downlinkStatisticsVersion == version ? downlinkStatisticsListener : nil
+            }
+            listener?(nil)
+        }
+    }
+
+    @MainActor
+    func onUplinkVideoStatistics(_ statistics: UplinkVideoStatistics) {
+        let listener = listenerLock.withLock {
+            uplinkStatisticsEnabled ? uplinkStatisticsListener : nil
+        }
+        listener?(statistics)
+    }
+
+    @MainActor
+    func onDownlinkVideoStatistics(_ statistics: DownlinkVideoStatistics) {
+        let listener = listenerLock.withLock {
+            statistics.userID == downlinkStatisticsUser ? downlinkStatisticsListener : nil
+        }
+        listener?(statistics)
     }
 
     func setNetworkQualityListener(

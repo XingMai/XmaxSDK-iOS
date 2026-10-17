@@ -29,6 +29,7 @@ struct RealtimeView: View {
     @State private var isReferencePickerPresented = false
     @State private var referencePickerDestination: ReferencePickerDestination?
     @State private var isSuspendedForBackground = false
+    @State private var isStatisticsVisible = false
     @State private var prompt = ""
     @FocusState private var isPromptFieldFocused: Bool
 
@@ -59,6 +60,15 @@ struct RealtimeView: View {
                 .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
 
             topControls
+
+            if isStatisticsVisible {
+                GeometryReader { geometry in
+                    RealtimeStatisticsPanel(statistics: realtimeSession.statistics)
+                        .frame(width: 184, height: max(0, min(340, geometry.size.height - 72)))
+                        .padding(.leading, 12)
+                        .padding(.top, 64)
+                }
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             controlPanel
@@ -119,9 +129,9 @@ struct RealtimeView: View {
             realtimeSession.start()
         }
         .onAppear {
-            referenceStore.onSelectedContextChanged = { context in
+            referenceStore.onSelectedContextChanged = { context, faceRestoration in
                 if let context {
-                    realtimeSession.startGeneration(context: context)
+                    realtimeSession.startGeneration(context: context, faceRestoration: faceRestoration)
                 } else {
                     realtimeSession.disconnectGeneration()
                 }
@@ -198,8 +208,20 @@ private extension RealtimeView {
                         ? XLLocalization.text("realtime.interpolation.disable")
                         : XLLocalization.text("realtime.interpolation.enable")
                 )
+
+                RealtimeActionButton(
+                    title: XLLocalization.text("statistics.title"),
+                    image: Image(systemName: "chart.bar.fill"),
+                    isActive: isStatisticsVisible,
+                    activeColor: .blue
+                ) {
+                    isStatisticsVisible.toggle()
+                }
+                .accessibilityValue(
+                    XLLocalization.text(isStatisticsVisible ? "common.enabled" : "common.disabled")
+                )
             }
-            .frame(width: 58, height: 124)
+            .frame(width: 58, height: 186)
         }
         .padding(.leading, 12)
         .padding(.trailing, 8)
@@ -742,6 +764,7 @@ private struct RealtimeActionButton: View {
     let image: Image
     let isActive: Bool
     var isHorizontallyFlipped = false
+    var activeColor: Color = .yellow
     let action: @MainActor () -> Void
 
     var body: some View {
@@ -751,7 +774,7 @@ private struct RealtimeActionButton: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 22, height: 22)
-                    .foregroundStyle(isActive ? Color.yellow : Color.white)
+                    .foregroundStyle(isActive ? activeColor : Color.white)
                     .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
                     .rotation3DEffect(
                         .degrees(isHorizontallyFlipped ? 180 : 0),

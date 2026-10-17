@@ -14,6 +14,10 @@ actor XmaxRealtimeGenerationManager {
 
     // 生成资源
     private var currentContext: RealtimeContext?
+    private var currentFaceRestoration = false
+
+    /// 自动重启生成时复用上次成功请求的人脸还原设置。
+    var cachedFaceRestoration: Bool { currentFaceRestoration }
 
     init(
         interactionController: any InteractionControlling,
@@ -40,6 +44,7 @@ actor XmaxRealtimeGenerationManager {
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
         context: RealtimeContext?,
+        faceRestoration: Bool = false,
         ensureCurrent: @escaping RealtimeGenerationValidity
     ) async throws -> String {
         guard let resolvedContext = context ?? currentContext else {
@@ -54,7 +59,8 @@ actor XmaxRealtimeGenerationManager {
             taskID: taskID,
             videoFormat: videoFormat,
             targetSize: targetSize,
-            context: resolvedContext
+            context: resolvedContext,
+            faceRestoration: faceRestoration
         )
         do {
             try await withTaskCancellationHandler {
@@ -68,7 +74,9 @@ actor XmaxRealtimeGenerationManager {
                 taskID: taskID,
                 videoFormat: videoFormat
             )
+            try ensureCurrent()
             currentContext = resolvedContext
+            currentFaceRestoration = faceRestoration
             return taskID
         } catch {
             try? await stop(taskID: taskID)
@@ -80,23 +88,32 @@ actor XmaxRealtimeGenerationManager {
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext?
+        context: RealtimeContext?,
+        faceRestoration: Bool = false,
+        ensureCurrent: RealtimeGenerationValidity = {}
     ) async throws {
-        await interactionController.startInteraction(
-            taskID: taskID,
-            videoFormat: videoFormat
-        )
-        guard let context else {
-            return
+        guard let resolvedContext = context ?? currentContext else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "A realtime context is required for the first generation"
+            )
         }
 
         try await streamController.updateGeneration(
             taskID: taskID,
             videoFormat: videoFormat,
             targetSize: targetSize,
-            context: context
+            context: resolvedContext,
+            faceRestoration: faceRestoration
         )
-        currentContext = context
+        try ensureCurrent()
+        await interactionController.startInteraction(
+            taskID: taskID,
+            videoFormat: videoFormat
+        )
+        try ensureCurrent()
+        currentContext = resolvedContext
+        currentFaceRestoration = faceRestoration
     }
 
     func stop(taskID: String) async throws {
@@ -106,6 +123,7 @@ actor XmaxRealtimeGenerationManager {
 
     func reset(taskID: String = "") async throws {
         currentContext = nil
+        currentFaceRestoration = false
         try await stop(taskID: taskID)
     }
 

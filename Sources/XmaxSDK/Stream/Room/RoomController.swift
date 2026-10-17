@@ -116,7 +116,8 @@ actor RoomController: RoomControlling {
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool = false
     ) throws {
         try send(
             RoomEvent.start(
@@ -124,7 +125,8 @@ actor RoomController: RoomControlling {
                 taskID: taskID,
                 videoFormat: videoFormat,
                 targetSize: targetSize,
-                context: context
+                context: context,
+                faceRestoration: faceRestoration
             )
         )
     }
@@ -133,7 +135,8 @@ actor RoomController: RoomControlling {
         taskID: String,
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
-        context: RealtimeContext
+        context: RealtimeContext,
+        faceRestoration: Bool = false
     ) throws {
         try Task.checkCancellation()
         try send(
@@ -142,7 +145,8 @@ actor RoomController: RoomControlling {
                 taskID: taskID,
                 videoFormat: videoFormat,
                 targetSize: targetSize,
-                context: context
+                context: context,
+                faceRestoration: faceRestoration
             )
         )
     }

@@ -2,6 +2,52 @@ import XCTest
 @testable import XmaxSDK
 
 final class StreamControllerTests: XCTestCase {
+    @MainActor
+    func testStatisticsFollowPublicationResultStreamAndDisconnect() async throws {
+        let rtcManager = RtcManagingStub()
+        let controller = StreamController(rtcManager: rtcManager)
+        var uplink: UplinkVideoStatistics?
+        var downlink: DownlinkVideoStatistics?
+        var uplinkSamples = 0
+        var downlinkSamples = 0
+        let uplinkCleared = expectation(description: "Uplink cleared")
+        let downlinkCleared = expectation(description: "Downlink cleared")
+        controller.setUplinkVideoStatisticsListener {
+            uplink = $0
+            if $0 != nil { uplinkSamples += 1 }
+            if uplinkSamples > 0 && $0 == nil { uplinkCleared.fulfill() }
+        }
+        controller.setDownlinkVideoStatisticsListener {
+            downlink = $0
+            if $0 != nil { downlinkSamples += 1 }
+            if downlinkSamples > 0 && $0 == nil { downlinkCleared.fulfill() }
+        }
+
+        let local = UplinkVideoStatistics(captureFrameRate: 30)
+        let remote = DownlinkVideoStatistics(userID: "bot-user", decodeFrameRate: 24)
+        rtcManager.emitUplinkVideoStatistics(local)
+        rtcManager.emitDownlinkVideoStatistics(remote)
+        XCTAssertEqual(uplinkSamples, 0)
+        XCTAssertEqual(downlinkSamples, 0)
+
+        let confirmation = try await startGeneration(controller, taskID: "task")
+        rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
+        try await confirmation.value
+        rtcManager.emitUplinkVideoStatistics(local)
+        rtcManager.emitDownlinkVideoStatistics(remote)
+        XCTAssertEqual(uplink, local)
+        XCTAssertEqual(downlink, remote)
+
+        await controller.disconnect()
+        await fulfillment(of: [uplinkCleared, downlinkCleared], timeout: 1)
+        rtcManager.emitUplinkVideoStatistics(local)
+        rtcManager.emitDownlinkVideoStatistics(remote)
+        XCTAssertNil(uplink)
+        XCTAssertNil(downlink)
+        XCTAssertEqual(uplinkSamples, 1)
+        XCTAssertEqual(downlinkSamples, 1)
+    }
+
     func testPublishLocalCameraStreamRequiresConfiguredRoom() {
         let rtcManager = RtcManagingStub()
         let controller = StreamController(rtcManager: rtcManager)

@@ -48,6 +48,16 @@ public protocol XmaxRealtimeManaging: Sendable {
     ) async
 
 
+    /// 设置视频上行统计监听器。
+    ///
+    /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
+    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) async
+
+    /// 设置视频下行统计监听器。
+    ///
+    /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
+    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) async
+
     /// 设置网络质量监听器。
     ///
     /// - Parameter listener: 上下行网络质量回调；传入 `nil` 时清除监听器。
@@ -220,10 +230,13 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 开始生成，生成中再次调用时更新当前条件。
     ///
-    /// - Parameter context: 本次生成条件；首次生成不能为空，后续传入 `nil`
-    ///   时复用缓存条件。
+    /// - Parameters:
+    ///   - context: 本次生成条件；首次生成不能为空，后续传入 `nil` 时复用缓存条件。
+    ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
+    /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
     func startGeneration(
-        context: RealtimeContext?
+        context: RealtimeContext?,
+        faceRestoration: Bool
     ) async throws
 
 
@@ -235,10 +248,12 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// - Parameters:
     ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
     ///   - context: 本次生成条件；首次生成不能为空。
+    ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
     /// - Returns: 当前 RTC 连接对应的远端媒体流。
     /// - Throws: 本地流无效、连接失败或生成启动失败时抛出错误。
     func startGeneration(
         localStream: RealtimeMediaStream,
-        context: RealtimeContext?
+        context: RealtimeContext?,
+        faceRestoration: Bool
     ) async throws -> RealtimeMediaStream
 }
