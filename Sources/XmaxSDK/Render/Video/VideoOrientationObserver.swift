@@ -1,3 +1,13 @@
+//
+//  VideoOrientationObserver.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import UIKit
 
 /// 通过标准子控制器生命周期，在窗口旋转开始时通知视频视图。

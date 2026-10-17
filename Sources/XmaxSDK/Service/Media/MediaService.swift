@@ -1,3 +1,13 @@
+//
+//  MediaService.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import CoreGraphics
 
 /// 提供模型输入尺寸和平台媒体能力相关的业务规则。

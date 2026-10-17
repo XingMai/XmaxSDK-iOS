@@ -1,3 +1,13 @@
+//
+//  RtcQualityConverter.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 @preconcurrency import AgoraRtcKit
 
 /// 在声网质量事件与中性质量模型之间转换。

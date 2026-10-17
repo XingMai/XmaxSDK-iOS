@@ -1,3 +1,13 @@
+//
+//  VideoController.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 协调本地视频播放器、RTC 外部音视频源和预览资源。

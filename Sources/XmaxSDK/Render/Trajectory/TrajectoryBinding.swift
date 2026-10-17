@@ -1,3 +1,13 @@
+//
+//  TrajectoryBinding.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import UIKit
 
 /// 将渲染层触摸输入转交给媒体交互层。

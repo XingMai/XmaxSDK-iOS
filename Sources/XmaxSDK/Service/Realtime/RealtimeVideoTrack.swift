@@ -1,3 +1,13 @@
+//
+//  RealtimeVideoTrack.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 实时视频轨道及其动态元数据。

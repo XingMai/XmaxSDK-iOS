@@ -1,3 +1,13 @@
+//
+//  RealtimeVideoFrameDispatcher.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 在独立串行队列中向接入方分发远端最终视频帧。

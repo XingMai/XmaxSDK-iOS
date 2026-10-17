@@ -1,3 +1,13 @@
+//
+//  XmaxRealtimeVideoView.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import UIKit
 
 /// 在本地预览和远端生成画面之间自动切换的 UIKit 视频容器。

@@ -1,3 +1,13 @@
+//
+//  XmaxRealtimeManaging.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 #if canImport(UIKit)
 import UIKit
@@ -6,26 +16,28 @@ import UIKit
 /// 定义 SDK 对接入方提供的实时媒体与生成控制能力。
 public protocol XmaxRealtimeManaging: Sendable {
 
+    // 实时配置
     /// 实时能力配置。
     var options: RealtimeConfiguration { get }
 
 
+    // 生命周期状态
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState { get async }
 
 
+    // 渲染状态
     /// 当前实际生效的远端视频插帧状态。
     var isFrameInterpolationEnabled: Bool { get async }
 
 
+    // 音频状态
     /// 当前本地媒体预览音量，取值范围为 `0...1`。
     var localAudioVolume: Float { get async }
-
 
     /// 当前远端生成音频播放音量，取值范围为 `0...1`。
     /// 新建摄像头或图片流后初始值为 0，文件视频流为 1。
     var remoteAudioVolume: Float { get async }
-
 
     /// 设置实时状态监听器。
     ///
@@ -33,8 +45,6 @@ public protocol XmaxRealtimeManaging: Sendable {
     func setStateListener(
         _ listener: RealtimeStateListener?
     ) async
-
-
 
     /// 设置远端最终视频帧监听器。
     ///
@@ -46,7 +56,6 @@ public protocol XmaxRealtimeManaging: Sendable {
     func setRemoteVideoFrameListener(
         _ listener: RealtimeVideoFrameListener?
     ) async
-
 
     /// 设置视频上行统计监听器。
     ///
@@ -65,14 +74,12 @@ public protocol XmaxRealtimeManaging: Sendable {
         _ listener: RealtimeNetworkQualityListener?
     ) async
 
-
     /// 设置设备性能告警监听器。
     ///
     /// - Parameter listener: 设备性能告警回调；传入 `nil` 时清除监听器。
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     ) async
-
 
     /// 设置本地媒体预览音量。
     ///
@@ -81,7 +88,6 @@ public protocol XmaxRealtimeManaging: Sendable {
     func setLocalAudioVolume(
         _ volume: Float
     ) async throws
-
 
     /// 设置远端生成音频播放音量。
     ///
@@ -93,7 +99,6 @@ public protocol XmaxRealtimeManaging: Sendable {
     func setRemoteAudioVolume(
         _ volume: Float
     ) async throws
-
 
     /// 开启或关闭远端生成画面的插帧。
     ///
@@ -107,7 +112,6 @@ public protocol XmaxRealtimeManaging: Sendable {
         _ enabled: Bool
     ) async throws
 
-
     /// 创建本地相机流并开始预览。
     ///
     /// 将返回的轨道绑定到预览视图；收到有效帧且视图已绑定后进入 `ready`。
@@ -117,17 +121,17 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///   - position: 首次启用的摄像头位置。
     ///   - useMicrophone: 是否使用麦克风；创建时申请权限，连接时开始采集，断开时停止采集。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 模型不支持相机输入、配置无效、权限或采集启动失败时抛出错误。
+    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition,
         useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
 
-
-    /// 停止本地相机流并释放本地预览与 RTC 资源。
+    /// 停止本地相机流并更新媒体就绪状态。
+    ///
+    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
     func stopLocalCameraStream() async throws
-
 
     /// 切换前后置摄像头。
     ///
@@ -139,76 +143,70 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///   失败时抛出错误。
     func switchCamera() async throws -> RealtimeMediaStream
 
-
     /// 从编码后的图片数据创建持续输出帧的媒体流。
     ///
     /// 保留媒体显示比例；生成时由模型规则选择生成画布。
     ///
-    /// - Parameters:
-    ///   - imageData: JPEG、PNG 等受支持格式的编码图片数据。
+    /// - Parameter imageData: JPEG、PNG 等受支持格式的编码图片数据。
     /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 模型不支持图片输入、配置无效或图片处理失败时抛出错误。
+    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
     func createLocalImageStream(
         imageData: Data
     ) async throws -> RealtimeMediaStream
-
 
 #if canImport(UIKit)
     /// 从 UIKit 图片创建持续输出帧的媒体流。
     ///
     /// 保留媒体显示比例；生成时由模型规则选择生成画布。
     ///
-    /// - Parameters:
-    ///   - image: 用作本地输入的 UIKit 图片。
+    /// - Parameter image: 用作本地输入的 UIKit 图片。
     /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 模型不支持图片输入、配置无效或图片处理失败时抛出错误。
+    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
     func createLocalImageStream(
         image: UIImage
     ) async throws -> RealtimeMediaStream
 #endif
 
-
     /// 从本地图片文件创建持续输出帧的媒体流。
     ///
     /// 保留媒体显示比例；生成时由模型规则选择生成画布。
     ///
-    /// - Parameters:
-    ///   - fileURL: 本地图片文件 URL。
+    /// - Parameter fileURL: 本地图片文件 URL。
     /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 模型不支持图片输入、配置无效或图片处理失败时抛出错误。
+    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
     func createLocalImageStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-
-    /// 停止本地图片流并释放本地预览与 RTC 资源。
+    /// 停止本地图片流并更新媒体就绪状态。
+    ///
+    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
     func stopLocalImageStream() async throws
-
 
     /// 从本地视频文件创建循环播放的音视频流。
     ///
     /// 保留源视频显示比例，使用模型默认输出帧率；生成时单独计算生成画布。
     ///
-    /// - Parameters:
-    ///   - fileURL: 本地视频文件 URL。
+    /// - Parameter fileURL: 本地视频文件 URL。
     /// - Returns: 包含本地文件视频轨道的媒体流。
-    /// - Throws: 模型不支持文件视频输入、配置无效或视频处理失败时抛出错误。
+    /// - Throws: 配置无效、操作冲突或视频处理失败时抛出错误。
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-
-    /// 停止本地文件视频流并释放音视频、预览与 RTC 资源。
+    /// 停止本地文件视频流并更新媒体就绪状态。
+    ///
+    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
     func stopLocalVideoStream() async throws
-
 
     /// 使用当前 Manager 创建的本地流建立实时连接。
     ///
     /// - Parameter localStream: 当前 Manager 创建并持有的本地媒体流。
+    /// - Returns: 当前连接的远端媒体流，可绑定到结果预览视图。
+    /// - Throws: 本地流无效、连接已存在、操作冲突、取消或连接建立失败时抛出错误。
     func connect(
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream
-
 
     /// 断开实时连接并保留当前本地媒体预览。
     func disconnect() async
@@ -218,12 +216,10 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// - Parameter reason: 本次断开的原因，例如显示方向变化。
     func disconnect(reason: RealtimeReason) async
 
-
     /// 关闭当前实时生命周期并释放连接、本地媒体和 RTC Engine。
     ///
     /// 关闭期间重复调用会等待同一个释放任务；关闭完成后仍可重新创建本地流。
     func close() async
-
 
     /// 开始生成，生成中再次调用时更新当前条件。
     ///
@@ -235,7 +231,6 @@ public protocol XmaxRealtimeManaging: Sendable {
         context: RealtimeContext?,
         faceRestoration: Bool
     ) async throws
-
 
     /// 使用当前本地流按需建立连接并开始生成。
     ///

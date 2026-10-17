@@ -1,3 +1,13 @@
+//
+//  TrajectoryOverlayView.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import UIKit
 
 /// 采集多指触摸、驱动轨迹效果并按固定频率提交交互帧。

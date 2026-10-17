@@ -1,3 +1,13 @@
+//
+//  RtcEngineManager.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 表示对进程级 RTC 引擎的独占使用权。

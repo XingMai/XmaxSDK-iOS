@@ -1,3 +1,13 @@
+//
+//  VideoStatistics.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// RTC 视频上行统计；不可用的指标为 nil。
 public struct UplinkVideoStatistics: Equatable, Sendable {
 

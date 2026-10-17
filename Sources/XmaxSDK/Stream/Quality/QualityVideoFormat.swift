@@ -1,3 +1,13 @@
+//
+//  QualityVideoFormat.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 从媒体基准计算传输档位，不改变采集或模型生成规格。

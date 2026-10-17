@@ -1,3 +1,13 @@
+//
+//  InteractionCoordinateMapper.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import CoreGraphics
 
 /// 将渲染视口坐标映射到模型输入视频的像素坐标。

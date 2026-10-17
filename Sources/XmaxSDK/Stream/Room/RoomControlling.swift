@@ -1,3 +1,13 @@
+//
+//  RoomControlling.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import CoreGraphics
 
 /// 定义 RTC 房间生命周期和业务信令发送能力。

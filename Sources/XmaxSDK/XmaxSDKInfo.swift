@@ -1,3 +1,13 @@
+//
+//  XmaxSDKInfo.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// 提供 XmaxSDK 的构建信息。
 public enum XmaxSDKInfo {
 

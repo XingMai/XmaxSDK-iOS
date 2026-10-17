@@ -1,3 +1,13 @@
+//
+//  RtcMessageQueue.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 将房间 JSON 信令拆成与服务端一致的声网 DataStream 分片。

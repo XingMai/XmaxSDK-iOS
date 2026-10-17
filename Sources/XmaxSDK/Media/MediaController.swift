@@ -1,3 +1,13 @@
+//
+//  MediaController.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 统一协调本地媒体所有权以及 RTC Engine 生命周期。

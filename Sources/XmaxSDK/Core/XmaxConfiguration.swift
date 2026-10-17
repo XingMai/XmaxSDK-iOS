@@ -1,8 +1,19 @@
+//
+//  XmaxConfiguration.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// SDK 全局配置。
 public struct XmaxConfiguration: Equatable, Sendable {
 
+    // 服务访问
     /// 调用 Xmax 服务使用的 API Key。
     public let apiKey: String
 
@@ -10,6 +21,8 @@ public struct XmaxConfiguration: Equatable, Sendable {
     /// 日志语言全局生效，以最后创建的 Client 为准。
     public let environment: XmaxEnvironment
 
+
+    // 日志配置
     /// SDK 输出的日志类型；默认为不输出日志。
     public let loggerOptions: XmaxLoggerOption
 
@@ -32,7 +45,7 @@ public struct XmaxConfiguration: Equatable, Sendable {
         self.loggerOptions = loggerOptions
     }
 
-    /// 校验全局配置。
+    /// 确认 API Key 非空，供后续服务请求使用。
     ///
     /// - Throws: API Key 为空时抛出 `XmaxError`。
     public func validate() throws {

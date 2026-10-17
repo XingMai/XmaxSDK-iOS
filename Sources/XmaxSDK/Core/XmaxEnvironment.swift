@@ -1,3 +1,13 @@
+//
+//  XmaxEnvironment.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// Xmax 服务环境。
@@ -11,6 +21,9 @@ public enum XmaxEnvironment: String, CaseIterable, Equatable, Sendable {
 }
 
 extension XmaxEnvironment {
+
+    // 服务地址
+    /// 当前环境的通用 API 地址。
     var apiBaseURL: URL {
         switch self {
         case .china:

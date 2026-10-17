@@ -1,3 +1,13 @@
+//
+//  DecodedVideoPreview.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 将解码帧投递到当前绑定的 SDK 视频视图。

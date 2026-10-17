@@ -1,3 +1,13 @@
+//
+//  ErrorMessageFormatter.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 将 SDK、系统和第三方错误转换为适合日志及调试界面展示的文本。

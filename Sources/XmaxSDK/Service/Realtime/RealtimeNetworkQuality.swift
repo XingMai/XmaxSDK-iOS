@@ -1,3 +1,13 @@
+//
+//  RealtimeNetworkQuality.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// RTC 网络质量等级。
 public enum RealtimeNetworkQualityLevel: String, CaseIterable, Sendable {
 

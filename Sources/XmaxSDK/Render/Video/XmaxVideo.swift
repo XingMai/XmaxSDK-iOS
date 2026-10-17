@@ -1,3 +1,13 @@
+//
+//  XmaxVideo.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import SwiftUI
 
 /// 在 SwiftUI 中显示本地或远端实时视频轨道。

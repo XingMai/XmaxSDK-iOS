@@ -1,3 +1,13 @@
+//
+//  CameraControllerTests.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import CoreGraphics
 import UIKit
 import XCTest

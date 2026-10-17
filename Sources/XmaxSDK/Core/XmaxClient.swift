@@ -1,9 +1,20 @@
+//
+//  XmaxClient.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// SDK 的统一入口，负责创建实时、存储和媒体服务组件。
 public final class XmaxClient: Sendable {
 
     // SDK 配置
     /// 客户端使用的全局配置。
     public let configuration: XmaxConfiguration
+
 
     // 服务层组件
     private let apiService: any ApiServicing
@@ -22,6 +33,11 @@ public final class XmaxClient: Sendable {
         )
     }
 
+    /// 使用指定 API 服务创建 SDK 客户端。
+    ///
+    /// - Parameters:
+    ///   - configuration: 客户端配置，同时决定全局日志选项和语言。
+    ///   - apiService: 存储与实时会话共用的 API 服务。
     init(
         configuration: XmaxConfiguration,
         apiService: any ApiServicing
@@ -32,12 +48,12 @@ public final class XmaxClient: Sendable {
         realtimeApiOverride = apiService
     }
 
-    /// 创建实时媒体 Manager。
+    /// 创建管理本地媒体、实时连接和生成任务的组件。
     ///
-    /// 本地相机预览不依赖 API Key 校验；服务端连接能力接入后，相关操作再校验配置。
+    /// 创建组件和本地预览不校验 API Key；访问服务端时校验凭证。
     ///
     /// - Parameter options: 实时生成模型等业务配置。
-    /// - Returns: 可用于创建和控制本地相机流的实时 Manager。
+    /// - Returns: 可用于管理摄像头、图片和视频输入及实时生成的组件。
     @MainActor
     public func createRealtimeManager(
         options: RealtimeConfiguration

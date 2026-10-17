@@ -1,3 +1,13 @@
+//
+//  XmaxRealtimeManaging+Extension.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 #if canImport(UIKit)
 import UIKit
@@ -12,7 +22,7 @@ public extension XmaxRealtimeManaging {
     ///   - position: 采集使用的摄像头位置，默认为前置摄像头。
     ///   - useMicrophone: 是否使用麦克风，默认关闭；连接时开始采集，断开时停止。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 模型不支持相机输入、所需权限被拒绝或采集启动失败时抛出错误。
+    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
     func createLocalCameraStream(
         position: CameraPosition = .front,
         useMicrophone: Bool = false
@@ -30,7 +40,7 @@ public extension XmaxRealtimeManaging {
     ///   - videoFormat: 相机采集的视频规格。
     ///   - useMicrophone: 是否使用麦克风，默认关闭；连接时开始采集，断开时停止。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 所需权限被拒绝、RTC 初始化或采集启动失败时抛出错误。
+    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         useMicrophone: Bool = false
@@ -48,7 +58,7 @@ public extension XmaxRealtimeManaging {
     ///   - videoFormat: 相机采集的视频规格。
     ///   - position: 首次启用的摄像头位置。
     /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 模型不支持相机输入、权限或采集启动失败时抛出错误。
+    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -60,7 +70,6 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-
     /// 使用已缓存的生成条件开始或更新生成。
     ///
     /// 首次开始生成时没有缓存条件，因此仍需调用带 `context` 参数的重载。
@@ -71,15 +80,13 @@ public extension XmaxRealtimeManaging {
         try await startGeneration(context: nil, faceRestoration: faceRestoration)
     }
 
-
     /// 开始或更新生成，默认关闭人脸还原。
     ///
-    /// - Parameter context: 本次生成条件；传入 nil 时复用缓存条件。
+    /// - Parameter context: 本次生成条件；传入 `nil` 时复用缓存条件。
     /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
     func startGeneration(context: RealtimeContext?) async throws {
         try await startGeneration(context: context, faceRestoration: false)
     }
-
 
     /// 使用当前本地流按需连接并开始生成，默认关闭人脸还原。
     ///
@@ -98,7 +105,6 @@ public extension XmaxRealtimeManaging {
             faceRestoration: false
         )
     }
-
 
     /// 使用当前本地流和已缓存条件按需连接并开始生成。
     ///

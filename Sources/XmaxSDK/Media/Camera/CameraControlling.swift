@@ -1,3 +1,13 @@
+//
+//  CameraControlling.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 通知摄像头预览就绪，并提供异步处理时检查该预览仍有效的能力。

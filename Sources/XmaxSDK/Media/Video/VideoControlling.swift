@@ -1,3 +1,13 @@
+//
+//  VideoControlling.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 定义本地文件视频流、音频预览和播放资源管理能力。

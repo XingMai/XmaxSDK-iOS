@@ -1,3 +1,13 @@
+//
+//  ApiService.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 负责发送 Xmax API 请求并统一处理响应、日志和错误。

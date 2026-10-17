@@ -1,3 +1,13 @@
+//
+//  PermissionAuthorizationClient.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 @preconcurrency import AVFoundation
 
 /// SDK 需要检查的媒体权限。

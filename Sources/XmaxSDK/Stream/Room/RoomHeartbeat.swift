@@ -1,3 +1,13 @@
+//
+//  RoomHeartbeat.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 周期发送 RTC 房间心跳并隔离已经停止的旧周期。

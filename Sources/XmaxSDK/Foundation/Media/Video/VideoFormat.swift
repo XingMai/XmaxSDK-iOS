@@ -1,3 +1,13 @@
+//
+//  VideoFormat.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// 表示视频帧的固定尺寸和像素格式。
 struct VideoFormat: Equatable, Sendable {
     let width: Int

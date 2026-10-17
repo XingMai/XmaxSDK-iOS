@@ -1,3 +1,13 @@
+//
+//  PCMFramePacketizer.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 将解码得到的不定长 PCM 数据整理为 RTC 要求的固定 10 ms 音频帧。

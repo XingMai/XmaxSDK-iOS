@@ -1,3 +1,13 @@
+//
+//  PermissionManager.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 检查并申请 SDK 使用相机和麦克风所需的平台权限。

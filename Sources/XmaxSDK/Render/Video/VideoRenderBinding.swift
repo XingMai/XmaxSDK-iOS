@@ -1,3 +1,13 @@
+//
+//  VideoRenderBinding.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import UIKit
 
 /// 将实时视频轨道绑定到具体 UIKit 渲染视图。

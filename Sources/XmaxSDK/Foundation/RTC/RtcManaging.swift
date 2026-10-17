@@ -1,3 +1,13 @@
+//
+//  RtcManaging.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 定义 RTC 引擎、房间、媒体传输和远端帧输出能力。

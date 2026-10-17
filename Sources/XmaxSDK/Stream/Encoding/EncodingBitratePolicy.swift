@@ -1,3 +1,13 @@
+//
+//  EncodingBitratePolicy.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// 上下行共用的编码码率预算。
 enum EncodingBitratePolicy {
     static func resolve(_ videoFormat: RealtimeVideoFormat) throws -> (minimum: Int, maximum: Int) {

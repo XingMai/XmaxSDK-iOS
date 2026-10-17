@@ -1,3 +1,13 @@
+//
+//  RtcEventListener.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// 接收 RTC 媒体和数据信令事件。
 protocol RtcEventListener: AnyObject {
 

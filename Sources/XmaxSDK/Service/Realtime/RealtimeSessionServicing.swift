@@ -1,3 +1,13 @@
+//
+//  RealtimeSessionServicing.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// 定义实时会话 API 与心跳生命周期能力。
 protocol RealtimeSessionServicing: Sendable {
 

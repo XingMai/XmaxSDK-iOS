@@ -1,3 +1,13 @@
+//
+//  RealtimeModel.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 import CoreGraphics
 
@@ -10,6 +20,8 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 海外声网实时生成模型。
     case x2_1_1_preview_us = "x2.1.1-preview-us"
 
+
+    // 模型标识
     /// 模型展示名称。
     public var displayName: String {
         switch self {
@@ -18,6 +30,8 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
+
+    // 服务地址
     /// 模型专用的会话 API 地址。
     var apiBaseURL: URL {
         switch self {
@@ -26,6 +40,8 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
+
+    // 生成尺寸约束
     /// 模型支持的生成分辨率桶；摄像头输入须精确匹配。
     /// 图片和视频保留媒体比例，生成时选择比例最接近的画布。
     /// 空数组表示不限制固定尺寸，按像素面积上下限和对齐规则计算输入尺寸。
@@ -42,7 +58,9 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 输入宽高需要对齐的像素倍数；仅在分辨率桶为空时参与尺寸计算。
     public var inputSizeAlignment: Int { 32 }
 
-    /// 未指定视频规格时，各媒体来源使用的默认帧率。
+
+    // 媒体默认规格
+    /// 图片和视频输出以及默认摄像头配置使用的帧率。
     public var defaultFrameRate: Int { 30 }
 
     /// 摄像头采集使用的默认视频规格。

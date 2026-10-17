@@ -1,3 +1,13 @@
+//
+//  RealtimeSessionService.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 管理实时生成会话的创建、心跳维持和关闭。

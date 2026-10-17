@@ -1,3 +1,13 @@
+//
+//  VideoEncodingConfiguration.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 /// RTC 主视频流编码参数。
 struct VideoEncodingConfiguration: Equatable, Sendable {
     enum EncoderPreference: Equatable, Sendable {

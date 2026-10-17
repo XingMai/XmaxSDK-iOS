@@ -1,3 +1,13 @@
+//
+//  MediaPlaybackTimeline.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 为同一文件的音频和视频提供统一的循环播放时钟。

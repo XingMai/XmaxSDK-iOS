@@ -1,3 +1,13 @@
+//
+//  RtcPlatform.swift
+//  XmaxSDK
+//
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//
+//  Copyright (c) 2026 XMAX.AI PTE. LTD.
+//
+
 import Foundation
 
 /// 接收 SDK 自有像素缓冲区的远端视频帧。
