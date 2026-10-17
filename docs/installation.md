@@ -1,16 +1,18 @@
 # Installation guide
 
 For CocoaPods, follow the [README installation steps](../README.md#cocoapods).
-This guide covers the Agora-based implementation on the current development branch.
-For a published release, use the installation guide from its matching Git tag;
+This guide covers the Agora-based implementation.
+Use the installation guide from the Git tag matching your SDK release;
 older XmaxSDK binaries require their original RTC dependencies.
 
 ## Manual integration
 
 ### Download the frameworks
 
-Build `XmaxSDK.xcframework` from this branch. Do not combine an older published
-XmaxSDK binary with the Agora dependencies below. Use these exact versions:
+Download and extract `XmaxSDK.xcframework` from the
+[release archive linked in the README](../README.md#manual). Do not combine an
+older VolcEngine-based XmaxSDK binary with the Agora dependencies below.
+Use these exact versions:
 
 - [Agora RTC `4.6.4`](https://download.agora.io/sdk/release/AgoraRtcEngine_iOS-4.6.4.zip):
   use `AgoraRtcKit.xcframework`, `Agorafdkaac.xcframework`,
