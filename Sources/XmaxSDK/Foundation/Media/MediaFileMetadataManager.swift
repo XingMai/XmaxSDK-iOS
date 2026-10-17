@@ -1,9 +1,10 @@
 //
 //  MediaFileMetadataManager.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,6 +16,11 @@ import Foundation
 /// 使用 AVFoundation 读取本地媒体文件元数据。
 final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
 
+    /// 读取视频的原始尺寸、显示旋转、时长和音频轨道信息。
+    ///
+    /// - Parameter fileURL: 可读取的本地视频文件 URL。
+    /// - Returns: 用于准备本地视频流的媒体元数据。
+    /// - Throws: 文件不可读、无视频轨道或媒体元数据无效时抛出错误。
     func readMetadata(fileURL: URL) async throws -> MediaFileMetadata {
         guard fileURL.isFileURL,
               FileManager.default.fileExists(atPath: fileURL.path) else {
@@ -71,6 +77,10 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
 }
 
 private extension MediaFileMetadataManager {
+    /// 将媒体轨道变换转换为最接近的四分之一圈旋转方向。
+    ///
+    /// - Parameter transform: 视频轨道的首选显示变换。
+    /// - Returns: 归一化后的 0、90、180 或 270 度旋转。
     static func rotation(
         from transform: CGAffineTransform
     ) -> VideoRotation {
@@ -80,6 +90,10 @@ private extension MediaFileMetadataManager {
         return VideoRotation(rawValue: nearestQuarterTurn) ?? .rotation0
     }
 
+    /// 创建媒体读取错误。
+    ///
+    /// - Parameter message: 可读的媒体错误说明。
+    /// - Returns: 带有指定说明的媒体错误。
     static func mediaError(_ message: String) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }

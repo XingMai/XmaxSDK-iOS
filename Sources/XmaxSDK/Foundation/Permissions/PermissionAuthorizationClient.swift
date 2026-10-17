@@ -1,9 +1,10 @@
 //
 //  PermissionAuthorizationClient.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -24,7 +25,7 @@ enum MediaAuthorizationStatus: Sendable {
     case authorized
 }
 
-/// 隔离系统权限 API，便于 Manager 保持中性且可测试。
+/// 提供平台媒体权限查询与异步授权接口。
 struct PermissionAuthorizationClient: Sendable {
 
     // 授权接口
@@ -34,6 +35,7 @@ struct PermissionAuthorizationClient: Sendable {
     let requestAccess: @Sendable (
         _ permission: MediaPermission
     ) async throws -> Bool
+
 
     // 平台实现
     static let live = PermissionAuthorizationClient(
@@ -61,6 +63,8 @@ struct PermissionAuthorizationClient: Sendable {
 }
 
 private extension MediaPermission {
+
+    // 系统媒体类型
     var mediaType: AVMediaType {
         switch self {
         case .camera:

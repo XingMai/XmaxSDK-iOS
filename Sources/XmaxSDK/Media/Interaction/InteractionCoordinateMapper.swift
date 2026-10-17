@@ -1,9 +1,10 @@
 //
 //  InteractionCoordinateMapper.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -12,6 +13,13 @@ import CoreGraphics
 
 /// 将渲染视口坐标映射到模型输入视频的像素坐标。
 enum InteractionCoordinateMapper {
+    /// 计算视频按指定缩放方式显示在视口中的区域。
+    ///
+    /// - Parameters:
+    ///   - viewportSize: 渲染视口尺寸，单位为点。
+    ///   - videoSize: 视频内容尺寸，单位为像素。
+    ///   - contentMode: 视频填充或适应视口的方式。
+    /// - Returns: 视频在视口坐标系中的显示区域；尺寸或缩放无效时返回 `nil`。
     static func displayedFrame(
         viewportSize: CGSize,
         videoSize: CGSize,
@@ -43,6 +51,14 @@ enum InteractionCoordinateMapper {
         )
     }
 
+    /// 将视口触控位置映射为视频像素坐标。
+    ///
+    /// - Parameters:
+    ///   - point: 触控点在视口中的位置。
+    ///   - viewportSize: 渲染视口尺寸，单位为点。
+    ///   - videoSize: 视频内容尺寸，单位为像素。
+    ///   - contentMode: 视频缩放与裁剪方式。
+    /// - Returns: 限制在有效像素范围内的坐标；输入无效或点击 fit 留白区域时返回 `nil`。
     static func map(
         _ point: CGPoint,
         viewportSize: CGSize,

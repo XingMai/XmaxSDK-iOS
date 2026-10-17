@@ -1,9 +1,10 @@
 //
 //  StorageService.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -18,14 +19,22 @@ final class StorageService: StorageServicing, Sendable {
     // 服务层组件
     private let apiService: any ApiServicing
 
+
     // 基础层组件
     private let storageManager: any StorageManaging
+
 
     // 标识生成
     private let dateGenerator: @Sendable () -> Date
     private let identifierGenerator: @Sendable () -> String
 
-    /// 创建存储 Service。
+    /// 创建媒体存储服务并配置对象路径生成策略。
+    ///
+    /// - Parameters:
+    ///   - apiService: 请求临时凭证与安全检查的 API 服务。
+    ///   - storageManager: 执行实际文件上传与下载的基础组件。
+    ///   - dateGenerator: 生成对象路径所用当前时间的回调。
+    ///   - identifierGenerator: 生成对象路径所用随机标识的回调。
     init(
         apiService: any ApiServicing,
         storageManager: any StorageManaging,
@@ -40,6 +49,15 @@ final class StorageService: StorageServicing, Sendable {
         self.identifierGenerator = identifierGenerator
     }
 
+    /// 上传图片数据。
+    ///
+    /// - Parameters:
+    ///   - data: 编码后的图片文件数据。
+    ///   - fileName: 包含扩展名的文件名，用于构造对象路径。
+    ///   - contentType: 文件的 MIME 类型。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
+    /// - Throws: 输入无效、凭证获取或上传失败时抛出错误。
     func uploadImage(
         data: Data,
         fileName: String,
@@ -56,6 +74,14 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 上传本地图片文件。
+    ///
+    /// - Parameters:
+    ///   - fileURL: 可读取的本地图片文件 URL。
+    ///   - contentType: 文件 MIME 类型；`nil` 时根据文件名推断。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
+    /// - Throws: 文件无效、凭证获取或上传失败时抛出错误。
     func uploadImageFile(
         fileURL: URL,
         contentType: String? = nil,
@@ -72,6 +98,15 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 上传图片数据并通过内容安全检查。
+    ///
+    /// - Parameters:
+    ///   - data: 编码后的图片文件数据。
+    ///   - fileName: 包含扩展名的文件名，用于构造对象路径。
+    ///   - contentType: 文件的 MIME 类型。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
+    /// - Throws: 输入无效、凭证获取或上传失败、安全检查失败时抛出错误。
     func uploadImageWithSafetyCheck(
         data: Data,
         fileName: String,
@@ -88,6 +123,14 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 上传本地图片文件并通过内容安全检查。
+    ///
+    /// - Parameters:
+    ///   - fileURL: 可读取的本地图片文件 URL。
+    ///   - contentType: 文件 MIME 类型；`nil` 时根据文件名推断。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
+    /// - Throws: 文件无效、凭证获取或上传失败、安全检查失败时抛出错误。
     func uploadImageFileWithSafetyCheck(
         fileURL: URL,
         contentType: String? = nil,
@@ -104,6 +147,15 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 上传视频数据。
+    ///
+    /// - Parameters:
+    ///   - data: 编码后的视频文件数据。
+    ///   - fileName: 包含扩展名的文件名，用于构造对象路径。
+    ///   - contentType: 文件的 MIME 类型。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
+    /// - Throws: 输入无效、凭证获取或上传失败时抛出错误。
     func uploadVideo(
         data: Data,
         fileName: String,
@@ -120,6 +172,14 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 上传本地视频文件。
+    ///
+    /// - Parameters:
+    ///   - fileURL: 可读取的本地视频文件 URL。
+    ///   - contentType: 文件 MIME 类型；`nil` 时根据文件名推断。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
+    /// - Throws: 文件无效、凭证获取或上传失败时抛出错误。
     func uploadVideoFile(
         fileURL: URL,
         contentType: String? = nil,
@@ -136,6 +196,14 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 将远端图片下载到本地文件。
+    ///
+    /// - Parameters:
+    ///   - remoteURL: 待下载文件的远端 URL。
+    ///   - destinationURL: 写入文件的本地目标 URL。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 写入完成的本地文件 URL 与字节数。
+    /// - Throws: 地址无效、下载或文件写入失败，以及任务取消时抛出错误。
     func downloadImage(
         remoteURL: URL,
         destinationURL: URL,
@@ -152,6 +220,14 @@ final class StorageService: StorageServicing, Sendable {
         )
     }
 
+    /// 将远端视频下载到本地文件。
+    ///
+    /// - Parameters:
+    ///   - remoteURL: 待下载文件的远端 URL。
+    ///   - destinationURL: 写入文件的本地目标 URL。
+    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
+    /// - Returns: 写入完成的本地文件 URL 与字节数。
+    /// - Throws: 地址无效、下载或文件写入失败，以及任务取消时抛出错误。
     func downloadVideo(
         remoteURL: URL,
         destinationURL: URL,
@@ -170,27 +246,40 @@ final class StorageService: StorageServicing, Sendable {
 }
 
 private extension StorageService {
+    /// 包含对象路径前缀和临时存储访问配置。
     struct TemporaryStorageConfiguration: Sendable {
+
+        // 上传配置
         let prefix: String
         let configuration: StorageConfiguration
     }
 
+    /// 区分图片与视频的上传校验和元数据读取规则。
     enum StorageMediaType: String, Sendable {
         case image
         case video
 
+
+        // 类型名称
         var displayName: String {
             rawValue.prefix(1).uppercased() + rawValue.dropFirst()
         }
     }
 
+    /// 接收服务端返回的临时存储位置与凭证字段。
     struct TemporaryStoragePayload: Decodable, Sendable {
+
+        // 存储位置
         let bucket: String?
         let region: String?
         let endpoint: String?
         let prefix: String?
+
+
+        // 临时凭证
         let credentials: CredentialPayload?
 
+        /// 定义服务端字段与本地属性的编码映射。
         enum CodingKeys: CodingKey {
             case bucket
             case region
@@ -199,6 +288,10 @@ private extension StorageService {
             case credentials
         }
 
+        /// 解码临时存储配置响应，无法解析的字段保留为空。
+        ///
+        /// - Parameter decoder: 提供存储响应字段的解码器。
+        /// - Throws: 字段解码容器创建失败时抛出解码错误。
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             bucket = try? container.decode(String.self, forKey: .bucket)
@@ -212,17 +305,25 @@ private extension StorageService {
         }
     }
 
+    /// 接收对象存储的临时认证字段。
     struct CredentialPayload: Decodable, Sendable {
+
+        // 认证字段
         let accessKeyID: String?
         let secretAccessKey: String?
         let sessionToken: String?
 
+        /// 定义服务端字段与本地属性的编码映射。
         enum CodingKeys: String, CodingKey {
             case accessKeyID = "accessKeyId"
             case secretAccessKey
             case sessionToken
         }
 
+        /// 解码临时存储凭证，无法解析的字段保留为空。
+        ///
+        /// - Parameter decoder: 提供凭证字段的解码器。
+        /// - Throws: 字段解码容器创建失败时抛出解码错误。
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             accessKeyID = try? container.decode(
@@ -240,19 +341,30 @@ private extension StorageService {
         }
     }
 
+    /// 提交待检查图片的远端地址。
     struct ImageSafetyRequest: Encodable, Sendable {
+
+        // 检查请求
         let url: String
     }
 
+    /// 接收图片安全检查结果及可使用的图片地址。
     struct ImageSafetyPayload: Decodable, Sendable {
+
+        // 检查结果
         let safe: Bool?
         let url: String?
 
+        /// 定义服务端字段与本地属性的编码映射。
         enum CodingKeys: CodingKey {
             case safe
             case url
         }
 
+        /// 解码图片安全检查结果。
+        ///
+        /// - Parameter decoder: 提供安全检查响应的解码器。
+        /// - Throws: 字段解码容器创建失败时抛出解码错误。
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             safe = try? container.decode(Bool.self, forKey: .safe)
@@ -260,6 +372,17 @@ private extension StorageService {
         }
     }
 
+    /// 校验媒体、获取临时凭证并上传，按需完成图片安全检查。
+    ///
+    /// - Parameters:
+    ///   - source: 待上传的数据或本地文件。
+    ///   - fileName: 用于生成对象路径的原始文件名。
+    ///   - contentType: 上传文件的 MIME 类型。
+    ///   - mediaType: 用于校验内容类型和读取尺寸的媒体类型。
+    ///   - checksSafety: 是否在上传完成后执行图片安全检查。
+    ///   - progress: 字节进度回调；`nil` 不接收进度。
+    /// - Returns: 上传成功且完成所需安全检查的远端文件信息。
+    /// - Throws: 媒体参数无效、凭证获取或上传失败、安全检查失败及取消时抛出错误。
     func upload(
         source: StorageUploadSource,
         fileName: String,
@@ -343,6 +466,10 @@ private extension StorageService {
         }
     }
 
+    /// 获取并校验临时存储配置。
+    ///
+    /// - Returns: 对象路径前缀及完整临时访问配置。
+    /// - Throws: 接口请求失败或必要凭证字段无效时抛出错误。
     func fetchStorageConfiguration() async throws -> TemporaryStorageConfiguration {
         let payload = try await apiService.get(
             "/cos/sts",
@@ -377,6 +504,11 @@ private extension StorageService {
         )
     }
 
+    /// 请求图片安全检查并返回通过检查的图片地址。
+    ///
+    /// - Parameter url: 已上传图片的远端地址。
+    /// - Returns: 服务端确认可使用的图片地址。
+    /// - Throws: 请求失败、检查结果无效或图片未通过安全检查时抛出错误。
     func checkImage(_ url: URL) async throws -> URL {
         let payload = try await apiService.post(
             "/cos/image/check",
@@ -401,6 +533,15 @@ private extension StorageService {
         return checkedURL
     }
 
+    /// 检查上传源和媒体类型，并生成安全文件名。
+    ///
+    /// - Parameters:
+    ///   - source: 待上传的数据或本地文件。
+    ///   - fileName: 需要规范化的文件名。
+    ///   - contentType: 需要匹配媒体类型的 MIME 类型。
+    ///   - mediaType: 本次上传允许的媒体类型。
+    /// - Returns: 可用于对象路径的安全文件名。
+    /// - Throws: 上传源为空或无效、MIME 类型不符或文件名无有效字符时抛出配置错误。
     func validateUpload(
         source: StorageUploadSource,
         fileName: String,
@@ -452,6 +593,12 @@ private extension StorageService {
         return safeName
     }
 
+    /// 校验远端下载地址和本地目标地址。
+    ///
+    /// - Parameters:
+    ///   - remoteURL: 带主机名的 HTTP 或 HTTPS 地址。
+    ///   - destinationURL: 本地目标文件 URL。
+    /// - Throws: 下载地址或目标文件 URL 不合法时抛出配置错误。
     func validateDownload(
         remoteURL: URL,
         destinationURL: URL
@@ -470,6 +617,11 @@ private extension StorageService {
         }
     }
 
+    /// 根据图片文件扩展名推断 MIME 类型。
+    ///
+    /// - Parameter fileName: 包含图片扩展名的文件名。
+    /// - Returns: 扩展名对应的图片 MIME 类型。
+    /// - Throws: 扩展名不在支持列表内时抛出配置错误。
     func inferImageContentType(_ fileName: String) throws -> String {
         try inferContentType(
             fileName: fileName,
@@ -492,6 +644,11 @@ private extension StorageService {
         )
     }
 
+    /// 根据视频文件扩展名推断 MIME 类型。
+    ///
+    /// - Parameter fileName: 包含视频扩展名的文件名。
+    /// - Returns: 扩展名对应的视频 MIME 类型。
+    /// - Throws: 扩展名不在支持列表内时抛出配置错误。
     func inferVideoContentType(_ fileName: String) throws -> String {
         try inferContentType(
             fileName: fileName,
@@ -510,6 +667,14 @@ private extension StorageService {
         )
     }
 
+    /// 从扩展名映射中查找文件的 MIME 类型。
+    ///
+    /// - Parameters:
+    ///   - fileName: 包含扩展名的文件名。
+    ///   - types: 小写扩展名与 MIME 类型的映射。
+    ///   - mediaType: 用于错误信息的媒体类型名称。
+    /// - Returns: 文件扩展名对应的 MIME 类型。
+    /// - Throws: 无法在映射中找到扩展名时抛出配置错误。
     func inferContentType(
         fileName: String,
         types: [String: String],
@@ -528,6 +693,10 @@ private extension StorageService {
         return contentType
     }
 
+    /// 将不支持的文件名字符替换为下划线，并去除边界分隔符。
+    ///
+    /// - Parameter value: 待规范化的原始文件名。
+    /// - Returns: 仅包含字母、数字及允许分隔符的文件名；无有效字符时为空字符串。
     func sanitizeFileName(_ value: String) -> String {
         var allowed = CharacterSet.alphanumerics
         allowed.formUnion(CharacterSet(charactersIn: "._-"))
@@ -543,6 +712,12 @@ private extension StorageService {
         )
     }
 
+    /// 组合服务端前缀、毫秒时间、随机标识和文件名形成对象路径。
+    ///
+    /// - Parameters:
+    ///   - prefix: 服务端允许写入的对象路径前缀。
+    ///   - fileName: 已校验的安全文件名。
+    /// - Returns: 本次上传使用的完整对象路径。
     func makeObjectKey(prefix: String, fileName: String) -> String {
         let milliseconds = Int64(
             dateGenerator().timeIntervalSince1970 * 1_000
@@ -551,6 +726,11 @@ private extension StorageService {
         return "\(prefix)\(milliseconds)_\(identifier)_\(fileName)"
     }
 
+    /// 读取上传源占用的字节数。
+    ///
+    /// - Parameter source: 待上传的数据或本地文件。
+    /// - Returns: 数据长度或文件大小，单位为字节。
+    /// - Throws: 读取本地文件属性失败时抛出文件系统错误。
     func sourceByteCount(_ source: StorageUploadSource) throws -> Int64 {
         switch source {
         case .data(let data):
@@ -563,6 +743,12 @@ private extension StorageService {
         }
     }
 
+    /// 读取用于上传日志的媒体显示尺寸，无法读取时使用占位文本。
+    ///
+    /// - Parameters:
+    ///   - source: 待上传的数据或文件。
+    ///   - mediaType: 决定图片或视频元数据读取方式的类型。
+    /// - Returns: 宽高文本；无法读取时返回 `--`。
     func readResolution(
         source: StorageUploadSource,
         mediaType: StorageMediaType
@@ -579,6 +765,11 @@ private extension StorageService {
         }
     }
 
+    /// 读取图片头中的像素尺寸。
+    ///
+    /// - Parameter source: 图片编码数据或本地图片文件。
+    /// - Returns: 图片宽高文本；元数据缺失时返回 `--`。
+    /// - Throws: 无；无法读取图片属性时返回占位文本。
     func readImageResolution(_ source: StorageUploadSource) throws -> String {
         let imageSource: CGImageSource?
         switch source {
@@ -603,6 +794,11 @@ private extension StorageService {
         )
     }
 
+    /// 读取本地视频应用旋转变换后的显示尺寸。
+    ///
+    /// - Parameter source: 视频上传源；内存数据不读取分辨率。
+    /// - Returns: 视频显示宽高文本；不是文件或没有视频轨道时返回 `--`。
+    /// - Throws: 视频轨道或变换信息加载失败时抛出媒体读取错误。
     func readVideoResolution(
         _ source: StorageUploadSource
     ) async throws -> String {
@@ -624,6 +820,12 @@ private extension StorageService {
         )
     }
 
+    /// 将有效宽高格式化为日志尺寸文本。
+    ///
+    /// - Parameters:
+    ///   - width: 媒体宽度，单位为像素。
+    ///   - height: 媒体高度，单位为像素。
+    /// - Returns: 宽高文本；任一边长非正数时返回 `--`。
     func formatResolution(width: Int, height: Int) -> String {
         guard width > 0, height > 0 else {
             return "--"
@@ -631,6 +833,10 @@ private extension StorageService {
         return "\(width) × \(height)"
     }
 
+    /// 按文件大小选择可读单位并格式化。
+    ///
+    /// - Parameter byteCount: 文件大小，单位为字节。
+    /// - Returns: 以 B、KB、MB 或 GB 表示的大小文本。
     func formatByteCount(_ byteCount: Int64) -> String {
         let count = Double(byteCount)
         if byteCount < 1_024 {
@@ -648,6 +854,10 @@ private extension StorageService {
         )
     }
 
+    /// 计算操作耗时并选择毫秒或秒作为显示单位。
+    ///
+    /// - Parameter startedAt: 操作开始时间。
+    /// - Returns: 格式化后的耗时文本。
     func formatDuration(since startedAt: Date) -> String {
         let milliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
         if milliseconds < 1_000 {
@@ -656,6 +866,11 @@ private extension StorageService {
         return String(format: "%.2f s", Double(milliseconds) / 1_000)
     }
 
+    /// 输出上传错误码、原因和耗时日志。
+    ///
+    /// - Parameters:
+    ///   - error: 需要记录的上传错误。
+    ///   - startedAt: 本次上传操作的开始时间。
     func logUploadFailure(_ error: XmaxError, startedAt: Date) {
         XmaxLogger.storage.error(
             message: "上传失败 (Upload Failed)\n" +
@@ -665,10 +880,18 @@ private extension StorageService {
         )
     }
 
+    /// 去除可选字符串的首尾空白。
+    ///
+    /// - Parameter value: 需要规范化的可选字符串。
+    /// - Returns: 规范化的字符串；原值为 `nil` 时仍返回 `nil`。
     func normalizedString(_ value: String?) -> String? {
         value?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// 读取去除首尾空白后的非空字符串。
+    ///
+    /// - Parameter value: 需要校验的可选字段。
+    /// - Returns: 非空字段值；缺失或仅包含空白时返回 `nil`。
     func requiredString(_ value: String?) -> String? {
         guard let value = normalizedString(value), !value.isEmpty else {
             return nil
@@ -676,6 +899,10 @@ private extension StorageService {
         return value
     }
 
+    /// 判断 URL 是否为具有有效主机名的 HTTP 或 HTTPS 地址。
+    ///
+    /// - Parameter url: 待检查的 URL。
+    /// - Returns: 协议与主机名均符合要求时返回 `true`。
     func isHTTPURL(_ url: URL) -> Bool {
         let scheme = url.scheme?.lowercased()
         return (scheme == "https" || scheme == "http")

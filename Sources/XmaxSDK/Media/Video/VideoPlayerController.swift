@@ -1,9 +1,10 @@
 //
 //  VideoPlayerController.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -17,6 +18,7 @@ import UIKit
 /// 定义基于统一媒体时间轴的文件音视频输出能力。
 protocol VideoPlayerControlling: Sendable {
 
+    // 音频预览
     /// 当前本地音频预览音量。
     @MainActor
     var localAudioVolume: Float { get }
@@ -43,26 +45,39 @@ protocol VideoPlayerControlling: Sendable {
         durationSeconds: Double
     ) throws
 
-    /// 开始本地预览和 RTC 音视频帧输出。
+    /// 启动共用播放时间轴的本地预览与音视频帧输出。
+    ///
+    /// - Throws: 播放器未配置或已经启动时抛出错误。
     @MainActor
     func start() async throws
 
-    /// 静音或恢复本地音频预览，不影响播放器和 RTC 音频帧输出。
+    /// 静音或恢复本地音频预览，不改变音视频帧输出。
+    ///
+    /// - Parameter muted: 是否将本地音频播放音量置零。
     @MainActor
     func setLocalAudioPreviewMuted(_ muted: Bool)
 
     /// 设置本地音频预览音量。
+    ///
+    /// - Parameter volume: 已校验的预览音量，范围为 `0...1`。
     @MainActor
     func setLocalAudioVolume(_ volume: Float)
 
-    /// 将解码后的视频画面绑定到 SDK 视频视图。
+    /// 将解码视频预览绑定到 SDK 视频视图。
+    ///
+    /// - Parameters:
+    ///   - view: 接收预览的 `XmaxVideoView`。
+    ///   - contentMode: 视频画面的缩放与裁剪方式。
+    /// - Throws: 视图不是 `XmaxVideoView` 时抛出错误。
     @MainActor
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
     ) throws
 
-    /// 从 SDK 视频视图解除解码画面。
+    /// 从指定 SDK 视频视图解除解码预览。
+    ///
+    /// - Parameter view: 需要解除预览的视图。
     @MainActor
     func detachPreview(from view: UIView)
 
@@ -75,20 +90,31 @@ protocol VideoPlayerControlling: Sendable {
 @MainActor
 final class VideoPlayerController: VideoPlayerControlling {
 
+    /// 保存文件解码、旋转、采样和循环播放所需配置。
     private struct PlaybackConfiguration: Sendable {
+
+        // 文件来源
         let fileURL: URL
+
+
+        // 视频输出规格
         let outputWidth: Int
         let outputHeight: Int
         let rotation: VideoRotation
         let frameRate: Int
+
+
+        // 媒体播放信息
         let hasAudio: Bool
         let durationSeconds: Double
     }
+
 
     // 帧监听
     private let videoFrameListener: MediaVideoFrameListener
     private let audioFrameListener: MediaAudioFrameListener
     private let errorListener: XmaxErrorListener
+
 
     // 平台资源
     private let audioPreviewPlayer = LocalAudioPreviewPlayer()
@@ -97,12 +123,20 @@ final class VideoPlayerController: VideoPlayerControlling {
         presenter: previewPresenter
     )
 
+
     // 媒体配置
     private var configuration: PlaybackConfiguration?
+
 
     // 运行状态
     private var playbackTask: Task<Void, Never>?
 
+    /// 创建共享时间轴的视频解码和本地音频播放组件。
+    ///
+    /// - Parameters:
+    ///   - videoFrameListener: 接收视频帧的回调。
+    ///   - audioFrameListener: 接收 10 ms PCM 音频帧的回调。
+    ///   - errorListener: 接收非取消播放错误的回调。
     init(
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
@@ -113,11 +147,23 @@ final class VideoPlayerController: VideoPlayerControlling {
         self.errorListener = errorListener
     }
 
+
+    // 音频预览
     var localAudioVolume: Float {
         audioPreviewPlayer.currentVolume
     }
 
-    /// 校验文件并保存统一解码所需的媒体配置。
+    /// 配置本地视频文件及最终 RTC 输出格式。
+    ///
+    /// - Parameters:
+    ///   - fileURL: 已读取元数据的本地视频文件地址。
+    ///   - outputWidth: 输出视频帧的像素宽度。
+    ///   - outputHeight: 输出视频帧的像素高度。
+    ///   - rotation: 文件元数据中的视频旋转方向。
+    ///   - frameRate: 输出视频帧率。
+    ///   - hasAudio: 文件元数据中的音频轨道标记。
+    ///   - durationSeconds: 文件元数据中的原始时长，单位为秒。
+    /// - Throws: 文件、输出格式或播放器状态无效时抛出错误。
     func configure(
         fileURL: URL,
         outputWidth: Int,
@@ -154,7 +200,9 @@ final class VideoPlayerController: VideoPlayerControlling {
         )
     }
 
-    /// 启动共用时间轴的音视频解码任务。
+    /// 启动共用播放时间轴的本地预览与音视频帧输出。
+    ///
+    /// - Throws: 播放器未配置或已经启动时抛出错误。
     func start() async throws {
         guard let configuration, playbackTask == nil else {
             throw Self.mediaError("Configure the video player before starting it")
@@ -203,17 +251,26 @@ final class VideoPlayerController: VideoPlayerControlling {
         }
     }
 
-    /// 切换本地 PCM 静音状态；播放时间轴和 RTC 推帧保持连续。
+    /// 静音或恢复本地音频预览，不改变音视频帧输出。
+    ///
+    /// - Parameter muted: 是否将本地音频播放音量置零。
     func setLocalAudioPreviewMuted(_ muted: Bool) {
         audioPreviewPlayer.setMuted(muted)
     }
 
-    /// 更新本地 PCM 播放音量。
+    /// 设置本地音频预览音量。
+    ///
+    /// - Parameter volume: 已校验的预览音量，范围为 `0...1`。
     func setLocalAudioVolume(_ volume: Float) {
         audioPreviewPlayer.setVolume(volume)
     }
 
-    /// 绑定 SDK 内部的解码视频渲染视图。
+    /// 将解码视频预览绑定到 SDK 视频视图。
+    ///
+    /// - Parameters:
+    ///   - view: 接收预览的 `XmaxVideoView`。
+    ///   - contentMode: 视频画面的缩放与裁剪方式。
+    /// - Throws: 视图不是 `XmaxVideoView` 时抛出错误。
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
@@ -227,13 +284,15 @@ final class VideoPlayerController: VideoPlayerControlling {
         previewPresenter.attach(to: videoView, contentMode: contentMode)
     }
 
-    /// 解除 SDK 内部的解码视频渲染视图。
+    /// 从指定 SDK 视频视图解除解码预览。
+    ///
+    /// - Parameter view: 需要解除预览的视图。
     func detachPreview(from view: UIView) {
         guard let videoView = view as? XmaxVideoView else { return }
         previewPresenter.detach(from: videoView)
     }
 
-    /// 取消任务并等待音视频 reader 退出后释放配置。
+    /// 停止解码并等待全部 reader 在所属任务内安全退出。
     func stop() async {
         let task = playbackTask
         playbackTask = nil
@@ -247,9 +306,19 @@ final class VideoPlayerController: VideoPlayerControlling {
 }
 
 private extension VideoPlayerController {
+    /// 同步接收共享时间轴输出的视频帧。
     typealias VideoHandler = @Sendable (VideoFrame) throws -> Void
+    /// 同步接收共享时间轴输出的固定长度 PCM 帧。
     typealias AudioHandler = @Sendable (AudioFrame) throws -> Void
 
+    /// 并行运行使用同一主机时钟的音视频解码循环。
+    ///
+    /// - Parameters:
+    ///   - configuration: 文件与输出规格配置。
+    ///   - timeline: 音视频共用的循环播放时间轴。
+    ///   - videoHandler: 按时间轴输出的视频帧回调。
+    ///   - audioHandler: 按时间轴输出的音频帧回调。
+    /// - Throws: 媒体读取、解码、回调处理失败或任务取消时抛出错误。
     private nonisolated static func play(
         configuration: PlaybackConfiguration,
         timeline: MediaPlaybackTimeline,
@@ -277,6 +346,13 @@ private extension VideoPlayerController {
         }
     }
 
+    /// 循环解码视频并按共享时间轴输出目标规格的视频帧。
+    ///
+    /// - Parameters:
+    ///   - configuration: 视频文件、输出尺寸和采样帧率。
+    ///   - timeline: 用于计算循环播放时刻的共享时间轴。
+    ///   - handler: 接收定时视频帧的回调。
+    /// - Throws: 视频轨道不可用、解码失败、整轮无有效帧、回调失败或任务取消时抛出错误。
     private nonisolated static func produceVideoFrames(
         configuration: PlaybackConfiguration,
         timeline: MediaPlaybackTimeline,
@@ -385,6 +461,13 @@ private extension VideoPlayerController {
         }
     }
 
+    /// 循环解码 PCM 并补齐每轮音频时间轴。
+    ///
+    /// - Parameters:
+    ///   - configuration: 视频文件及音频配置。
+    ///   - timeline: 用于计算循环播放时刻的共享时间轴。
+    ///   - handler: 接收固定长度音频帧的回调。
+    /// - Throws: 音频轨道不可用、解码或回调失败，以及任务取消时抛出错误。
     private nonisolated static func produceAudioFrames(
         configuration: PlaybackConfiguration,
         timeline: MediaPlaybackTimeline,
@@ -473,6 +556,14 @@ private extension VideoPlayerController {
         }
     }
 
+    /// 按共享时钟输出音频包，并丢弃超过延迟阈值的包。
+    ///
+    /// - Parameters:
+    ///   - packetizer: 提供待输出 PCM 包的分帧器。
+    ///   - loopIndex: 从零开始的循环播放轮次。
+    ///   - timeline: 音视频共用的播放时间轴。
+    ///   - handler: 接收带主机时间戳音频帧的回调。
+    /// - Throws: 等待被取消或音频回调失败时抛出错误。
     nonisolated static func emitAudioFrames(
         packetizer: inout PCMFramePacketizer,
         loopIndex: Int,
@@ -499,6 +590,11 @@ private extension VideoPlayerController {
         }
     }
 
+    /// 复制音频样本缓冲区中的 PCM 数据。
+    ///
+    /// - Parameter sampleBuffer: 包含解码 PCM 的样本缓冲区。
+    /// - Returns: 复制后的 PCM 数据；无数据缓冲区时返回空数据。
+    /// - Throws: 读取底层 PCM 数据失败时抛出错误。
     nonisolated static func pcmData(
         from sampleBuffer: CMSampleBuffer
     ) throws -> Data {
@@ -524,12 +620,20 @@ private extension VideoPlayerController {
         return data
     }
 
+    /// 等待指定的主机单调时钟时刻。
+    ///
+    /// - Parameter target: 目标时刻，单位为纳秒。
+    /// - Throws: 等待被取消时抛出取消错误。
     nonisolated static func sleep(untilNanoseconds target: UInt64) async throws {
         let now = DispatchTime.now().uptimeNanoseconds
         guard now < target else { return }
         try await Task.sleep(nanoseconds: target - now)
     }
 
+    /// 构造文件音视频播放错误。
+    ///
+    /// - Parameter message: 错误描述。
+    /// - Returns: 包含指定描述的媒体错误。
     nonisolated static func mediaError(_ message: String) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }

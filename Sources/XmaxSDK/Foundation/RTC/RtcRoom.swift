@@ -1,9 +1,10 @@
 //
 //  RtcRoom.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -100,6 +101,10 @@ protocol RtcRoom: AnyObject, Sendable {
 }
 
 extension RtcRoom {
+    /// 将房间信令入队，并启用异步发送失败通知。
+    ///
+    /// - Parameter message: 完整 JSON 信令。
+    /// - Throws: 信令无效或发送队列不可用时抛出错误。
     func sendRoomMessage(_ message: String) throws {
         try sendRoomMessage(message, reportFailure: true)
     }

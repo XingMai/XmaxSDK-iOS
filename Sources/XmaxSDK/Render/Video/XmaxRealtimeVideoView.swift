@@ -1,9 +1,10 @@
 //
 //  XmaxRealtimeVideoView.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -57,6 +58,7 @@ public final class XmaxRealtimeVideoView: UIView {
         set { remoteVideoView.trajectoryRenderer = newValue }
     }
 
+
     // 视频视图
     private lazy var localVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,
@@ -89,6 +91,8 @@ public final class XmaxRealtimeVideoView: UIView {
     }
 
     /// 使用指定布局区域创建实时视频容器。
+    ///
+    /// - Parameter frame: 视图初始布局区域。
     public override init(frame: CGRect) {
         localTrack = nil
         remoteTrack = nil
@@ -96,7 +100,9 @@ public final class XmaxRealtimeVideoView: UIView {
         configureView()
     }
 
-    /// 从 Interface Builder 恢复实时视频容器。
+    /// 从 Interface Builder 归档恢复实时视频容器。
+    ///
+    /// - Parameter coder: 视图归档解码器。
     public required init?(coder: NSCoder) {
         localTrack = nil
         remoteTrack = nil
@@ -104,6 +110,7 @@ public final class XmaxRealtimeVideoView: UIView {
         configureView()
     }
 
+    /// 使本地和远端视频视图填满容器。
     public override func layoutSubviews() {
         super.layoutSubviews()
         localVideoView.frame = bounds
@@ -112,6 +119,7 @@ public final class XmaxRealtimeVideoView: UIView {
 }
 
 private extension XmaxRealtimeVideoView {
+    /// 建立本地预览与远端结果的叠层视图。
     func configureView() {
         backgroundColor = .black
         clipsToBounds = true
@@ -121,6 +129,7 @@ private extension XmaxRealtimeVideoView {
         updateRemoteTrack()
     }
 
+    /// 重置远端画面，并等待新轨道首帧提交后显示。
     func updateRemoteTrack() {
         remoteVideoView.frameDisplayHandler = nil
         remoteVideoView.layer.removeAllAnimations()
@@ -139,6 +148,7 @@ private extension XmaxRealtimeVideoView {
         remoteVideoView.track = remoteTrack
     }
 
+    /// 以渐入过渡显示已提交首帧的远端画面。
     func showRemoteVideo() {
         remoteVideoView.frameDisplayHandler = nil
         guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {

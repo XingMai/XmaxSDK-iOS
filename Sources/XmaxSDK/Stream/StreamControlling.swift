@@ -1,9 +1,10 @@
 //
 //  StreamControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,6 +14,7 @@ import Foundation
 /// 定义传输层向 Core 暴露的统一能力。
 protocol StreamControlling: Sendable {
 
+    // 自适应质量状态
     /// 当前媒体基准及上下行档位。
     var qualityConfiguration: QualityConfiguration? { get }
 
@@ -48,9 +50,13 @@ protocol StreamControlling: Sendable {
     /// 清除连续采样窗口。
     func resetQualitySamples()
 
+
+    // 生成状态
     /// 当前是否存在正在启动或已经运行的生成任务。
     var hasGenerationTask: Bool { get }
 
+
+    // 远端音频
     /// 当前远端生成音频播放音量。
     var remoteAudioVolume: Float { get }
 
@@ -124,17 +130,17 @@ protocol StreamControlling: Sendable {
     /// - Throws: RTC 资源尚未就绪或音频帧转换失败时抛出错误。
     func pushLocalAudioFrame(_ frame: AudioFrame) throws
 
-    /// 建立生成任务并发送开始信令。
+    /// 建立生成任务、发送开始信令并启动结果流确认等待。
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务的唯一标识。
-    ///   - videoFormat: 当前本地媒体使用的视频格式。
-    ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
-    ///   - context: 当前生成任务使用的条件上下文。
+    ///   - videoFormat: 服务端生成使用的视频规格。
+    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
+    ///   - context: 生成使用的参考图、提示词等条件。
     ///   - faceRestoration: 是否回贴原始人脸。
-    /// - Returns: 等待匹配远端结果流确认的任务。
-    /// - Throws: 任务标识无效、RTC 房间未就绪、已有生成任务，或开始信令
-    ///   发送失败时抛出错误。
+    ///   - paddingContain: 是否按包含模式保留源比例并填充生成画布。
+    /// - Returns: 等待远端结果流发布确认的任务。
+    /// - Throws: 任务参数无效、房间未就绪、已有生成任务、信令失败或发送等待超时时抛出错误。
     func beginGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -149,16 +155,16 @@ protocol StreamControlling: Sendable {
     /// - Throws: 当前生成流尚未确认，或 RTC 音量和订阅配置失败时抛出错误。
     func activateRemoteAudio() throws
 
-    /// 发送生成条件变更信令。
+    /// 发送当前生成任务的条件变更信令。
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务的唯一标识。
-    ///   - videoFormat: 当前本地媒体使用的视频格式。
-    ///   - targetSize: 当前连接的回传尺寸；为 `nil` 时保持生成尺寸。
-    ///   - context: 更新后的生成条件上下文。
+    ///   - videoFormat: 服务端生成使用的视频规格。
+    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
+    ///   - context: 生成使用的参考图、提示词等条件。
     ///   - faceRestoration: 是否回贴原始人脸。
-    /// - Throws: RTC 房间未就绪、参数无效或条件变更信令发送失败时
-    ///   抛出错误。
+    ///   - paddingContain: 是否按包含模式保留源比例并填充生成画布。
+    /// - Throws: 房间未就绪、参数无效或信令提交失败时抛出错误。
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,

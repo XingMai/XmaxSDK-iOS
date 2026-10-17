@@ -1,9 +1,10 @@
 //
 //  MediaSourceControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -11,9 +12,10 @@
 import Foundation
 import UIKit
 
-/// 定义本地视频文件准备、循环播放和重新起播能力。
+/// 定义本地视频文件准备、循环帧输出及预览管理能力。
 protocol MediaSourceControlling: Sendable {
 
+    // 音频状态
     /// 当前本地音频预览音量。
     var localAudioVolume: Float { get async }
 
@@ -30,6 +32,8 @@ protocol MediaSourceControlling: Sendable {
     ) async throws -> MediaSourceConfiguration
 
     /// 从文件起点开始循环输出音视频帧。
+    ///
+    /// - Throws: 媒体未准备、已在运行或播放器启动失败时抛出错误。
     func start() async throws
 
     /// 静音或恢复本地音频预览，不影响播放器和 RTC 音频帧输出。
@@ -43,14 +47,21 @@ protocol MediaSourceControlling: Sendable {
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
     func setLocalAudioVolume(_ volume: Float) async
 
-    /// 将本地播放器画面绑定到 SDK 视频视图。
+    /// 将解码预览绑定到指定视图。
+    ///
+    /// - Parameters:
+    ///   - view: 接收预览画面的视图。
+    ///   - contentMode: 画面的缩放与裁剪方式。
+    /// - Throws: 预览绑定失败时抛出错误。
     @MainActor
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
     ) throws
 
-    /// 从 SDK 视频视图解除本地播放器画面。
+    /// 从指定视图解除解码预览。
+    ///
+    /// - Parameter view: 需要解除预览的视图。
     @MainActor
     func detachPreview(from view: UIView)
 

@@ -1,9 +1,10 @@
 //
 //  MediaSourceController.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -18,21 +19,32 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     // 基础层组件
     private let metadataManager: any MediaFileMetadataManaging
 
+
     // 服务层组件
     private let mediaService: any MediaServicing
+
 
     // 媒体源组件
     private let playerController: any VideoPlayerControlling
 
+
     // 并发控制
     private let stateLock = NSLock()
+
 
     // 媒体配置
     private var configuration: MediaSourceConfiguration?
 
+
     // 运行状态
     private var isRunning = false
 
+    /// 连接文件元数据、模型规则和音视频播放组件。
+    ///
+    /// - Parameters:
+    ///   - metadataManager: 读取文件媒体元数据的组件。
+    ///   - mediaService: 提供模型默认帧率的服务。
+    ///   - playerController: 负责解码、帧输出和本地预览的播放器。
     init(
         metadataManager: any MediaFileMetadataManaging,
         mediaService: any MediaServicing,
@@ -43,16 +55,25 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         self.playerController = playerController
     }
 
+
+    // 媒体状态
     var hasAudio: Bool {
         stateLock.withLock { configuration?.hasAudio ?? false }
     }
 
+
+    // 音频预览
     var localAudioVolume: Float {
         get async {
             await playerController.localAudioVolume
         }
     }
 
+    /// 准备本地视频文件和输出格式。
+    ///
+    /// - Parameter fileURL: 可读取的本地视频文件地址。
+    /// - Returns: 保留源视频显示比例的媒体输出配置。
+    /// - Throws: 文件无法读取、视频轨道缺失或输出规格无效时抛出错误。
     func prepare(
         fileURL: URL
     ) async throws -> MediaSourceConfiguration {
@@ -94,6 +115,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
     }
 
+    /// 从文件起点开始循环输出音视频帧。
+    ///
+    /// - Throws: 媒体未准备、已在运行或播放器启动失败时抛出错误。
     func start() async throws {
         try beginRunning()
         do {
@@ -104,6 +128,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         }
     }
 
+    /// 静音或恢复本地音频预览，不影响播放器和 RTC 音频帧输出。
+    ///
+    /// - Parameter muted: `true` 表示仅静音本地播放器；
     func setLocalAudioPreviewMuted(_ muted: Bool) async {
         guard hasAudio else {
             return
@@ -111,10 +138,19 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         await playerController.setLocalAudioPreviewMuted(muted)
     }
 
+    /// 设置本地音频预览音量。
+    ///
+    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
     func setLocalAudioVolume(_ volume: Float) async {
         await playerController.setLocalAudioVolume(volume)
     }
 
+    /// 将解码预览绑定到指定视图。
+    ///
+    /// - Parameters:
+    ///   - view: 接收预览画面的视图。
+    ///   - contentMode: 画面的缩放与裁剪方式。
+    /// - Throws: 预览绑定失败时抛出错误。
     @MainActor
     func attachPreview(
         to view: UIView,
@@ -126,11 +162,15 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         )
     }
 
+    /// 从指定视图解除解码预览。
+    ///
+    /// - Parameter view: 需要解除预览的视图。
     @MainActor
     func detachPreview(from view: UIView) {
         playerController.detachPreview(from: view)
     }
 
+    /// 停止输出并释放解码与本地音频播放资源。
     func stop() async {
         stateLock.withLock {
             isRunning = false
@@ -141,6 +181,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 }
 
 private extension MediaSourceController {
+    /// 校验媒体已经准备并标记开始运行。
+    ///
+    /// - Throws: 媒体尚未准备或已在运行时抛出错误。
     func beginRunning() throws {
         try stateLock.withLock {
             guard configuration != nil else {
@@ -159,6 +202,7 @@ private extension MediaSourceController {
         }
     }
 
+    /// 清除运行标记并停止播放器。
     func rollbackRunning() async {
         stateLock.withLock {
             isRunning = false
@@ -166,6 +210,11 @@ private extension MediaSourceController {
         await playerController.stop()
     }
 
+    /// 根据源视频显示方向计算偶数对齐的输出规格。
+    ///
+    /// - Parameter metadata: 源视频的编码尺寸、旋转及音频信息。
+    /// - Returns: 保留源显示比例并使用模型默认帧率的输出规格。
+    /// - Throws: 解析出的输出规格无效时抛出错误。
     func resolveVideoFormat(
         metadata: MediaFileMetadata
     ) throws -> RealtimeVideoFormat {

@@ -1,9 +1,10 @@
 //
 //  QualityControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -12,6 +13,8 @@ import Foundation
 
 /// 定义网络质量与设备性能告警的监听能力。
 protocol QualityControlling: Sendable {
+
+    // 质量配置
     /// 当前连接的传输档位；尚未准备时为空。
     var qualityConfiguration: QualityConfiguration? { get }
 
@@ -70,12 +73,16 @@ protocol QualityControlling: Sendable {
     /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
     func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?)
 
-    /// 设置网络质量监听器，传入空值时清除监听器。
+    /// 设置上下行网络质量监听器。
+    ///
+    /// - Parameter listener: 主线程接收网络质量的回调；`nil` 表示清除。
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     )
 
-    /// 设置设备性能告警监听器，传入空值时清除监听器。
+    /// 设置设备性能告警监听器。
+    ///
+    /// - Parameter listener: 主线程接收性能受限或恢复的回调；`nil` 表示清除。
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     )

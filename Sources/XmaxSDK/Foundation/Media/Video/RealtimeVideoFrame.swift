@@ -1,9 +1,10 @@
 //
 //  RealtimeVideoFrame.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -21,6 +22,7 @@ public struct RealtimeVideoFrame: @unchecked Sendable {
     /// 编码完成后释放。
     public let pixelBuffer: CVPixelBuffer
 
+
     // 时间信息
     /// 当前帧在实时视频时间轴中的显示时间。
     ///
@@ -30,6 +32,12 @@ public struct RealtimeVideoFrame: @unchecked Sendable {
     /// 当前帧的建议显示时长。
     public let duration: CMTime
 
+    /// 创建可供显示或录制的实时视频帧。
+    ///
+    /// - Parameters:
+    ///   - pixelBuffer: 持有当前帧像素的缓冲区。
+    ///   - presentationTimeStamp: 帧在实时视频时间轴中的显示时间。
+    ///   - duration: 建议显示时长；未知时使用 `.invalid`。
     init(
         pixelBuffer: CVPixelBuffer,
         presentationTimeStamp: CMTime,

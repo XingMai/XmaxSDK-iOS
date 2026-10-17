@@ -1,9 +1,10 @@
 //
 //  NV12VideoFrameConverter.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,6 +15,16 @@ import Foundation
 
 /// 将系统 NV12 像素缓冲区裁剪、缩放并旋转为目标显示尺寸的连续帧数据。
 enum NV12VideoFrameConverter {
+    /// 将 NV12 缓冲区居中裁剪、缩放并旋转为指定显示尺寸。
+    ///
+    /// - Parameters:
+    ///   - pixelBuffer: 源 NV12 像素缓冲区。
+    ///   - outputWidth: 输出宽度，单位为像素且须为正偶数。
+    ///   - outputHeight: 输出高度，单位为像素且须为正偶数。
+    ///   - rotation: 缩放后应用的显示旋转。
+    ///   - timestampUs: 输出帧时间戳，单位为微秒。
+    /// - Returns: 旋转已应用到像素数据、旋转标记为零的 NV12 视频帧。
+    /// - Throws: 像素格式、平面布局或尺寸无效，以及缓冲区转换失败时抛出错误。
     static func convert(
         pixelBuffer: CVPixelBuffer,
         outputWidth: Int,
@@ -123,6 +134,18 @@ enum NV12VideoFrameConverter {
         )
     }
 
+    /// 裁剪并缩放 NV12 的亮度和色度平面。
+    ///
+    /// - Parameters:
+    ///   - lumaBaseAddress: 源亮度平面起始地址。
+    ///   - lumaStride: 源亮度平面每行字节数。
+    ///   - chromaBaseAddress: 源色度平面起始地址。
+    ///   - chromaStride: 源色度平面每行字节数。
+    ///   - crop: 源图像中的偶数对齐裁剪区域。
+    ///   - outputWidth: 缩放后的宽度，单位为像素。
+    ///   - outputHeight: 缩放后的高度，单位为像素。
+    /// - Returns: 连续存储亮度和色度平面的 NV12 数据。
+    /// - Throws: 内存分配或平面缩放失败时抛出错误。
     private static func scale(
         lumaBaseAddress: UnsafeMutableRawPointer,
         lumaStride: Int,
@@ -201,6 +224,15 @@ enum NV12VideoFrameConverter {
         return data
     }
 
+    /// 旋转连续存储的 NV12 像素数据。
+    ///
+    /// - Parameters:
+    ///   - data: 源 NV12 数据。
+    ///   - sourceWidth: 源图像宽度，单位为像素。
+    ///   - sourceHeight: 源图像高度，单位为像素。
+    ///   - rotation: 需要应用的旋转角度。
+    /// - Returns: 按指定角度旋转后的 NV12 数据；零度旋转时返回原数据。
+    /// - Throws: 输出缓冲区分配或平面旋转失败时抛出错误。
     private static func rotate(
         _ data: Data,
         sourceWidth: Int,
@@ -281,6 +313,13 @@ enum NV12VideoFrameConverter {
         return output
     }
 
+    /// 计算应用旋转前的缩放尺寸。
+    ///
+    /// - Parameters:
+    ///   - outputWidth: 最终显示宽度。
+    ///   - outputHeight: 最终显示高度。
+    ///   - rotation: 缩放后应用的旋转角度。
+    /// - Returns: 旋转前所需的宽度和高度。
     private static func scaledDimensions(
         outputWidth: Int,
         outputHeight: Int,
@@ -294,6 +333,10 @@ enum NV12VideoFrameConverter {
         }
     }
 
+    /// 将显示旋转转换为 vImage 的四分之一圈旋转次数。
+    ///
+    /// - Parameter rotation: 视频显示旋转。
+    /// - Returns: vImage 使用的旋转常量。
     private static func rotationConstant(
         for rotation: VideoRotation
     ) -> UInt8 {
@@ -309,6 +352,14 @@ enum NV12VideoFrameConverter {
         }
     }
 
+    /// 计算符合目标宽高比的居中裁剪区域。
+    ///
+    /// - Parameters:
+    ///   - sourceWidth: 源图像宽度。
+    ///   - sourceHeight: 源图像高度。
+    ///   - targetWidth: 目标图像宽度。
+    ///   - targetHeight: 目标图像高度。
+    /// - Returns: 位置及尺寸均按 NV12 要求进行偶数对齐的裁剪区域。
     private static func centerCrop(
         sourceWidth: Int,
         sourceHeight: Int,
@@ -338,14 +389,26 @@ enum NV12VideoFrameConverter {
         )
     }
 
+    /// 向下取偶数尺寸，并保证至少为两个像素。
+    ///
+    /// - Parameter value: 待对齐的尺寸。
+    /// - Returns: 不小于 2 的偶数尺寸。
     private static func evenFloor(_ value: Double) -> Int {
         max(Int(floor(value)) / 2 * 2, 2)
     }
 
+    /// 向下取偶数偏移，并保证偏移非负。
+    ///
+    /// - Parameter value: 待对齐的偏移。
+    /// - Returns: 非负偶数偏移。
     private static func evenOffset(_ value: Double) -> Int {
         max(Int(floor(value)) / 2 * 2, 0)
     }
 
+    /// 构造视频帧转换错误。
+    ///
+    /// - Parameter message: 错误描述。
+    /// - Returns: 包含指定描述的媒体错误。
     private static func mediaError(_ message: String) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }

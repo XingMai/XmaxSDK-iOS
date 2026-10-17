@@ -1,9 +1,10 @@
 //
 //  MediaService.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -16,13 +17,22 @@ final class MediaService: MediaServicing, Sendable {
     // 模型约束
     let model: RealtimeModel
 
+
     // 插帧约束
     private static let maximumFrameInterpolationPixels = 900000
 
+    /// 创建采用指定模型尺寸规则的媒体服务。
+    ///
+    /// - Parameter model: 用于解析输入尺寸的生成模型。
     init(model: RealtimeModel = .x2_1_1_preview_cn) {
         self.model = model
     }
 
+    /// 计算满足模型输入约束的尺寸。
+    ///
+    /// - Parameter size: 指定的视频格式尺寸；未指定格式时为原始媒体的显示尺寸。
+    /// - Returns: 模型分辨率桶非空时，精确匹配后原样返回；为空时按像素面积上下限及对齐要求计算。
+    /// - Throws: 尺寸无效或未匹配模型支持的分辨率桶时抛出 `XmaxError`。
     func resolveModelInputSize(_ size: CGSize) throws -> CGSize {
         let buckets = model.resolutionBuckets
         if !buckets.isEmpty {
@@ -76,6 +86,12 @@ final class MediaService: MediaServicing, Sendable {
         )
     }
 
+    /// 计算保持原始比例且满足插帧像素预算的回传尺寸。
+    ///
+    /// - Parameter size: 生成画面的整数像素尺寸。
+    /// - Returns: 不放大、宽高均为偶数且总像素不超过 900000 的等比例尺寸。
+    ///   不应用模型输入的最小面积或对齐规则，也不检查设备能力。
+    /// - Throws: 尺寸无效，或不存在满足约束的等比例尺寸时抛出 `XmaxError`。
     func resolveFrameInterpolationSize(_ size: CGSize) throws -> CGSize {
         guard let width = Self.integralDimension(size.width),
               let height = Self.integralDimension(size.height) else {
@@ -109,6 +125,10 @@ final class MediaService: MediaServicing, Sendable {
         )
     }
 
+    /// 判断当前设备是否支持对指定分辨率的视频进行插帧。
+    ///
+    /// - Parameter size: 客户端收到的、用于插帧处理的视频分辨率。
+    /// - Returns: 当前系统、设备和视频规格均支持插帧时返回 `true`。
     func supportsFrameInterpolation(for size: CGSize) -> Bool {
         guard Self.supportsFrameInterpolationSize(size) else {
             return false
@@ -116,6 +136,10 @@ final class MediaService: MediaServicing, Sendable {
         return FrameInterpolationSupport.supports(size: size)
     }
 
+    /// 检查尺寸是否为正整数且满足插帧像素面积限制。
+    ///
+    /// - Parameter size: 待检查的视频尺寸，单位为像素。
+    /// - Returns: 尺寸合法且总像素不超过插帧上限时返回 `true`；不检查设备能力。
     static func supportsFrameInterpolationSize(_ size: CGSize) -> Bool {
         guard let width = integralDimension(size.width),
               let height = integralDimension(size.height) else {
@@ -129,6 +153,12 @@ final class MediaService: MediaServicing, Sendable {
 }
 
 private extension MediaService {
+    /// 选择满足模型面积与对齐约束、最接近目标宽高的尺寸。
+    ///
+    /// - Parameters:
+    ///   - width: 缩放后的目标宽度，单位为像素。
+    ///   - height: 缩放后的目标高度，单位为像素。
+    /// - Returns: 在合法尺寸中相对宽高偏差最小的候选尺寸。
     func boundedAlignedSize(width: Double, height: Double) -> CGSize {
         let alignment = model.inputSizeAlignment
         let unitPixels = alignment * alignment
@@ -157,6 +187,10 @@ private extension MediaService {
         return bestSize
     }
 
+    /// 将有效的正整数像素边长转换为整数。
+    ///
+    /// - Parameter value: 待校验的像素边长。
+    /// - Returns: 可安全转换的正整数；非有限值、非整数或越界时返回 `nil`。
     static func integralDimension(_ value: CGFloat) -> Int? {
         guard value.isFinite,
               value > 0,
@@ -168,6 +202,11 @@ private extension MediaService {
         return Int(roundedValue)
     }
 
+    /// 校验媒体宽高并将其取整为至少一个像素。
+    ///
+    /// - Parameter size: 待校验的媒体尺寸。
+    /// - Returns: 宽高均为正整数的媒体尺寸。
+    /// - Throws: 宽高非有限、非正数或超出整数范围时抛出配置错误。
     func validatedSize(_ size: CGSize) throws -> CGSize {
         guard size.width.isFinite,
               size.height.isFinite,

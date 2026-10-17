@@ -1,9 +1,10 @@
 //
 //  ImageControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,6 +14,7 @@ import Foundation
 /// 定义本地图片流创建、帧输出和预览资源管理能力。
 protocol ImageControlling: Sendable {
 
+    // 本地轨道
     /// 当前本地图片视频轨道；尚未创建或已停止时为空。
     var currentTrack: RealtimeVideoTrack? { get }
 

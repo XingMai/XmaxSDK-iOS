@@ -1,9 +1,10 @@
 //
 //  XmaxLogger.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,6 +15,7 @@ import OSLog
 /// 控制 XmaxSDK 输出的日志类型。
 public struct XmaxLoggerOption: OptionSet, Sendable {
 
+    // 选项标识
     /// 日志类型对应的位掩码。
     public let rawValue: UInt
 
@@ -24,6 +26,8 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
         self.rawValue = rawValue
     }
 
+
+    // 预定义日志选项
     /// Room、API、Realtime、Storage 等业务运行日志。
     public static let business = Self(rawValue: 1 << 0)
 
@@ -51,11 +55,14 @@ struct XmaxLogger: Sendable {
     static let interaction = Self(category: "Interaction")
     static let permission = Self(category: "Permission")
 
+
     // 日志类别
     private let category: String
 
+
     // 日志配置
     private static let state = XmaxLoggerState()
+
 
     // 平台资源
     private static let logger = Logger(
@@ -63,11 +70,18 @@ struct XmaxLogger: Sendable {
         category: "XmaxSDK"
     )
 
+    /// 创建使用指定分类前缀的日志入口。
+    ///
+    /// - Parameter category: 输出到日志前缀中的业务分类名称。
     private init(category: String) {
         self.category = category
     }
 
-    /// 更新 SDK 全局日志选项和细项语言，后一次配置覆盖前一次。
+    /// 更新全局日志选项和细项语言，后一次配置覆盖前一次。
+    ///
+    /// - Parameters:
+    ///   - options: 允许输出的日志类型。
+    ///   - environment: 决定日志细项语言的服务环境。
     static func configure(
         options: XmaxLoggerOption,
         environment: XmaxEnvironment = .china
@@ -75,16 +89,29 @@ struct XmaxLogger: Sendable {
         state.update(options, environment: environment)
     }
 
-    /// 选择日志细项文案；日志标题保持原有中英双语。
+    /// 按当前环境选择日志细项语言。
+    ///
+    /// - Parameters:
+    ///   - chinese: 国内环境使用的中文文案。
+    ///   - english: 海外环境使用的英文文案。
+    /// - Returns: 当前环境对应的文案。
     static func localized(_ chinese: String, _ english: String) -> String {
         state.environment == .china ? chinese : english
     }
 
+    /// 判断指定日志类型是否全部启用。
+    ///
+    /// - Parameter option: 需要检查的日志选项；空选项不启用。
+    /// - Returns: 配置包含全部指定选项时返回 `true`。
     static func isEnabled(_ option: XmaxLoggerOption) -> Bool {
         state.isEnabled(option)
     }
 
-    /// 输出调试日志。
+    /// 输出调试级别日志，仅在对应选项启用时构建消息。
+    ///
+    /// - Parameters:
+    ///   - message: 需要输出的日志内容，延迟到实际输出时求值。
+    ///   - option: 控制本条日志是否输出的选项。
     func debug(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
@@ -96,7 +123,11 @@ struct XmaxLogger: Sendable {
         )
     }
 
-    /// 输出普通信息日志。
+    /// 输出信息级别日志，仅在对应选项启用时构建消息。
+    ///
+    /// - Parameters:
+    ///   - message: 需要输出的日志内容，延迟到实际输出时求值。
+    ///   - option: 控制本条日志是否输出的选项。
     func info(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
@@ -108,7 +139,11 @@ struct XmaxLogger: Sendable {
         )
     }
 
-    /// 输出警告日志。
+    /// 输出警告级别日志，仅在对应选项启用时构建消息。
+    ///
+    /// - Parameters:
+    ///   - message: 需要输出的日志内容，延迟到实际输出时求值。
+    ///   - option: 控制本条日志是否输出的选项。
     func warn(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
@@ -120,7 +155,11 @@ struct XmaxLogger: Sendable {
         )
     }
 
-    /// 输出错误日志。
+    /// 输出错误级别日志，仅在对应选项启用时构建消息。
+    ///
+    /// - Parameters:
+    ///   - message: 需要输出的日志内容，延迟到实际输出时求值。
+    ///   - option: 控制本条日志是否输出的选项。
     func error(
         message: @autoclosure () -> String,
         option: XmaxLoggerOption = .business
@@ -132,7 +171,10 @@ struct XmaxLogger: Sendable {
         )
     }
 
-    /// 为日志的每一行添加统一前缀。
+    /// 为每一行日志添加 SDK 和业务分类前缀。
+    ///
+    /// - Parameter message: 未添加前缀的日志内容。
+    /// - Returns: 每行均具有统一分类前缀的日志文本。
     func formattedMessage(message: String) -> String {
         let prefix = "[Xmax][\(category)]"
 
@@ -142,6 +184,12 @@ struct XmaxLogger: Sendable {
             .joined(separator: "\n")
     }
 
+    /// 检查输出选项并按指定级别写入系统日志。
+    ///
+    /// - Parameters:
+    ///   - level: 本条日志的严重级别。
+    ///   - message: 生成日志内容的闭包，仅在启用时调用。
+    ///   - option: 控制输出的日志选项。
     private func write(
         level: Level,
         message: () -> String,
@@ -166,6 +214,7 @@ struct XmaxLogger: Sendable {
         }
     }
 
+    /// 区分日志在系统日志中的严重程度。
     private enum Level {
         case debug
         case info
@@ -177,14 +226,25 @@ struct XmaxLogger: Sendable {
 /// 以线程安全方式保存 SDK 全局日志配置。
 final class XmaxLoggerState: @unchecked Sendable {
 
+    // 并发控制
     private let lock = NSLock()
+
+
+    // 日志配置
     private var options: XmaxLoggerOption = []
     private var storedEnvironment: XmaxEnvironment = .china
 
+
+    // 当前语言环境
     var environment: XmaxEnvironment {
         lock.withLock { storedEnvironment }
     }
 
+    /// 以线程安全方式更新全局日志配置。
+    ///
+    /// - Parameters:
+    ///   - options: 允许输出的日志类型。
+    ///   - environment: 决定细项语言的服务环境。
     func update(
         _ options: XmaxLoggerOption,
         environment: XmaxEnvironment = .china
@@ -195,6 +255,10 @@ final class XmaxLoggerState: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// 判断指定日志类型是否全部启用。
+    ///
+    /// - Parameter option: 需要检查的日志选项；空选项不启用。
+    /// - Returns: 配置包含全部指定选项时返回 `true`。
     func isEnabled(_ option: XmaxLoggerOption) -> Bool {
         guard !option.isEmpty else {
             return false

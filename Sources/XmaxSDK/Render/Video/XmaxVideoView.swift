@@ -1,9 +1,10 @@
 //
 //  XmaxVideoView.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -22,6 +23,7 @@ public final class XmaxVideoView: UIView {
 
     // 图片转换资源
     private static let imageContext = CIContext()
+
 
     // 公共配置
     /// 当前显示的视频轨道。
@@ -74,6 +76,7 @@ public final class XmaxVideoView: UIView {
         }
     }
 
+
     // 渲染状态
     private weak var attachedTrack: RealtimeVideoTrack?
     private weak var attachedTrajectoryTrack: RealtimeVideoTrack?
@@ -82,19 +85,23 @@ public final class XmaxVideoView: UIView {
         (any TrajectoryEffectRendering)?
     var frameDisplayHandler: (() -> Void)?
 
+
     // 所属窗口的显示方向
     private(set) var displayOrientation: UIInterfaceOrientation?
     private var orientationObserver: VideoOrientationObserver?
+
 
     // 视频预览
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
     private var decodedVideoTimebase: CMTimebase?
     private var nextDecodedVideoPresentationTime = CMTime.invalid
 
+
     // 本地预览缓冲资源
     private var localPreviewPixelBufferPool: CVPixelBufferPool?
     private var localPreviewFormat: VideoFormat?
     private var localPreviewFormatDescription: CMVideoFormatDescription?
+
 
     // 图片预览
     private lazy var imageView: UIImageView = {
@@ -104,6 +111,7 @@ public final class XmaxVideoView: UIView {
         imageView.isHidden = true
         return imageView
     }()
+
 
     // 轨迹交互
     private lazy var trajectoryOverlayView: TrajectoryOverlayView = {
@@ -138,19 +146,24 @@ public final class XmaxVideoView: UIView {
     }
 
     /// 使用指定布局区域创建视频渲染容器。
+    ///
+    /// - Parameter frame: 视图初始布局区域。
     public override init(frame: CGRect) {
         track = nil
         super.init(frame: frame)
         configureView()
     }
 
-    /// 从 Interface Builder 恢复视频渲染容器。
+    /// 从 Interface Builder 归档恢复视频渲染容器。
+    ///
+    /// - Parameter coder: 视图归档解码器。
     public required init?(coder: NSCoder) {
         track = nil
         super.init(coder: coder)
         configureView()
     }
 
+    /// 随窗口挂载状态更新轨道绑定及方向观察。
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         displayOrientation = nil
@@ -163,6 +176,7 @@ public final class XmaxVideoView: UIView {
         updateWindowOrientation()
     }
 
+    /// 同步视频图层和交互覆盖层布局，并更新窗口方向。
     public override func layoutSubviews() {
         super.layoutSubviews()
         decodedVideoLayer?.frame = bounds
@@ -173,6 +187,7 @@ public final class XmaxVideoView: UIView {
 }
 
 extension XmaxVideoView {
+    /// 按当前轨道和所属控制器更新窗口旋转观察器。
     private func updateOrientationObservation() {
         var responder: UIResponder? = next
         while responder != nil && !(responder is UIViewController) {
@@ -199,6 +214,7 @@ extension XmaxVideoView {
         observer.didMove(toParent: parent)
     }
 
+    /// 在非旋转过渡期间同步窗口的实际显示方向。
     func updateWindowOrientation() {
         guard orientationObserver?.isTransitioning != true,
               let scene = window?.windowScene else { return }
@@ -209,7 +225,9 @@ extension XmaxVideoView {
         }
     }
 
-    /// 同步完整显示方向；首次绑定和同轴旋转只调整采集，不触发断开。
+    /// 更新轨道显示方向，并通知横竖轴是否发生变化。
+    ///
+    /// - Parameter orientation: 目标界面方向；未知方向不处理。
     func updateInterfaceOrientation(_ orientation: UIInterfaceOrientation) {
         let next: CameraOrientation
         switch orientation {
@@ -226,6 +244,7 @@ extension XmaxVideoView {
         track?.orientationChangeHandler?(changedAxis)
     }
 
+    /// 配置黑色背景、裁剪及图片和轨迹子视图。
     func configureView() {
         backgroundColor = .black
         clipsToBounds = true
@@ -233,6 +252,12 @@ extension XmaxVideoView {
         addSubview(trajectoryOverlayView)
     }
 
+    /// 将图片帧转换为图像并显示到静态预览。
+    ///
+    /// - Parameters:
+    ///   - frame: BGRA 或 NV12 图片帧。
+    ///   - contentMode: 图像的缩放与裁剪方式。
+    /// - Throws: 帧布局无效或图像创建失败时抛出错误。
     func displayImageFrame(
         _ frame: VideoFrame,
         contentMode: VideoContentMode
@@ -246,11 +271,15 @@ extension XmaxVideoView {
         frameDisplayHandler?()
     }
 
+    /// 清空并隐藏静态图片预览。
     func clearImageFrame() {
         imageView.image = nil
         imageView.isHidden = true
     }
 
+    /// 创建或更新解码视频图层及其显示时钟。
+    ///
+    /// - Parameter contentMode: 视频画面的缩放与裁剪方式。
     func prepareDecodedVideoPreview(contentMode: VideoContentMode) {
         let decodedVideoLayer: AVSampleBufferDisplayLayer
         if let currentLayer = self.decodedVideoLayer {
@@ -285,10 +314,18 @@ extension XmaxVideoView {
             .resizeAspect : .resizeAspectFill
     }
 
+    /// 设置解码视频预览的水平镜像。
+    ///
+    /// - Parameter mirrored: 是否水平镜像画面。
     func setDecodedVideoPreviewMirrored(_ mirrored: Bool) {
         decodedVideoLayer?.setAffineTransform(CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1))
     }
 
+    /// 将本地 NV12 帧转换为样本并立即提交预览。
+    ///
+    /// - Parameters:
+    ///   - frame: 待显示的本地视频帧。
+    ///   - contentMode: 视频画面的缩放与裁剪方式。
     func displayDecodedVideoFrame(
         _ frame: VideoFrame,
         contentMode: VideoContentMode
@@ -342,6 +379,11 @@ extension XmaxVideoView {
         }
     }
 
+    /// 按帧时长提交远端画面，并同步交互映射尺寸。
+    ///
+    /// - Parameters:
+    ///   - frame: 已完成插帧等处理的远端视频帧。
+    ///   - contentMode: 视频画面的缩放与裁剪方式。
     func displayRemoteVideoFrame(
         _ frame: RealtimeVideoFrame,
         contentMode: VideoContentMode
@@ -405,6 +447,7 @@ extension XmaxVideoView {
         frameDisplayHandler?()
     }
 
+    /// 移除视频图层并释放显示时钟和预览缓冲资源。
     func clearDecodedVideoPreview() {
         decodedVideoLayer?.flushAndRemoveImage()
         decodedVideoLayer?.controlTimebase = nil
@@ -417,6 +460,7 @@ extension XmaxVideoView {
         localPreviewFormatDescription = nil
     }
 
+    /// 在视图已挂载窗口时绑定当前轨道的画面和交互。
     func attachCurrentTrackIfNeeded() {
         guard window != nil, let track else {
             return
@@ -449,6 +493,9 @@ extension XmaxVideoView {
         bringSubviewToFront(trajectoryOverlayView)
     }
 
+    /// 解除指定轨道在当前视图中的画面和交互绑定。
+    ///
+    /// - Parameter track: 需要解除的轨道；`nil` 时不执行操作。
     func detach(track: RealtimeVideoTrack?) {
         guard let track else { return }
 
@@ -473,6 +520,7 @@ extension XmaxVideoView {
         }
     }
 
+    /// 解除当前持有的全部视频和交互轨道绑定。
     func detachCurrentTrack() {
         let renderTrack = attachedTrack
         let trajectoryTrack = attachedTrajectoryTrack
@@ -482,6 +530,11 @@ extension XmaxVideoView {
         }
     }
 
+    /// 输出带统一错误描述的渲染日志。
+    ///
+    /// - Parameters:
+    ///   - title: 中英文日志标题。
+    ///   - error: 需要记录的渲染错误。
     static func logRenderingFailure(
         title: String,
         error: any Error
@@ -492,6 +545,11 @@ extension XmaxVideoView {
         )
     }
 
+    /// 将 BGRA 或 NV12 视频帧转换为 UIKit 图像。
+    ///
+    /// - Parameter frame: 待转换的图片视频帧。
+    /// - Returns: 包含原始像素内容的图像。
+    /// - Throws: 像素格式、平面布局无效或图像创建失败时抛出错误。
     static func makeImage(_ frame: VideoFrame) throws -> UIImage {
         if frame.format.pixelFormat == .nv12 {
             return try makeNV12Image(frame)
@@ -545,6 +603,11 @@ extension XmaxVideoView {
         return UIImage(cgImage: image)
     }
 
+    /// 将 NV12 帧转换为可显示的 UIKit 图像。
+    ///
+    /// - Parameter frame: 双平面 NV12 视频帧。
+    /// - Returns: 转换后的图像。
+    /// - Throws: 缓冲区转换或图像创建失败时抛出错误。
     static func makeNV12Image(_ frame: VideoFrame) throws -> UIImage {
         let width = frame.format.width
         let height = frame.format.height
@@ -560,6 +623,11 @@ extension XmaxVideoView {
         return UIImage(cgImage: cgImage)
     }
 
+    /// 复用符合当前帧规格的缓冲池创建预览缓冲区。
+    ///
+    /// - Parameter frame: 待复制的本地 NV12 视频帧。
+    /// - Returns: 已填充当前帧数据的像素缓冲区。
+    /// - Throws: 缓冲池创建或帧数据复制失败时抛出错误。
     func makeLocalPreviewPixelBuffer(_ frame: VideoFrame) throws -> CVPixelBuffer {
         if localPreviewFormat != frame.format || localPreviewPixelBufferPool == nil {
             let attributes: [String: Any] = [
@@ -581,6 +649,11 @@ extension XmaxVideoView {
         return try Self.makeNV12PixelBuffer(frame, pool: localPreviewPixelBufferPool)
     }
 
+    /// 复用或创建与像素缓冲区匹配的视频格式描述。
+    ///
+    /// - Parameter pixelBuffer: 当前预览像素缓冲区。
+    /// - Returns: 与缓冲区尺寸和格式匹配的描述。
+    /// - Throws: 视频格式描述创建失败时抛出错误。
     func localPreviewDescription(for pixelBuffer: CVPixelBuffer) throws -> CMVideoFormatDescription {
         if let description = localPreviewFormatDescription,
            CMVideoFormatDescriptionMatchesImageBuffer(description, imageBuffer: pixelBuffer) {
@@ -599,6 +672,13 @@ extension XmaxVideoView {
         return description
     }
 
+    /// 校验并复制 NV12 帧到 IOSurface 像素缓冲区。
+    ///
+    /// - Parameters:
+    ///   - frame: 待复制的 NV12 视频帧。
+    ///   - pool: 可复用的像素缓冲池；`nil` 时单独分配。
+    /// - Returns: 包含亮度及色度平面的像素缓冲区。
+    /// - Throws: 帧布局无效、缓冲区分配、锁定或复制失败时抛出错误。
     static func makeNV12PixelBuffer(
         _ frame: VideoFrame,
         pool: CVPixelBufferPool? = nil
@@ -669,6 +749,15 @@ extension XmaxVideoView {
         return pixelBuffer
     }
 
+    /// 按行复制一个像素平面的有效数据。
+    ///
+    /// - Parameters:
+    ///   - plane: 提供源数据和行步长的平面。
+    ///   - rowByteCount: 每行需要复制的字节数。
+    ///   - rowCount: 需要复制的行数。
+    ///   - destination: 目标平面起始地址。
+    ///   - destinationStride: 目标平面每行字节数。
+    /// - Throws: 源数据或目标布局不能容纳指定区域时抛出错误。
     static func copyPlane(
         _ plane: VideoFramePlane,
         rowByteCount: Int,
@@ -706,6 +795,8 @@ extension XmaxVideoView {
         }
     }
 
+
+    // 帧校验错误
     static var invalidImageFrameError: XmaxError {
         XmaxError(
             code: .mediaError,

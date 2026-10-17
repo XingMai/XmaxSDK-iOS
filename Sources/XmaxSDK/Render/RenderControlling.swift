@@ -1,15 +1,17 @@
 //
 //  RenderControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
 import Foundation
 
+/// 异步接收渲染视图采集的交互帧。
 typealias RenderInteractionListener = @Sendable (
     _ frame: InteractionFrame
 ) async -> Void
@@ -18,24 +20,38 @@ typealias RenderInteractionListener = @Sendable (
 @MainActor
 protocol RenderControlling: AnyObject, Sendable {
 
+    // 插帧状态
     /// 当前远端视频插帧是否处于开启状态。
     var isFrameInterpolationEnabled: Bool { get async }
 
-    /// 更新当前需要渲染的远端 RTC 视频流。
+    /// 更新远端解码帧来源并使旧流的缓存和等待失效。
+    ///
+    /// - Parameter stream: 新的远端流；传入 `nil` 清除当前来源。
+    /// - Throws: 旧流监听解除或新流监听绑定失败时抛出错误。
     func setRemoteStream(_ stream: RemoteStream?) throws
 
     /// 设置远端最终视频帧监听器。
+    ///
+    /// - Parameter listener: 在独立串行队列接收最终帧的回调；`nil` 表示清除。
     func setRemoteVideoFrameListener(
         _ listener: RealtimeVideoFrameListener?
     )
 
-    /// 为远端视频轨道注册画面和轨迹交互绑定。
+    /// 为远端轨道注册视频渲染和轨迹交互绑定。
+    ///
+    /// - Parameters:
+    ///   - track: 需要注册的远端视频轨道。
+    ///   - interactionListener: 接收视图交互采样的异步回调。
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,
         interactionListener: @escaping RenderInteractionListener
     )
 
-    /// 更新远端轨道的轨迹坐标映射格式。
+    /// 更新远端轨道的轨迹坐标映射规格。
+    ///
+    /// - Parameters:
+    ///   - videoFormat: 新的视频映射规格。
+    ///   - track: 需要更新的远端视频轨道。
     func updateRemoteVideoFormat(
         _ videoFormat: RealtimeVideoFormat,
         for track: RealtimeVideoTrack

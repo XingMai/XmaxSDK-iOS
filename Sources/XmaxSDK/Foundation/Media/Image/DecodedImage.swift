@@ -1,9 +1,10 @@
 //
 //  DecodedImage.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,10 +15,17 @@ import Foundation
 /// 表示 SDK 内部已经完成方向处理和像素解码的图片。
 protocol DecodedImage: Sendable {
 
+    // 图片尺寸
     /// 图片解码后的实际像素尺寸。
     var size: CGSize { get }
 
-    /// 居中裁剪并转换为可供外部视频源重复使用的视频帧。
+    /// 按目标比例居中裁剪并缩放图片，生成可复用的视频帧。
+    ///
+    /// - Parameters:
+    ///   - width: 目标帧宽度，单位为像素。
+    ///   - height: 目标帧高度，单位为像素。
+    /// - Returns: 包含 BGRA 像素和缓冲区复用标识、初始时间戳为零的视频帧。
+    /// - Throws: 尺寸无效、内存大小溢出或裁剪及像素绘制失败时抛出错误。
     func makeVideoFrame(
         width: Int,
         height: Int
@@ -30,14 +38,25 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
     // 图片资源
     private let image: CGImage
 
+
     // 图片信息
     let size: CGSize
 
+    /// 持有已应用方向信息的 Core Graphics 图片。
+    ///
+    /// - Parameter image: 作为后续裁剪和缩放源的像素图片。
     init(image: CGImage) {
         self.image = image
         size = CGSize(width: image.width, height: image.height)
     }
 
+    /// 按目标比例居中裁剪并缩放图片，生成可复用的视频帧。
+    ///
+    /// - Parameters:
+    ///   - width: 目标帧宽度，单位为像素。
+    ///   - height: 目标帧高度，单位为像素。
+    /// - Returns: 包含 BGRA 像素和缓冲区复用标识、初始时间戳为零的视频帧。
+    /// - Throws: 尺寸无效、内存大小溢出或裁剪及像素绘制失败时抛出错误。
     func makeVideoFrame(
         width: Int,
         height: Int
@@ -124,7 +143,14 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         )
     }
 
-    /// 计算保持目标宽高比的居中裁剪区域。
+    /// 计算保留目标宽高比的居中裁剪区域。
+    ///
+    /// - Parameters:
+    ///   - sourceWidth: 源图片宽度，单位为像素。
+    ///   - sourceHeight: 源图片高度，单位为像素。
+    ///   - targetWidth: 目标输出宽度，单位为像素。
+    ///   - targetHeight: 目标输出高度，单位为像素。
+    /// - Returns: 位于源图坐标系内的整数像素裁剪区域。
     static func centerCropRect(
         sourceWidth: Int,
         sourceHeight: Int,
@@ -158,6 +184,11 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 }
 
 private extension CoreGraphicsDecodedImage {
+    /// 计算 BGRA 图像的每行字节数。
+    ///
+    /// - Parameter width: 图像宽度，单位为像素。
+    /// - Returns: 每行四字节像素占用的总字节数。
+    /// - Throws: 宽度计算产生整数溢出时抛出媒体错误。
     static func bytesPerRow(width: Int) throws -> Int {
         let (value, overflow) = width.multipliedReportingOverflow(by: 4)
         guard !overflow else {
@@ -166,6 +197,10 @@ private extension CoreGraphicsDecodedImage {
         return value
     }
 
+    /// 创建图片处理错误。
+    ///
+    /// - Parameter message: 图片处理失败的可读说明。
+    /// - Returns: 具有媒体错误码的 SDK 错误。
     static func processingError(_ message: String) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }

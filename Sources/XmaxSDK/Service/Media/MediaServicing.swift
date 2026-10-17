@@ -1,9 +1,10 @@
 //
 //  MediaServicing.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,6 +14,7 @@ import CoreGraphics
 /// 定义模型输入尺寸和平台媒体能力相关的业务规则。
 public protocol MediaServicing: Sendable {
 
+    // 模型规则
     /// 当前媒体规则使用的实时生成模型。
     var model: RealtimeModel { get }
 

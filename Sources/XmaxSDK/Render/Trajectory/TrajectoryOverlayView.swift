@@ -1,9 +1,10 @@
 //
 //  TrajectoryOverlayView.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,24 +14,50 @@ import UIKit
 /// 采集多指触摸、驱动轨迹效果并按固定频率提交交互帧。
 @MainActor
 final class TrajectoryOverlayView: UIView {
+    /// 定义触控轨迹的提交频率。
     private enum Sampling {
+
+        // 采样间隔
         static let interval: TimeInterval = 1.0 / 30.0
     }
 
+    /// 保存一个活动触点的稳定标识与当前位置。
     private struct ActiveTouch {
+
+        // 触点信息
         let id: TrajectoryID
         var location: CGPoint
     }
 
+
+    // 活动触点
     private var activeTouches: [ObjectIdentifier: ActiveTouch] = [:]
+
+
+    // 交互绑定
     private weak var binding: TrajectoryBinding?
+
+
+    // 坐标映射
     private var videoContentMode: VideoContentMode = .fill
     private var videoSize: CGSize?
+
+
+    // 视觉效果
     private var renderer: any TrajectoryEffectRendering
+
+
+    // 交互配置
     private var requestedInteractionEnabled = true
+
+
+    // 采样调度
     private var lastSampleTime: TimeInterval?
     private var displayLink: CADisplayLink?
 
+    /// 创建多点触控采样和轨迹效果覆盖层。
+    ///
+    /// - Parameter renderer: 负责触点和轨迹视觉表现的渲染器。
     init(renderer: any TrajectoryEffectRendering) {
         self.renderer = renderer
         super.init(frame: .zero)
@@ -41,15 +68,22 @@ final class TrajectoryOverlayView: UIView {
         updateInteractionState()
     }
 
+    /// 标记归档初始化不可用；轨迹覆盖层需指定渲染器创建。
+    ///
+    /// - Parameter coder: 视图归档解码器。
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// 结束轨迹采样的显示刷新回调。
     isolated deinit {
         displayLink?.invalidate()
     }
 
+    /// 清除当前轨迹并替换视觉效果渲染器。
+    ///
+    /// - Parameter renderer: 新的轨迹效果渲染器。
     func setRenderer(_ renderer: any TrajectoryEffectRendering) {
         cancelInteraction()
         self.renderer.reset()
@@ -58,6 +92,9 @@ final class TrajectoryOverlayView: UIView {
         installRendererView(renderer)
     }
 
+    /// 设置轨迹提交绑定，并同步交互可用状态。
+    ///
+    /// - Parameter binding: 媒体交互绑定；传入 `nil` 清除当前轨迹。
     func setBinding(_ binding: TrajectoryBinding?) {
         self.binding = binding
         if binding == nil {
@@ -66,6 +103,9 @@ final class TrajectoryOverlayView: UIView {
         updateInteractionState()
     }
 
+    /// 更新视频显示模式并清除旧坐标下的活动轨迹。
+    ///
+    /// - Parameter contentMode: 新的缩放与裁剪方式。
     func setContentMode(_ contentMode: VideoContentMode) {
         guard videoContentMode != contentMode else { return }
         videoContentMode = contentMode
@@ -73,6 +113,9 @@ final class TrajectoryOverlayView: UIView {
         updateInteractionState()
     }
 
+    /// 更新视频映射尺寸并清除旧坐标下的活动轨迹。
+    ///
+    /// - Parameter videoSize: 视频像素尺寸；未知时为 `nil`。
     func setVideoSize(_ videoSize: CGSize?) {
         guard self.videoSize != videoSize else { return }
         self.videoSize = videoSize
@@ -80,6 +123,9 @@ final class TrajectoryOverlayView: UIView {
         updateInteractionState()
     }
 
+    /// 设置调用方期望的交互开关。
+    ///
+    /// - Parameter isEnabled: 是否允许触控轨迹交互。
     func setRequestedInteractionEnabled(_ isEnabled: Bool) {
         guard requestedInteractionEnabled != isEnabled else { return }
         requestedInteractionEnabled = isEnabled
@@ -89,12 +135,19 @@ final class TrajectoryOverlayView: UIView {
         updateInteractionState()
     }
 
+    /// 更新效果视图尺寸和可交互区域。
     override func layoutSubviews() {
         super.layoutSubviews()
         renderer.view.frame = bounds
         updateInteractionState()
     }
 
+    /// 判断触点是否落在可见视频交互区域。
+    ///
+    /// - Parameters:
+    ///   - point: 覆盖层坐标系中的触点。
+    ///   - event: 当前命中测试事件。
+    /// - Returns: 触点同时位于视图和有效视频区域时返回 `true`。
     override func point(
         inside point: CGPoint,
         with event: UIEvent?
@@ -106,6 +159,11 @@ final class TrajectoryOverlayView: UIView {
         return interactionFrame.contains(point)
     }
 
+    /// 登记新触点并立即绘制和提交首个采样。
+    ///
+    /// - Parameters:
+    ///   - touches: 本次开始的触摸集合。
+    ///   - event: 对应的 UIKit 事件。
     override func touchesBegan(
         _ touches: Set<UITouch>,
         with event: UIEvent?
@@ -126,6 +184,11 @@ final class TrajectoryOverlayView: UIView {
         startDisplayLink()
     }
 
+    /// 更新移动触点并驱动轨迹绘制和采样。
+    ///
+    /// - Parameters:
+    ///   - touches: 本次移动的触摸集合。
+    ///   - event: 对应的 UIKit 事件。
     override func touchesMoved(
         _ touches: Set<UITouch>,
         with event: UIEvent?
@@ -166,6 +229,11 @@ final class TrajectoryOverlayView: UIView {
         }
     }
 
+    /// 结束已抬起触点的轨迹。
+    ///
+    /// - Parameters:
+    ///   - touches: 本次结束的触摸集合。
+    ///   - event: 对应的 UIKit 事件。
     override func touchesEnded(
         _ touches: Set<UITouch>,
         with event: UIEvent?
@@ -174,6 +242,11 @@ final class TrajectoryOverlayView: UIView {
         finish(touches)
     }
 
+    /// 结束系统取消的触点轨迹。
+    ///
+    /// - Parameters:
+    ///   - touches: 本次取消的触摸集合。
+    ///   - event: 对应的 UIKit 事件。
     override func touchesCancelled(
         _ touches: Set<UITouch>,
         with event: UIEvent?
@@ -184,6 +257,9 @@ final class TrajectoryOverlayView: UIView {
 }
 
 private extension TrajectoryOverlayView {
+    /// 移除结束触点，并在无活动触点时停止采样。
+    ///
+    /// - Parameter touches: 需要结束的触摸集合。
     func finish(_ touches: Set<UITouch>) {
         let identifiers = touches.compactMap {
             activeTouches.removeValue(forKey: ObjectIdentifier($0))?.id
@@ -197,6 +273,11 @@ private extension TrajectoryOverlayView {
         }
     }
 
+    /// 按采样间隔提交当前所有活动触点。
+    ///
+    /// - Parameters:
+    ///   - now: 当前单调时钟时间，单位为秒。
+    ///   - force: 是否跳过采样间隔限制立即提交。
     func submitIfNeeded(
         now: TimeInterval,
         force: Bool = false
@@ -212,6 +293,7 @@ private extension TrajectoryOverlayView {
         binding?.submit(points: points, viewportSize: bounds.size)
     }
 
+    /// 清空活动触点、采样状态和全部视觉效果。
     func cancelInteraction() {
         lastSampleTime = nil
         stopDisplayLink()
@@ -223,6 +305,7 @@ private extension TrajectoryOverlayView {
         renderer.reset()
     }
 
+    /// 启动用于连续轨迹采样的显示刷新回调。
     func startDisplayLink() {
         guard displayLink == nil else { return }
         let displayLink = CADisplayLink(
@@ -234,11 +317,13 @@ private extension TrajectoryOverlayView {
         self.displayLink = displayLink
     }
 
+    /// 停止轨迹采样的显示刷新回调。
     func stopDisplayLink() {
         displayLink?.invalidate()
         displayLink = nil
     }
 
+    /// 在屏幕刷新时尝试提交轨迹采样。
     @objc func displayLinkDidTick() {
         submitIfNeeded(now: CACurrentMediaTime())
         if activeTouches.isEmpty {
@@ -246,12 +331,16 @@ private extension TrajectoryOverlayView {
         }
     }
 
+    /// 根据调用方配置、绑定和视频区域更新触摸可用性。
     func updateInteractionState() {
         isUserInteractionEnabled = requestedInteractionEnabled
             && binding != nil
             && interactionFrame != nil
     }
 
+    /// 将轨迹效果视图安装为不拦截触摸的子视图。
+    ///
+    /// - Parameter renderer: 提供视觉视图的轨迹效果渲染器。
     func installRendererView(
         _ renderer: any TrajectoryEffectRendering
     ) {
@@ -262,6 +351,12 @@ private extension TrajectoryOverlayView {
         addSubview(rendererView)
     }
 
+    /// 将活动触点转换为效果渲染器使用的采样模型。
+    ///
+    /// - Parameters:
+    ///   - activeTouch: 当前活动触点。
+    ///   - timestamp: 采样单调时钟时间，单位为秒。
+    /// - Returns: 包含视口坐标和相对视频显示区域归一化坐标的触点。
     private func trajectoryPoint(
         for activeTouch: ActiveTouch,
         timestamp: TimeInterval
@@ -285,6 +380,10 @@ private extension TrajectoryOverlayView {
         )
     }
 
+    /// 将触点约束到当前可交互的视频区域。
+    ///
+    /// - Parameter point: 待约束的覆盖层坐标。
+    /// - Returns: 约束后的触点；没有交互区域时保留原位置。
     func clamped(_ point: CGPoint) -> CGPoint {
         guard let interactionFrame else { return point }
         return CGPoint(
@@ -293,6 +392,8 @@ private extension TrajectoryOverlayView {
         )
     }
 
+
+    // 有效显示区域
     var displayedVideoFrame: CGRect? {
         guard let videoSize else { return nil }
         return InteractionCoordinateMapper.displayedFrame(

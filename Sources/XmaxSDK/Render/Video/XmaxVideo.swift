@@ -1,9 +1,10 @@
 //
 //  XmaxVideo.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -40,6 +41,10 @@ public struct XmaxVideo: UIViewRepresentable {
         self.isInteractionEnabled = isInteractionEnabled
     }
 
+    /// 创建承载 SwiftUI 视频内容的 UIKit 视图。
+    ///
+    /// - Parameter context: SwiftUI 提供的视图创建上下文。
+    /// - Returns: 配置当前轨道的 SDK 视频视图。
     public func makeUIView(context: Context) -> XmaxVideoView {
         let view = XmaxVideoView(
             track: track,
@@ -49,6 +54,11 @@ public struct XmaxVideo: UIViewRepresentable {
         return view
     }
 
+    /// 将最新轨道和显示配置同步到 UIKit 视图。
+    ///
+    /// - Parameters:
+    ///   - view: 需要更新的 SDK 视频视图。
+    ///   - context: SwiftUI 提供的视图更新上下文。
     public func updateUIView(
         _ view: XmaxVideoView,
         context: Context
@@ -58,6 +68,11 @@ public struct XmaxVideo: UIViewRepresentable {
         view.track = track
     }
 
+    /// 在 SwiftUI 移除视图时解除视频轨道绑定。
+    ///
+    /// - Parameters:
+    ///   - view: 即将移除的 SDK 视频视图。
+    ///   - coordinator: 无额外状态的 SwiftUI 协调对象。
     public static func dismantleUIView(
         _ view: XmaxVideoView,
         coordinator: Void

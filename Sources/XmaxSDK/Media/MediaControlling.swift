@@ -1,9 +1,10 @@
 //
 //  MediaControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,6 +14,7 @@ import Foundation
 /// 定义媒体层向 Core 暴露的统一能力。
 protocol MediaControlling: Actor, InteractionControlling {
 
+    // 本地媒体状态
     /// 当前活动的本地视频轨道。
     var currentTrack: RealtimeVideoTrack? { get }
 
@@ -25,6 +27,8 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool { get }
 
+
+    // 音频预览
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float { get async }
 
@@ -65,8 +69,7 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 在前置和后置摄像头之间切换当前相机。
     ///
     /// - Returns: 包含更新后摄像头位置的本地媒体流。
-    /// - Throws: 当前来源不是相机、存在并发媒体操作或 RTC
-    ///   切换失败时抛出错误。
+    /// - Throws: 当前来源不是相机、存在并发媒体操作或摄像头切换失败时抛出错误。
     func switchCamera() async throws -> RealtimeMediaStream
 
     /// 将当前摄像头的采集方向和尺寸同步到预览窗口；其他媒体来源保持不变。

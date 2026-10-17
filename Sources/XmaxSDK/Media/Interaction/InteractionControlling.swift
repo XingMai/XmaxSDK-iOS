@@ -1,9 +1,10 @@
 //
 //  InteractionControlling.swift
 //  XmaxSDK
+//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/XingMai/XmaxSDK-iOS
+//  GitHub: https://github.com/WengYuehTing
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -34,6 +35,11 @@ protocol InteractionControlling: Sendable {
 }
 
 extension InteractionControlling {
+    /// 按本地媒体尺寸启动当前生成任务的触控轨迹输入。
+    ///
+    /// - Parameters:
+    ///   - taskID: 当前生成任务标识。
+    ///   - videoFormat: 轨迹坐标映射使用的本地视频规格。
     func startInteraction(taskID: String, videoFormat: RealtimeVideoFormat) async {
         await startInteraction(taskID: taskID, videoFormat: videoFormat, useDisplayedSize: false)
     }
