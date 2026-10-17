@@ -77,7 +77,6 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
     /// 面向接入方的可读错误说明。
     public let message: String
 
-
     // 服务端响应
     /// Xmax API 返回的业务错误码；非 API 业务错误时为空。
     public let apiCode: Int?
@@ -103,7 +102,6 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
         self.apiCode = apiCode
         self.httpStatus = httpStatus
     }
-
 
     // 本地化说明
     /// `LocalizedError` 使用的错误说明。

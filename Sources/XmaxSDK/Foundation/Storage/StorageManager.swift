@@ -434,20 +434,16 @@ private final class StorageUploadOperation: @unchecked Sendable {
     private let service: QCloudCOSXMLService
     private let request: QCloudPutObjectRequest<AnyObject>
 
-
     // 上传配置
     private let objectKey: String
     private let configuration: StorageConfiguration
     private let progress: StorageProgressListener?
 
-
     // 运行统计
     private let startedAt = Date()
 
-
     // 并发控制
     private let lock = NSLock()
-
 
     // 运行状态
     private var continuation: CheckedContinuation<StoredFile, Error>?

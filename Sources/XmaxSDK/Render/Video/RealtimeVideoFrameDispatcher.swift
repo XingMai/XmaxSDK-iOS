@@ -22,11 +22,9 @@ final class RealtimeVideoFrameDispatcher: @unchecked Sendable {
         var version = 0
     }
 
-
     // 监听状态
     private let stateLock = NSLock()
     private var state = State()
-
 
     // 分发资源
     private let deliveryQueue = DispatchQueue(

@@ -15,35 +15,29 @@ import UIKit
 #endif
 
 /// 实时生成业务公共入口，统一编排本地媒体、连接、生成和状态通知。
-actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
+actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // 公共配置
     nonisolated let options: RealtimeConfiguration
-
 
     // 业务层组件
     private let renderController: any RenderControlling
     private let streamController: any StreamControlling
     private let mediaController: any MediaControlling
 
-
     // 服务层组件
     private let mediaService: any MediaServicing
-
 
     // 实时管理组件
     private let connectionManager: XmaxRealtimeConnectionManager
     private let generationManager: XmaxRealtimeGenerationManager
 
-
     // 错误与耗时记录
     private let errorHandler: RealtimeErrorHandler
     private let timing: RealtimeTiming
 
-
     // 并发控制
     private let coordinator: RealtimeCoordinator
-
 
     // 自动调档
     private var qualityPending = false
@@ -196,7 +190,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
         }
     }
 
-
     // 生命周期状态
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState {
@@ -205,7 +198,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
         }
     }
 
-
     // 渲染状态
     /// 当前实际生效的远端插帧状态。
     var isFrameInterpolationEnabled: Bool {
@@ -213,7 +205,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
             await renderController.isFrameInterpolationEnabled
         }
     }
-
 
     // 音频状态
     /// 当前本地预览音量，范围为 `0...1`。
@@ -226,43 +217,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging, RealtimeQualityDebugging {
     /// 当前远端生成音频的播放音量，范围为 `0...1`。
     var remoteAudioVolume: Float {
         streamController.remoteAudioVolume
-    }
-
-
-    // 传输状态
-    /// 当前生成任务的传输配置快照；未生成或规格不可用时为空。
-    var qualityDebugState: RealtimeQualityDebugState? {
-        get async {
-            guard await coordinator.currentState.connectionState == .generating,
-                  let quality = streamController.qualityConfiguration else { return nil }
-            let interpolation = await renderController.isFrameInterpolationEnabled
-            guard let downlink = try? resolveReturnFormat(baseline: quality.baseline, level: quality.downlinkLevel, interpolation: interpolation),
-                  await coordinator.currentState.connectionState == .generating else { return nil }
-            return RealtimeQualityDebugState(
-                uplinkLevel: quality.uplinkLevel, downlinkLevel: quality.downlinkLevel,
-                uplink: quality.uplink, downlink: downlink, interpolationEnabled: interpolation
-            )
-        }
-    }
-
-    /// 应用指定方向的传输档位，后续继续按网络质量自动调整。
-    ///
-    /// - Parameters:
-    ///   - level: 目标档位，取值范围为 1...5。
-    ///   - downlink: true 调整下行，false 调整上行。
-    /// - Throws: 档位无效、未处于生成状态、操作冲突、取消或配置失败时抛出错误。
-    func selectQualityLevel(_ level: Int, downlink: Bool) async throws {
-        guard (1...5).contains(level) else {
-            throw XmaxError(code: .invalidConfiguration, message: "Quality level must be in 1...5")
-        }
-        try await coordinator.run(kind: .configuration) { [self] token in
-            let state = await coordinator.currentState
-            try token.ensureCurrent()
-            guard state.connectionState == .generating, let taskID = state.taskID else {
-                throw XmaxError(code: .invalidConfiguration, message: "Quality selection requires active generation")
-            }
-            try await applyQualityLevel(level, downlink: downlink, taskID: taskID, token: token)
-        }
     }
 
     /// 设置实时状态监听器。

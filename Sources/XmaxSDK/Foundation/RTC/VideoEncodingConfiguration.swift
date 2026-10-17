@@ -18,12 +18,10 @@ struct VideoEncodingConfiguration: Equatable, Sendable {
         case maintainQuality
     }
 
-
     // 视频规格
     let width: Int
     let height: Int
     let frameRate: Int
-
 
     // 码率与编码策略
     let minimumBitrate: Int

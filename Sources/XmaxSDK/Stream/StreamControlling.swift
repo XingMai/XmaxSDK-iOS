@@ -50,11 +50,9 @@ protocol StreamControlling: Sendable {
     /// 清除连续采样窗口。
     func resetQualitySamples()
 
-
     // 生成状态
     /// 当前是否存在正在启动或已经运行的生成任务。
     var hasGenerationTask: Bool { get }
-
 
     // 远端音频
     /// 当前远端生成音频播放音量。

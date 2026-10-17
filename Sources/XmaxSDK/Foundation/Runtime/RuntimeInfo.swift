@@ -21,7 +21,6 @@ struct RuntimeInfo: Encodable, Sendable {
     let sdkVersion: String
     let deviceModel: String
 
-
     // 当前环境快照
     static let current = RuntimeInfo(
         platform: "ios",

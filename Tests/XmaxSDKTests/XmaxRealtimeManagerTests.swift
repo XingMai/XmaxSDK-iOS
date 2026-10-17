@@ -54,38 +54,35 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     }
 
     func testQualityAndInterpolationShareReturnSizeWithoutChangingMediaOrGenerationCanvas() async throws {
-        let components = makeComponents(frameInterpolationSupported: true, initialQualityLevel: 2)
-        let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
-        _ = try await components.manager.connect(localStream: local)
-        let start = Task { try await components.manager.startGeneration(context: RealtimeContext(prompt: "test")) }
-        await waitForEvent("start", rtcManager: components.rtcManager)
-        components.rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
-        try components.rtcManager.emitRemoteVideoFrame()
-        try await start.value
-        let originalState = await components.manager.currentState
-        let networkTarget = QualityVideoFormat.resolve(imageFormat, level: 2, downlink: true).size
+        for level in [1, 2, 4] {
+            let components = makeComponents(frameInterpolationSupported: true, initialQualityLevel: level)
+            let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
+            _ = try await components.manager.connect(localStream: local)
+            let start = Task { try await components.manager.startGeneration(context: RealtimeContext(prompt: "test")) }
+            await waitForEvent("start", rtcManager: components.rtcManager)
+            components.rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
+            try components.rtcManager.emitRemoteVideoFrame()
+            try await start.value
+            let originalState = await components.manager.currentState
+            let networkTarget = QualityVideoFormat.resolve(imageFormat, level: level, downlink: true).size
 
-        try await components.manager.setFrameInterpolationEnabled(true)
-        var target = await components.connectionManager.currentTargetSize
-        XCTAssertEqual(target, networkTarget)
-        XCTAssertFalse(decodedEvents(components.rtcManager).contains { $0["event"] as? String == "change_target_size" })
+            try await components.manager.setFrameInterpolationEnabled(true)
+            var target = await components.connectionManager.currentTargetSize
+            let interpolationTarget = level == 1 ? CGSize(width: 702, height: 1242) : networkTarget
+            XCTAssertEqual(target, interpolationTarget)
 
-        try await components.manager.selectQualityLevel(1, downlink: true)
-        target = await components.connectionManager.currentTargetSize
-        XCTAssertEqual(target, CGSize(width: 702, height: 1242))
-        try await components.manager.setFrameInterpolationEnabled(false)
-        target = await components.connectionManager.currentTargetSize
-        XCTAssertEqual(target, imageFormat.size)
+            try await components.manager.setFrameInterpolationEnabled(false)
+            target = await components.connectionManager.currentTargetSize
+            XCTAssertEqual(target, networkTarget)
+            let sizeChanges = decodedEvents(components.rtcManager).filter { $0["event"] as? String == "change_target_size" }
+            XCTAssertEqual(sizeChanges.count, level == 1 ? 2 : 0)
 
-        try await components.manager.selectQualityLevel(4, downlink: true)
-        try await components.manager.setFrameInterpolationEnabled(true)
-        target = await components.connectionManager.currentTargetSize
-        XCTAssertEqual(target, CGSize(width: 416, height: 736))
-        XCTAssertEqual(local.videoTrack?.videoFormat, imageFormat)
-        let current = await components.manager.currentState
-        XCTAssertEqual(current, originalState)
-        XCTAssertEqual(decodedEvents(components.rtcManager).filter { $0["event"] as? String == "start" }.count, 1)
-        await components.manager.close()
+            XCTAssertEqual(local.videoTrack?.videoFormat, imageFormat)
+            let current = await components.manager.currentState
+            XCTAssertEqual(current, originalState)
+            XCTAssertEqual(decodedEvents(components.rtcManager).filter { $0["event"] as? String == "start" }.count, 1)
+            await components.manager.close()
+        }
     }
 
     func testRejectedCameraCreationOnlyThrowsWithoutFailureState() async throws {

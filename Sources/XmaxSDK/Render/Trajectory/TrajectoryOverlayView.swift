@@ -29,27 +29,21 @@ final class TrajectoryOverlayView: UIView {
         var location: CGPoint
     }
 
-
     // 活动触点
     private var activeTouches: [ObjectIdentifier: ActiveTouch] = [:]
 
-
     // 交互绑定
     private weak var binding: TrajectoryBinding?
-
 
     // 坐标映射
     private var videoContentMode: VideoContentMode = .fill
     private var videoSize: CGSize?
 
-
     // 视觉效果
     private var renderer: any TrajectoryEffectRendering
 
-
     // 交互配置
     private var requestedInteractionEnabled = true
-
 
     // 采样调度
     private var lastSampleTime: TimeInterval?
@@ -391,7 +385,6 @@ private extension TrajectoryOverlayView {
             y: min(max(point.y, interactionFrame.minY), interactionFrame.maxY)
         )
     }
-
 
     // 有效显示区域
     var displayedVideoFrame: CGRect? {

@@ -20,19 +20,16 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
     private let output = AVCaptureVideoDataOutput()
     private let captureQueue = DispatchQueue(label: "ai.xmax.sdk.camera", qos: .userInitiated)
 
-
     // 采集配置（仅在 captureQueue 访问）
     private var input: AVCaptureDeviceInput?
     private var videoFormat: VideoFormat?
     private var frameRate = 0
     private var orientation: CameraOrientation = .portrait
 
-
     // 事件监听
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
     private var errorListener: XmaxErrorListener?
     private var observers: [NSObjectProtocol] = []
-
 
     // 运行状态
     private var lastTimestampUs: Int64?

@@ -17,12 +17,10 @@ final class ApiService: ApiServicing, Sendable {
     // API 配置
     static let defaultTimeoutInterval: TimeInterval = 15
 
-
     // 请求配置
     private let apiKey: String
     private let baseURL: URL
     private let timeoutInterval: TimeInterval
-
 
     // 网络资源
     private let session: URLSession

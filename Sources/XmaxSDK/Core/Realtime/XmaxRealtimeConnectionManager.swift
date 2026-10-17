@@ -32,22 +32,17 @@ actor XmaxRealtimeConnectionManager {
     // 服务层组件
     private let sessionService: any RealtimeSessionServicing
 
-
     // 媒体层组件
     private let interactionController: any InteractionControlling
-
 
     // 渲染层组件
     private let renderController: any RenderControlling
 
-
     // 传输层组件
     private let streamController: any StreamControlling
 
-
     // 耗时统计
     private let timing: RealtimeTiming
-
 
     // 连接资源
     private var activeRemoteTrack: RealtimeVideoTrack?
@@ -75,7 +70,6 @@ actor XmaxRealtimeConnectionManager {
         self.streamController = streamController
         self.timing = timing
     }
-
 
     // 连接状态
     /// 当前会话标识；没有活跃会话时为空字符串。

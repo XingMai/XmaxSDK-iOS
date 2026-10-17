@@ -17,10 +17,8 @@ struct RealtimeSession: Equatable, Sendable {
     let userID: String?
     let status: String?
 
-
     // RTC 连接
     let connection: RealtimeSessionConnection?
-
 
     // 关闭原因
     let closeReason: String?

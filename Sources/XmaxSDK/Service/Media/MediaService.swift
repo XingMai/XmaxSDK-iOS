@@ -17,7 +17,6 @@ final class MediaService: MediaServicing, Sendable {
     // 模型约束
     let model: RealtimeModel
 
-
     // 插帧约束
     private static let maximumFrameInterpolationPixels = 900000
 

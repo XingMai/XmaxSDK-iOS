@@ -57,11 +57,9 @@ enum RtcMessageCodec {
         let event = "__agora_chunk__"
         let eventId: String
 
-
         // 分片顺序
         let index: Int
         let count: Int
-
 
         // 分片内容
         let data: String
@@ -75,7 +73,6 @@ final class RtcMessageQueue: @unchecked Sendable {
     private let send: @Sendable (Data) throws -> Void
     private let onFailure: @Sendable (XmaxError) -> Void
     private let limiter = RateLimiter()
-
 
     // 并发状态
     private let lock = NSLock()

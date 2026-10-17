@@ -19,7 +19,6 @@ struct AudioFrame: Equatable, Sendable {
     static let channelCount = 1
     static let samplesPerFrame = 480
 
-
     // 帧数据
     let data: Data
     let timestampUs: Int64

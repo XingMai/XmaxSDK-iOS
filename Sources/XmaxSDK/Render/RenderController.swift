@@ -34,14 +34,11 @@ final class RenderController: RenderControlling {
         }
     }
 
-
     // 基础层组件
     private let rtcManager: any RtcManaging
 
-
     // 事件监听
     private let errorListener: XmaxErrorListener
-
 
     // 远端帧处理
     private let initialFrameInterpolationEnabled: Bool
@@ -65,7 +62,6 @@ final class RenderController: RenderControlling {
             XmaxLogger.realtime.error(message: "插帧已降级 (Frame Interpolation Disabled)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.message)")
         }
     )
-
 
     // 远端渲染资源
     private var remoteStream: RemoteStream?
@@ -103,7 +99,6 @@ final class RenderController: RenderControlling {
             remoteFrameReadyTimeoutNanoseconds
         self.errorListener = errorListener
     }
-
 
     // 插帧状态
     var isFrameInterpolationEnabled: Bool {

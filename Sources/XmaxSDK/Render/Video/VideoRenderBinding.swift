@@ -19,7 +19,6 @@ final class VideoRenderBinding {
     private let attachHandler: (UIView, VideoContentMode) throws -> Void
     private let detachHandler: (UIView) throws -> Void
 
-
     // 运行状态
     private weak var attachedView: UIView?
 

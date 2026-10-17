@@ -18,7 +18,6 @@ final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendabl
     private let apiService: any ApiServicing
     private let heartbeatSleeper: RealtimeHeartbeatSleeper
 
-
     // 运行状态
     private let heartbeatLock = NSLock()
     private let heartbeatVersion = RealtimeHeartbeatVersion()
@@ -138,11 +137,9 @@ private extension RealtimeSessionService {
         let apiService: any ApiServicing
         let sleeper: RealtimeHeartbeatSleeper
 
-
         // 生命周期校验
         let versionState: RealtimeHeartbeatVersion
         let version: UInt64
-
 
         // 会话与回调
         let sessionID: String

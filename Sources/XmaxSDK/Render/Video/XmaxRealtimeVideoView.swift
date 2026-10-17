@@ -58,7 +58,6 @@ public final class XmaxRealtimeVideoView: UIView {
         set { remoteVideoView.trajectoryRenderer = newValue }
     }
 
-
     // 视频视图
     private lazy var localVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,

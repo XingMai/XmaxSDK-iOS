@@ -17,27 +17,22 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     // RTC 配置
     static let joinTimeoutNanoseconds: UInt64 = 15000000000
 
-
     // 依赖
     private let engineManager: RtcEngineManager
     private let joinTimeout: UInt64
 
-
     // 并发控制
     private let stateLock = NSLock()
     private let operationLock = NSRecursiveLock()
-
 
     // RTC 资源
     private var engineLease: RtcEngineLease?
     private var activeRoom: RoomContext?
     private var pendingJoin: PendingJoin?
 
-
     // 事件监听
     private weak var eventListener: (any RtcEventListener)?
     private weak var qualityListener: (any RtcQualityListener)?
-
 
     // 运行状态
     private var initialization: Initialization?
@@ -376,7 +371,6 @@ private extension RtcManager {
         // 初始化标识
         let id: UUID
 
-
         // 共享任务与等待者
         let task: Task<RtcEngineLease, any Error>
         var waiterIDs: Set<UUID>
@@ -388,7 +382,6 @@ private extension RtcManager {
         // 连接标识
         let id: UUID
         let roomID: String
-
 
         // 平台房间
         let room: any RtcRoom
@@ -411,7 +404,6 @@ private extension RtcManager {
 
         // 房间上下文
         let context: RoomContext
-
 
         // 完成通知与超时
         let continuation: CheckedContinuation<Void, any Error>

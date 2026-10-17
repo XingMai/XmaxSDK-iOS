@@ -17,7 +17,6 @@ struct InteractionFrame: Sendable {
     // 触控采样
     let points: [CGPoint]
 
-
     // 显示映射
     let viewportSize: CGSize
     let contentMode: VideoContentMode

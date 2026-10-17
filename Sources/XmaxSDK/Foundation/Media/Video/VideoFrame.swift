@@ -17,12 +17,10 @@ struct VideoFrame: Equatable, Sendable {
     // 缓冲区标识
     let bufferReuseID: UUID?
 
-
     // 帧元数据
     let format: VideoFormat
     let timestampUs: Int64
     let rotation: VideoRotation
-
 
     // 像素数据
     let planes: [VideoFramePlane]

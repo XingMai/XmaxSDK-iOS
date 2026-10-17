@@ -73,7 +73,6 @@ final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
     // 渲染组件
     private let presenter: DecodedVideoPreviewPresenter
 
-
     // 并发状态
     private let lock = NSLock()
     private var pendingFrame: VideoFrame?

@@ -21,24 +21,20 @@ struct PCMFramePacketizer {
         let data: Data?
         let sampleCount: Int
 
-
         // 消费进度
         var consumedSamples = 0
     }
-
 
     // 音频配置
     private static let bytesPerSample = MemoryLayout<Int16>.size
     private static let frameByteCount = AudioFrame.samplesPerFrame *
         bytesPerSample
 
-
     // 输入状态
     private let totalSamples: Int
     private var segments: [Segment] = []
     private var segmentIndex = 0
     private var timelineWriteCursor = 0
-
 
     // 输出状态
     private var outputCursor = 0

@@ -18,10 +18,8 @@ struct QualityDirection: Sendable {
     let baseline: RealtimeVideoFormat
     let downlink: Bool
 
-
     // 当前档位
     private(set) var level: Int
-
 
     // 采样窗口
     private var goodSamples = 0
@@ -43,7 +41,6 @@ struct QualityDirection: Sendable {
         self.level = min(5, max(1, level))
         while self.level > 1, !supports(self.level) { self.level -= 1 }
     }
-
 
     // 当前传输规格
     var format: RealtimeVideoFormat { format(at: level) }

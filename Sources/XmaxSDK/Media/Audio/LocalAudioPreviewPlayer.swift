@@ -18,7 +18,6 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
     // 音频配置
     static let defaultVolume: Float = 0.45
 
-
     // 平台资源
     private let audioSession = AVAudioSession.sharedInstance()
     private let engine = AVAudioEngine()
@@ -28,7 +27,6 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         label: "ai.xmax.sdk.local-audio-preview",
         qos: .userInteractive
     )
-
 
     // 运行状态
     private var isPlaybackEnabled = false
@@ -48,7 +46,6 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         engine.connect(playerNode, to: engine.mainMixerNode, format: format)
         playerNode.volume = Self.defaultVolume
     }
-
 
     // 播放音量
     /// 当前本地音频预览音量。

@@ -18,11 +18,9 @@ final class RoomHeartbeat: @unchecked Sendable {
     private let rtcManager: any RtcManaging
     private let sleeper: RoomHeartbeatSleeper
 
-
     // 并发控制
     private let cycle = RoomHeartbeatCycle()
     private let taskLock = NSLock()
-
 
     // 运行状态
     private var heartbeatTask: Task<Void, Never>?
@@ -84,11 +82,9 @@ private extension RoomHeartbeat {
         let rtcManager: any RtcManaging
         let sleeper: RoomHeartbeatSleeper
 
-
         // 周期有效期
         let cycle: RoomHeartbeatCycle
         let version: UInt64
-
 
         // 发送身份
         let userID: String
@@ -128,7 +124,6 @@ struct RoomHeartbeatSleeper: Sendable {
 
     // 等待策略
     let sleep: @Sendable () async throws -> Void
-
 
     // 默认配置
     static let live = RoomHeartbeatSleeper {

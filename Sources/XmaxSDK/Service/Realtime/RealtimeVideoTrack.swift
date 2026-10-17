@@ -18,11 +18,9 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
     /// 视频轨道标识。
     public let id: String
 
-
     // 动态元数据
     private let metadataLock = NSLock()
     private var metadata: Metadata
-
 
     // 显示方向事件
     @MainActor var displayOrientation: CameraOrientation?
@@ -45,7 +43,6 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
             position: position
         )
     }
-
 
     // 当前媒体规格
     /// 当前视频轨道使用的视频格式。

@@ -16,7 +16,6 @@ public struct RealtimeConfiguration: Equatable, Sendable {
     /// 实时生成业务使用的模型。
     public let model: RealtimeModel
 
-
     // 渲染配置
     /// 是否默认开启远端生成画面的插帧。
     public let isFrameInterpolationEnabled: Bool

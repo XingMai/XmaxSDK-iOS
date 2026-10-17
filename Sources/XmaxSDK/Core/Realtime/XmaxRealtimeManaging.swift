@@ -21,16 +21,13 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 实时能力配置。
     var options: RealtimeConfiguration { get }
 
-
     // 生命周期状态
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState { get async }
 
-
     // 渲染状态
     /// 当前实际生效的远端视频插帧状态。
     var isFrameInterpolationEnabled: Bool { get async }
-
 
     // 音频状态
     /// 当前本地媒体预览音量，取值范围为 `0...1`。

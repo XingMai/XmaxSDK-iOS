@@ -36,7 +36,6 @@ struct PermissionAuthorizationClient: Sendable {
         _ permission: MediaPermission
     ) async throws -> Bool
 
-
     // 平台实现
     static let live = PermissionAuthorizationClient(
         authorizationStatus: { permission in

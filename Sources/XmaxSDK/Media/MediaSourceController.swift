@@ -19,22 +19,17 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     // 基础层组件
     private let metadataManager: any MediaFileMetadataManaging
 
-
     // 服务层组件
     private let mediaService: any MediaServicing
-
 
     // 媒体源组件
     private let playerController: any VideoPlayerControlling
 
-
     // 并发控制
     private let stateLock = NSLock()
 
-
     // 媒体配置
     private var configuration: MediaSourceConfiguration?
-
 
     // 运行状态
     private var isRunning = false
@@ -55,12 +50,10 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         self.playerController = playerController
     }
 
-
     // 媒体状态
     var hasAudio: Bool {
         stateLock.withLock { configuration?.hasAudio ?? false }
     }
-
 
     // 音频预览
     var localAudioVolume: Float {

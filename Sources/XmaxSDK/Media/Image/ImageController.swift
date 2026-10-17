@@ -18,23 +18,18 @@ final class ImageController: ImageControlling, @unchecked Sendable {
     // 轨道标识
     private static let localVideoTrackID = "video0"
 
-
     // 基础层组件
     private let rtcManager: any RtcManaging
     private let imageManager: any ImageManaging
 
-
     // 服务层组件
     private let mediaService: any MediaServicing
-
 
     // 事件监听
     private let frameListener: MediaVideoFrameListener
 
-
     // 并发控制
     private let stateLock = NSLock()
-
 
     // 本地资源
     private var activeTrack: RealtimeVideoTrack?
@@ -58,7 +53,6 @@ final class ImageController: ImageControlling, @unchecked Sendable {
         self.mediaService = mediaService
         self.frameListener = frameListener
     }
-
 
     // 本地轨道
     var currentTrack: RealtimeVideoTrack? {

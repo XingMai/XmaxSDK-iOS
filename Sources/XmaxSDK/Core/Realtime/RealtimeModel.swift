@@ -21,7 +21,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 海外声网实时生成模型。
     case x2_1_1_preview_us = "x2.1.1-preview-us"
 
-
     // 模型标识
     /// 模型展示名称。
     public var displayName: String {
@@ -31,7 +30,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
-
     // 服务地址
     /// 模型专用的会话 API 地址。
     var apiBaseURL: URL {
@@ -40,7 +38,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         case .x2_1_1_preview_us: URL(string: "https://api.xmax.ai/open/api/v1")!
         }
     }
-
 
     // 生成尺寸约束
     /// 模型支持的生成分辨率桶；摄像头输入须精确匹配。
@@ -58,7 +55,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
 
     /// 输入宽高需要对齐的像素倍数；仅在分辨率桶为空时参与尺寸计算。
     public var inputSizeAlignment: Int { 32 }
-
 
     // 媒体默认规格
     /// 图片和视频输出以及默认摄像头配置使用的帧率。

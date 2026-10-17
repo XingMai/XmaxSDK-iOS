@@ -24,7 +24,6 @@ public final class XmaxVideoView: UIView {
     // 图片转换资源
     private static let imageContext = CIContext()
 
-
     // 公共配置
     /// 当前显示的视频轨道。
     public var track: RealtimeVideoTrack? {
@@ -76,7 +75,6 @@ public final class XmaxVideoView: UIView {
         }
     }
 
-
     // 渲染状态
     private weak var attachedTrack: RealtimeVideoTrack?
     private weak var attachedTrajectoryTrack: RealtimeVideoTrack?
@@ -85,23 +83,19 @@ public final class XmaxVideoView: UIView {
         (any TrajectoryEffectRendering)?
     var frameDisplayHandler: (() -> Void)?
 
-
     // 所属窗口的显示方向
     private(set) var displayOrientation: UIInterfaceOrientation?
     private var orientationObserver: VideoOrientationObserver?
-
 
     // 视频预览
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
     private var decodedVideoTimebase: CMTimebase?
     private var nextDecodedVideoPresentationTime = CMTime.invalid
 
-
     // 本地预览缓冲资源
     private var localPreviewPixelBufferPool: CVPixelBufferPool?
     private var localPreviewFormat: VideoFormat?
     private var localPreviewFormatDescription: CMVideoFormatDescription?
-
 
     // 图片预览
     private lazy var imageView: UIImageView = {
@@ -111,7 +105,6 @@ public final class XmaxVideoView: UIView {
         imageView.isHidden = true
         return imageView
     }()
-
 
     // 轨迹交互
     private lazy var trajectoryOverlayView: TrajectoryOverlayView = {
@@ -794,7 +787,6 @@ extension XmaxVideoView {
             }
         }
     }
-
 
     // 帧校验错误
     static var invalidImageFrameError: XmaxError {

@@ -35,7 +35,6 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
     /// 视频帧率。
     public let fps: Int
 
-
     // 编码配置
     /// 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
     public let minimumBitrate: Int?

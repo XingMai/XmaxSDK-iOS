@@ -23,10 +23,8 @@ actor XmaxRealtimeGenerationManager {
     private let interactionController: any InteractionControlling
     private let streamController: any StreamControlling
 
-
     // 生成配置
     private let taskIDGenerator: @Sendable () -> String
-
 
     // 生成资源
     private var currentContext: RealtimeContext?

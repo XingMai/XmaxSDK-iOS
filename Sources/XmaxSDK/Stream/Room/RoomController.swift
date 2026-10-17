@@ -17,14 +17,11 @@ actor RoomController: RoomControlling {
     // 基础层组件
     private let rtcManager: any RtcManaging
 
-
     // 传输层组件
     private let heartbeat: RoomHeartbeat
 
-
     // 耗时统计
     private let timing: RealtimeTiming
-
 
     // 房间资源
     private var state = State.idle
@@ -281,7 +278,6 @@ private extension RoomController {
         case joined(userID: String)
         case leaving
 
-
         // 资源状态
         var hasRoomResources: Bool {
             switch self {
@@ -298,7 +294,6 @@ private extension RoomController {
 
         // 操作标识
         let id: UUID
-
 
         // 离房任务
         let task: Task<Void, Never>

@@ -17,7 +17,6 @@ struct MediaFileMetadata: Equatable, Sendable {
     let height: Int
     let rotation: VideoRotation
 
-
     // 播放信息
     let durationSeconds: Double
     let hasAudio: Bool

@@ -31,11 +31,9 @@ public struct TrajectoryPoint: Sendable {
     // 轨迹标识
     public let id: TrajectoryID
 
-
     // 触点位置
     public let location: CGPoint
     public let normalizedLocation: CGPoint
-
 
     // 采样时间
     public let timestamp: TimeInterval

@@ -22,7 +22,6 @@ public struct XmaxConfiguration: Equatable, Sendable {
     /// 日志语言全局生效，以最后创建的 Client 为准。
     public let environment: XmaxEnvironment
 
-
     // 日志配置
     /// SDK 输出的日志类型；默认为不输出日志。
     public let loggerOptions: XmaxLoggerOption

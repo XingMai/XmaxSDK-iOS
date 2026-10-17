@@ -17,10 +17,8 @@ final class TrajectoryBinding: @unchecked Sendable {
     // 交互事件
     private let interactionListener: RenderInteractionListener
 
-
     // 视图绑定
     @MainActor private weak var overlayView: TrajectoryOverlayView?
-
 
     // 坐标映射
     @MainActor private var contentMode: VideoContentMode = .fill

@@ -16,7 +16,6 @@ public final class XmaxClient: Sendable {
     /// 客户端使用的全局配置。
     public let configuration: XmaxConfiguration
 
-
     // 服务层组件
     private let apiService: any ApiServicing
     private let realtimeApiOverride: (any ApiServicing)?

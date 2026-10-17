@@ -25,16 +25,13 @@ actor InteractionController: InteractionControlling {
         // 生成任务
         let taskID: String
 
-
         // 坐标映射规则
         let videoFormat: RealtimeVideoFormat
         let useDisplayedSize: Bool
     }
 
-
     // 交互事件监听
     private let listener: InteractionListener
-
 
     // 交互资源
     private var activeInteraction: ActiveInteraction?

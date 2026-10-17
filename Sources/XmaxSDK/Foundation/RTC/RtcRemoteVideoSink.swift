@@ -20,7 +20,6 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
     // 事件回调
     private let frameListener: @Sendable (UInt, String, RealtimeVideoFrame) -> Void
 
-
     // 缓冲区资源
     private let lock = NSLock()
     private var pool: CVPixelBufferPool?

@@ -22,7 +22,6 @@ public struct RealtimeVideoFrame: @unchecked Sendable {
     /// 编码完成后释放。
     public let pixelBuffer: CVPixelBuffer
 
-
     // 时间信息
     /// 当前帧在实时视频时间轴中的显示时间。
     ///

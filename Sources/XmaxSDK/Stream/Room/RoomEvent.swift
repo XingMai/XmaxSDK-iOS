@@ -210,7 +210,6 @@ private extension RoomEvent {
         // 信令内容
         let payload: Payload
 
-
         // 运行环境
         let runtime: RuntimeInfo
 
@@ -238,17 +237,14 @@ private extension RoomEvent {
         let size: [Int]
         let targetSize: [Int]?
 
-
         // 生成条件
         let prompt: String
         let referencePath: String?
-
 
         // 画面处理
         let mirror: Bool?
         let faceRestoration: Bool
         let padding: String?
-
 
         // 下行码率
         let minimumBitrate: Int?
@@ -310,10 +306,8 @@ private extension RoomEvent {
         // 事件类型
         let event = "start"
 
-
         // 事件参数
         let params: GenerationParameters
-
 
         // 用户与任务标识
         let userID: String
@@ -334,10 +328,8 @@ private extension RoomEvent {
         // 事件类型
         let event = "change_condition"
 
-
         // 事件参数
         let params: GenerationParameters
-
 
         // 用户与任务标识
         let userID: String
@@ -357,7 +349,6 @@ private extension RoomEvent {
 
         // 回传尺寸
         let targetSize: [Int]
-
 
         // 下行码率
         let minimumBitrate: Int
@@ -388,10 +379,8 @@ private extension RoomEvent {
         // 事件类型
         let event = "change_target_size"
 
-
         // 事件参数
         let params: TargetSizeParameters
-
 
         // 用户与任务标识
         let userID: String
@@ -412,7 +401,6 @@ private extension RoomEvent {
         // 事件类型
         let event = "stop"
 
-
         // 用户与任务标识
         let userID: String
         let taskID: String
@@ -431,10 +419,8 @@ private extension RoomEvent {
         // 事件类型
         let event = "tracks"
 
-
         // 轨迹数据
         let tracks: [[Double]]
-
 
         // 用户与任务标识
         let userID: String
@@ -454,7 +440,6 @@ private extension RoomEvent {
 
         // 事件类型
         let event = "heartbeat"
-
 
         // 用户与任务标识
         let userID: String

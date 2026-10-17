@@ -19,10 +19,8 @@ final class StorageService: StorageServicing, Sendable {
     // 服务层组件
     private let apiService: any ApiServicing
 
-
     // 基础层组件
     private let storageManager: any StorageManaging
-
 
     // 标识生成
     private let dateGenerator: @Sendable () -> Date
@@ -259,7 +257,6 @@ private extension StorageService {
         case image
         case video
 
-
         // 类型名称
         var displayName: String {
             rawValue.prefix(1).uppercased() + rawValue.dropFirst()
@@ -274,7 +271,6 @@ private extension StorageService {
         let region: String?
         let endpoint: String?
         let prefix: String?
-
 
         // 临时凭证
         let credentials: CredentialPayload?

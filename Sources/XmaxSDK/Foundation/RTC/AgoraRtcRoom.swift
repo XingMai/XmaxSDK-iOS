@@ -22,18 +22,15 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     private var bridge: RtcRoomEventBridge?
     private var videoSink: RtcRemoteVideoSink?
 
-
     // 用户与事件
     private var listener: (@Sendable (RtcRoomEvent) -> Void)?
     private var accounts: [UInt: String] = [:]
     private var publications: [UInt: Bool] = [:]
     private var frameListeners: [UInt: RtcRemoteVideoFrameListener] = [:]
 
-
     // 信令资源
     private var dataStreamID = 0
     private var sender: RtcMessageQueue?
-
 
     // 连接状态（由 platform.lock 保护）
     private var account: String?

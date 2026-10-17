@@ -32,17 +32,14 @@ actor RemoteVideoFramePipeline {
         _ frame: RealtimeVideoFrame
     ) throws -> (any FrameInterpolationManaging)?
 
-
     // 组件依赖
     private let frameInterpolationSupportChecker:
         FrameInterpolationSupportChecker
     private let interpolationManagerFactory: InterpolationManagerFactory
 
-
     // 事件监听
     private let outputListener: OutputListener
     private let errorListener: XmaxErrorListener
-
 
     // 帧处理资源
     private var interpolationManager:
@@ -50,7 +47,6 @@ actor RemoteVideoFramePipeline {
     private var pendingFrame: RealtimeVideoFrame?
     private var drainTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
-
 
     // 运行状态
     private var interpolationEnabled: Bool
@@ -97,7 +93,6 @@ actor RemoteVideoFramePipeline {
         self.outputListener = outputListener
         self.errorListener = errorListener
     }
-
 
     // 插帧状态
     var isFrameInterpolationEnabled: Bool {
@@ -191,7 +186,6 @@ private extension RemoteVideoFramePipeline {
             height = CVPixelBufferGetHeight(frame.pixelBuffer)
             pixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
         }
-
 
         // 像素尺寸
         var size: CGSize {

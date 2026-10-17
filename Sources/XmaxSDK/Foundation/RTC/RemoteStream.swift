@@ -16,7 +16,6 @@ struct RemoteStream: Equatable, Hashable, Sendable {
     let roomID: String
     let userID: String
 
-
     // 唯一索引
     /// 生成跨房间唯一的远端流键。
     var key: String {

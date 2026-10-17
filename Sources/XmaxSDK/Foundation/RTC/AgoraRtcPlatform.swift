@@ -20,12 +20,10 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     let lock = NSRecursiveLock()
     private weak var room: AgoraRtcRoom?
 
-
     // 视频配置
     private let videoFrameCache = RtcVideoFrameCache()
     private var videoConfiguration: VideoEncodingConfiguration?
     private var videoMirrorMode = AgoraVideoMirrorMode.disabled
-
 
     // 音频资源
     private(set) var audioTrackID: Int?

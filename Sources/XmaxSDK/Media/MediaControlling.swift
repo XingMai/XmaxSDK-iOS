@@ -27,7 +27,6 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool { get }
 
-
     // 音频预览
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float { get async }

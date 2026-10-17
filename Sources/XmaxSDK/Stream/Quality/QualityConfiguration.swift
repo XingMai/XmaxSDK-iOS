@@ -17,11 +17,9 @@ struct QualityConfiguration: Sendable {
     // 媒体基准
     let baseline: RealtimeVideoFormat
 
-
     // 传输档位
     let uplinkLevel: Int
     let downlinkLevel: Int
-
 
     // 实际传输规格
     var uplink: RealtimeVideoFormat {

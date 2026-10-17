@@ -92,7 +92,6 @@ actor RealtimeCoordinator {
             try lease.ensureCurrent()
         }
 
-
         // 有效性状态
         /// 当前操作是否仍有效。
         var isCurrent: Bool {
@@ -111,16 +110,13 @@ actor RealtimeCoordinator {
         _ taskID: String
     ) async -> CleanupResult
 
-
     // 业务组件
     private let errorHandler: RealtimeErrorHandler
     private let cleanup: CleanupHandler
 
-
     // 状态管理
     private var state = RealtimeState(connectionState: .idle)
     private var stateListener: RealtimeStateListener?
-
 
     // 操作管理
     private var activeOperation: Operation?
@@ -139,7 +135,6 @@ actor RealtimeCoordinator {
         self.errorHandler = errorHandler
         self.cleanup = cleanup
     }
-
 
     // 对外状态
     /// 当前对外发布的实时状态。
@@ -347,11 +342,9 @@ private extension RealtimeCoordinator {
         // 并发控制
         private let lock = NSLock()
 
-
         // 操作状态
         private var valid = true
         private var terminalError: XmaxError?
-
 
         // 失败清理配置
         private var storedFailureScope: TerminationScope?
@@ -362,7 +355,6 @@ private extension RealtimeCoordinator {
         init(failureScope: TerminationScope?) {
             storedFailureScope = failureScope
         }
-
 
         // 状态快照
         /// 操作凭据是否仍有效。
@@ -434,12 +426,10 @@ private extension RealtimeCoordinator {
         let kind: OperationKind
         let background: Bool
 
-
         // 操作执行控制
         let lease: OperationLease
         var cancel: @Sendable () -> Void = {}
         var waitForCompletion: @Sendable () async -> Void = {}
-
 
         // 终止收尾
         var terminationTask: Task<Void, Never>?
@@ -470,10 +460,8 @@ private extension RealtimeCoordinator {
         var reason: RealtimeReason
         var error: XmaxError?
 
-
         // 会话清理结果
         var sessionID: String?
-
 
         // 异步收尾
         var waitForOperations: [@Sendable () async -> Void] = []

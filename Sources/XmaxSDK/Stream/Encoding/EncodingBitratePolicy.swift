@@ -59,7 +59,6 @@ private extension EncodingBitratePolicy {
     /// 表示分辨率或帧率与推荐码率的对应参考点。
     typealias BitratePoint = (value: Double, bitrate: Double)
 
-
     // 码率参考表
     static let referenceBitratesAt15FPS: [BitratePoint] = [
         (120 * 120, 50),

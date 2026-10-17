@@ -17,7 +17,6 @@ struct StorageConfiguration: Equatable, Sendable {
     let region: String
     let endpoint: String
 
-
     // 访问凭证
     let credential: StorageCredential
 }

@@ -25,13 +25,11 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
     private let sourceHeight: Int
     private let sourcePixelFormat: OSType
 
-
     // 平台资源
     private let processor = VTFrameProcessor()
     private let imageContext = CIContext(options: nil)
     private let sourcePool: CVPixelBufferPool
     private let destinationPool: CVPixelBufferPool
-
 
     // 运行状态
     private var previousSourceFrame: VTFrameProcessorFrame?

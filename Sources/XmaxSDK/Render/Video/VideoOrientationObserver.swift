@@ -19,7 +19,6 @@ final class VideoOrientationObserver: UIViewController {
     private weak var videoView: XmaxVideoView?
     private let deviceOrientation: () -> UIDeviceOrientation
 
-
     // 旋转状态
     private(set) var isTransitioning = false
     private var generatesOrientationNotifications = false

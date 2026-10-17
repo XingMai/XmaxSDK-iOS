@@ -17,7 +17,6 @@ struct VideoFramePlane: Equatable, Sendable {
     // 像素存储
     let data: Data
 
-
     // 平面布局
     let stride: Int
     let byteOffset: Int
@@ -60,7 +59,6 @@ struct VideoFramePlane: Equatable, Sendable {
         self.byteOffset = byteOffset
         self.byteLength = resolvedByteLength
     }
-
 
     // 范围校验错误
     private static var invalidRangeError: XmaxError {

@@ -17,7 +17,6 @@ final class RealtimeTiming: @unchecked Sendable {
     // 并发控制
     private let lock = NSLock()
 
-
     // 启动耗时记录
     private var state = State()
 
@@ -127,31 +126,25 @@ extension RealtimeTiming {
         // 启动起点
         var startedAt: UInt64?
 
-
         // 服务端会话创建
         var sessionStartedAt: UInt64?
         var sessionFinishedAt: UInt64?
-
 
         // RTC 房间连接
         var roomJoinStartedAt: UInt64?
         var roomJoinFinishedAt: UInt64?
 
-
         // 本地流发布
         var publicationStartedAt: UInt64?
         var publicationFinishedAt: UInt64?
-
 
         // 生成请求与首帧
         var signalStartedAt: UInt64?
         var firstFrameAt: UInt64?
 
-
         // 启动结果
         var readyAt: UInt64?
         var failureAt: UInt64?
-
 
         // 生成任务
         var taskID: String?

@@ -17,7 +17,6 @@ struct QualityHistory {
     // 模型隔离
     let model: String
 
-
     // 持久化存储
     var defaults: UserDefaults = .standard
 

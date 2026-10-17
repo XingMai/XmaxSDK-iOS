@@ -96,25 +96,21 @@ final class VideoPlayerController: VideoPlayerControlling {
         // 文件来源
         let fileURL: URL
 
-
         // 视频输出规格
         let outputWidth: Int
         let outputHeight: Int
         let rotation: VideoRotation
         let frameRate: Int
 
-
         // 媒体播放信息
         let hasAudio: Bool
         let durationSeconds: Double
     }
 
-
     // 帧监听
     private let videoFrameListener: MediaVideoFrameListener
     private let audioFrameListener: MediaAudioFrameListener
     private let errorListener: XmaxErrorListener
-
 
     // 平台资源
     private let audioPreviewPlayer = LocalAudioPreviewPlayer()
@@ -123,10 +119,8 @@ final class VideoPlayerController: VideoPlayerControlling {
         presenter: previewPresenter
     )
 
-
     // 媒体配置
     private var configuration: PlaybackConfiguration?
-
 
     // 运行状态
     private var playbackTask: Task<Void, Never>?
@@ -146,7 +140,6 @@ final class VideoPlayerController: VideoPlayerControlling {
         self.audioFrameListener = audioFrameListener
         self.errorListener = errorListener
     }
-
 
     // 音频预览
     var localAudioVolume: Float {

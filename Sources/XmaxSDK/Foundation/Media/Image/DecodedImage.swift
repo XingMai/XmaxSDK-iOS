@@ -38,7 +38,6 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
     // 图片资源
     private let image: CGImage
 
-
     // 图片信息
     let size: CGSize
 

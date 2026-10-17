@@ -26,7 +26,6 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
         self.rawValue = rawValue
     }
 
-
     // 预定义日志选项
     /// Room、API、Realtime、Storage 等业务运行日志。
     public static let business = Self(rawValue: 1 << 0)
@@ -55,14 +54,11 @@ struct XmaxLogger: Sendable {
     static let interaction = Self(category: "Interaction")
     static let permission = Self(category: "Permission")
 
-
     // 日志类别
     private let category: String
 
-
     // 日志配置
     private static let state = XmaxLoggerState()
-
 
     // 平台资源
     private static let logger = Logger(
@@ -229,11 +225,9 @@ final class XmaxLoggerState: @unchecked Sendable {
     // 并发控制
     private let lock = NSLock()
 
-
     // 日志配置
     private var options: XmaxLoggerOption = []
     private var storedEnvironment: XmaxEnvironment = .china
-
 
     // 当前语言环境
     var environment: XmaxEnvironment {

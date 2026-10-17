@@ -26,7 +26,6 @@ final class RtcRoomEventBridge: NSObject, AgoraRtcEngineDelegate {
         case remoteStats(AgoraRtcRemoteVideoStats)
     }
 
-
     // 事件回调
     private let handler: @Sendable (Event) -> Void
 

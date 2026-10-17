@@ -24,13 +24,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Video Uplink"
+            "value": "Uplink video"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视频上行"
+            "value": "上行视频"
           }
         }
       }
@@ -41,13 +41,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Video Downlink"
+            "value": "Downlink video"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视频下行"
+            "value": "下行视频"
           }
         }
       }
@@ -75,7 +75,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Capture Frame Rate"
+            "value": "Capture FPS"
           }
         },
         "zh-Hans": {
@@ -92,7 +92,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encode Frame Rate"
+            "value": "Encode FPS"
           }
         },
         "zh-Hans": {
@@ -109,7 +109,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send Frame Rate"
+            "value": "Send FPS"
           }
         },
         "zh-Hans": {
@@ -126,7 +126,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Decode Frame Rate"
+            "value": "Decode FPS"
           }
         },
         "zh-Hans": {
@@ -143,7 +143,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Render Frame Rate"
+            "value": "Render FPS"
           }
         },
         "zh-Hans": {
@@ -154,36 +154,19 @@
         }
       }
     },
-    "statistics.sendBitrate": {
+    "statistics.bitrate": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send Bitrate"
+            "value": "Bitrate"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "发送码率"
-          }
-        }
-      }
-    },
-    "statistics.receiveBitrate": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Receive Bitrate"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接收码率"
+            "value": "码率"
           }
         }
       }
@@ -194,13 +177,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Video Packet Loss"
+            "value": "Packet loss"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视频丢包率"
+            "value": "丢包率"
           }
         }
       }
@@ -211,7 +194,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Network Quality"
+            "value": "Network"
           }
         },
         "zh-Hans": {
@@ -228,30 +211,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "End-to-End Delay"
+            "value": "E2E (RTC)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "端到端时延"
-          }
-        }
-      }
-    },
-    "statistics.note": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "RTC metrics; excludes AI generation time and interpolated FPS."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "RTC 指标，不含 AI 生成耗时或插帧后帧率。"
+            "value": "端到端（RTC）"
           }
         }
       }
@@ -2819,92 +2785,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "成功"
-          }
-        }
-      }
-    },
-    "L%lld": {},
-    "statistics.interpolation": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Interpolation"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "插帧开关"
-          }
-        }
-      }
-    },
-    "statistics.requested": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Requested Size"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请求尺寸"
-          }
-        }
-      }
-    },
-    "statistics.qualityDebug": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quality Debugging"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "调档调试"
-          }
-        }
-      }
-    },
-    "statistics.downlinkTier": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Downlink Tier"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下行档位"
-          }
-        }
-      }
-    },
-    "statistics.uplinkTier": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uplink Tier"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上行档位"
           }
         }
       }
