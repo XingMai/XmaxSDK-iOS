@@ -22,19 +22,19 @@ final class TrajectoryBinding: @unchecked Sendable {
 
     // 坐标映射
     @MainActor private var contentMode: VideoContentMode = .fill
-    @MainActor private var videoSize: CGSize?
+    private let resolvedMediaSize: CGSize
 
     /// 创建连接轨迹视图与媒体交互层的绑定。
     ///
     /// - Parameters:
     ///   - interactionListener: 接收交互采样帧的异步回调。
-    ///   - videoFormat: 初始视频坐标映射规格。
+    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，作为固定的交互坐标基准。
     init(
         interactionListener: @escaping RenderInteractionListener,
-        videoFormat: RealtimeVideoFormat
+        resolvedMediaSize: CGSize
     ) {
         self.interactionListener = interactionListener
-        videoSize = videoFormat.size
+        self.resolvedMediaSize = resolvedMediaSize
     }
 
     /// 绑定轨迹覆盖层并同步坐标映射配置。
@@ -54,7 +54,7 @@ final class TrajectoryBinding: @unchecked Sendable {
         self.contentMode = contentMode
         overlayView.setBinding(self)
         overlayView.setContentMode(contentMode)
-        overlayView.setVideoSize(videoSize)
+        overlayView.setResolvedMediaSize(resolvedMediaSize)
     }
 
     /// 解除指定覆盖层的轨迹绑定。
@@ -83,24 +83,6 @@ final class TrajectoryBinding: @unchecked Sendable {
         overlayView?.setContentMode(contentMode)
     }
 
-    /// 根据视频规格更新交互映射尺寸。
-    ///
-    /// - Parameter videoFormat: 新的映射视频规格。
-    @MainActor
-    func update(videoFormat: RealtimeVideoFormat) {
-        update(videoSize: videoFormat.size)
-    }
-
-    /// 更新实际显示的视频尺寸并同步到覆盖层。
-    ///
-    /// - Parameter videoSize: 当前画面的像素尺寸。
-    @MainActor
-    func update(videoSize: CGSize) {
-        guard self.videoSize != videoSize else { return }
-        self.videoSize = videoSize
-        overlayView?.setVideoSize(videoSize)
-    }
-
     /// 将视口中的触控点封装为交互帧并异步交付。
     ///
     /// - Parameters:
@@ -112,8 +94,7 @@ final class TrajectoryBinding: @unchecked Sendable {
         let frame = InteractionFrame(
             points: points,
             viewportSize: viewportSize,
-            contentMode: contentMode,
-            displayedVideoSize: videoSize
+            contentMode: contentMode
         )
         let interactionListener = interactionListener
         Task {

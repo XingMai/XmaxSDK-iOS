@@ -100,6 +100,11 @@ permission is unavailable.
 
 ### Media, generation, and return sizes
 
+`sourceMediaSize` is the original media size in its display orientation.
+`resolvedMediaSize` is the processed local media size after applying the model's
+pixel limit and four-pixel alignment. `generationSize` is the server generation
+canvas (`size`), and `targetSize` is the return resolution (`target_size`).
+
 All local input sources use `resolveMediaSize(_:source:)`. Camera dimensions
 must match a configured model resolution bucket before any scaling. Images and
 videos do not need to match a bucket. Local frames are limited to the model's
@@ -254,15 +259,17 @@ During an active generation task, both realtime video views capture multi-touch
 trajectories over the generated video and submit them to the active task. Gesture
 tracking and coordinate conversion are handled by the SDK.
 
-Camera, image, and video trajectories use the fixed local media dimensions
-computed by `resolveMediaSize`, not the model generation size, actual upload
-encoding size, or return `target_size`. The SDK maps touches through the current
-displayed frame's Fit/Fill geometry and sends normalized coordinates in `[0, 1]`
-relative to those processed media dimensions, not the original media dimensions.
+Camera, image, and video trajectories use `resolvedMediaSize`, computed by
+`resolveMediaSize`, not `sourceMediaSize`, the model generation size, or return
+`target_size`. The SDK calculates Fit/Fill geometry from `resolvedMediaSize` and
+the view dimensions, then sends normalized coordinates in `[0, 1]` relative to
+the complete processed media frame. The trajectory overlay uses the same geometry;
+received frame dimensions do not update the interaction coordinate basis.
 The top-left corner is `(0, 0)` and the bottom-right corner is `(1, 1)`.
 Quality-tier and interpolation changes do not change this coordinate basis.
 The signaling payload uses `"tracks": [[x, y], ...]`; the server must interpret
-these values as normalized media coordinates, not pixels.
+these values as normalized media coordinates, not pixels, and map them to the
+actual uplink frame dimensions.
 
 Interaction is enabled by default. To let surrounding UIKit controls handle touch
 input instead:

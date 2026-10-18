@@ -41,20 +41,12 @@ protocol RenderControlling: AnyObject, Sendable {
     ///
     /// - Parameters:
     ///   - track: 需要注册的远端视频轨道。
+    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于轨迹交互映射。
     ///   - interactionListener: 接收视图交互采样的异步回调。
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,
+        resolvedMediaSize: CGSize,
         interactionListener: @escaping RenderInteractionListener
-    )
-
-    /// 更新远端轨道的轨迹坐标映射规格。
-    ///
-    /// - Parameters:
-    ///   - videoFormat: 新的视频映射规格。
-    ///   - track: 需要更新的远端视频轨道。
-    func updateRemoteVideoFormat(
-        _ videoFormat: RealtimeVideoFormat,
-        for track: RealtimeVideoTrack
     )
 
     /// 开启或关闭远端视频插帧。

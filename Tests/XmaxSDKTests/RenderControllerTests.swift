@@ -424,6 +424,7 @@ private extension RenderControllerTests {
         )
         controller.registerRemoteTrack(
             track,
+            resolvedMediaSize: CGSize(width: 720, height: 1280),
             interactionListener: { _ in }
         )
         return (

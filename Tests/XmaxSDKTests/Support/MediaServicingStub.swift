@@ -41,19 +41,19 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
         lock.withLock { storedRequestedSizes }
     }
 
-    func resolveMediaSize(_ size: CGSize, source: RealtimeMediaSource) throws -> CGSize {
+    func resolveMediaSize(_ sourceMediaSize: CGSize, source: RealtimeMediaSource) throws -> CGSize {
         try lock.withLock {
-            storedRequestedSizes.append(size)
+            storedRequestedSizes.append(sourceMediaSize)
             if let resolutionError {
                 throw resolutionError
             }
-            return source == .camera ? resolvedSize : try MediaService(model: model).resolveMediaSize(size, source: source)
+            return source == .camera ? resolvedSize : try MediaService(model: model).resolveMediaSize(sourceMediaSize, source: source)
         }
     }
 
-    func resolveTargetSize(_ sourceSize: CGSize, maximumSize: CGSize, frameInterpolationEnabled: Bool) throws -> CGSize {
+    func resolveTargetSize(_ resolvedMediaSize: CGSize, maximumSize: CGSize, frameInterpolationEnabled: Bool) throws -> CGSize {
         try MediaService(model: model).resolveTargetSize(
-            sourceSize,
+            resolvedMediaSize,
             maximumSize: maximumSize,
             frameInterpolationEnabled: frameInterpolationEnabled
         )

@@ -90,24 +90,20 @@ actor XmaxRealtimeConnectionManager {
 
     /// 根据当前回传尺寸更新远端轨道与渲染规格。
     ///
-    /// - Parameter videoFormat: 当前生成视频规格；配置了回传尺寸时，以回传宽高更新轨道。
+    /// - Parameter videoFormat: 处理后的本地媒体规格；配置了回传尺寸时，以回传宽高更新轨道。
     func updateRemoteVideoFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async {
         guard let activeRemoteTrack else { return }
         let remoteFormat = remoteVideoFormat(for: videoFormat)
         activeRemoteTrack.updateVideoFormat(remoteFormat)
-        await renderController.updateRemoteVideoFormat(
-            remoteFormat,
-            for: activeRemoteTrack
-        )
     }
 
     /// 保存当前连接的回传尺寸，并同步更新远端渲染规格。
     ///
     /// - Parameters:
     ///   - size: 服务端回传视频的目标尺寸，单位为像素。
-    ///   - videoFormat: 当前生成视频规格，用于保留帧率等非尺寸配置。
+    ///   - videoFormat: 处理后的本地媒体规格，用于保留帧率等非尺寸配置。
     func updateTargetSize(
         _ size: CGSize,
         videoFormat: RealtimeVideoFormat
@@ -121,8 +117,8 @@ actor XmaxRealtimeConnectionManager {
     ///
     /// - Parameters:
     ///   - model: 本次会话使用的生成模型。
-    ///   - videoFormat: 生成视频规格，用于初始化远端轨道。
-    ///   - targetSize: 回传视频尺寸；传入 `nil` 时使用生成尺寸。
+    ///   - videoFormat: 处理后的本地媒体规格，用于初始化交互坐标基准和远端轨道。
+    ///   - targetSize: 回传视频尺寸；传入 `nil` 时使用处理后的媒体尺寸。
     ///   - includeLocalAudio: 是否发布本地音频。
     ///   - isCurrent: 判断连接操作是否仍有效的回调。
     ///   - onHeartbeatFailure: 接收当前会话心跳错误的回调。
@@ -171,7 +167,7 @@ actor XmaxRealtimeConnectionManager {
                 id: connection.botName ?? "video-remote",
                 videoFormat: remoteVideoFormat(for: videoFormat)
             )
-            await registerRemoteTrack(remoteTrack)
+            await registerRemoteTrack(remoteTrack, resolvedMediaSize: videoFormat.size)
 
             activeSession = session
             activeRemoteTrack = remoteTrack
@@ -225,13 +221,13 @@ actor XmaxRealtimeConnectionManager {
 }
 
 private extension XmaxRealtimeConnectionManager {
-    /// 将当前回传尺寸应用到生成视频规格。
+    /// 将当前回传尺寸应用到本地媒体规格。
     ///
-    /// - Parameter generationFormat: 生成视频规格。
+    /// - Parameter mediaFormat: 处理后的本地媒体规格。
     /// - Returns: 采用回传宽高的视频规格；未设置回传尺寸时返回原规格。
-    func remoteVideoFormat(for generationFormat: RealtimeVideoFormat) -> RealtimeVideoFormat {
-        guard let currentTargetSize else { return generationFormat }
-        return generationFormat.resized(
+    func remoteVideoFormat(for mediaFormat: RealtimeVideoFormat) -> RealtimeVideoFormat {
+        guard let currentTargetSize else { return mediaFormat }
+        return mediaFormat.resized(
             width: Int(currentTargetSize.width),
             height: Int(currentTargetSize.height)
         )
@@ -254,11 +250,14 @@ private extension XmaxRealtimeConnectionManager {
 
     /// 注册远端轨道渲染，并将视图交互转交媒体交互组件。
     ///
-    /// - Parameter track: 需要注册的远端视频轨道。
-    func registerRemoteTrack(_ track: RealtimeVideoTrack) async {
+    /// - Parameters:
+    ///   - track: 需要注册的远端视频轨道。
+    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于轨迹交互映射。
+    func registerRemoteTrack(_ track: RealtimeVideoTrack, resolvedMediaSize: CGSize) async {
         let interactionController = interactionController
         await renderController.registerRemoteTrack(
             track,
+            resolvedMediaSize: resolvedMediaSize,
             interactionListener: { frame in
                 await interactionController.submitInteraction(frame)
             }

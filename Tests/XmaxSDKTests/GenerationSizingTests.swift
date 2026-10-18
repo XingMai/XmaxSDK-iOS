@@ -15,13 +15,14 @@ import XCTest
 final class GenerationSizingTests: XCTestCase {
     func testCappedMediaSizeBecomesUplinkBaselineWithoutChangingGenerationBucket() throws {
         let service = MediaService()
-        let mediaSize = try service.resolveMediaSize(CGSize(width: 3840, height: 2160), source: .video)
-        let baseline = RealtimeVideoFormat(width: Int(mediaSize.width), height: Int(mediaSize.height), fps: 30)
+        let sourceMediaSize = CGSize(width: 3840, height: 2160)
+        let resolvedMediaSize = try service.resolveMediaSize(sourceMediaSize, source: .video)
+        let baseline = RealtimeVideoFormat(width: Int(resolvedMediaSize.width), height: Int(resolvedMediaSize.height), fps: 30)
 
-        XCTAssertEqual(mediaSize, CGSize(width: 1920, height: 1080))
+        XCTAssertEqual(resolvedMediaSize, CGSize(width: 1920, height: 1080))
         XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: 2, downlink: false).size, CGSize(width: 1536, height: 864))
         XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: 5, downlink: false).size, CGSize(width: 960, height: 540))
-        XCTAssertEqual(try service.resolveGenerationSize(mediaSize), CGSize(width: 1920, height: 1024))
+        XCTAssertEqual(try service.resolveGenerationSize(resolvedMediaSize), CGSize(width: 1920, height: 1024))
     }
 
     func testGenerationCanvasUsesNearestBucketWithoutValidatingMediaAsBucket() throws {

@@ -139,9 +139,11 @@ final class RenderController: RenderControlling {
     ///
     /// - Parameters:
     ///   - track: 需要注册的远端视频轨道。
+    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于轨迹交互映射。
     ///   - interactionListener: 接收视图交互采样的异步回调。
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,
+        resolvedMediaSize: CGSize,
         interactionListener: @escaping RenderInteractionListener
     ) {
         VideoRenderRegistry.register(
@@ -159,27 +161,13 @@ final class RenderController: RenderControlling {
             )
         )
 
-        guard let videoFormat = track.videoFormat else { return }
         TrajectoryRegistry.register(
             track,
             binding: TrajectoryBinding(
                 interactionListener: interactionListener,
-                videoFormat: videoFormat
+                resolvedMediaSize: resolvedMediaSize
             )
         )
-    }
-
-    /// 更新远端轨道的轨迹坐标映射规格。
-    ///
-    /// - Parameters:
-    ///   - videoFormat: 新的视频映射规格。
-    ///   - track: 需要更新的远端视频轨道。
-    func updateRemoteVideoFormat(
-        _ videoFormat: RealtimeVideoFormat,
-        for track: RealtimeVideoTrack
-    ) {
-        TrajectoryRegistry.binding(for: track)?
-            .update(videoFormat: videoFormat)
     }
 
     /// 开启或关闭远端视频插帧。

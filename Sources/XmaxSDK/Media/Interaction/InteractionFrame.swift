@@ -20,7 +20,6 @@ struct InteractionFrame: Sendable {
     // 显示映射
     let viewportSize: CGSize
     let contentMode: VideoContentMode
-    var displayedVideoSize: CGSize? = nil
 }
 
 extension RealtimeVideoFormat {

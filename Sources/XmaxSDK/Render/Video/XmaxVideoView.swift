@@ -372,7 +372,7 @@ extension XmaxVideoView {
         }
     }
 
-    /// 按帧时长提交远端画面，并同步交互映射尺寸。
+    /// 按帧时长提交远端画面。
     ///
     /// - Parameters:
     ///   - frame: 已完成插帧等处理的远端视频帧。
@@ -381,10 +381,6 @@ extension XmaxVideoView {
         _ frame: RealtimeVideoFrame,
         contentMode: VideoContentMode
     ) {
-        attachedTrajectoryBinding?.update(videoSize: CGSize(
-            width: CVPixelBufferGetWidth(frame.pixelBuffer),
-            height: CVPixelBufferGetHeight(frame.pixelBuffer)
-        ))
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }

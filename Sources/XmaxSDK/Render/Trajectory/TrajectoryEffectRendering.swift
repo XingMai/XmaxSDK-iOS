@@ -43,7 +43,7 @@ public struct TrajectoryPoint: Sendable {
     /// - Parameters:
     ///   - id: 该触点所属的轨迹标识。
     ///   - location: 触点在覆盖层中的坐标，单位为点。
-    ///   - normalizedLocation: 相对视频显示区域归一化的坐标。
+    ///   - normalizedLocation: 相对于处理后完整媒体区域的归一化坐标。
     ///   - timestamp: 触点采样的单调时钟时间，单位为秒。
     init(
         id: TrajectoryID,

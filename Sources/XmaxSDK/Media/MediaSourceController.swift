@@ -215,13 +215,13 @@ private extension MediaSourceController {
             metadata.rotation == .rotation270
         let displayWidth = swapsDimensions ? metadata.height : metadata.width
         let displayHeight = swapsDimensions ? metadata.width : metadata.height
-        let size = try mediaService.resolveMediaSize(
+        let resolvedMediaSize = try mediaService.resolveMediaSize(
             CGSize(width: displayWidth, height: displayHeight),
             source: .video
         )
         let resolvedFormat = RealtimeVideoFormat(
-            width: Int(size.width),
-            height: Int(size.height),
+            width: Int(resolvedMediaSize.width),
+            height: Int(resolvedMediaSize.height),
             fps: mediaService.model.defaultFrameRate
         )
         try resolvedFormat.validate()

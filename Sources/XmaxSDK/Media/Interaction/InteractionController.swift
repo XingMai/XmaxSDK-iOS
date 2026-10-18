@@ -26,7 +26,7 @@ actor InteractionController: InteractionControlling {
         let taskID: String
 
         // 坐标映射规则
-        let videoFormat: RealtimeVideoFormat
+        let resolvedMediaSize: CGSize
     }
 
     // 交互事件监听
@@ -62,7 +62,7 @@ actor InteractionController: InteractionControlling {
         cancelPendingFrames()
         activeInteraction = ActiveInteraction(
             taskID: taskID,
-            videoFormat: videoFormat
+            resolvedMediaSize: videoFormat.size
         )
     }
 
@@ -81,14 +81,11 @@ actor InteractionController: InteractionControlling {
             return
         }
 
-        let mediaSize = activeInteraction.videoFormat.size
-        let displayedVideoSize = frame.displayedVideoSize ?? mediaSize
         let points = frame.points.compactMap {
             InteractionCoordinateMapper.map(
                 $0,
                 viewportSize: frame.viewportSize,
-                displayedVideoSize: displayedVideoSize,
-                mediaSize: mediaSize,
+                resolvedMediaSize: activeInteraction.resolvedMediaSize,
                 contentMode: frame.contentMode
             )
         }

@@ -37,7 +37,7 @@ final class TrajectoryOverlayView: UIView {
 
     // 坐标映射
     private var videoContentMode: VideoContentMode = .fill
-    private var videoSize: CGSize?
+    private var resolvedMediaSize: CGSize?
 
     // 视觉效果
     private var renderer: any TrajectoryEffectRendering
@@ -107,12 +107,12 @@ final class TrajectoryOverlayView: UIView {
         updateInteractionState()
     }
 
-    /// 更新视频映射尺寸并清除旧坐标下的活动轨迹。
+    /// 更新处理后的媒体尺寸并清除旧坐标下的活动轨迹。
     ///
-    /// - Parameter videoSize: 视频像素尺寸；未知时为 `nil`。
-    func setVideoSize(_ videoSize: CGSize?) {
-        guard self.videoSize != videoSize else { return }
-        self.videoSize = videoSize
+    /// - Parameter resolvedMediaSize: 处理后的本地媒体尺寸；未知时为 `nil`。
+    func setResolvedMediaSize(_ resolvedMediaSize: CGSize?) {
+        guard self.resolvedMediaSize != resolvedMediaSize else { return }
+        self.resolvedMediaSize = resolvedMediaSize
         cancelInteraction()
         updateInteractionState()
     }
@@ -350,12 +350,12 @@ private extension TrajectoryOverlayView {
     /// - Parameters:
     ///   - activeTouch: 当前活动触点。
     ///   - timestamp: 采样单调时钟时间，单位为秒。
-    /// - Returns: 包含视口坐标和相对视频显示区域归一化坐标的触点。
+    /// - Returns: 包含视口坐标和相对于处理后完整媒体区域的归一化坐标的触点。
     private func trajectoryPoint(
         for activeTouch: ActiveTouch,
         timestamp: TimeInterval
     ) -> TrajectoryPoint {
-        let normalizationFrame = displayedVideoFrame ?? bounds
+        let normalizationFrame = displayedMediaFrame ?? bounds
         let normalizedLocation = CGPoint(
             x: normalizationFrame.width > 0
                 ? (activeTouch.location.x - normalizationFrame.minX)
@@ -387,18 +387,18 @@ private extension TrajectoryOverlayView {
     }
 
     // 有效显示区域
-    var displayedVideoFrame: CGRect? {
-        guard let videoSize else { return nil }
+    var displayedMediaFrame: CGRect? {
+        guard let resolvedMediaSize else { return nil }
         return InteractionCoordinateMapper.displayedFrame(
             viewportSize: bounds.size,
-            videoSize: videoSize,
+            resolvedMediaSize: resolvedMediaSize,
             contentMode: videoContentMode
         )
     }
 
     var interactionFrame: CGRect? {
-        guard let displayedVideoFrame else { return nil }
-        let frame = displayedVideoFrame.intersection(bounds)
+        guard let displayedMediaFrame else { return nil }
+        let frame = displayedMediaFrame.intersection(bounds)
         return frame.isNull || frame.isEmpty ? nil : frame
     }
 }

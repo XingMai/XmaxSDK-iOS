@@ -380,14 +380,13 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await components.mediaController.submitInteraction(InteractionFrame(
             points: [CGPoint(x: 50, y: 50)],
             viewportSize: CGSize(width: 100, height: 100),
-            contentMode: .fit,
-            displayedVideoSize: targetFormat.size
+            contentMode: .fit
         ))
         await waitForEvent("tracks", rtcManager: components.rtcManager)
         let tracks = try XCTUnwrap(decodedEvents(components.rtcManager).last {
             $0["event"] as? String == "tracks"
         })
-        XCTAssertEqual(tracks["tracks"] as? [[Double]], [[351, 621]])
+        XCTAssertEqual(tracks["tracks"] as? [[Double]], [[0.5, 0.5]])
 
         try await components.manager.setFrameInterpolationEnabled(false)
         XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)

@@ -32,13 +32,13 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
             components.rtcManager.emitRemoteVideoAvailable(stream: remoteStream)
             let taskID = try await start.value
 
-            let displayedSizes = [CGSize(width: 684, height: 1216), CGSize(width: 360, height: 640), videoFormat.size]
-            for (index, displayedSize) in displayedSizes.enumerated() {
+            let targetSizes = [CGSize(width: 684, height: 1216), CGSize(width: 704, height: 1244), CGSize(width: 1024, height: 1920)]
+            for (index, targetSize) in targetSizes.enumerated() {
                 if index > 0 {
                     try await components.manager.update(
                         taskID: taskID,
                         videoFormat: videoFormat,
-                        targetSize: displayedSize,
+                        targetSize: targetSize,
                         context: RealtimeContext(prompt: "updated"),
                         paddingContain: contain
                     )
@@ -46,12 +46,11 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 await components.interactionController.submitInteraction(InteractionFrame(
                     points: [CGPoint(x: 90, y: 160)],
                     viewportSize: CGSize(width: 360, height: 640),
-                    contentMode: .fit,
-                    displayedVideoSize: displayedSize
+                    contentMode: .fit
                 ))
                 await waitForEventCount("tracks", count: index + 1, rtcManager: components.rtcManager)
                 let event = try XCTUnwrap(decodedEvents(components.rtcManager).last { $0["event"] as? String == "tracks" })
-                XCTAssertEqual(event["tracks"] as? [[Double]], [[0.25, 0.25]], "Source: \(source), displayed: \(displayedSize)")
+                XCTAssertEqual(event["tracks"] as? [[Double]], [[0.25, 0.25]], "Source: \(source), target: \(targetSize)")
             }
             try await components.manager.stop(taskID: taskID)
             await components.roomController.leave()

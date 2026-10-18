@@ -382,11 +382,11 @@ private extension CameraController {
     /// - Throws: 输入规格无效或模型不支持目标尺寸时抛出错误。
     func resolveVideoFormat(_ videoFormat: RealtimeVideoFormat) throws -> RealtimeVideoFormat {
         try videoFormat.validate()
-        let targetSize = try mediaService.resolveMediaSize(
+        let resolvedMediaSize = try mediaService.resolveMediaSize(
             CGSize(width: videoFormat.width, height: videoFormat.height),
             source: .camera
         )
-        let resolvedFormat = videoFormat.resized(width: Int(targetSize.width), height: Int(targetSize.height))
+        let resolvedFormat = videoFormat.resized(width: Int(resolvedMediaSize.width), height: Int(resolvedMediaSize.height))
         try resolvedFormat.validate()
         return resolvedFormat
     }

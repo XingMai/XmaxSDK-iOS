@@ -149,7 +149,7 @@ private extension ImageController {
         do {
             let image = try decode(input)
             let resolvedFormat = try resolveVideoFormat(
-                sourceSize: image.size
+                sourceMediaSize: image.size
             )
             let frame = try image.makeVideoFrame(
                 width: resolvedFormat.width,
@@ -227,16 +227,16 @@ private extension ImageController {
 
     /// 根据模型面积上限计算保持图片比例的视频输出规格。
     ///
-    /// - Parameter sourceSize: 图片的像素尺寸。
+    /// - Parameter sourceMediaSize: 图片的原始像素尺寸。
     /// - Returns: 采用模型默认帧率的图片视频规格。
     /// - Throws: 图片尺寸或输出格式无效时抛出错误。
     func resolveVideoFormat(
-        sourceSize: CGSize
+        sourceMediaSize: CGSize
     ) throws -> RealtimeVideoFormat {
-        let size = try mediaService.resolveMediaSize(sourceSize, source: .image)
+        let resolvedMediaSize = try mediaService.resolveMediaSize(sourceMediaSize, source: .image)
         let resolvedFormat = RealtimeVideoFormat(
-            width: Int(size.width),
-            height: Int(size.height),
+            width: Int(resolvedMediaSize.width),
+            height: Int(resolvedMediaSize.height),
             fps: mediaService.model.defaultFrameRate
         )
         try resolvedFormat.validate()

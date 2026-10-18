@@ -30,18 +30,18 @@ final class MediaService: MediaServicing, Sendable {
     /// 计算本地媒体帧尺寸，并校验摄像头的模型分辨率桶。
     ///
     /// - Parameters:
-    ///   - size: 摄像头请求尺寸或图片、视频按显示方向解析后的整数像素尺寸。
+    ///   - sourceMediaSize: 摄像头请求尺寸或图片、视频按显示方向解析后的原始整数像素尺寸。
     ///   - source: 媒体来源；摄像头须精确匹配模型已配置的分辨率桶。
     /// - Returns: 不放大、不超过模型最大像素面积的 4 对齐尺寸，优先保持精确比例。
     /// - Throws: 尺寸无效、摄像头不匹配分辨率桶或无法形成有效输出尺寸时抛出错误。
-    func resolveMediaSize(_ size: CGSize, source: RealtimeMediaSource) throws -> CGSize {
-        guard let width = Self.integralDimension(size.width),
-              let height = Self.integralDimension(size.height) else {
+    func resolveMediaSize(_ sourceMediaSize: CGSize, source: RealtimeMediaSource) throws -> CGSize {
+        guard let width = Self.integralDimension(sourceMediaSize.width),
+              let height = Self.integralDimension(sourceMediaSize.height) else {
             throw XmaxError(code: .invalidConfiguration, message: "Media dimensions must be positive integers")
         }
 
         let buckets = model.resolutionBuckets
-        if source == .camera, !buckets.isEmpty, !buckets.contains(size) {
+        if source == .camera, !buckets.isEmpty, !buckets.contains(sourceMediaSize) {
             let supportedSizes = buckets.map { "\(Int($0.width))×\(Int($0.height))" }.joined(separator: ", ")
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -58,18 +58,18 @@ final class MediaService: MediaServicing, Sendable {
     /// 综合档位尺寸上限和可选插帧限制，计算最终回传尺寸。
     ///
     /// - Parameters:
-    ///   - sourceSize: 原始媒体的整数像素尺寸，用于确定比例和不放大的边界。
+    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于确定比例和不放大的边界。
     ///   - maximumSize: 下行档位允许的宽高上限，可包含小数像素。
     ///   - frameInterpolationEnabled: 是否额外限制总像素不超过 900000；不检查设备能力。
     /// - Returns: 不超过上限、宽高均为 4 的倍数的尺寸；优先精确等比，无法等比时分别向下对齐。
     /// - Throws: 尺寸无效，或约束内无法容纳至少 4 × 4 像素时抛出 `XmaxError`。
     func resolveTargetSize(
-        _ sourceSize: CGSize,
+        _ resolvedMediaSize: CGSize,
         maximumSize: CGSize,
         frameInterpolationEnabled: Bool
     ) throws -> CGSize {
-        guard let width = Self.integralDimension(sourceSize.width),
-              let height = Self.integralDimension(sourceSize.height),
+        guard let width = Self.integralDimension(resolvedMediaSize.width),
+              let height = Self.integralDimension(resolvedMediaSize.height),
               maximumSize.width.isFinite, maximumSize.width > 0,
               maximumSize.height.isFinite, maximumSize.height > 0 else {
             throw XmaxError(

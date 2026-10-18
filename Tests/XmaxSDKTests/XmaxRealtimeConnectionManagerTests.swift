@@ -245,6 +245,36 @@ final class XmaxRealtimeConnectionManagerTests: XCTestCase {
         )
     }
 
+    func testTargetSizeChangesKeepTrajectoryOverlayOnResolvedMediaSize() async throws {
+        let components = makeManager(
+            sessionService: RealtimeSessionServicingStub(session: session)
+        )
+        let stream = try await components.manager.connect(
+            model: .x2_1_1_preview_cn,
+            videoFormat: videoFormat,
+            targetSize: CGSize(width: 1024, height: 1920),
+            includeLocalAudio: false,
+            isCurrent: { true },
+            onHeartbeatFailure: { _, _ in }
+        )
+        let track = try XCTUnwrap(stream.videoTrack)
+        let binding = try XCTUnwrap(TrajectoryRegistry.binding(for: track))
+        let overlay = TrajectoryOverlayView(renderer: DefaultTrajectoryEffectRenderer())
+        overlay.frame = CGRect(x: 0, y: 0, width: 360, height: 640)
+        binding.attach(to: overlay, contentMode: .fit)
+
+        XCTAssertEqual(track.videoFormat?.size, CGSize(width: 1024, height: 1920))
+        XCTAssertTrue(overlay.point(inside: CGPoint(x: 5, y: 320), with: nil))
+        XCTAssertTrue(overlay.point(inside: CGPoint(x: 180, y: 5), with: nil))
+
+        await components.manager.updateTargetSize(CGSize(width: 360, height: 360), videoFormat: videoFormat)
+
+        XCTAssertEqual(track.videoFormat?.size, CGSize(width: 360, height: 360))
+        XCTAssertTrue(overlay.point(inside: CGPoint(x: 5, y: 320), with: nil))
+        XCTAssertTrue(overlay.point(inside: CGPoint(x: 180, y: 5), with: nil))
+        _ = try await components.manager.disconnect()
+    }
+
     func testUpdatingRemoteVideoFormatUpdatesActiveTrack() async throws {
         let components = makeManager(
             sessionService: RealtimeSessionServicingStub(session: session)
