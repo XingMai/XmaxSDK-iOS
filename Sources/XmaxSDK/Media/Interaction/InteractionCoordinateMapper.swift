@@ -11,7 +11,7 @@
 
 import CoreGraphics
 
-/// 将渲染视口坐标映射到模型输入视频的像素坐标。
+/// 将渲染视口坐标映射到固定媒体基准的像素坐标。
 enum InteractionCoordinateMapper {
     /// 计算视频按指定缩放方式显示在视口中的区域。
     ///
@@ -25,7 +25,9 @@ enum InteractionCoordinateMapper {
         videoSize: CGSize,
         contentMode: VideoContentMode
     ) -> CGRect? {
-        guard viewportSize.width > 0,
+        guard viewportSize.width.isFinite, viewportSize.height.isFinite,
+              videoSize.width.isFinite, videoSize.height.isFinite,
+              viewportSize.width > 0,
               viewportSize.height > 0,
               videoSize.width > 0,
               videoSize.height > 0 else {
@@ -51,25 +53,29 @@ enum InteractionCoordinateMapper {
         )
     }
 
-    /// 将视口触控位置映射为视频像素坐标。
+    /// 根据实际画面显示区域归一化触控位置，再映射到固定媒体尺寸。
     ///
     /// - Parameters:
     ///   - point: 触控点在视口中的位置。
     ///   - viewportSize: 渲染视口尺寸，单位为点。
-    ///   - videoSize: 视频内容尺寸，单位为像素。
+    ///   - displayedVideoSize: 当前显示帧的像素尺寸，用于确定画面显示区域。
+    ///   - mediaSize: 固定媒体基准的像素尺寸，用于计算发送坐标。
     ///   - contentMode: 视频缩放与裁剪方式。
     /// - Returns: 限制在有效像素范围内的坐标；输入无效或点击 fit 留白区域时返回 `nil`。
     static func map(
         _ point: CGPoint,
         viewportSize: CGSize,
-        videoSize: CGSize,
+        displayedVideoSize: CGSize,
+        mediaSize: CGSize,
         contentMode: VideoContentMode
     ) -> RealtimePoint? {
         guard point.x.isFinite,
               point.y.isFinite,
+              mediaSize.width.isFinite, mediaSize.height.isFinite,
+              mediaSize.width >= 1, mediaSize.height >= 1,
               let displayedFrame = displayedFrame(
                   viewportSize: viewportSize,
-                  videoSize: videoSize,
+                  videoSize: displayedVideoSize,
                   contentMode: contentMode
               ) else {
             return nil
@@ -78,13 +84,13 @@ enum InteractionCoordinateMapper {
             return nil
         }
 
-        let scale = displayedFrame.width / videoSize.width
-        guard scale.isFinite, scale > 0 else { return nil }
-        let mappedX = ((point.x - displayedFrame.minX) / scale).rounded()
-        let mappedY = ((point.y - displayedFrame.minY) / scale).rounded()
+        let normalizedX = (point.x - displayedFrame.minX) / displayedFrame.width
+        let normalizedY = (point.y - displayedFrame.minY) / displayedFrame.height
+        let mappedX = (normalizedX * mediaSize.width).rounded()
+        let mappedY = (normalizedY * mediaSize.height).rounded()
         return RealtimePoint(
-            x: min(max(mappedX, 0), videoSize.width - 1),
-            y: min(max(mappedY, 0), videoSize.height - 1)
+            x: min(max(mappedX, 0), mediaSize.width - 1),
+            y: min(max(mappedY, 0), mediaSize.height - 1)
         )
     }
 }

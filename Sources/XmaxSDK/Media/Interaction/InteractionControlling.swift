@@ -17,12 +17,10 @@ protocol InteractionControlling: Sendable {
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 本地媒体输出规格。
-    ///   - useDisplayedSize: 是否按实际显示的结果帧尺寸换算轨迹坐标。
+    ///   - videoFormat: 固定的本地媒体规格，作为发送轨迹的像素坐标基准。
     func startInteraction(
         taskID: String,
-        videoFormat: RealtimeVideoFormat,
-        useDisplayedSize: Bool
+        videoFormat: RealtimeVideoFormat
     ) async
 
     /// 停止接收轨迹并清理当前任务。
@@ -32,15 +30,4 @@ protocol InteractionControlling: Sendable {
     ///
     /// - Parameter frame: 当前视图中采集的轨迹及显示尺寸。
     func submitInteraction(_ frame: InteractionFrame) async
-}
-
-extension InteractionControlling {
-    /// 按本地媒体尺寸启动当前生成任务的触控轨迹输入。
-    ///
-    /// - Parameters:
-    ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 轨迹坐标映射使用的本地视频规格。
-    func startInteraction(taskID: String, videoFormat: RealtimeVideoFormat) async {
-        await startInteraction(taskID: taskID, videoFormat: videoFormat, useDisplayedSize: false)
-    }
 }

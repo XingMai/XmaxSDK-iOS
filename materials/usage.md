@@ -254,6 +254,15 @@ During an active generation task, both realtime video views capture multi-touch
 trajectories over the generated video and submit them to the active task. Gesture
 tracking and coordinate conversion are handled by the SDK.
 
+Camera, image, and video trajectories use the fixed local media dimensions
+computed by `resolveMediaSize`, not the model generation size, actual upload
+encoding size, or return `target_size`. The SDK maps touches through the current
+displayed frame's Fit/Fill geometry, normalizes their positions, and sends pixel
+coordinates in that fixed media coordinate system. Quality-tier and interpolation
+changes do not change this coordinate basis. The signaling payload remains pixel
+coordinates, not normalized values; the server must interpret it in the same
+media coordinate system.
+
 Interaction is enabled by default. To let surrounding UIKit controls handle touch
 input instead:
 

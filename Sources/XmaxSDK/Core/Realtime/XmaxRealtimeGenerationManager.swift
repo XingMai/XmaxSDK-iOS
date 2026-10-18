@@ -71,7 +71,7 @@ actor XmaxRealtimeGenerationManager {
     ///   - context: 本次生成上下文；传入 `nil` 时复用上次成功请求的上下文。
     ///   - faceRestoration: 是否启用人脸还原。
     ///   - generationVideoFormat: 服务端生成规格；传入 `nil` 时使用本地媒体规格。
-    ///   - paddingContain: 是否使用保留完整内容的填充方式，并以显示尺寸计算交互坐标。
+    ///   - paddingContain: 是否使用保留完整内容的填充方式。
     ///   - ensureCurrent: 确认本次操作仍有效的回调。
     /// - Returns: 完成结果流确认的生成任务标识。
     /// - Throws: 上下文缺失、信令发送或结果流确认失败，以及操作失效时抛出错误。
@@ -110,8 +110,7 @@ actor XmaxRealtimeGenerationManager {
 
             await interactionController.startInteraction(
                 taskID: taskID,
-                videoFormat: videoFormat,
-                useDisplayedSize: paddingContain
+                videoFormat: videoFormat
             )
             try ensureCurrent()
             currentContext = resolvedContext
@@ -132,7 +131,7 @@ actor XmaxRealtimeGenerationManager {
     ///   - context: 本次生成上下文；传入 `nil` 时复用上次成功请求的上下文。
     ///   - faceRestoration: 是否启用人脸还原。
     ///   - generationVideoFormat: 服务端生成规格；传入 `nil` 时使用本地媒体规格。
-    ///   - paddingContain: 是否使用保留完整内容的填充方式，并以显示尺寸计算交互坐标。
+    ///   - paddingContain: 是否使用保留完整内容的填充方式。
     ///   - ensureCurrent: 确认本次操作仍有效的回调。
     /// - Throws: 上下文缺失、条件更新失败或操作失效时抛出错误。
     func update(
@@ -163,8 +162,7 @@ actor XmaxRealtimeGenerationManager {
         try ensureCurrent()
         await interactionController.startInteraction(
             taskID: taskID,
-            videoFormat: videoFormat,
-            useDisplayedSize: paddingContain
+            videoFormat: videoFormat
         )
         try ensureCurrent()
         currentContext = resolvedContext

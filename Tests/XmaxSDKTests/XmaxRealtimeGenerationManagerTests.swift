@@ -14,6 +14,50 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeGenerationManagerTests: XCTestCase {
+    func testAllMediaSourcesKeepTrajectoryBasisAcrossReturnSizeAndConditionChanges() async throws {
+        for source in RealtimeMediaSource.allCases {
+            let components = try await makeComponents()
+            let contain = source != .camera
+            let start = Task {
+                try await components.manager.start(
+                    videoFormat: videoFormat,
+                    targetSize: CGSize(width: 684, height: 1216),
+                    context: RealtimeContext(prompt: "initial"),
+                    generationVideoFormat: RealtimeVideoFormat(width: 1024, height: 1920, fps: 30),
+                    paddingContain: contain,
+                    ensureCurrent: {}
+                )
+            }
+            await waitForEvent("start", rtcManager: components.rtcManager)
+            components.rtcManager.emitRemoteVideoAvailable(stream: remoteStream)
+            let taskID = try await start.value
+
+            let displayedSizes = [CGSize(width: 684, height: 1216), CGSize(width: 360, height: 640), videoFormat.size]
+            for (index, displayedSize) in displayedSizes.enumerated() {
+                if index > 0 {
+                    try await components.manager.update(
+                        taskID: taskID,
+                        videoFormat: videoFormat,
+                        targetSize: displayedSize,
+                        context: RealtimeContext(prompt: "updated"),
+                        paddingContain: contain
+                    )
+                }
+                await components.interactionController.submitInteraction(InteractionFrame(
+                    points: [CGPoint(x: 90, y: 160)],
+                    viewportSize: CGSize(width: 360, height: 640),
+                    contentMode: .fit,
+                    displayedVideoSize: displayedSize
+                ))
+                await waitForEventCount("tracks", count: index + 1, rtcManager: components.rtcManager)
+                let event = try XCTUnwrap(decodedEvents(components.rtcManager).last { $0["event"] as? String == "tracks" })
+                XCTAssertEqual(event["tracks"] as? [[Double]], [[180, 320]], "Source: \(source), displayed: \(displayedSize)")
+            }
+            try await components.manager.stop(taskID: taskID)
+            await components.roomController.leave()
+        }
+    }
+
     func testFaceRestorationCanChangeWithCachedContextAndDefaultsBackToFalse() async throws {
         let components = try await makeComponents()
         let context = RealtimeContext(prompt: "cached", referencePath: "reference.png")

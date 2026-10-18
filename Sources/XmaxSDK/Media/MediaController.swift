@@ -149,16 +149,13 @@ actor MediaController: MediaControlling {
     /// - Parameters:
     ///   - taskID: 当前生成任务标识。
     ///   - videoFormat: 本地媒体输出规格。
-    ///   - useDisplayedSize: 是否按实际显示的结果帧尺寸换算轨迹坐标。
     func startInteraction(
         taskID: String,
-        videoFormat: RealtimeVideoFormat,
-        useDisplayedSize: Bool = false
+        videoFormat: RealtimeVideoFormat
     ) async {
         await interactionController.startInteraction(
             taskID: taskID,
-            videoFormat: videoFormat,
-            useDisplayedSize: useDisplayedSize
+            videoFormat: videoFormat
         )
     }
 

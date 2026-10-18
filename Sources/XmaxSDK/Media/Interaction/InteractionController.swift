@@ -17,7 +17,7 @@ typealias InteractionListener = @Sendable (
     _ points: [RealtimePoint]
 ) async throws -> Void
 
-/// 将渲染容器中的交互行为转换为模型输入坐标并发送。
+/// 将渲染容器中的触控位置转换为固定媒体基准的像素坐标并发送。
 actor InteractionController: InteractionControlling {
     /// 保存当前生成任务的交互坐标映射配置。
     private struct ActiveInteraction {
@@ -27,7 +27,6 @@ actor InteractionController: InteractionControlling {
 
         // 坐标映射规则
         let videoFormat: RealtimeVideoFormat
-        let useDisplayedSize: Bool
     }
 
     // 交互事件监听
@@ -55,18 +54,15 @@ actor InteractionController: InteractionControlling {
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 本地媒体输出规格。
-    ///   - useDisplayedSize: 是否按实际显示的结果帧尺寸换算轨迹坐标。
+    ///   - videoFormat: 固定的本地媒体规格，作为发送轨迹的像素坐标基准。
     func startInteraction(
         taskID: String,
-        videoFormat: RealtimeVideoFormat,
-        useDisplayedSize: Bool = false
+        videoFormat: RealtimeVideoFormat
     ) {
         cancelPendingFrames()
         activeInteraction = ActiveInteraction(
             taskID: taskID,
-            videoFormat: videoFormat,
-            useDisplayedSize: useDisplayedSize
+            videoFormat: videoFormat
         )
     }
 
@@ -85,18 +81,14 @@ actor InteractionController: InteractionControlling {
             return
         }
 
-        let videoSize: CGSize
-        if activeInteraction.useDisplayedSize {
-            guard let displayedSize = frame.displayedVideoSize else { return }
-            videoSize = displayedSize
-        } else {
-            videoSize = activeInteraction.videoFormat.size
-        }
+        let mediaSize = activeInteraction.videoFormat.size
+        let displayedVideoSize = frame.displayedVideoSize ?? mediaSize
         let points = frame.points.compactMap {
             InteractionCoordinateMapper.map(
                 $0,
                 viewportSize: frame.viewportSize,
-                videoSize: videoSize,
+                displayedVideoSize: displayedVideoSize,
+                mediaSize: mediaSize,
                 contentMode: frame.contentMode
             )
         }
