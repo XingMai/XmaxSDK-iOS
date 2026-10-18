@@ -14,13 +14,13 @@ import UIKit
 /// 将渲染层触摸输入转交给媒体交互层。
 final class TrajectoryBinding: @unchecked Sendable {
 
-    // 交互事件
+    /// 交互事件
     private let interactionListener: RenderInteractionListener
 
-    // 视图绑定
+    /// 视图绑定
     @MainActor private weak var overlayView: TrajectoryOverlayView?
 
-    // 坐标映射
+    /// 坐标映射
     @MainActor private var contentMode: VideoContentMode = .fill
     private let resolvedMediaSize: CGSize
 

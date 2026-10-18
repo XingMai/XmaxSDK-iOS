@@ -51,15 +51,15 @@ enum EncodingBitratePolicy {
     }
 }
 
-// 根据编码参数参考表，按上传像素面积和帧率插值计算最高码率预算。
-// 默认最低码率为 100kbps；最高码率采用画质优先参考值的 0.6 倍，且不低于 100kbps。
-// 表外规格按参考比例外推。
-// 参考：https://docs.byteplus.com/id/docs/byteplus-rtc/docs-70122
+/// 根据编码参数参考表，按上传像素面积和帧率插值计算最高码率预算。
+/// 默认最低码率为 100kbps；最高码率采用画质优先参考值的 0.6 倍，且不低于 100kbps。
+/// 表外规格按参考比例外推。
+/// 参考：https://docs.byteplus.com/id/docs/byteplus-rtc/docs-70122
 private extension EncodingBitratePolicy {
     /// 表示分辨率或帧率与推荐码率的对应参考点。
     typealias BitratePoint = (value: Double, bitrate: Double)
 
-    // 码率参考表
+    /// 码率参考表
     static let referenceBitratesAt15FPS: [BitratePoint] = [
         (120 * 120, 50),
         (160 * 120, 65),

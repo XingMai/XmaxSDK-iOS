@@ -14,7 +14,6 @@ import CoreGraphics
 /// 定义本地媒体、生成画布、回传尺寸和平台媒体能力的业务规则。
 public protocol MediaServicing: Sendable {
 
-    // 模型规则
     /// 当前媒体规则使用的实时生成模型。
     var model: RealtimeModel { get }
 

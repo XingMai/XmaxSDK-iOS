@@ -15,34 +15,34 @@ import Foundation
 /// 协调系统摄像头采集、外部视频上传和 SDK 本地预览。
 final class CameraController: CameraControlling, @unchecked Sendable {
 
-    // 轨道标识
+    /// 轨道标识
     private static let localVideoTrackID = "video0"
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
     private let permissionManager: any PermissionManaging
     private let captureManager: any CameraCaptureManaging
 
-    // 服务层组件
+    /// 服务层组件
     private let mediaService: any MediaServicing
 
-    // 事件监听
+    /// 事件监听
     private let videoFrameListener: MediaVideoFrameListener
     private let errorListener: XmaxErrorListener
     private var previewReadyHandler: CameraPreviewReadyHandler?
 
-    // 并发控制
+    /// 并发控制
     private let stateLock = NSLock()
 
-    // 本地资源
+    /// 本地资源
     private var activeTrack: RealtimeVideoTrack?
     private var preview: Preview?
 
-    // 预览状态
+    /// 预览状态
     private var hasCapturedFrame = false
     private var isPreviewAttached = false
 
-    // 麦克风配置与采集状态
+    /// 麦克风配置与采集状态
     private var storedUseMicrophone = false
     private var isMicrophoneCapturing = false
 
@@ -95,7 +95,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         self.errorListener = errorListener
     }
 
-    // 本地媒体状态
     /// 当前活动的本地相机视频轨道；尚未创建时返回空值。
     var currentTrack: RealtimeVideoTrack? {
         stateLock.withLock { activeTrack }
@@ -290,7 +289,7 @@ private extension CameraController {
     /// 持有摄像头预览呈现器和帧分发器。
     struct Preview: Sendable {
 
-        // 预览组件
+        /// 预览组件
         let presenter: DecodedVideoPreviewPresenter
         let dispatcher: DecodedVideoPreviewDispatcher
     }

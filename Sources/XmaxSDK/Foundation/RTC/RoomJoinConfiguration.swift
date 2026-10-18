@@ -12,7 +12,7 @@
 /// RTC 房间加入参数。
 struct RoomJoinConfiguration: Equatable, Sendable {
 
-    // 房间连接参数
+    /// 房间连接参数
     let roomID: String
     let userID: String
     let token: String

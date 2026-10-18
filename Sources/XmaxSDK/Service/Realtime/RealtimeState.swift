@@ -51,18 +51,15 @@ public enum RealtimeReason: Equatable, Sendable {
 /// 实时业务当前状态快照。
 public struct RealtimeState: Equatable, Sendable {
 
-    // 生命周期状态
     /// 当前连接生命周期状态。
     public let connectionState: RealtimeConnectionState
 
-    // 会话与任务标识
     /// 当前或最近一次实时 Session 标识。
     public let sessionID: String?
 
     /// 当前生成任务标识。
     public let taskID: String?
 
-    // 状态变更原因
     /// 进入当前状态的原因；正常开始新的操作时清空。
     public let reason: RealtimeReason?
 

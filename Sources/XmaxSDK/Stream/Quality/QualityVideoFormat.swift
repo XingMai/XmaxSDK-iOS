@@ -14,7 +14,7 @@ import Foundation
 /// 从媒体基准计算传输档位，不改变采集或模型生成规格。
 enum QualityVideoFormat {
 
-    // 档位配置
+    /// 档位配置
     static let scales: [Double] = [1, 0.8, 0.65, 0.5, 0.5]
     static let frameRates = [30, 24, 24, 20, 16]
 

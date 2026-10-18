@@ -14,19 +14,19 @@ import Foundation
 /// 统一协调本地媒体所有权以及 RTC Engine 生命周期。
 actor MediaController: MediaControlling {
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 本地媒体组件
+    /// 本地媒体组件
     private let cameraController: any CameraControlling
     private let imageController: (any ImageControlling)?
     private let interactionController: any InteractionControlling
     private let videoController: (any VideoControlling)?
 
-    // 本地媒体资源
+    /// 本地媒体资源
     private var activeSource: ActiveLocalMediaSource?
 
-    // 并发控制
+    /// 并发控制
     private var mediaOperation: LocalMediaOperation?
     private var stopOperation: LocalMediaStopOperation?
 
@@ -96,7 +96,6 @@ actor MediaController: MediaControlling {
         self.videoController = videoController
     }
 
-    // 本地媒体状态
     /// 当前活动的本地视频轨道；没有媒体来源时返回空值。
     var currentTrack: RealtimeVideoTrack? {
         guard let activeSource else {
@@ -126,7 +125,6 @@ actor MediaController: MediaControlling {
         }
     }
 
-    // 音频预览
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float {
         get async {
@@ -374,7 +372,7 @@ private extension MediaController {
     /// 标识当前活动媒体来源及其类型。
     final class ActiveLocalMediaSource {
 
-        // 来源标识
+        /// 来源标识
         let id: UUID
         let kind: LocalMediaKind
 
@@ -392,22 +390,22 @@ private extension MediaController {
     /// 关联媒体创建任务与所属来源。
     struct LocalMediaOperation {
 
-        // 操作标识
+        /// 操作标识
         let id: UUID
         let sourceID: UUID
 
-        // 创建任务
+        /// 创建任务
         let task: Task<RealtimeMediaStream, any Error>
     }
 
     /// 关联媒体停止任务与所属来源。
     struct LocalMediaStopOperation {
 
-        // 操作标识
+        /// 操作标识
         let id: UUID
         let sourceID: UUID
 
-        // 停止任务
+        /// 停止任务
         let task: Task<Void, Never>
     }
 

@@ -12,11 +12,10 @@
 /// SDK 的统一入口，负责创建实时、存储和媒体服务组件。
 public final class XmaxClient: Sendable {
 
-    // SDK 配置
     /// 客户端使用的全局配置。
     public let configuration: XmaxConfiguration
 
-    // 服务层组件
+    /// 服务层组件
     private let apiService: any ApiServicing
     private let realtimeApiOverride: (any ApiServicing)?
 

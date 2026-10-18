@@ -12,7 +12,7 @@
 /// 根据实时视频格式配置 RTC 视频编码参数。
 final class EncodingController: EncodingControlling, Sendable {
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
 
     /// 创建负责应用 RTC 视频编码配置的控制器。

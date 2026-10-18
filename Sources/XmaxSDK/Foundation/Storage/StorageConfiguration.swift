@@ -12,11 +12,11 @@
 /// 对象存储请求使用的服务地址、存储桶和临时凭证。
 struct StorageConfiguration: Equatable, Sendable {
 
-    // 存储位置
+    /// 存储位置
     let bucket: String
     let region: String
     let endpoint: String
 
-    // 访问凭证
+    /// 访问凭证
     let credential: StorageCredential
 }

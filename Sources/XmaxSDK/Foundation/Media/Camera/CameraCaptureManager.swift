@@ -15,23 +15,23 @@ import Foundation
 /// 使用 AVFoundation 采集视频；设备操作和帧处理由同一串行队列管理。
 final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Sendable {
 
-    // 平台资源
+    /// 平台资源
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
     private let captureQueue = DispatchQueue(label: "ai.xmax.sdk.camera", qos: .userInitiated)
 
-    // 采集配置（仅在 captureQueue 访问）
+    /// 采集配置（仅在 captureQueue 访问）
     private var input: AVCaptureDeviceInput?
     private var videoFormat: VideoFormat?
     private var frameRate = 0
     private var orientation: CameraOrientation = .portrait
 
-    // 事件监听
+    /// 事件监听
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
     private var errorListener: XmaxErrorListener?
     private var observers: [NSObjectProtocol] = []
 
-    // 运行状态
+    /// 运行状态
     private var lastTimestampUs: Int64?
     private var hasReportedFrameError = false
 

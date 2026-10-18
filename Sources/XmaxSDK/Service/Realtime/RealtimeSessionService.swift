@@ -14,11 +14,11 @@ import Foundation
 /// 管理实时生成会话的创建、心跳维持和关闭。
 final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendable {
 
-    // 服务层组件
+    /// 服务层组件
     private let apiService: any ApiServicing
     private let heartbeatSleeper: RealtimeHeartbeatSleeper
 
-    // 运行状态
+    /// 运行状态
     private let heartbeatLock = NSLock()
     private let heartbeatVersion = RealtimeHeartbeatVersion()
     private var heartbeatTask: Task<Void, Never>?
@@ -123,7 +123,7 @@ private extension RealtimeSessionService {
     /// 创建实时会话时提交的模型信息。
     struct CreateSessionRequest: Encodable, Sendable {
 
-        // 会话创建参数
+        /// 会话创建参数
         let model: String
     }
 
@@ -133,15 +133,15 @@ private extension RealtimeSessionService {
     /// 保存单次心跳循环的服务、会话和有效性信息。
     struct HeartbeatContext: Sendable {
 
-        // 心跳执行组件
+        /// 心跳执行组件
         let apiService: any ApiServicing
         let sleeper: RealtimeHeartbeatSleeper
 
-        // 生命周期校验
+        /// 生命周期校验
         let versionState: RealtimeHeartbeatVersion
         let version: UInt64
 
-        // 会话与回调
+        /// 会话与回调
         let sessionID: String
         let onFailure: RealtimeSessionHeartbeatFailureHandler
     }
@@ -149,7 +149,7 @@ private extension RealtimeSessionService {
     /// 接收服务端会话字段，由业务层校验必要内容。
     struct SessionPayload: Decodable, Sendable {
 
-        // 会话响应字段
+        /// 会话响应字段
         let sessionUID: String?
         let userUID: String?
         let status: String?
@@ -213,7 +213,7 @@ private extension RealtimeSessionService {
     /// 接收 RTC 进房字段及应用标识。
     struct ConnectionPayload: Decodable, Sendable {
 
-        // RTC 连接字段
+        /// RTC 连接字段
         let roomID: String?
         let token: String?
         let userID: String?
@@ -402,7 +402,7 @@ private extension RealtimeSessionService {
 /// 封装每次心跳发送前的异步等待策略。
 struct RealtimeHeartbeatSleeper: Sendable {
 
-    // 等待策略
+    /// 等待策略
     let sleep: @Sendable () async throws -> Void
 
     static let live = RealtimeHeartbeatSleeper {
@@ -413,7 +413,7 @@ struct RealtimeHeartbeatSleeper: Sendable {
 /// 使用版本号使已停止心跳的迟到结果失效。
 private final class RealtimeHeartbeatVersion: @unchecked Sendable {
 
-    // 并发状态
+    /// 并发状态
     private let lock = NSLock()
     private var value: UInt64 = 0
 

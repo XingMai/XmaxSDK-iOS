@@ -14,7 +14,7 @@ import Foundation
 /// 为同一文件的音频和视频提供统一的循环播放时钟。
 struct MediaPlaybackTimeline: Sendable {
 
-    // 播放时钟
+    /// 播放时钟
     let anchorNanoseconds: UInt64
     let cycleSampleCount: Int
     let cycleDurationNanoseconds: UInt64

@@ -15,24 +15,24 @@ import Foundation
 /// 封装单次声网连接、用户映射、发布订阅和 DataStream 信令。
 final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
 
-    // 平台资源
+    /// 平台资源
     private let platform: AgoraRtcPlatform
     private let roomID: String
     let connection = AgoraRtcConnection()
     private var bridge: RtcRoomEventBridge?
     private var videoSink: RtcRemoteVideoSink?
 
-    // 用户与事件
+    /// 用户与事件
     private var listener: (@Sendable (RtcRoomEvent) -> Void)?
     private var accounts: [UInt: String] = [:]
     private var publications: [UInt: Bool] = [:]
     private var frameListeners: [UInt: RtcRemoteVideoFrameListener] = [:]
 
-    // 信令资源
+    /// 信令资源
     private var dataStreamID = 0
     private var sender: RtcMessageQueue?
 
-    // 连接状态（由 platform.lock 保护）
+    /// 连接状态（由 platform.lock 保护）
     private var account: String?
     private(set) var isJoined = false
     private(set) var isClosed = false

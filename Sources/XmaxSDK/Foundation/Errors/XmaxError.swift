@@ -70,14 +70,12 @@ public enum XmaxErrorCode: String, CaseIterable, Sendable {
 /// 表示 SDK 抛出或回调给接入方的统一错误。
 public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
 
-    // 错误信息
     /// SDK 统一错误码。
     public let code: XmaxErrorCode
 
     /// 面向接入方的可读错误说明。
     public let message: String
 
-    // 服务端响应
     /// Xmax API 返回的业务错误码；非 API 业务错误时为空。
     public let apiCode: Int?
 
@@ -103,7 +101,6 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
         self.httpStatus = httpStatus
     }
 
-    // 本地化说明
     /// `LocalizedError` 使用的错误说明。
     public var errorDescription: String? {
         message

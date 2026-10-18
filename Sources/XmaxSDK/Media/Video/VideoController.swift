@@ -14,20 +14,20 @@ import Foundation
 /// 协调本地视频播放器、RTC 外部音视频源和预览资源。
 final class VideoController: VideoControlling, @unchecked Sendable {
 
-    // 轨道标识
+    /// 轨道标识
     private static let localVideoTrackID = "video0"
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
     private let permissionManager: any PermissionManaging
 
-    // 业务层组件
+    /// 业务层组件
     private let mediaSourceController: any MediaSourceControlling
 
-    // 并发控制
+    /// 并发控制
     private let stateLock = NSLock()
 
-    // 本地资源
+    /// 本地资源
     private var activeTrack: RealtimeVideoTrack?
 
     /// 创建文件解码、音视频输出和本地预览控制器。
@@ -79,7 +79,6 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         self.mediaSourceController = mediaSourceController
     }
 
-    // 本地媒体状态
     /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
     var currentTrack: RealtimeVideoTrack? {
         stateLock.withLock { activeTrack }
@@ -90,7 +89,6 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         currentTrack != nil && mediaSourceController.hasAudio
     }
 
-    // 音频预览
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float {
         get async {

@@ -15,10 +15,10 @@ import Foundation
 /// 播放与 RTC 外部音频源共用的 PCM 帧。
 final class LocalAudioPreviewPlayer: @unchecked Sendable {
 
-    // 音频配置
+    /// 音频配置
     static let defaultVolume: Float = 0.45
 
-    // 平台资源
+    /// 平台资源
     private let audioSession = AVAudioSession.sharedInstance()
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
@@ -28,7 +28,7 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         qos: .userInteractive
     )
 
-    // 运行状态
+    /// 运行状态
     private var isPlaybackEnabled = false
     private var isMuted = false
     private var volume = LocalAudioPreviewPlayer.defaultVolume
@@ -47,7 +47,6 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         playerNode.volume = Self.defaultVolume
     }
 
-    // 播放音量
     /// 当前本地音频预览音量。
     var currentVolume: Float {
         queue.sync { volume }

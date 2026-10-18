@@ -14,7 +14,7 @@ import Foundation
 /// 检查并申请 SDK 使用相机和麦克风所需的平台权限。
 final class PermissionManager: PermissionManaging, Sendable {
 
-    // 依赖
+    /// 依赖
     private let authorizationClient: PermissionAuthorizationClient
 
     /// 创建媒体权限管理器。

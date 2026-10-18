@@ -20,7 +20,6 @@ typealias RenderInteractionListener = @Sendable (
 @MainActor
 protocol RenderControlling: AnyObject, Sendable {
 
-    // 插帧状态
     /// 当前远端视频插帧是否处于开启状态。
     var isFrameInterpolationEnabled: Bool { get async }
 

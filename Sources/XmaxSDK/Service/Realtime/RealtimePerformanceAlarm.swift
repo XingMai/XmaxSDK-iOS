@@ -22,7 +22,6 @@ public enum RealtimePerformanceStatus: String, CaseIterable, Sendable {
 /// 实时性能告警信息。
 public struct RealtimePerformanceAlarm: Equatable, Sendable {
 
-    // 性能告警
     /// 当前设备性能是受限还是已经恢复。
     public let status: RealtimePerformanceStatus
 

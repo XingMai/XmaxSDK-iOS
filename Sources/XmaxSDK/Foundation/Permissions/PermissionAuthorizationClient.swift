@@ -28,7 +28,7 @@ enum MediaAuthorizationStatus: Sendable {
 /// 提供平台媒体权限查询与异步授权接口。
 struct PermissionAuthorizationClient: Sendable {
 
-    // 授权接口
+    /// 授权接口
     let authorizationStatus: @Sendable (
         _ permission: MediaPermission
     ) -> MediaAuthorizationStatus
@@ -36,7 +36,7 @@ struct PermissionAuthorizationClient: Sendable {
         _ permission: MediaPermission
     ) async throws -> Bool
 
-    // 平台实现
+    /// 平台实现
     static let live = PermissionAuthorizationClient(
         authorizationStatus: { permission in
             let status = AVCaptureDevice.authorizationStatus(
@@ -63,7 +63,7 @@ struct PermissionAuthorizationClient: Sendable {
 
 private extension MediaPermission {
 
-    // 系统媒体类型
+    /// 系统媒体类型
     var mediaType: AVMediaType {
         switch self {
         case .camera:

@@ -20,18 +20,18 @@ import VideoToolbox
 @available(iOS 26.0, *)
 actor FrameInterpolationManager: FrameInterpolationManaging {
 
-    // 输入规格
+    /// 输入规格
     private let sourceWidth: Int
     private let sourceHeight: Int
     private let sourcePixelFormat: OSType
 
-    // 平台资源
+    /// 平台资源
     private let processor = VTFrameProcessor()
     private let imageContext = CIContext(options: nil)
     private let sourcePool: CVPixelBufferPool
     private let destinationPool: CVPixelBufferPool
 
-    // 运行状态
+    /// 运行状态
     private var previousSourceFrame: VTFrameProcessorFrame?
     private var lastNormalizedTimeStamp: CMTime?
     private var isClosed = false

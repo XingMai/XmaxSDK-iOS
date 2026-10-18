@@ -17,7 +17,7 @@ import VideoToolbox
 /// 集中判断当前运行环境和视频规格是否支持低延迟插帧。
 enum FrameInterpolationSupport {
 
-    // 平台能力
+    /// 平台能力
     static var isSupported: Bool {
 #if targetEnvironment(simulator)
         false

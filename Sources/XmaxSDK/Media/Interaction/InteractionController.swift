@@ -22,17 +22,17 @@ actor InteractionController: InteractionControlling {
     /// 保存当前生成任务的交互坐标映射配置。
     private struct ActiveInteraction {
 
-        // 生成任务
+        /// 生成任务
         let taskID: String
 
-        // 坐标映射规则
+        /// 坐标映射规则
         let resolvedMediaSize: CGSize
     }
 
-    // 交互事件监听
+    /// 交互事件监听
     private let listener: InteractionListener
 
-    // 交互资源
+    /// 交互资源
     private var activeInteraction: ActiveInteraction?
     private var pendingPoints: [RealtimePoint]?
     private var drainTask: Task<Void, Never>?

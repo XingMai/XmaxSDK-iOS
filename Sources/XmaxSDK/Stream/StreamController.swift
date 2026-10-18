@@ -20,40 +20,40 @@ typealias RemoteStreamListener = @MainActor @Sendable (
 final class StreamController: StreamControlling, RtcEventListener,
     @unchecked Sendable {
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 传输层组件
+    /// 传输层组件
     private let roomController: any RoomControlling
     private let encodingController: any EncodingControlling
     private let qualityController: any QualityControlling
 
-    // 事件监听
+    /// 事件监听
     private let errorListener: XmaxErrorListener
     private let remoteStreamListener: RemoteStreamListener
 
-    // 生成配置
+    /// 生成配置
     private let generationTiming: StreamGenerationTiming
 
-    // 耗时统计
+    /// 耗时统计
     private let timing: RealtimeTiming
 
-    // 音频配置
+    /// 音频配置
     private var remoteAudioVolumePercentage = 100
 
-    // 并发控制
+    /// 并发控制
     private let stateLock = NSLock()
     private let operationLock = NSRecursiveLock()
 
-    // 运行状态
+    /// 运行状态
     private var state = State()
 
-    // 生成状态查询
+    /// 生成状态查询
     var hasGenerationTask: Bool {
         stateLock.withLock { state.generationTask != nil }
     }
 
-    // 远端音量查询
+    /// 远端音量查询
     var remoteAudioVolume: Float {
         Float(stateLock.withLock { remoteAudioVolumePercentage }) / 100
     }
@@ -130,7 +130,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         try encodingController.configure(videoFormat)
     }
 
-    // 质量配置查询
+    /// 质量配置查询
     var qualityConfiguration: QualityConfiguration? { qualityController.qualityConfiguration }
 
     /// 根据媒体基准和模型历史准备上下行档位。
@@ -811,44 +811,44 @@ private extension StreamController {
     /// 保存当前房间的媒体发布、订阅和生成状态。
     struct State {
 
-        // 房间标识
+        /// 房间标识
         var roomID = ""
         var botName = ""
 
-        // 本地发布
+        /// 本地发布
         var localVideoPublished = false
         var localAudioPublished = false
 
-        // 远端订阅
+        /// 远端订阅
         var subscribedRemoteUserIDs: Set<String> = []
         var subscribedRemoteAudioUserIDs: Set<String> = []
 
-        // 生成任务
+        /// 生成任务
         var generationTask: GenerationTask?
         var generationWaiter: GenerationWaiter?
 
-        // 结果流
+        /// 结果流
         var activeRemoteStream: RemoteStream?
     }
 
     /// 标识当前活动的生成任务。
     struct GenerationTask {
 
-        // 任务标识
+        /// 任务标识
         let id: String
     }
 
     /// 管理生成结果流确认、超时与异步通知。
     final class GenerationWaiter: @unchecked Sendable {
 
-        // 任务标识
+        /// 任务标识
         let taskID: String
 
-        // 完成通知与超时
+        /// 完成通知与超时
         let continuation: AsyncThrowingStream<Void, any Error>.Continuation
         var timeoutTask: Task<Void, Never>?
 
-        // 确认状态
+        /// 确认状态
         var confirmationPending = false
         var signalSent = false
 
@@ -870,11 +870,11 @@ private extension StreamController {
     /// 保存停止生成后仍需清理的等待者与音频订阅。
     struct StopResult {
 
-        // 停止任务
+        /// 停止任务
         let taskID: String
         let waiter: GenerationWaiter?
 
-        // 待清理订阅
+        /// 待清理订阅
         let remoteAudioUserIDs: Set<String>
     }
 
@@ -1078,10 +1078,10 @@ private extension StreamController {
 /// 定义生成确认等待的超时时间。
 struct StreamGenerationTiming: Sendable {
 
-    // 确认超时
+    /// 确认超时
     let timeoutNanoseconds: UInt64
 
-    // 默认配置
+    /// 默认配置
     static let live = StreamGenerationTiming(
         timeoutNanoseconds: 30_000_000_000
     )

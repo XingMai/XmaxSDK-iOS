@@ -19,14 +19,14 @@ typealias RealtimeGenerationValidity = @Sendable () throws -> Void
 /// 协调生成信令、远端结果确认、条件更新和轨迹交互。
 actor XmaxRealtimeGenerationManager {
 
-    // 业务层组件
+    /// 业务层组件
     private let interactionController: any InteractionControlling
     private let streamController: any StreamControlling
 
-    // 生成配置
+    /// 生成配置
     private let taskIDGenerator: @Sendable () -> String
 
-    // 生成资源
+    /// 生成资源
     private var currentContext: RealtimeContext?
     private var currentFaceRestoration = false
 

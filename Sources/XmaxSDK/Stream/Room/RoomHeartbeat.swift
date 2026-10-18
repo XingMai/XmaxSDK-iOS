@@ -14,15 +14,15 @@ import Foundation
 /// 周期发送 RTC 房间心跳并隔离已经停止的旧周期。
 final class RoomHeartbeat: @unchecked Sendable {
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
     private let sleeper: RoomHeartbeatSleeper
 
-    // 并发控制
+    /// 并发控制
     private let cycle = RoomHeartbeatCycle()
     private let taskLock = NSLock()
 
-    // 运行状态
+    /// 运行状态
     private var heartbeatTask: Task<Void, Never>?
 
     /// 创建使用指定等待策略的房间心跳组件。
@@ -78,15 +78,15 @@ private extension RoomHeartbeat {
     /// 保存一个房间心跳周期的发送依赖和有效期。
     struct Context: Sendable {
 
-        // 发送依赖
+        /// 发送依赖
         let rtcManager: any RtcManaging
         let sleeper: RoomHeartbeatSleeper
 
-        // 周期有效期
+        /// 周期有效期
         let cycle: RoomHeartbeatCycle
         let version: UInt64
 
-        // 发送身份
+        /// 发送身份
         let userID: String
     }
 
@@ -122,10 +122,10 @@ private extension RoomHeartbeat {
 /// 提供可替换的房间心跳等待行为。
 struct RoomHeartbeatSleeper: Sendable {
 
-    // 等待策略
+    /// 等待策略
     let sleep: @Sendable () async throws -> Void
 
-    // 默认配置
+    /// 默认配置
     static let live = RoomHeartbeatSleeper {
         try await Task.sleep(nanoseconds: 10_000_000_000)
     }
@@ -134,7 +134,7 @@ struct RoomHeartbeatSleeper: Sendable {
 /// 使用版本隔离停止或重启后的旧房间心跳任务。
 private final class RoomHeartbeatCycle: @unchecked Sendable {
 
-    // 并发状态
+    /// 并发状态
     private let lock = NSLock()
     private var value: UInt64 = 0
 

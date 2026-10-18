@@ -14,10 +14,10 @@ import Foundation
 /// 按模型和传输方向保存一小时内成功提交的档位。
 struct QualityHistory {
 
-    // 模型隔离
+    /// 模型隔离
     let model: String
 
-    // 持久化存储
+    /// 持久化存储
     var defaults: UserDefaults = .standard
 
     /// 读取当前模型指定方向最近一小时内的有效档位。

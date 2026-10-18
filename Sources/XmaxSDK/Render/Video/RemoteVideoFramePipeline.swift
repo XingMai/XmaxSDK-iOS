@@ -32,23 +32,23 @@ actor RemoteVideoFramePipeline {
         _ frame: RealtimeVideoFrame
     ) throws -> (any FrameInterpolationManaging)?
 
-    // 组件依赖
+    /// 组件依赖
     private let frameInterpolationSupportChecker:
         FrameInterpolationSupportChecker
     private let interpolationManagerFactory: InterpolationManagerFactory
 
-    // 事件监听
+    /// 事件监听
     private let outputListener: OutputListener
     private let errorListener: XmaxErrorListener
 
-    // 帧处理资源
+    /// 帧处理资源
     private var interpolationManager:
         (any FrameInterpolationManaging)?
     private var pendingFrame: RealtimeVideoFrame?
     private var drainTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
 
-    // 运行状态
+    /// 运行状态
     private var interpolationEnabled: Bool
     private var interpolationVideoSize: CGSize?
     private var previousPresentationTimeStamp: CMTime?
@@ -94,7 +94,7 @@ actor RemoteVideoFramePipeline {
         self.errorListener = errorListener
     }
 
-    // 插帧状态
+    /// 插帧状态
     var isFrameInterpolationEnabled: Bool {
         interpolationEnabled
     }
@@ -173,7 +173,7 @@ private extension RemoteVideoFramePipeline {
     /// 记录决定插帧器是否可复用的视频帧规格。
     struct FrameSignature: Equatable {
 
-        // 帧规格
+        /// 帧规格
         let width: Int
         let height: Int
         let pixelFormat: OSType
@@ -187,7 +187,7 @@ private extension RemoteVideoFramePipeline {
             pixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
         }
 
-        // 像素尺寸
+        /// 像素尺寸
         var size: CGSize {
             CGSize(width: width, height: height)
         }

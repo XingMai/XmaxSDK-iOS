@@ -16,7 +16,7 @@ import Foundation
 /// 保存声网外部视频帧及其连续像素数据。
 final class RtcVideoFrame {
 
-    // RTC 资源
+    /// RTC 资源
     let value: AgoraVideoFrame
 
     /// 校验视频平面并复制为声网外部视频帧。
@@ -80,7 +80,7 @@ final class RtcVideoFrame {
 /// 为显式声明像素不变的视频帧复用 RTC 数据。
 final class RtcVideoFrameCache {
 
-    // 帧缓存
+    /// 帧缓存
     private var cachedFrame: (id: UUID, frame: RtcVideoFrame)?
 
     /// 获取源帧的 RTC 表示，并按像素复用标识缓存数据。

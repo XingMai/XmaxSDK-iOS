@@ -14,15 +14,15 @@ import Foundation
 /// 负责发送 Xmax API 请求并统一处理响应、日志和错误。
 final class ApiService: ApiServicing, Sendable {
 
-    // API 配置
+    /// API 配置
     static let defaultTimeoutInterval: TimeInterval = 15
 
-    // 请求配置
+    /// 请求配置
     private let apiKey: String
     private let baseURL: URL
     private let timeoutInterval: TimeInterval
 
-    // 网络资源
+    /// 网络资源
     private let session: URLSession
 
     /// 创建使用指定地址、认证信息与网络会话的 API 服务。
@@ -139,7 +139,7 @@ private extension ApiService {
     /// 表示 Xmax API 统一响应中的公共元数据。
     struct EnvelopeMetadata: Decodable {
 
-        // 响应状态
+        /// 响应状态
         let success: Bool?
         let code: Int?
         let message: String?
@@ -148,7 +148,7 @@ private extension ApiService {
     /// 表示 Xmax API 成功响应中的业务数据。
     struct PayloadEnvelope<Response: Decodable>: Decodable {
 
-        // 业务数据
+        /// 业务数据
         let data: Response?
     }
 

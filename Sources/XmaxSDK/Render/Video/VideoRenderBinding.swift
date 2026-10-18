@@ -15,11 +15,11 @@ import UIKit
 @MainActor
 final class VideoRenderBinding {
 
-    // 渲染操作
+    /// 渲染操作
     private let attachHandler: (UIView, VideoContentMode) throws -> Void
     private let detachHandler: (UIView) throws -> Void
 
-    // 运行状态
+    /// 运行状态
     private weak var attachedView: UIView?
 
     /// 创建轨道与视图之间的渲染绑定。

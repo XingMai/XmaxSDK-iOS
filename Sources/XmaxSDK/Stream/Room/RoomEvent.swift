@@ -207,10 +207,10 @@ private extension RoomEvent {
     /// 在业务信令中附加运行环境信息。
     struct Envelope<Payload: Encodable>: Encodable {
 
-        // 信令内容
+        /// 信令内容
         let payload: Payload
 
-        // 运行环境
+        /// 运行环境
         let runtime: RuntimeInfo
 
         /// 将业务载荷及运行环境写入同一个编码容器。
@@ -232,21 +232,21 @@ private extension RoomEvent {
     /// 编码生成尺寸、参考条件和输出选项。
     struct GenerationParameters: Encodable {
 
-        // 生成模型与尺寸
+        /// 生成模型与尺寸
         let model = "default"
         let size: [Int]
         let targetSize: [Int]?
 
-        // 生成条件
+        /// 生成条件
         let prompt: String
         let referencePath: String?
 
-        // 画面处理
+        /// 画面处理
         let mirror: Bool?
         let faceRestoration: Bool
         let padding: String?
 
-        // 下行码率
+        /// 下行码率
         let minimumBitrate: Int?
         let maximumBitrate: Int?
 
@@ -303,13 +303,13 @@ private extension RoomEvent {
     /// 表示开始生成的房间信令。
     struct StartPayload: Encodable {
 
-        // 事件类型
+        /// 事件类型
         let event = "start"
 
-        // 事件参数
+        /// 事件参数
         let params: GenerationParameters
 
-        // 用户与任务标识
+        /// 用户与任务标识
         let userID: String
         let taskID: String
 
@@ -325,13 +325,13 @@ private extension RoomEvent {
     /// 表示更新生成条件的房间信令。
     struct ChangeConditionPayload: Encodable {
 
-        // 事件类型
+        /// 事件类型
         let event = "change_condition"
 
-        // 事件参数
+        /// 事件参数
         let params: GenerationParameters
 
-        // 用户与任务标识
+        /// 用户与任务标识
         let userID: String
         let taskID: String
 
@@ -347,10 +347,10 @@ private extension RoomEvent {
     /// 编码回传尺寸及对应的下行码率预算。
     struct TargetSizeParameters: Encodable {
 
-        // 回传尺寸
+        /// 回传尺寸
         let targetSize: [Int]
 
-        // 下行码率
+        /// 下行码率
         let minimumBitrate: Int
         let maximumBitrate: Int
 
@@ -376,13 +376,13 @@ private extension RoomEvent {
     /// 表示动态调整回传尺寸的房间信令。
     struct ChangeTargetSizePayload: Encodable {
 
-        // 事件类型
+        /// 事件类型
         let event = "change_target_size"
 
-        // 事件参数
+        /// 事件参数
         let params: TargetSizeParameters
 
-        // 用户与任务标识
+        /// 用户与任务标识
         let userID: String
         let taskID: String
 
@@ -398,10 +398,10 @@ private extension RoomEvent {
     /// 表示停止生成任务的房间信令。
     struct StopPayload: Encodable {
 
-        // 事件类型
+        /// 事件类型
         let event = "stop"
 
-        // 用户与任务标识
+        /// 用户与任务标识
         let userID: String
         let taskID: String
 
@@ -416,13 +416,13 @@ private extension RoomEvent {
     /// 表示生成任务的媒体归一化坐标轨迹信令。
     struct TracksPayload: Encodable {
 
-        // 事件类型
+        /// 事件类型
         let event = "tracks"
 
-        // 轨迹数据
+        /// 轨迹数据
         let tracks: [[Double]]
 
-        // 用户与任务标识
+        /// 用户与任务标识
         let userID: String
         let taskID: String
 
@@ -438,10 +438,10 @@ private extension RoomEvent {
     /// 表示保持房间活动的心跳信令。
     struct HeartbeatPayload: Encodable {
 
-        // 事件类型
+        /// 事件类型
         let event = "heartbeat"
 
-        // 用户与任务标识
+        /// 用户与任务标识
         let userID: String
 
         /// 映射服务端约定的信令字段名。

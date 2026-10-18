@@ -14,7 +14,7 @@ import UIKit
 /// 一次活动轨迹的稳定标识。
 public struct TrajectoryID: Hashable, Sendable {
 
-    // 轨迹标识
+    /// 轨迹标识
     let rawValue: UUID
 
     /// 创建稳定的轨迹标识。
@@ -28,14 +28,14 @@ public struct TrajectoryID: Hashable, Sendable {
 /// 交给轨迹效果渲染器的可视化触点。
 public struct TrajectoryPoint: Sendable {
 
-    // 轨迹标识
+    /// 轨迹标识
     public let id: TrajectoryID
 
-    // 触点位置
+    /// 触点位置
     public let location: CGPoint
     public let normalizedLocation: CGPoint
 
-    // 采样时间
+    /// 采样时间
     public let timestamp: TimeInterval
 
     /// 创建交付给效果渲染器的触点。
@@ -65,7 +65,6 @@ public struct TrajectoryPoint: Sendable {
 @MainActor
 public protocol TrajectoryEffectRendering: AnyObject {
 
-    // 效果视图
     /// 安装在 ``XmaxVideoView`` 上方的轨迹视图。
     var view: UIView { get }
 

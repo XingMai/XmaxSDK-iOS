@@ -15,13 +15,13 @@ import Foundation
 /// 描述 SDK 当前运行环境。
 struct RuntimeInfo: Encodable, Sendable {
 
-    // 运行环境信息
+    /// 运行环境信息
     let platform: String
     let osVersion: String
     let sdkVersion: String
     let deviceModel: String
 
-    // 当前环境快照
+    /// 当前环境快照
     static let current = RuntimeInfo(
         platform: "ios",
         osVersion: currentOSVersion(),

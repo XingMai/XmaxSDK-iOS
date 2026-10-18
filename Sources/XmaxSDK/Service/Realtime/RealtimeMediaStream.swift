@@ -12,7 +12,6 @@
 /// 包含本地输入或远端生成结果的实时媒体流。
 public struct RealtimeMediaStream: Sendable {
 
-    // 媒体流信息
     /// 媒体流标识。
     public let id: String
 

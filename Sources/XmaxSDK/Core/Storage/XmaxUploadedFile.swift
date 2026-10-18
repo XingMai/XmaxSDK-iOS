@@ -14,7 +14,6 @@ import Foundation
 /// 表示上传成功后的远端文件。
 public struct XmaxUploadedFile: Equatable, Sendable {
 
-    // 远端文件信息
     /// 文件的远端访问地址。
     public let url: URL
 

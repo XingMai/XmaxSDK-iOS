@@ -14,10 +14,10 @@ import CoreGraphics
 /// 提供本地媒体、回传尺寸和平台媒体能力相关的业务规则。
 final class MediaService: MediaServicing, Sendable {
 
-    // 模型约束
+    /// 模型约束
     let model: RealtimeModel
 
-    // 插帧约束
+    /// 插帧约束
     private static let maximumFrameInterpolationPixels = 900000
 
     /// 创建采用指定模型尺寸规则的媒体服务。

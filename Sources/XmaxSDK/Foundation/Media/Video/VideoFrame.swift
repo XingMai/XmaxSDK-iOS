@@ -14,15 +14,15 @@ import Foundation
 /// 持有中性像素数据及时间信息的视频帧。
 struct VideoFrame: Equatable, Sendable {
 
-    // 缓冲区标识
+    /// 缓冲区标识
     let bufferReuseID: UUID?
 
-    // 帧元数据
+    /// 帧元数据
     let format: VideoFormat
     let timestampUs: Int64
     let rotation: VideoRotation
 
-    // 像素数据
+    /// 像素数据
     let planes: [VideoFramePlane]
 
     /// 创建持有像素平面、时间戳与显示方向的视频帧。

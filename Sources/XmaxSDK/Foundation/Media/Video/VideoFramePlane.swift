@@ -14,10 +14,10 @@ import Foundation
 /// 表示视频帧中的一个像素数据平面。
 struct VideoFramePlane: Equatable, Sendable {
 
-    // 像素存储
+    /// 像素存储
     let data: Data
 
-    // 平面布局
+    /// 平面布局
     let stride: Int
     let byteOffset: Int
     let byteLength: Int
@@ -60,7 +60,7 @@ struct VideoFramePlane: Equatable, Sendable {
         self.byteLength = resolvedByteLength
     }
 
-    // 范围校验错误
+    /// 范围校验错误
     private static var invalidRangeError: XmaxError {
         XmaxError(
             code: .invalidConfiguration,

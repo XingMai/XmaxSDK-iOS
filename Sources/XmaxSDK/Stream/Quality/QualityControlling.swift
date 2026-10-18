@@ -14,7 +14,6 @@ import Foundation
 /// 定义网络质量与设备性能告警的监听能力。
 protocol QualityControlling: Sendable {
 
-    // 质量配置
     /// 当前连接的传输档位；尚未准备时为空。
     var qualityConfiguration: QualityConfiguration? { get }
 

@@ -14,7 +14,6 @@ import Foundation
 /// 定义媒体层向 Core 暴露的统一能力。
 protocol MediaControlling: Actor, InteractionControlling {
 
-    // 本地媒体状态
     /// 当前活动的本地视频轨道。
     var currentTrack: RealtimeVideoTrack? { get }
 
@@ -27,7 +26,6 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
     var hasAudio: Bool { get }
 
-    // 音频预览
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float { get async }
 

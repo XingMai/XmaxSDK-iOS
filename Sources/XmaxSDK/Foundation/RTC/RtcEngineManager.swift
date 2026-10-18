@@ -14,10 +14,10 @@ import Foundation
 /// 表示对进程级 RTC 引擎的独占使用权。
 final class RtcEngineLease: @unchecked Sendable {
 
-    // RTC 资源
+    /// RTC 资源
     let engine: any RtcPlatform
 
-    // 运行标识
+    /// 运行标识
     let id = UUID()
 
     /// 创建持有指定引擎的独占租约。
@@ -35,21 +35,21 @@ actor RtcEngineManager {
     /// 销毁当前进程级 RTC 平台引擎。
     typealias EngineDestructor = @Sendable () -> Void
 
-    // 共享实例
+    /// 共享实例
     static let shared = RtcEngineManager()
 
-    // RTC 配置
+    /// RTC 配置
     static let defaultAppID = "5588dfe2e7874bd08ea28f4968ec2d40"
 
-    // 依赖
+    /// 依赖
     private let appID: String
     private let makeEngine: EngineFactory
     private let destroyEngine: EngineDestructor
 
-    // RTC 资源
+    /// RTC 资源
     private var activeLease: RtcEngineLease?
 
-    // 运行状态
+    /// 运行状态
     private var requests: [Request] = []
 
     /// 配置引擎创建、销毁及租约排队管理。
@@ -210,10 +210,10 @@ private extension RtcEngineManager {
     /// 保存一项等待 RTC Engine 独占权的请求。
     struct Request {
 
-        // 请求标识
+        /// 请求标识
         let id: UUID
 
-        // 租约交付
+        /// 租约交付
         let continuation: CheckedContinuation<RtcEngineLease, any Error>
     }
 }

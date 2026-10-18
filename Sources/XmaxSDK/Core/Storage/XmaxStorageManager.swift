@@ -14,7 +14,7 @@ import Foundation
 /// 文件存储公共入口，负责将服务层能力转换为公开 API。
 final class XmaxStorageManager: XmaxStorageManaging, Sendable {
 
-    // 服务层组件
+    /// 服务层组件
     private let storageService: any StorageServicing
 
     /// 使用指定存储服务创建文件管理组件。

@@ -15,7 +15,6 @@ import Foundation
 /// 表示 SDK 内部已经完成方向处理和像素解码的图片。
 protocol DecodedImage: Sendable {
 
-    // 图片尺寸
     /// 图片解码后的实际像素尺寸。
     var size: CGSize { get }
 
@@ -35,10 +34,10 @@ protocol DecodedImage: Sendable {
 /// 持有已经应用方向信息的 Core Graphics 图片并生成视频帧。
 final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 
-    // 图片资源
+    /// 图片资源
     private let image: CGImage
 
-    // 图片信息
+    /// 图片信息
     let size: CGSize
 
     /// 持有已应用方向信息的 Core Graphics 图片。

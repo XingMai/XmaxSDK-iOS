@@ -21,7 +21,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 海外声网实时生成模型。
     case x2_1_1_preview_us = "x2.1.1-preview-us"
 
-    // 模型标识
     /// 模型展示名称。
     public var displayName: String {
         switch self {
@@ -30,7 +29,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
-    // 服务地址
     /// 模型专用的会话 API 地址。
     var apiBaseURL: URL {
         switch self {
@@ -39,7 +37,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
-    // 生成尺寸约束
     /// 模型支持的生成分辨率桶；摄像头输入须精确匹配。
     /// 图片和视频保留媒体比例，生成时选择比例最接近的画布。
     /// 空数组表示不限制固定尺寸，生成画布按像素面积上下限和对齐规则计算。
@@ -56,7 +53,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 输入宽高需要对齐的像素倍数；仅在分辨率桶为空时参与尺寸计算。
     public var inputSizeAlignment: Int { 32 }
 
-    // 媒体默认规格
     /// 图片和视频输出以及默认摄像头配置使用的帧率。
     public var defaultFrameRate: Int { 30 }
 

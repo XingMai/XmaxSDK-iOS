@@ -53,15 +53,15 @@ enum RtcMessageCodec {
     /// 封装一条大信令的分片内容及重组信息。
     private struct Fragment: Encodable {
 
-        // 分片标识
+        /// 分片标识
         let event = "__agora_chunk__"
         let eventId: String
 
-        // 分片顺序
+        /// 分片顺序
         let index: Int
         let count: Int
 
-        // 分片内容
+        /// 分片内容
         let data: String
     }
 }
@@ -69,12 +69,12 @@ enum RtcMessageCodec {
 /// 串行发送整组信令，并限制 DataStream 每秒的包数和字节数。
 final class RtcMessageQueue: @unchecked Sendable {
 
-    // 发送依赖
+    /// 发送依赖
     private let send: @Sendable (Data) throws -> Void
     private let onFailure: @Sendable (XmaxError) -> Void
     private let limiter = RateLimiter()
 
-    // 并发状态
+    /// 并发状态
     private let lock = NSLock()
     private var closed = false
     private var tasks: [UUID: Task<Void, any Error>] = [:]
@@ -185,7 +185,7 @@ private extension RtcMessageQueue {
     /// 按滑动时间窗口限制信令包数与总字节数。
     actor RateLimiter {
 
-        // 发送窗口
+        /// 发送窗口
         var sent: [(time: UInt64, bytes: Int)] = []
 
         /// 等待发送窗口有足够的包数和字节预算。

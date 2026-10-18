@@ -19,7 +19,7 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 定义轨迹颜色、线宽及淡出效果参数。
     private enum Style {
 
-        // 效果颜色
+        /// 效果颜色
         static let coreColor = UIColor.white
         static let glowColor = UIColor(
             red: 0,
@@ -28,11 +28,11 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
             alpha: 1
         )
 
-        // 轨迹宽度
+        /// 轨迹宽度
         static let coreWidth: CGFloat = 3
         static let glowWidth: CGFloat = 18
 
-        // 淡出配置
+        /// 淡出配置
         static let fadeStep: CGFloat = 0.05
         static let idleFadeFrameLimit = 64
     }
@@ -40,21 +40,21 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 保存活动轨迹的当前位置和开始时间。
     private struct ActiveTrajectory {
 
-        // 轨迹状态
+        /// 轨迹状态
         var location: CGPoint
         let startTime: TimeInterval
     }
 
-    // 效果视图
+    /// 效果视图
     public var view: UIView { self }
 
-    // 轨迹资源
+    /// 轨迹资源
     private var activeTrajectories: [TrajectoryID: ActiveTrajectory] = [:]
     private var trailBitmapContext: CGContext?
     private var trailBitmapSize: CGSize = .zero
     private var trailBitmapScale: CGFloat = 0
 
-    // 动画状态
+    /// 动画状态
     private var hasTrailPixels = false
     private var idleFadeFrameCount = 0
     private var displayLink: CADisplayLink?

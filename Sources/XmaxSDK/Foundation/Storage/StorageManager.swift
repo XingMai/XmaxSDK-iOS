@@ -15,7 +15,7 @@ import Foundation
 /// 封装第三方对象存储上传和 HTTP 文件下载能力。
 final class StorageManager: StorageManaging, Sendable {
 
-    // 平台资源
+    /// 平台资源
     private let session: URLSession
 
     /// 创建存储 Manager。
@@ -430,22 +430,22 @@ final class StorageManager: StorageManaging, Sendable {
 /// 持有一次第三方上传请求，并保证完成、失败和取消只恢复异步调用一次。
 private final class StorageUploadOperation: @unchecked Sendable {
 
-    // 上传资源
+    /// 上传资源
     private let service: QCloudCOSXMLService
     private let request: QCloudPutObjectRequest<AnyObject>
 
-    // 上传配置
+    /// 上传配置
     private let objectKey: String
     private let configuration: StorageConfiguration
     private let progress: StorageProgressListener?
 
-    // 运行统计
+    /// 运行统计
     private let startedAt = Date()
 
-    // 并发控制
+    /// 并发控制
     private let lock = NSLock()
 
-    // 运行状态
+    /// 运行状态
     private var continuation: CheckedContinuation<StoredFile, Error>?
     private var pendingResult: Result<StoredFile, Error>?
     private var started = false

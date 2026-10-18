@@ -14,14 +14,14 @@ import Foundation
 /// 单个传输方向的网络采样与升降档规则。
 struct QualityDirection: Sendable {
 
-    // 媒体基准
+    /// 媒体基准
     let baseline: RealtimeVideoFormat
     let downlink: Bool
 
-    // 当前档位
+    /// 当前档位
     private(set) var level: Int
 
-    // 采样窗口
+    /// 采样窗口
     private var goodSamples = 0
     private var poorSamples = 0
     private var lastSample: TimeInterval?
@@ -42,7 +42,7 @@ struct QualityDirection: Sendable {
         while self.level > 1, !supports(self.level) { self.level -= 1 }
     }
 
-    // 当前传输规格
+    /// 当前传输规格
     var format: RealtimeVideoFormat { format(at: level) }
 
     /// 计算指定档位对应的传输规格。

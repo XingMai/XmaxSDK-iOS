@@ -15,7 +15,7 @@ import Foundation
 @MainActor
 enum VideoRenderRegistry {
 
-    // 渲染绑定
+    /// 渲染绑定
     private static var bindings: [ObjectIdentifier: VideoRenderBinding] = [:]
 
     /// 登记视频轨道对应的渲染绑定。

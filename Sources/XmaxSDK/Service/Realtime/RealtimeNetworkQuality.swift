@@ -37,7 +37,6 @@ public enum RealtimeNetworkQualityLevel: String, CaseIterable, Sendable {
 /// 实时会话的上下行网络质量。
 public struct RealtimeNetworkQuality: Equatable, Sendable {
 
-    // 传输质量
     /// 本地向 RTC 房间发送媒体的网络质量。
     public let uplink: RealtimeNetworkQualityLevel
 

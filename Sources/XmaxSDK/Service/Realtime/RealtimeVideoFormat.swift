@@ -25,7 +25,6 @@ public enum RealtimeVideoEncoderPreference: Equatable, Sendable {
 /// 实时视频的尺寸、帧率和上传编码配置。
 public struct RealtimeVideoFormat: Equatable, Sendable {
 
-    // 视频规格
     /// 视频宽度，单位为像素。
     public let width: Int
 
@@ -35,7 +34,6 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
     /// 视频帧率。
     public let fps: Int
 
-    // 编码配置
     /// 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
     public let minimumBitrate: Int?
 

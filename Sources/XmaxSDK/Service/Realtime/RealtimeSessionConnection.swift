@@ -12,7 +12,7 @@
 /// 实时会话对应的 RTC 连接参数。
 struct RealtimeSessionConnection: Equatable, Sendable {
 
-    // 房间连接参数
+    /// 房间连接参数
     let roomID: String
     let userID: String
     let token: String

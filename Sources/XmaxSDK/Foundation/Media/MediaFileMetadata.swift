@@ -12,12 +12,12 @@
 /// 本地媒体文件中视频、音频和时间线所需的元数据。
 struct MediaFileMetadata: Equatable, Sendable {
 
-    // 视频显示规格
+    /// 视频显示规格
     let width: Int
     let height: Int
     let rotation: VideoRotation
 
-    // 播放信息
+    /// 播放信息
     let durationSeconds: Double
     let hasAudio: Bool
 }

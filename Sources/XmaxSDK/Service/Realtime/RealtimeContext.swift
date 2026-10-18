@@ -14,7 +14,6 @@ import Foundation
 /// 单次实时生成任务的文本和参考资源上下文。
 public struct RealtimeContext: Equatable, Sendable {
 
-    // 生成条件
     /// 实时生成使用的文本条件。
     public let prompt: String
 

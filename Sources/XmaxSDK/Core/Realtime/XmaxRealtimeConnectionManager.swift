@@ -29,22 +29,22 @@ typealias RealtimeConnectionHeartbeatFailureHandler = @Sendable (
 /// 协调服务端会话、RTC 房间、本地发布和远端媒体资源。
 actor XmaxRealtimeConnectionManager {
 
-    // 服务层组件
+    /// 服务层组件
     private let sessionService: any RealtimeSessionServicing
 
-    // 媒体层组件
+    /// 媒体层组件
     private let interactionController: any InteractionControlling
 
-    // 渲染层组件
+    /// 渲染层组件
     private let renderController: any RenderControlling
 
-    // 传输层组件
+    /// 传输层组件
     private let streamController: any StreamControlling
 
-    // 耗时统计
+    /// 耗时统计
     private let timing: RealtimeTiming
 
-    // 连接资源
+    /// 连接资源
     private var activeRemoteTrack: RealtimeVideoTrack?
     private var activeSession: RealtimeSession?
     private(set) var currentTargetSize: CGSize?
@@ -71,7 +71,6 @@ actor XmaxRealtimeConnectionManager {
         self.timing = timing
     }
 
-    // 连接状态
     /// 当前会话标识；没有活跃会话时为空字符串。
     var currentSessionID: String {
         activeSession?.id ?? ""

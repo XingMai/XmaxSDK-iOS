@@ -15,17 +15,17 @@ import Foundation
 /// 将中性引擎操作转换为声网调用。
 final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
 
-    // 平台资源
+    /// 平台资源
     let engine: AgoraRtcEngineKit
     let lock = NSRecursiveLock()
     private weak var room: AgoraRtcRoom?
 
-    // 视频配置
+    /// 视频配置
     private let videoFrameCache = RtcVideoFrameCache()
     private var videoConfiguration: VideoEncodingConfiguration?
     private var videoMirrorMode = AgoraVideoMirrorMode.disabled
 
-    // 音频资源
+    /// 音频资源
     private(set) var audioTrackID: Int?
 
     /// 包装声网引擎以提供 SDK 平台接口。

@@ -15,7 +15,6 @@ import SwiftUI
 @MainActor
 public struct XmaxRealtimeVideo: UIViewRepresentable {
 
-    // 公共配置
     /// 当前显示的本地视频轨道。
     public let localTrack: RealtimeVideoTrack?
 

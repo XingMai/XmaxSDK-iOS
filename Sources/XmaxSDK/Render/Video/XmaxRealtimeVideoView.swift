@@ -15,7 +15,6 @@ import UIKit
 @MainActor
 public final class XmaxRealtimeVideoView: UIView {
 
-    // 公共配置
     /// 当前显示的本地视频轨道。
     public var localTrack: RealtimeVideoTrack? {
         didSet {
@@ -58,7 +57,7 @@ public final class XmaxRealtimeVideoView: UIView {
         set { remoteVideoView.trajectoryRenderer = newValue }
     }
 
-    // 视频视图
+    /// 视频视图
     private lazy var localVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,
         isInteractionEnabled: false

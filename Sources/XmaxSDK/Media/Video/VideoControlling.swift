@@ -14,14 +14,12 @@ import Foundation
 /// 定义本地文件视频流、音频预览和播放资源管理能力。
 protocol VideoControlling: Sendable {
 
-    // 本地媒体状态
     /// 当前本地文件视频轨道；尚未创建或已停止时为空。
     var currentTrack: RealtimeVideoTrack? { get }
 
     /// 当前文件视频是否包含由 SDK 管理的音频轨道。
     var hasAudio: Bool { get }
 
-    // 音频预览
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float { get async }
 

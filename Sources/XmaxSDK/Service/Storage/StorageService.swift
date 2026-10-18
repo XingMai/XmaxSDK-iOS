@@ -16,13 +16,13 @@ import ImageIO
 /// 协调图片和视频的上传、下载、临时凭证及图片安全检查。
 final class StorageService: StorageServicing, Sendable {
 
-    // 服务层组件
+    /// 服务层组件
     private let apiService: any ApiServicing
 
-    // 基础层组件
+    /// 基础层组件
     private let storageManager: any StorageManaging
 
-    // 标识生成
+    /// 标识生成
     private let dateGenerator: @Sendable () -> Date
     private let identifierGenerator: @Sendable () -> String
 
@@ -247,7 +247,7 @@ private extension StorageService {
     /// 包含对象路径前缀和临时存储访问配置。
     struct TemporaryStorageConfiguration: Sendable {
 
-        // 上传配置
+        /// 上传配置
         let prefix: String
         let configuration: StorageConfiguration
     }
@@ -257,7 +257,7 @@ private extension StorageService {
         case image
         case video
 
-        // 类型名称
+        /// 类型名称
         var displayName: String {
             rawValue.prefix(1).uppercased() + rawValue.dropFirst()
         }
@@ -266,13 +266,13 @@ private extension StorageService {
     /// 接收服务端返回的临时存储位置与凭证字段。
     struct TemporaryStoragePayload: Decodable, Sendable {
 
-        // 存储位置
+        /// 存储位置
         let bucket: String?
         let region: String?
         let endpoint: String?
         let prefix: String?
 
-        // 临时凭证
+        /// 临时凭证
         let credentials: CredentialPayload?
 
         /// 定义服务端字段与本地属性的编码映射。
@@ -304,7 +304,7 @@ private extension StorageService {
     /// 接收对象存储的临时认证字段。
     struct CredentialPayload: Decodable, Sendable {
 
-        // 认证字段
+        /// 认证字段
         let accessKeyID: String?
         let secretAccessKey: String?
         let sessionToken: String?
@@ -340,14 +340,14 @@ private extension StorageService {
     /// 提交待检查图片的远端地址。
     struct ImageSafetyRequest: Encodable, Sendable {
 
-        // 检查请求
+        /// 检查请求
         let url: String
     }
 
     /// 接收图片安全检查结果及可使用的图片地址。
     struct ImageSafetyPayload: Decodable, Sendable {
 
-        // 检查结果
+        /// 检查结果
         let safe: Bool?
         let url: String?
 

@@ -19,7 +19,6 @@ typealias CameraPreviewReadyHandler = @MainActor @Sendable (
 /// 定义本地摄像头流、麦克风采集和预览资源管理能力。
 protocol CameraControlling: Sendable {
 
-    // 本地媒体状态
     /// 当前本地相机视频轨道；尚未创建或已停止时为空。
     var currentTrack: RealtimeVideoTrack? { get }
 

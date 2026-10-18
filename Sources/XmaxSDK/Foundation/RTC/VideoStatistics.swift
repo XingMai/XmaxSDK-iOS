@@ -12,14 +12,12 @@
 /// RTC 视频上行统计；不可用的指标为 nil。
 public struct UplinkVideoStatistics: Equatable, Sendable {
 
-    // 编码尺寸
     /// 实际编码宽度，单位为像素。
     public let width: Int?
 
     /// 实际编码高度，单位为像素。
     public let height: Int?
 
-    // 帧率指标
     /// 实际采集帧率，单位为 fps。
     public let captureFrameRate: Int?
 
@@ -29,7 +27,6 @@ public struct UplinkVideoStatistics: Equatable, Sendable {
     /// 实际发送帧率，单位为 fps。
     public let sendFrameRate: Int?
 
-    // 传输质量
     /// 发送码率，单位为 kbps。
     public let bitrateKbps: Int?
 
@@ -68,25 +65,21 @@ public struct UplinkVideoStatistics: Equatable, Sendable {
 /// RTC 视频下行统计；不可用的指标为 nil。
 public struct DownlinkVideoStatistics: Equatable, Sendable {
 
-    // 流标识
     /// 远端用户标识。
     public let userID: String
 
-    // 接收尺寸
     /// 接收视频宽度，单位为像素。
     public let width: Int?
 
     /// 接收视频高度，单位为像素。
     public let height: Int?
 
-    // 帧率指标
     /// 解码帧率，单位为 fps。
     public let decodeFrameRate: Int?
 
     /// RTC 渲染帧率，单位为 fps；不包含 SDK 插帧后的帧率。
     public let renderFrameRate: Int?
 
-    // 传输质量
     /// 接收码率，单位为 kbps。
     public let bitrateKbps: Int?
 

@@ -15,23 +15,23 @@ import Foundation
 /// 协调本地图片解码、循环帧输出和预览资源。
 final class ImageController: ImageControlling, @unchecked Sendable {
 
-    // 轨道标识
+    /// 轨道标识
     private static let localVideoTrackID = "video0"
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
     private let imageManager: any ImageManaging
 
-    // 服务层组件
+    /// 服务层组件
     private let mediaService: any MediaServicing
 
-    // 事件监听
+    /// 事件监听
     private let frameListener: MediaVideoFrameListener
 
-    // 并发控制
+    /// 并发控制
     private let stateLock = NSLock()
 
-    // 本地资源
+    /// 本地资源
     private var activeTrack: RealtimeVideoTrack?
     private var outputTask: Task<Void, Never>?
 
@@ -54,7 +54,7 @@ final class ImageController: ImageControlling, @unchecked Sendable {
         self.frameListener = frameListener
     }
 
-    // 本地轨道
+    /// 本地轨道
     var currentTrack: RealtimeVideoTrack? {
         stateLock.withLock { activeTrack }
     }

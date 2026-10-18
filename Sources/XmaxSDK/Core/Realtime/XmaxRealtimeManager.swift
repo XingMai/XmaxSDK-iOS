@@ -17,29 +17,29 @@ import UIKit
 /// 实时生成业务公共入口，统一编排本地媒体、连接、生成和状态通知。
 actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
-    // 公共配置
+    /// 公共配置
     nonisolated let options: RealtimeConfiguration
 
-    // 业务层组件
+    /// 业务层组件
     private let renderController: any RenderControlling
     private let streamController: any StreamControlling
     private let mediaController: any MediaControlling
 
-    // 服务层组件
+    /// 服务层组件
     private let mediaService: any MediaServicing
 
-    // 实时管理组件
+    /// 实时管理组件
     private let connectionManager: XmaxRealtimeConnectionManager
     private let generationManager: XmaxRealtimeGenerationManager
 
-    // 错误与耗时记录
+    /// 错误与耗时记录
     private let errorHandler: RealtimeErrorHandler
     private let timing: RealtimeTiming
 
-    // 并发控制
+    /// 并发控制
     private let coordinator: RealtimeCoordinator
 
-    // 自动调档
+    /// 自动调档
     private var qualityPending = false
 
     /// 创建实时生成组件，并连接媒体、传输、渲染和生命周期管理能力。
@@ -190,7 +190,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    // 生命周期状态
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState {
         get async {
@@ -198,7 +197,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    // 渲染状态
     /// 当前实际生效的远端插帧状态。
     var isFrameInterpolationEnabled: Bool {
         get async {
@@ -206,7 +204,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    // 音频状态
     /// 当前本地预览音量，范围为 `0...1`。
     var localAudioVolume: Float {
         get async {

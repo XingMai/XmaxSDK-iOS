@@ -17,35 +17,35 @@ final class TrajectoryOverlayView: UIView {
     /// 定义触控轨迹的提交频率。
     private enum Sampling {
 
-        // 采样间隔
+        /// 采样间隔
         static let interval: TimeInterval = 1.0 / 30.0
     }
 
     /// 保存一个活动触点的稳定标识与当前位置。
     private struct ActiveTouch {
 
-        // 触点信息
+        /// 触点信息
         let id: TrajectoryID
         var location: CGPoint
     }
 
-    // 活动触点
+    /// 活动触点
     private var activeTouches: [ObjectIdentifier: ActiveTouch] = [:]
 
-    // 交互绑定
+    /// 交互绑定
     private weak var binding: TrajectoryBinding?
 
-    // 坐标映射
+    /// 坐标映射
     private var videoContentMode: VideoContentMode = .fill
     private var resolvedMediaSize: CGSize?
 
-    // 视觉效果
+    /// 视觉效果
     private var renderer: any TrajectoryEffectRendering
 
-    // 交互配置
+    /// 交互配置
     private var requestedInteractionEnabled = true
 
-    // 采样调度
+    /// 采样调度
     private var lastSampleTime: TimeInterval?
     private var displayLink: CADisplayLink?
 
@@ -386,7 +386,7 @@ private extension TrajectoryOverlayView {
         )
     }
 
-    // 有效显示区域
+    /// 有效显示区域
     var displayedMediaFrame: CGRect? {
         guard let resolvedMediaSize else { return nil }
         return InteractionCoordinateMapper.displayedFrame(

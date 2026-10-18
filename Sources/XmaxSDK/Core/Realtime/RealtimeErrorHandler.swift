@@ -19,14 +19,14 @@ final class RealtimeErrorHandler: @unchecked Sendable {
         XmaxError, RealtimeCoordinator.TerminationScope, @escaping @Sendable () -> Bool
     ) async -> Void
 
-    // 并发控制
+    /// 并发控制
     private let lock = NSLock()
 
-    // 故障生命周期
+    /// 故障生命周期
     private var mediaRevision = UUID()
     private var connectionRevision = UUID()
 
-    // 内部故障处理
+    /// 内部故障处理
     private var failureHandler: FailureHandler?
 
     /// 设置运行中故障的终止处理回调。

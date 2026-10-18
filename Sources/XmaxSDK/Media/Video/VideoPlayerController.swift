@@ -18,7 +18,6 @@ import UIKit
 /// 定义基于统一媒体时间轴的文件音视频输出能力。
 protocol VideoPlayerControlling: Sendable {
 
-    // 音频预览
     /// 当前本地音频预览音量。
     @MainActor
     var localAudioVolume: Float { get }
@@ -93,36 +92,36 @@ final class VideoPlayerController: VideoPlayerControlling {
     /// 保存文件解码、旋转、采样和循环播放所需配置。
     private struct PlaybackConfiguration: Sendable {
 
-        // 文件来源
+        /// 文件来源
         let fileURL: URL
 
-        // 视频输出规格
+        /// 视频输出规格
         let outputWidth: Int
         let outputHeight: Int
         let rotation: VideoRotation
         let frameRate: Int
 
-        // 媒体播放信息
+        /// 媒体播放信息
         let hasAudio: Bool
         let durationSeconds: Double
     }
 
-    // 帧监听
+    /// 帧监听
     private let videoFrameListener: MediaVideoFrameListener
     private let audioFrameListener: MediaAudioFrameListener
     private let errorListener: XmaxErrorListener
 
-    // 平台资源
+    /// 平台资源
     private let audioPreviewPlayer = LocalAudioPreviewPlayer()
     private let previewPresenter = DecodedVideoPreviewPresenter()
     private lazy var previewDispatcher = DecodedVideoPreviewDispatcher(
         presenter: previewPresenter
     )
 
-    // 媒体配置
+    /// 媒体配置
     private var configuration: PlaybackConfiguration?
 
-    // 运行状态
+    /// 运行状态
     private var playbackTask: Task<Void, Never>?
 
     /// 创建共享时间轴的视频解码和本地音频播放组件。
@@ -141,7 +140,7 @@ final class VideoPlayerController: VideoPlayerControlling {
         self.errorListener = errorListener
     }
 
-    // 音频预览
+    /// 音频预览
     var localAudioVolume: Float {
         audioPreviewPlayer.currentVolume
     }

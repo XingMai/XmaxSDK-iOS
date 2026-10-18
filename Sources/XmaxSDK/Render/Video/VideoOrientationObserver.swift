@@ -15,11 +15,11 @@ import UIKit
 @MainActor
 final class VideoOrientationObserver: UIViewController {
 
-    // 视频视图
+    /// 视频视图
     private weak var videoView: XmaxVideoView?
     private let deviceOrientation: () -> UIDeviceOrientation
 
-    // 旋转状态
+    /// 旋转状态
     private(set) var isTransitioning = false
     private var generatesOrientationNotifications = false
 

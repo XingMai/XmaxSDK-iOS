@@ -17,16 +17,16 @@ final class RealtimeVideoFrameDispatcher: @unchecked Sendable {
     /// 保存当前帧监听器及待交付帧的有效版本。
     private struct State {
 
-        // 监听与有效期
+        /// 监听与有效期
         var listener: RealtimeVideoFrameListener?
         var version = 0
     }
 
-    // 监听状态
+    /// 监听状态
     private let stateLock = NSLock()
     private var state = State()
 
-    // 分发资源
+    /// 分发资源
     private let deliveryQueue = DispatchQueue(
         label: "ai.xmax.sdk.remote-video-frame",
         qos: .userInitiated

@@ -18,7 +18,7 @@ enum CameraOrientation: Sendable {
     case landscapeLeft
     case landscapeRight
 
-    // 显示方向规则
+    /// 显示方向规则
     var isLandscape: Bool {
         self == .landscapeLeft || self == .landscapeRight
     }

@@ -14,7 +14,6 @@ import Foundation
 /// 定义传输层向 Core 暴露的统一能力。
 protocol StreamControlling: Sendable {
 
-    // 自适应质量状态
     /// 当前媒体基准及上下行档位。
     var qualityConfiguration: QualityConfiguration? { get }
 
@@ -50,11 +49,9 @@ protocol StreamControlling: Sendable {
     /// 清除连续采样窗口。
     func resetQualitySamples()
 
-    // 生成状态
     /// 当前是否存在正在启动或已经运行的生成任务。
     var hasGenerationTask: Bool { get }
 
-    // 远端音频
     /// 当前远端生成音频播放音量。
     var remoteAudioVolume: Float { get }
 

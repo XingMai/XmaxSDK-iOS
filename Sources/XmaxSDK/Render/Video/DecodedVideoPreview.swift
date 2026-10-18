@@ -15,7 +15,7 @@ import Foundation
 @MainActor
 final class DecodedVideoPreviewPresenter {
 
-    // 预览资源
+    /// 预览资源
     private weak var view: XmaxVideoView?
     private var contentMode = VideoContentMode.fill
     private var mirrored = false
@@ -70,10 +70,10 @@ final class DecodedVideoPreviewPresenter {
 /// 合并主线程来不及显示的帧，只保留最新的视频预览帧。
 final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
 
-    // 渲染组件
+    /// 渲染组件
     private let presenter: DecodedVideoPreviewPresenter
 
-    // 并发状态
+    /// 并发状态
     private let lock = NSLock()
     private var pendingFrame: VideoFrame?
     private var isDeliveryScheduled = false

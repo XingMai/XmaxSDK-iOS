@@ -57,7 +57,7 @@ actor RealtimeCoordinator {
     /// 记录资源清理后的会话标识与本地媒体保留状态。
     struct CleanupResult: Sendable {
 
-        // 清理结果
+        /// 清理结果
         let sessionID: String?
         let hasLocalMedia: Bool
 
@@ -75,7 +75,7 @@ actor RealtimeCoordinator {
     /// 提供当前操作的有效性校验与失败清理范围设置。
     struct Token: Sendable {
 
-        // 操作凭据
+        /// 操作凭据
         fileprivate let lease: OperationLease
 
         /// 设置当前操作失败或取消时的资源清理范围。
@@ -92,7 +92,6 @@ actor RealtimeCoordinator {
             try lease.ensureCurrent()
         }
 
-        // 有效性状态
         /// 当前操作是否仍有效。
         var isCurrent: Bool {
             lease.isCurrent
@@ -110,15 +109,15 @@ actor RealtimeCoordinator {
         _ taskID: String
     ) async -> CleanupResult
 
-    // 业务组件
+    /// 业务组件
     private let errorHandler: RealtimeErrorHandler
     private let cleanup: CleanupHandler
 
-    // 状态管理
+    /// 状态管理
     private var state = RealtimeState(connectionState: .idle)
     private var stateListener: RealtimeStateListener?
 
-    // 操作管理
+    /// 操作管理
     private var activeOperation: Operation?
     private var termination: Termination?
     private var foregroundRequests = 0
@@ -136,7 +135,6 @@ actor RealtimeCoordinator {
         self.cleanup = cleanup
     }
 
-    // 对外状态
     /// 当前对外发布的实时状态。
     var currentState: RealtimeState {
         state
@@ -339,14 +337,14 @@ private extension RealtimeCoordinator {
     /// 通过线程安全的有效性凭据控制操作取消与失败清理。
     final class OperationLease: @unchecked Sendable {
 
-        // 并发控制
+        /// 并发控制
         private let lock = NSLock()
 
-        // 操作状态
+        /// 操作状态
         private var valid = true
         private var terminalError: XmaxError?
 
-        // 失败清理配置
+        /// 失败清理配置
         private var storedFailureScope: TerminationScope?
 
         /// 创建操作凭据。
@@ -356,7 +354,6 @@ private extension RealtimeCoordinator {
             storedFailureScope = failureScope
         }
 
-        // 状态快照
         /// 操作凭据是否仍有效。
         var isCurrent: Bool {
             lock.withLock { valid }
@@ -421,17 +418,17 @@ private extension RealtimeCoordinator {
     /// 保存单次实时操作的身份、取消能力与收尾任务。
     final class Operation: @unchecked Sendable {
 
-        // 操作标识与类型
+        /// 操作标识与类型
         let id = UUID()
         let kind: OperationKind
         let background: Bool
 
-        // 操作执行控制
+        /// 操作执行控制
         let lease: OperationLease
         var cancel: @Sendable () -> Void = {}
         var waitForCompletion: @Sendable () async -> Void = {}
 
-        // 终止收尾
+        /// 终止收尾
         var terminationTask: Task<Void, Never>?
 
         /// 创建实时操作记录。
@@ -454,16 +451,16 @@ private extension RealtimeCoordinator {
     /// 合并并发终止请求，并保存清理范围、结束原因与等待任务。
     final class Termination: @unchecked Sendable {
 
-        // 终止请求
+        /// 终止请求
         let id = UUID()
         var target: TerminationScope
         var reason: RealtimeReason
         var error: XmaxError?
 
-        // 会话清理结果
+        /// 会话清理结果
         var sessionID: String?
 
-        // 异步收尾
+        /// 异步收尾
         var waitForOperations: [@Sendable () async -> Void] = []
         var task: Task<Void, Never>!
 

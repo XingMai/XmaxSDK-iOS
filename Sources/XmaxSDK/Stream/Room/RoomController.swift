@@ -14,16 +14,16 @@ import Foundation
 /// 管理 RTC 房间生命周期、心跳和实时生成信令。
 actor RoomController: RoomControlling {
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 传输层组件
+    /// 传输层组件
     private let heartbeat: RoomHeartbeat
 
-    // 耗时统计
+    /// 耗时统计
     private let timing: RealtimeTiming
 
-    // 房间资源
+    /// 房间资源
     private var state = State.idle
     private var leaveOperation: LeaveOperation?
 
@@ -278,7 +278,7 @@ private extension RoomController {
         case joined(userID: String)
         case leaving
 
-        // 资源状态
+        /// 资源状态
         var hasRoomResources: Bool {
             switch self {
             case .idle, .leaving:
@@ -292,10 +292,10 @@ private extension RoomController {
     /// 记录可由重复离房调用共同等待的清理任务。
     struct LeaveOperation {
 
-        // 操作标识
+        /// 操作标识
         let id: UUID
 
-        // 离房任务
+        /// 离房任务
         let task: Task<Void, Never>
     }
 

@@ -14,7 +14,6 @@ import Foundation
 /// 表示下载到本地的文件。
 public struct XmaxDownloadedFile: Equatable, Sendable {
 
-    // 本地文件信息
     /// 下载后的本地文件地址。
     public let fileURL: URL
 

@@ -17,10 +17,10 @@ import Foundation
 /// 将声网解码帧复制到自有缓冲区，供异步渲染和插帧使用。
 final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Sendable {
 
-    // 事件回调
+    /// 事件回调
     private let frameListener: @Sendable (UInt, String, RealtimeVideoFrame) -> Void
 
-    // 缓冲区资源
+    /// 缓冲区资源
     private let lock = NSLock()
     private var pool: CVPixelBufferPool?
     private var dimensions = CGSize.zero

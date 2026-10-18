@@ -12,7 +12,7 @@
 /// 对象存储单次请求使用的临时凭证。
 struct StorageCredential: Equatable, Sendable {
 
-    // 临时访问凭证
+    /// 临时访问凭证
     let accessKeyID: String
     let secretAccessKey: String
     let sessionToken: String

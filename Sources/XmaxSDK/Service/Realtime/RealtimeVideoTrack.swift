@@ -14,15 +14,14 @@ import Foundation
 /// 实时视频轨道及其动态元数据。
 public final class RealtimeVideoTrack: @unchecked Sendable {
 
-    // 轨道信息
     /// 视频轨道标识。
     public let id: String
 
-    // 动态元数据
+    /// 动态元数据
     private let metadataLock = NSLock()
     private var metadata: Metadata
 
-    // 显示方向事件
+    /// 显示方向事件
     @MainActor var displayOrientation: CameraOrientation?
     @MainActor var orientationChangeHandler: ((_ changedAxis: Bool) -> Void)?
 
@@ -44,7 +43,6 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
         )
     }
 
-    // 当前媒体规格
     /// 当前视频轨道使用的视频格式。
     public var videoFormat: RealtimeVideoFormat? {
         metadataLock.withLock { metadata.videoFormat }
@@ -78,7 +76,7 @@ private extension RealtimeVideoTrack {
     /// 保存可在采集与渲染期间更新的视频规格和摄像头位置。
     struct Metadata {
 
-        // 当前媒体规格
+        /// 当前媒体规格
         var videoFormat: RealtimeVideoFormat?
         var position: CameraPosition?
     }

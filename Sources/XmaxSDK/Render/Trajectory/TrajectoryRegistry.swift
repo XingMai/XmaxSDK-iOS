@@ -15,7 +15,7 @@ import Foundation
 @MainActor
 enum TrajectoryRegistry {
 
-    // 轨迹绑定
+    /// 轨迹绑定
     private static var bindings: [ObjectIdentifier: TrajectoryBinding] = [:]
 
     /// 登记远端轨道对应的轨迹交互绑定。

@@ -16,22 +16,22 @@ import UIKit
 /// 协调本地视频文件元数据、输出格式和解耦的音视频播放器。
 final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
-    // 基础层组件
+    /// 基础层组件
     private let metadataManager: any MediaFileMetadataManaging
 
-    // 服务层组件
+    /// 服务层组件
     private let mediaService: any MediaServicing
 
-    // 媒体源组件
+    /// 媒体源组件
     private let playerController: any VideoPlayerControlling
 
-    // 并发控制
+    /// 并发控制
     private let stateLock = NSLock()
 
-    // 媒体配置
+    /// 媒体配置
     private var configuration: MediaSourceConfiguration?
 
-    // 运行状态
+    /// 运行状态
     private var isRunning = false
 
     /// 连接文件元数据、模型规则和音视频播放组件。
@@ -50,12 +50,12 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         self.playerController = playerController
     }
 
-    // 媒体状态
+    /// 媒体状态
     var hasAudio: Bool {
         stateLock.withLock { configuration?.hasAudio ?? false }
     }
 
-    // 音频预览
+    /// 音频预览
     var localAudioVolume: Float {
         get async {
             await playerController.localAudioVolume

@@ -15,7 +15,6 @@ import OSLog
 /// 控制 XmaxSDK 输出的日志类型。
 public struct XmaxLoggerOption: OptionSet, Sendable {
 
-    // 选项标识
     /// 日志类型对应的位掩码。
     public let rawValue: UInt
 
@@ -26,7 +25,6 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
         self.rawValue = rawValue
     }
 
-    // 预定义日志选项
     /// Room、API、Realtime、Storage 等业务运行日志。
     public static let business = Self(rawValue: 1 << 0)
 
@@ -42,7 +40,7 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
 /// 调用方不得传入 API Key、Token、Secret、Authorization 或完整敏感响应。
 struct XmaxLogger: Sendable {
 
-    // 分类日志
+    /// 分类日志
     static let realtime = Self(category: "Realtime")
     static let rtc = Self(category: "RTC")
     static let media = Self(category: "Media")
@@ -54,13 +52,13 @@ struct XmaxLogger: Sendable {
     static let interaction = Self(category: "Interaction")
     static let permission = Self(category: "Permission")
 
-    // 日志类别
+    /// 日志类别
     private let category: String
 
-    // 日志配置
+    /// 日志配置
     private static let state = XmaxLoggerState()
 
-    // 平台资源
+    /// 平台资源
     private static let logger = Logger(
         subsystem: "ai.xmax.XmaxSDK",
         category: "XmaxSDK"
@@ -222,14 +220,14 @@ struct XmaxLogger: Sendable {
 /// 以线程安全方式保存 SDK 全局日志配置。
 final class XmaxLoggerState: @unchecked Sendable {
 
-    // 并发控制
+    /// 并发控制
     private let lock = NSLock()
 
-    // 日志配置
+    /// 日志配置
     private var options: XmaxLoggerOption = []
     private var storedEnvironment: XmaxEnvironment = .china
 
-    // 当前语言环境
+    /// 当前语言环境
     var environment: XmaxEnvironment {
         lock.withLock { storedEnvironment }
     }

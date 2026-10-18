@@ -23,7 +23,6 @@ public enum XmaxEnvironment: String, CaseIterable, Equatable, Sendable {
 
 extension XmaxEnvironment {
 
-    // 服务地址
     /// 当前环境的通用 API 地址。
     var apiBaseURL: URL {
         switch self {

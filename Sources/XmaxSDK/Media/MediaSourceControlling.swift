@@ -15,7 +15,6 @@ import UIKit
 /// 定义本地视频文件准备、循环帧输出及预览管理能力。
 protocol MediaSourceControlling: Sendable {
 
-    // 音频状态
     /// 当前本地音频预览音量。
     var localAudioVolume: Float { get async }
 

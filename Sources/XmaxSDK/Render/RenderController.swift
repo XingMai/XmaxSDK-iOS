@@ -18,7 +18,7 @@ final class RenderController: RenderControlling {
     /// 保存一次远端可显示首帧的等待与超时任务。
     private final class RemoteFrameReadyWaiter {
 
-        // 等待资源
+        /// 等待资源
         let continuation:
             AsyncThrowingStream<Void, any Error>.Continuation
         var timeoutTask: Task<Void, Never>?
@@ -34,13 +34,13 @@ final class RenderController: RenderControlling {
         }
     }
 
-    // 基础层组件
+    /// 基础层组件
     private let rtcManager: any RtcManaging
 
-    // 事件监听
+    /// 事件监听
     private let errorListener: XmaxErrorListener
 
-    // 远端帧处理
+    /// 远端帧处理
     private let initialFrameInterpolationEnabled: Bool
     private let frameInterpolationSupportChecker:
         RemoteVideoFramePipeline.FrameInterpolationSupportChecker
@@ -63,7 +63,7 @@ final class RenderController: RenderControlling {
         }
     )
 
-    // 远端渲染资源
+    /// 远端渲染资源
     private var remoteStream: RemoteStream?
     private var activeRemoteFrameStream: RemoteStream?
     private weak var remoteView: XmaxVideoView?
@@ -100,7 +100,7 @@ final class RenderController: RenderControlling {
         self.errorListener = errorListener
     }
 
-    // 插帧状态
+    /// 插帧状态
     var isFrameInterpolationEnabled: Bool {
         get async {
             await remoteFramePipeline.isFrameInterpolationEnabled

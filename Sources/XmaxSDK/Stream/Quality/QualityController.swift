@@ -15,22 +15,22 @@ import Foundation
 final class QualityController: QualityControlling, RtcQualityListener,
     @unchecked Sendable {
 
-    // 并发控制
+    /// 并发控制
     private let listenerLock = NSLock()
 
-    // 事件监听
+    /// 事件监听
     private var networkQualityListener: RealtimeNetworkQualityListener?
     private var performanceAlarmListener: RealtimePerformanceAlarmListener?
     private var uplinkStatisticsListener: UplinkVideoStatisticsListener?
     private var downlinkStatisticsListener: DownlinkVideoStatisticsListener?
 
-    // 统计生命周期
+    /// 统计生命周期
     private var uplinkStatisticsEnabled = false
     private var downlinkStatisticsUser: String?
     private var uplinkStatisticsVersion = 0
     private var downlinkStatisticsVersion = 0
 
-    // 自动调档
+    /// 自动调档
     private var uplinkQuality: QualityDirection?
     private var downlinkQuality: QualityDirection?
     private var history: QualityHistory?
@@ -47,7 +47,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
         rtcManager.setQualityListener(self)
     }
 
-    // 质量配置
+    /// 质量配置
     var qualityConfiguration: QualityConfiguration? {
         listenerLock.withLock { configuration() }
     }
