@@ -5,6 +5,30 @@ This guide covers the Agora-based implementation.
 Use the installation guide from the Git tag matching your SDK release;
 older XmaxSDK binaries require their original RTC dependencies.
 
+## Swift Package Manager
+
+Follow the [SwiftPM instructions in the README](../README.md#swift-package-manager)
+and add only the **XmaxSDK** product to your application target.
+
+- XmaxSDK requires Xcode 26 or later (Swift 6.2+ compiler, Swift 6 language mode)
+  and supports iOS 15.0 or later.
+- Agora RTC `4.6.4` is resolved from the
+  [official Swift package](https://github.com/AgoraIO/AgoraRtcEngine_iOS).
+- COS `6.5.7` uses Xmax-built dynamic XCFrameworks for `QCloudCOSXML/Transfer`
+  and `QCloudCore/WithoutMTA`, without the optional Tencent analytics components.
+  This is an Xmax packaging of Tencent's source, not an official Tencent Swift package.
+  The archives and notices are published in the
+  [COS dependency release](https://github.com/XingMai/XmaxSDK-iOS/releases/tag/cos-6.5.7-spm.1).
+- COS archives contain the upstream copyright and license notices; the COS XML
+  framework also includes the upstream privacy manifest. Keep these files when
+  redistributing the frameworks.
+- The COS binaries support iOS devices (`arm64`) and simulators (`arm64`, `x86_64`).
+  Xcode handles linking, embedding, and signing the dynamic dependencies.
+
+The manual integration instructions below use Tencent's **official static** COS
+frameworks. Their embed settings do not apply to the **dynamic** COS frameworks
+downloaded by SwiftPM. Do not mix the two distributions in the same app target.
+
 ## Manual integration
 
 ### Download the frameworks

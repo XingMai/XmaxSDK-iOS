@@ -36,6 +36,10 @@ struct RealtimeStatisticsPanel: View {
     @ObservedObject var statistics: RealtimeStatisticsStore
     @ObservedObject private var localization = XLLocalization.shared
 
+    // 内容布局
+    var onContentHeightChange: ((CGFloat) -> Void)? = nil
+    @State private var contentHeight: CGFloat?
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 3) {
@@ -59,9 +63,23 @@ struct RealtimeStatisticsPanel: View {
                 row("delay", value(statistics.downlink?.endToEndDelayMs, "ms"))
             }
             .padding(10)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: StatisticsContentHeightKey.self,
+                        value: geometry.size.height
+                    )
+                }
+            }
         }
+        .frame(maxHeight: contentHeight, alignment: .top)
         .background(Color.black.opacity(0.64))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onPreferenceChange(StatisticsContentHeightKey.self) { height in
+            guard height > 0, contentHeight != height else { return }
+            contentHeight = height
+            onContentHeightChange?(height)
+        }
     }
 
     private func heading(_ key: String) -> some View {
@@ -98,5 +116,13 @@ struct RealtimeStatisticsPanel: View {
     private func quality(_ quality: RealtimeNetworkQualityLevel?) -> String {
         guard let quality, quality != .unknown else { return "—" }
         return XLLocalization.text("statistics.quality." + quality.rawValue)
+    }
+}
+
+private enum StatisticsContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }

@@ -64,7 +64,8 @@ struct RealtimeView: View {
             if isStatisticsVisible {
                 GeometryReader { geometry in
                     RealtimeStatisticsPanel(statistics: realtimeSession.statistics)
-                        .frame(width: 184, height: max(0, min(340, geometry.size.height - 72)))
+                        .frame(width: 184)
+                        .frame(maxHeight: max(0, geometry.size.height - 72), alignment: .top)
                         .padding(.leading, 12)
                         .padding(.top, 64)
                 }

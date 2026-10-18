@@ -36,8 +36,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     // 统计展示
     private let statistics = RealtimeStatisticsStore()
     private var isStatisticsVisible = false
-    private lazy var statisticsPanel = UIHostingController(
-        rootView: RealtimeStatisticsPanel(statistics: statistics)
+    private lazy var statisticsPanel: UIHostingController<RealtimeStatisticsPanel> = UIHostingController(
+        rootView: RealtimeStatisticsPanel(statistics: statistics) { [weak self] height in
+            self?.statisticsPanel.view.snp.updateConstraints { make in
+                make.height.equalTo(height).priority(750)
+            }
+        }
     )
 
     // 音频状态
@@ -628,7 +632,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.top.equalTo(view.safeAreaLayoutGuide).offset(64)
             make.leading.equalTo(view.safeAreaLayoutGuide).offset(12)
             make.width.equalTo(184)
-            make.height.equalTo(340).priority(750)
+            make.height.equalTo(0).priority(750)
+            make.height.greaterThanOrEqualTo(0)
             make.bottom.lessThanOrEqualTo(controlPanelView.snp.top).offset(-8)
         }
         statisticsPanel.didMove(toParent: self)

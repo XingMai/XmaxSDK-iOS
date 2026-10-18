@@ -1,17 +1,17 @@
 <p align="center">
-  <img src="./materials/images/brand/xmax-sdk.png" alt="XmaxSDK — Realtime Interactive Video Generation" width="880">
+  <img src="./Materials/images/brand/xmax-sdk.png" alt="XmaxSDK — Realtime Interactive Video Generation" width="880">
 </p>
 
 <p align="center">
   <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-15.0%2B-007AFF" alt="iOS 15.0+"></a>
-  <a href="https://www.swift.org/"><img src="https://img.shields.io/badge/Swift-6.0-F05138" alt="Swift 6.0"></a>
+  <a href="https://www.swift.org/"><img src="https://img.shields.io/badge/Swift-6.2%2B-F05138" alt="Swift 6.2+"></a>
   <a href="https://platform.xmaxai.com/"><img src="https://img.shields.io/badge/Realtime-AI-FF9500" alt="Realtime AI"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-4C9A2A" alt="MIT License"></a>
 </p>
 
 We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video generation via Xmax models. XmaxSDK implements an end-to-end pipeline covering media acquisition, video streaming, frame-by-frame generation, and on-device rendering, enabling developers to seamlessly integrate low-latency, high-fidelity video transformations into creative applications at a much lower cost than alternative solutions.
 
-<p align="center"><img src="./materials/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./materials/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./materials/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
+<p align="center"><img src="./Materials/images/xlab/generation-demo.gif" alt="X-Lab realtime generation demo" width="33%" /><img src="./Materials/images/xlab/index-demo.gif" alt="X-Lab index demo" width="33%" /><img src="./Materials/images/xlab/storage-demo.gif" alt="X-Lab storage demo" width="33%" /></p>
 
 <br>
 
@@ -31,8 +31,8 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
       Replace anyone in your live feed with a designated avatar in real-time.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="./materials/videos/use-cases/character-swapping.mp4">
-        <img src="./materials/images/use-cases/character-swapping-poster.png" alt="Play the Character Swapping demo" width="120">
+      <a href="./Materials/videos/use-cases/character-swapping.mp4">
+        <img src="./Materials/images/use-cases/character-swapping-poster.png" alt="Play the Character Swapping demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -54,8 +54,8 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
       authentic fit.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="./materials/videos/use-cases/virtual-try-on.mp4">
-        <img src="./materials/images/use-cases/virtual-try-on-poster.png" alt="Play the Virtual Try-On demo" width="120">
+      <a href="./Materials/videos/use-cases/virtual-try-on.mp4">
+        <img src="./Materials/images/use-cases/virtual-try-on-poster.png" alt="Play the Virtual Try-On demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -76,8 +76,8 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
       Reimagine your world in any style with an immersive visual experience.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="./materials/videos/use-cases/video-restyling.mp4">
-        <img src="./materials/images/use-cases/video-restyling-poster.png" alt="Play the Video Restyling demo" width="120">
+      <a href="./Materials/videos/use-cases/video-restyling.mp4">
+        <img src="./Materials/images/use-cases/video-restyling-poster.png" alt="Play the Video Restyling demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -99,8 +99,8 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
       through gestures.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="./materials/videos/use-cases/ai-companions.mp4">
-        <img src="./materials/images/use-cases/ai-companions-poster.png" alt="Play the AI Companions demo" width="120">
+      <a href="./Materials/videos/use-cases/ai-companions.mp4">
+        <img src="./Materials/images/use-cases/ai-companions-poster.png" alt="Play the AI Companions demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -122,8 +122,8 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
       trajectories.
     </td>
     <td rowspan="2" width="16%" align="center" valign="middle">
-      <a href="./materials/videos/use-cases/live-photo.mp4">
-        <img src="./materials/images/use-cases/live-photo-poster.png" alt="Play the Live Photo demo" width="120">
+      <a href="./Materials/videos/use-cases/live-photo.mp4">
+        <img src="./Materials/images/use-cases/live-photo-poster.png" alt="Play the Live Photo demo" width="120">
         <br>
         <sub>▶ Play demo</sub>
       </a>
@@ -146,21 +146,21 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
   <thead>
     <tr>
       <th height="104" align="center" valign="middle">
-        <img src="./materials/images/why/low-latency.svg" alt="Low latency" width="36" height="36"><br>Low latency
+        <img src="./Materials/images/why/low-latency.svg" alt="Low latency" width="36" height="36"><br>Low latency
       </th>
       <th height="104" align="center" valign="middle">
-        <img src="./materials/images/why/low-cost.svg" alt="Cost efficiency" width="36" height="36"><br>Cost efficiency
+        <img src="./Materials/images/why/low-cost.svg" alt="Cost efficiency" width="36" height="36"><br>Cost efficiency
       </th>
       <th height="104" align="center" valign="middle">
-        <img src="./materials/images/why/high-fidelity.svg" alt="High fidelity" width="36" height="36"><br>High fidelity
+        <img src="./Materials/images/why/high-fidelity.svg" alt="High fidelity" width="36" height="36"><br>High fidelity
       </th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>End-to-end latency is measured in <img src="./materials/images/why/latency-highlight.svg" alt="hundreds of milliseconds" width="192" height="20" align="absmiddle">, ensuring that updates to generation conditions and interaction controls are reflected instantly.</td>
-      <td>Run on a <img src="./materials/images/why/gpu-highlight.svg" alt="single RTX 5090" width="126" height="20" align="absmiddle">, reducing inference costs by orders of magnitude versus datacenter GPUs like H100.</td>
-      <td>Our models support real-time generation at up to <img src="./materials/images/why/resolution-highlight.svg" alt="1080p" width="48" height="20" align="absmiddle">, delivering production-ready, high-quality video output.</td>
+      <td>End-to-end latency is measured in <img src="./Materials/images/why/latency-highlight.svg" alt="hundreds of milliseconds" width="192" height="20" align="absmiddle">, ensuring that updates to generation conditions and interaction controls are reflected instantly.</td>
+      <td>Run on a <img src="./Materials/images/why/gpu-highlight.svg" alt="single RTX 5090" width="126" height="20" align="absmiddle">, reducing inference costs by orders of magnitude versus datacenter GPUs like H100.</td>
+      <td>Our models support real-time generation at up to <img src="./Materials/images/why/resolution-highlight.svg" alt="1080p" width="48" height="20" align="absmiddle">, delivering production-ready, high-quality video output.</td>
     </tr>
   </tbody>
 </table>
@@ -170,7 +170,7 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
 ## Prerequisites
 
 - iOS 15.0 or later
-- Swift 6
+- Xcode 26 or later (Swift 6.2+ compiler, Swift 6 language mode)
 - An Xmax API key
 
 > [!WARNING]
@@ -182,9 +182,17 @@ We introduce XmaxSDK, a native iOS SDK designed for real-time interactive video 
 
 ## Installation
 
-Because certain underlying dependencies lack Swift Package Manager support,
-XmaxSDK currently supports [**CocoaPods**](#cocoapods) and
-[**manual integration**](#manual) only.
+XmaxSDK supports [**Swift Package Manager**](#swift-package-manager),
+[**CocoaPods**](#cocoapods), and [**manual integration**](#manual).
+
+### Swift Package Manager
+
+In Xcode, choose **File → Add Package Dependencies**, enter the repository URL,
+and add the **XmaxSDK** product to your application target:
+
+```text
+https://github.com/XingMai/XmaxSDK-iOS.git
+```
 
 ### CocoaPods
 
@@ -222,7 +230,7 @@ pod install --repo-update
 
 Download
 [`XmaxSDK-1.0.8.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.8/XmaxSDK-1.0.8.xcframework.zip),
-then follow the [manual integration guide](./materials/installation.md#manual-integration)
+then follow the [manual integration guide](./Materials/installation.md#manual-integration)
 to add the required dependencies and configure your Xcode target.
 
 <br>
@@ -300,7 +308,7 @@ XmaxRealtimeVideo(
 )
 ```
 
-See the [SwiftUI guide](./materials/usage.md#swiftui) for state binding and the
+See the [SwiftUI guide](./Materials/usage.md#swiftui) for state binding and the
 [example project](#example-project) for a complete implementation.
 
 <br>
@@ -365,7 +373,7 @@ this through `setStateListener`.
 
 > [!TIP]
 > For complete usage examples, including image and video inputs, reference images,
-> and touch interaction, see the [usage guide](./materials/usage.md).
+> and touch interaction, see the [usage guide](./Materials/usage.md).
 
 <br>
 
@@ -376,7 +384,7 @@ is available in [`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/ma
 It demonstrates real-time generation using live camera feeds, static images, and
 local video files.
 
-<p align="center"><img src="./materials/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./materials/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./materials/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./materials/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./materials/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
+<p align="center"><img src="./Materials/images/xlab/home.jpg" alt="X-Lab home" width="20%" /><img src="./Materials/images/xlab/features.jpg" alt="X-Lab SDK features" width="20%" /><img src="./Materials/images/xlab/storage.jpg" alt="X-Lab storage service" width="20%" /><img src="./Materials/images/xlab/realtime-generation.jpg" alt="X-Lab realtime generation" width="20%" /><img src="./Materials/images/xlab/trajectory-generation.jpg" alt="X-Lab trajectory generation" width="20%" /></p>
 
 <br>
 
