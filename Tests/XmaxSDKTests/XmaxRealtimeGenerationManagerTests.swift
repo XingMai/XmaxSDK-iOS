@@ -51,7 +51,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 ))
                 await waitForEventCount("tracks", count: index + 1, rtcManager: components.rtcManager)
                 let event = try XCTUnwrap(decodedEvents(components.rtcManager).last { $0["event"] as? String == "tracks" })
-                XCTAssertEqual(event["tracks"] as? [[Double]], [[180, 320]], "Source: \(source), displayed: \(displayedSize)")
+                XCTAssertEqual(event["tracks"] as? [[Double]], [[0.25, 0.25]], "Source: \(source), displayed: \(displayedSize)")
             }
             try await components.manager.stop(taskID: taskID)
             await components.roomController.leave()
@@ -281,7 +281,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         XCTAssertEqual(tracksEvent["uid"] as? String, taskID)
         XCTAssertEqual(
             tracksEvent["tracks"] as? [[Double]],
-            [[360, 640]]
+            [[0.5, 0.5]]
         )
 
         try await components.manager.stop(taskID: taskID)

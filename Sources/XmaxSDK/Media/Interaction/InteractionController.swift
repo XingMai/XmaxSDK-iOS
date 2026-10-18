@@ -11,13 +11,13 @@
 
 import Foundation
 
-/// 异步接收生成任务标识及其视频像素轨迹坐标。
+/// 异步接收生成任务标识及其媒体归一化轨迹坐标。
 typealias InteractionListener = @Sendable (
     _ taskID: String,
     _ points: [RealtimePoint]
 ) async throws -> Void
 
-/// 将渲染容器中的触控位置转换为固定媒体基准的像素坐标并发送。
+/// 将渲染容器中的触控位置转换为固定媒体基准的归一化坐标并发送。
 actor InteractionController: InteractionControlling {
     /// 保存当前生成任务的交互坐标映射配置。
     private struct ActiveInteraction {
@@ -40,7 +40,7 @@ actor InteractionController: InteractionControlling {
 
     /// 创建将轨迹坐标交付给信令层的交互控制器。
     ///
-    /// - Parameter listener: 接收任务标识及视频像素坐标的异步回调。
+    /// - Parameter listener: 接收任务标识及媒体归一化坐标的异步回调。
     init(listener: @escaping InteractionListener = { _, _ in }) {
         self.listener = listener
     }
@@ -54,7 +54,7 @@ actor InteractionController: InteractionControlling {
     ///
     /// - Parameters:
     ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 固定的本地媒体规格，作为发送轨迹的像素坐标基准。
+    ///   - videoFormat: 固定的本地媒体规格，作为发送轨迹的归一化坐标基准。
     func startInteraction(
         taskID: String,
         videoFormat: RealtimeVideoFormat

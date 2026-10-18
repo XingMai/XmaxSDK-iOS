@@ -250,7 +250,7 @@ actor RoomController: RoomControlling {
     ///
     /// - Parameters:
     ///   - taskID: 接收轨迹的任务标识；空值时不发送。
-    ///   - points: 视频像素坐标点；空数组时不发送。
+    ///   - points: 媒体归一化坐标点，取值范围为 `[0, 1]`；空数组时不发送。
     /// - Throws: 房间未就绪、轨迹编码或信令入队失败时抛出错误。
     func sendTracks(
         taskID: String,

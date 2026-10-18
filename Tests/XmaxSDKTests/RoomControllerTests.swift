@@ -170,7 +170,7 @@ final class RoomControllerTests: XCTestCase {
         )
         try await controller.sendTracks(
             taskID: "task-id",
-            points: [RealtimePoint(x: 10, y: 20)]
+            points: [RealtimePoint(x: 0.431231, y: 0.56931)]
         )
         try await controller.stopGeneration(taskID: "task-id")
 
@@ -182,6 +182,7 @@ final class RoomControllerTests: XCTestCase {
         XCTAssertTrue(
             events.allSatisfy { $0["user_id"] as? String == "user-id" }
         )
+        XCTAssertEqual(events[2]["tracks"] as? [[Double]], [[0.431231, 0.56931]])
         await controller.leave()
     }
 

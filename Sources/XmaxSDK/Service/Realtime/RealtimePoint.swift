@@ -9,10 +9,10 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 视频像素坐标系中的二维交互点。
+/// 相对于处理后媒体尺寸的二维归一化交互点，左上角为原点，右下角为 `(1, 1)`。
 struct RealtimePoint: Equatable, Sendable {
 
-    // 像素坐标
+    // 归一化坐标，取值范围为 [0, 1]
     let x: Double
     let y: Double
 }

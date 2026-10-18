@@ -11,7 +11,7 @@
 
 import CoreGraphics
 
-/// 将渲染视口坐标映射到固定媒体基准的像素坐标。
+/// 将渲染视口坐标映射到固定媒体基准的归一化坐标。
 enum InteractionCoordinateMapper {
     /// 计算视频按指定缩放方式显示在视口中的区域。
     ///
@@ -53,15 +53,15 @@ enum InteractionCoordinateMapper {
         )
     }
 
-    /// 根据实际画面显示区域归一化触控位置，再映射到固定媒体尺寸。
+    /// 根据实际画面显示区域，计算触控位置在媒体中的相对坐标。
     ///
     /// - Parameters:
     ///   - point: 触控点在视口中的位置。
     ///   - viewportSize: 渲染视口尺寸，单位为点。
     ///   - displayedVideoSize: 当前显示帧的像素尺寸，用于确定画面显示区域。
-    ///   - mediaSize: 固定媒体基准的像素尺寸，用于计算发送坐标。
+    ///   - mediaSize: 经尺寸上限与对齐处理的媒体尺寸，作为归一化坐标基准。
     ///   - contentMode: 视频缩放与裁剪方式。
-    /// - Returns: 限制在有效像素范围内的坐标；输入无效或点击 fit 留白区域时返回 `nil`。
+    /// - Returns: 范围为 `[0, 1]` 的媒体归一化坐标；输入无效或点击 fit 留白区域时返回 `nil`。
     static func map(
         _ point: CGPoint,
         viewportSize: CGSize,
@@ -86,11 +86,9 @@ enum InteractionCoordinateMapper {
 
         let normalizedX = (point.x - displayedFrame.minX) / displayedFrame.width
         let normalizedY = (point.y - displayedFrame.minY) / displayedFrame.height
-        let mappedX = (normalizedX * mediaSize.width).rounded()
-        let mappedY = (normalizedY * mediaSize.height).rounded()
         return RealtimePoint(
-            x: min(max(mappedX, 0), mediaSize.width - 1),
-            y: min(max(mappedY, 0), mediaSize.height - 1)
+            x: min(max(normalizedX, 0), 1),
+            y: min(max(normalizedY, 0), 1)
         )
     }
 }

@@ -182,8 +182,8 @@ final class RoomEventTests: XCTestCase {
                 userID: "user-id",
                 taskID: "task-id",
                 points: [
-                    RealtimePoint(x: 12.5, y: 30),
-                    RealtimePoint(x: 14, y: 32.5)
+                    RealtimePoint(x: 0.431231, y: 0.56931),
+                    RealtimePoint(x: 0, y: 1)
                 ]
             )
         )
@@ -197,7 +197,7 @@ final class RoomEventTests: XCTestCase {
         XCTAssertEqual(tracks["event"] as? String, "tracks")
         XCTAssertEqual(
             tracks["tracks"] as? [[Double]],
-            [[12.5, 30], [14, 32.5]]
+            [[0.431231, 0.56931], [0, 1]]
         )
         XCTAssertEqual(heartbeat["event"] as? String, "heartbeat")
         XCTAssertEqual(heartbeat["user_id"] as? String, "user-id")

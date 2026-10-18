@@ -13,6 +13,34 @@ import XCTest
 @testable import XmaxSDK
 
 final class InteractionCoordinateMapperTests: XCTestCase {
+    func testNormalizedCoordinatesPreserveFractionalPrecision() throws {
+        let point = try XCTUnwrap(InteractionCoordinateMapper.map(
+            CGPoint(x: 0.431231 * 300, y: 0.56931 * 400),
+            viewportSize: CGSize(width: 300, height: 400),
+            displayedVideoSize: CGSize(width: 1248, height: 1664),
+            mediaSize: CGSize(width: 1256, height: 1672),
+            contentMode: .fit
+        ))
+
+        XCTAssertEqual(point.x, 0.431231, accuracy: 0.000000001)
+        XCTAssertEqual(point.y, 0.56931, accuracy: 0.000000001)
+    }
+
+    func testFillClampsOutOfRangeCoordinates() {
+        for (input, expected) in [
+            (CGPoint(x: -10, y: -10), RealtimePoint(x: 0, y: 0)),
+            (CGPoint(x: 250, y: 150), RealtimePoint(x: 1, y: 1))
+        ] {
+            XCTAssertEqual(InteractionCoordinateMapper.map(
+                input,
+                viewportSize: CGSize(width: 200, height: 100),
+                displayedVideoSize: CGSize(width: 200, height: 100),
+                mediaSize: CGSize(width: 1920, height: 1080),
+                contentMode: .fill
+            ), expected)
+        }
+    }
+
     func testReturnSizeChangesDoNotChangeMediaCoordinates() {
         let media = CGSize(width: 1920, height: 1080)
         for displayed in [media, CGSize(width: 1536, height: 864), CGSize(width: 960, height: 540)] {
@@ -22,7 +50,7 @@ final class InteractionCoordinateMapperTests: XCTestCase {
                 displayedVideoSize: displayed,
                 mediaSize: media,
                 contentMode: .fit
-            ), RealtimePoint(x: 480, y: 810))
+            ), RealtimePoint(x: 0.25, y: 0.75))
         }
     }
 
@@ -37,7 +65,7 @@ final class InteractionCoordinateMapperTests: XCTestCase {
         XCTAssertEqual(InteractionCoordinateMapper.map(
             CGPoint(x: 100, y: 150), viewportSize: viewport,
             displayedVideoSize: displayed, mediaSize: media, contentMode: .fit
-        ), RealtimePoint(x: 250, y: 250))
+        ), RealtimePoint(x: 0.25, y: 0.25))
     }
 
     func testFillUsesDisplayedCropBeforeMappingToMediaCoordinates() {
@@ -45,15 +73,15 @@ final class InteractionCoordinateMapperTests: XCTestCase {
             CGPoint(x: 0, y: 100), viewportSize: CGSize(width: 400, height: 400),
             displayedVideoSize: CGSize(width: 200, height: 100),
             mediaSize: CGSize(width: 1000, height: 1000), contentMode: .fill
-        ), RealtimePoint(x: 250, y: 250))
+        ), RealtimePoint(x: 0.25, y: 0.25))
     }
 
-    func testMappedEdgesAreClampedToMediaPixelBounds() {
+    func testMappedEdgesAreClampedToUnitBounds() {
         XCTAssertEqual(InteractionCoordinateMapper.map(
             CGPoint(x: 200, y: 100), viewportSize: CGSize(width: 200, height: 100),
             displayedVideoSize: CGSize(width: 200, height: 100),
             mediaSize: CGSize(width: 1920, height: 1080), contentMode: .fill
-        ), RealtimePoint(x: 1919, y: 1079))
+        ), RealtimePoint(x: 1, y: 1))
     }
 
     func testInvalidMediaOrDisplayedSizeDoesNotProducePoint() {
@@ -89,21 +117,23 @@ final class InteractionCoordinateMapperTests: XCTestCase {
                 mediaSize: videoSize,
                 contentMode: .fit
             ),
-            RealtimePoint(x: 360, y: 640)
+            RealtimePoint(x: 0.5, y: 0.5)
         )
     }
 
     func testFillIncludesCroppedVideoOffset() throws {
-        XCTAssertEqual(
+        let point = try XCTUnwrap(
             InteractionCoordinateMapper.map(
                 CGPoint(x: 0, y: 0),
                 viewportSize: CGSize(width: 320, height: 480),
                 displayedVideoSize: CGSize(width: 720, height: 1280),
                 mediaSize: CGSize(width: 720, height: 1280),
                 contentMode: .fill
-            ),
-            RealtimePoint(x: 0, y: 100)
+            )
         )
+
+        XCTAssertEqual(point.x, 0, accuracy: 0.000000001)
+        XCTAssertEqual(point.y, 0.078125, accuracy: 0.000000001)
     }
 
     func testInvalidGeometryDoesNotProducePoint() {

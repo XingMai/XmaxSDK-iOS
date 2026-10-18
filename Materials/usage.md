@@ -257,11 +257,12 @@ tracking and coordinate conversion are handled by the SDK.
 Camera, image, and video trajectories use the fixed local media dimensions
 computed by `resolveMediaSize`, not the model generation size, actual upload
 encoding size, or return `target_size`. The SDK maps touches through the current
-displayed frame's Fit/Fill geometry, normalizes their positions, and sends pixel
-coordinates in that fixed media coordinate system. Quality-tier and interpolation
-changes do not change this coordinate basis. The signaling payload remains pixel
-coordinates, not normalized values; the server must interpret it in the same
-media coordinate system.
+displayed frame's Fit/Fill geometry and sends normalized coordinates in `[0, 1]`
+relative to those processed media dimensions, not the original media dimensions.
+The top-left corner is `(0, 0)` and the bottom-right corner is `(1, 1)`.
+Quality-tier and interpolation changes do not change this coordinate basis.
+The signaling payload uses `"tracks": [[x, y], ...]`; the server must interpret
+these values as normalized media coordinates, not pixels.
 
 Interaction is enabled by default. To let surrounding UIKit controls handle touch
 input instead:

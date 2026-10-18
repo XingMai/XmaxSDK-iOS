@@ -127,12 +127,12 @@ enum RoomEvent {
         )
     }
 
-    /// 编码生成任务的像素坐标轨迹。
+    /// 编码生成任务的媒体归一化坐标轨迹。
     ///
     /// - Parameters:
     ///   - userID: 本地 RTC 用户账号。
     ///   - taskID: 接收轨迹的生成任务标识。
-    ///   - points: 按采样顺序排列的视频像素坐标点。
+    ///   - points: 按采样顺序排列、相对于处理后媒体尺寸的 `[0, 1]` 坐标点。
     /// - Returns: 可发送的 JSON 轨迹信令。
     /// - Throws: 坐标或 JSON 编码失败时抛出错误。
     static func tracks(
@@ -413,7 +413,7 @@ private extension RoomEvent {
         }
     }
 
-    /// 表示生成任务的像素坐标轨迹信令。
+    /// 表示生成任务的媒体归一化坐标轨迹信令。
     struct TracksPayload: Encodable {
 
         // 事件类型
