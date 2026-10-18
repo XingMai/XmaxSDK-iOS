@@ -149,7 +149,7 @@ final class RtcMessageQueueTests: XCTestCase {
         for _ in 0..<58 { try queue.enqueue("budget") }
         try await queue.flush()
         try queue.enqueue("old", replacingPendingMessage: "tracks:task")
-        try await Task.sleep(for: .milliseconds(20))
+        try await Task.sleep(nanoseconds: 20000000)
         try queue.enqueue(String(repeating: "new", count: 100), replacingPendingMessage: "tracks:task")
         try await queue.flush()
         XCTAssertEqual(recorder.packets.count, 59)
