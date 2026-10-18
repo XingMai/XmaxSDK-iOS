@@ -64,11 +64,15 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             try components.rtcManager.emitRemoteVideoFrame()
             try await start.value
             let originalState = await components.manager.currentState
-            let networkTarget = QualityVideoFormat.resolve(imageFormat, level: level, downlink: true).size
+            let networkTarget = try MediaService().resolveTargetSize(
+                imageFormat.size,
+                maximumSize: QualityVideoFormat.resolveDownlinkMaximumSize(imageFormat, level: level),
+                frameInterpolationEnabled: false
+            )
 
             try await components.manager.setFrameInterpolationEnabled(true)
             var target = await components.connectionManager.currentTargetSize
-            let interpolationTarget = level == 1 ? CGSize(width: 702, height: 1242) : networkTarget
+            let interpolationTarget = level == 1 ? CGSize(width: 676, height: 1196) : networkTarget
             XCTAssertEqual(target, interpolationTarget)
 
             try await components.manager.setFrameInterpolationEnabled(false)
@@ -304,7 +308,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         try await components.manager.setFrameInterpolationEnabled(true)
         let remote = try await components.manager.connect(localStream: local)
-        XCTAssertEqual(remote.videoTrack?.videoFormat?.size, CGSize(width: 702, height: 1242))
+        XCTAssertEqual(remote.videoTrack?.videoFormat?.size, CGSize(width: 676, height: 1196))
         try await components.manager.setFrameInterpolationEnabled(false)
         XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)
         let target = await components.connectionManager.currentTargetSize
@@ -323,7 +327,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             fileURL: URL(fileURLWithPath: "/tmp/reference.png")
         )
         let remote = try await components.manager.connect(localStream: local)
-        let targetFormat = RealtimeVideoFormat(width: 702, height: 1242, fps: 24)
+        let targetFormat = RealtimeVideoFormat(width: 676, height: 1196, fps: 24)
         XCTAssertEqual(local.videoTrack?.videoFormat, imageFormat)
         XCTAssertEqual(remote.videoTrack?.videoFormat, imageFormat)
 
@@ -393,7 +397,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let events = decodedEvents(components.rtcManager)
         let resizeEvents = events.filter { $0["event"] as? String == "change_target_size" }
         XCTAssertEqual(resizeEvents.count, 4)
-        for (event, size) in zip(resizeEvents, [[702, 1242], [832, 1472], [702, 1242], [832, 1472]]) {
+        for (event, size) in zip(resizeEvents, [[676, 1196], [832, 1472], [676, 1196], [832, 1472]]) {
             XCTAssertEqual(event["uid"] as? String, taskID)
             let params = try XCTUnwrap(event["params"] as? [String: Any])
             XCTAssertEqual(params["target_size"] as? [Int], size)

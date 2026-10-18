@@ -18,17 +18,15 @@ enum QualityVideoFormat {
     static let scales: [Double] = [1, 0.8, 0.65, 0.5, 0.5]
     static let frameRates = [30, 24, 24, 20, 16]
 
-    /// 综合下行档位和插帧尺寸限制计算实际回传规格。
+    /// 计算下行档位的尺寸上限，不进行像素对齐或插帧限制。
     ///
     /// - Parameters:
     ///   - baseline: 不随调档变化的媒体原始规格。
-    ///   - level: 下行传输档位。
-    ///   - interpolationSize: 满足插帧上限的尺寸；`nil` 表示不施加该限制。
-    /// - Returns: 同时满足下行档位和可选插帧限制的回传规格。
-    static func resolveReturnFormat(_ baseline: RealtimeVideoFormat, level: Int, interpolationSize: CGSize?) -> RealtimeVideoFormat {
-        let format = resolve(baseline, level: level, downlink: true)
-        guard let interpolationSize, interpolationSize.width < format.size.width else { return format }
-        return format.resized(width: Int(interpolationSize.width), height: Int(interpolationSize.height))
+    ///   - level: 下行目标档位，取值范围为 1...5。
+    /// - Returns: 保持原始比例的尺寸上限，可包含小数像素。
+    static func resolveDownlinkMaximumSize(_ baseline: RealtimeVideoFormat, level: Int) -> CGSize {
+        let scale = sizeScale(baseline, level: level)
+        return CGSize(width: Double(baseline.width) * scale, height: Double(baseline.height) * scale)
     }
 
     /// 按基准规格计算指定方向和档位的传输格式。
@@ -40,8 +38,7 @@ enum QualityVideoFormat {
     /// - Returns: 完成尺寸、帧率和编码选项映射的传输规格。
     static func resolve(_ baseline: RealtimeVideoFormat, level: Int, downlink: Bool) -> RealtimeVideoFormat {
         let index = min(5, max(1, level)) - 1
-        let shortSide = min(baseline.width, baseline.height)
-        let scale = max(scales[index], Double(min(shortSide, 240)) / Double(shortSide))
+        let scale = sizeScale(baseline, level: level)
         let size = scaledSize(baseline.size, scale: scale)
         return RealtimeVideoFormat(
             width: Int(size.width), height: Int(size.height),
@@ -72,6 +69,18 @@ enum QualityVideoFormat {
             width: max(2, Int(floor(Double(width) * scale / 2)) * 2),
             height: max(2, Int(floor(Double(height) * scale / 2)) * 2)
         )
+    }
+
+    /// 计算档位对应的尺寸缩放比例，保留短边最低尺寸且不放大。
+    ///
+    /// - Parameters:
+    ///   - baseline: 原始媒体规格。
+    ///   - level: 目标档位，取值范围为 1...5。
+    /// - Returns: 不超过 1 的尺寸缩放比例。
+    private static func sizeScale(_ baseline: RealtimeVideoFormat, level: Int) -> Double {
+        let index = min(5, max(1, level)) - 1
+        let shortSide = min(baseline.width, baseline.height)
+        return max(scales[index], Double(min(shortSide, 240)) / Double(shortSide))
     }
 }
 

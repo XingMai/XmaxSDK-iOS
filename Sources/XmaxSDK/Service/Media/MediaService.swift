@@ -85,19 +85,33 @@ final class MediaService: MediaServicing, Sendable {
         )
     }
 
-    /// 计算保持原始比例且满足插帧像素预算的回传尺寸。
+    /// 综合档位尺寸上限和可选插帧限制，计算最终回传尺寸。
     ///
-    /// - Parameter size: 生成画面的整数像素尺寸。
-    /// - Returns: 不放大、宽高均为偶数且总像素不超过 900000 的等比例尺寸。
-    ///   不应用模型输入的最小面积或对齐规则，也不检查设备能力。
-    /// - Throws: 尺寸无效，或不存在满足约束的等比例尺寸时抛出 `XmaxError`。
-    func resolveFrameInterpolationSize(_ size: CGSize) throws -> CGSize {
-        guard let width = Self.integralDimension(size.width),
-              let height = Self.integralDimension(size.height) else {
+    /// - Parameters:
+    ///   - sourceSize: 原始媒体的整数像素尺寸，用于确定比例和不放大的边界。
+    ///   - maximumSize: 下行档位允许的宽高上限，可包含小数像素。
+    ///   - frameInterpolationEnabled: 是否额外限制总像素不超过 900000；不检查设备能力。
+    /// - Returns: 不超过上限、宽高均为 4 的倍数的尺寸；优先精确等比，无法等比时分别向下对齐。
+    /// - Throws: 尺寸无效，或约束内无法容纳至少 4 × 4 像素时抛出 `XmaxError`。
+    func resolveTargetSize(
+        _ sourceSize: CGSize,
+        maximumSize: CGSize,
+        frameInterpolationEnabled: Bool
+    ) throws -> CGSize {
+        guard let width = Self.integralDimension(sourceSize.width),
+              let height = Self.integralDimension(sourceSize.height),
+              maximumSize.width.isFinite, maximumSize.width > 0,
+              maximumSize.height.isFinite, maximumSize.height > 0 else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Video dimensions must be positive integers"
+                message: "Source dimensions must be positive integers and target bounds must be positive and finite"
             )
+        }
+
+        var scale = min(1, min(Double(maximumSize.width) / Double(width), Double(maximumSize.height) / Double(height)))
+        let targetPixels = (Double(width) * scale) * (Double(height) * scale)
+        if frameInterpolationEnabled, targetPixels > Double(Self.maximumFrameInterpolationPixels) {
+            scale *= sqrt(Double(Self.maximumFrameInterpolationPixels) / targetPixels)
         }
 
         // 使用最简宽高比的整数倍，避免分别取整导致比例发生变化。
@@ -108,20 +122,23 @@ final class MediaService: MediaServicing, Sendable {
         }
         let ratioWidth = width / divisor
         let ratioHeight = height / divisor
-        let maximumSquaredScale = Self.maximumFrameInterpolationPixels
-            / ratioWidth / ratioHeight
-        let scale = min(divisor, Int(sqrt(Double(maximumSquaredScale))))
-        let evenScale = scale - scale % 2
-        guard evenScale >= 2 else {
-            throw XmaxError(
-                code: .frameInterpolationUnsupported,
-                message: "No proportional frame interpolation size is available"
+        let alignedScale = Int(floor(Double(divisor) * scale / 4)) * 4
+        if alignedScale >= 4 {
+            return CGSize(
+                width: ratioWidth * alignedScale,
+                height: ratioHeight * alignedScale
             )
         }
-        return CGSize(
-            width: ratioWidth * evenScale,
-            height: ratioHeight * evenScale
-        )
+
+        let alignedWidth = Int(floor(Double(width) * scale / 4)) * 4
+        let alignedHeight = Int(floor(Double(height) * scale / 4)) * 4
+        guard alignedWidth >= 4, alignedHeight >= 4 else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "No 4-aligned target size is available within the size limits"
+            )
+        }
+        return CGSize(width: alignedWidth, height: alignedHeight)
     }
 
     /// 判断当前设备是否支持对指定分辨率的视频进行插帧。

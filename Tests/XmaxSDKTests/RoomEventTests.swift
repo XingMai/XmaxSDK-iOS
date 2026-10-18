@@ -65,7 +65,7 @@ final class RoomEventTests: XCTestCase {
         let event = try decode(RoomEvent.changeTargetSize(
             userID: "user-id",
             taskID: "task-id",
-            targetSize: CGSize(width: 702, height: 1242)
+            targetSize: CGSize(width: 676, height: 1196)
         ))
         XCTAssertEqual(event["event"] as? String, "change_target_size")
         XCTAssertEqual(event["user_id"] as? String, "user-id")
@@ -73,13 +73,13 @@ final class RoomEventTests: XCTestCase {
         let params = try XCTUnwrap(event["params"] as? [String: Any])
         XCTAssertEqual(Set(params.keys), ["target_size", "min_bitrate", "max_bitrate"])
         XCTAssertEqual(params["min_bitrate"] as? Int, 100)
-        XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
+        XCTAssertEqual(params["target_size"] as? [Int], [676, 1196])
         try assertRuntime(in: event)
     }
 
     func testStartAndChangeConditionSeparateGenerationAndReturnSizes() throws {
         let format = RealtimeVideoFormat(width: 832, height: 1472, fps: 24)
-        let target = CGSize(width: 702, height: 1242)
+        let target = CGSize(width: 676, height: 1196)
         let context = RealtimeContext(prompt: "test")
         let messages = try [
             RoomEvent.start(userID: "user", taskID: "task", videoFormat: format,
@@ -91,7 +91,7 @@ final class RoomEventTests: XCTestCase {
             let event = try decode(message)
             let params = try XCTUnwrap(event["params"] as? [String: Any])
             XCTAssertEqual(params["size"] as? [Int], [832, 1472])
-            XCTAssertEqual(params["target_size"] as? [Int], [702, 1242])
+            XCTAssertEqual(params["target_size"] as? [Int], [676, 1196])
             XCTAssertEqual(params["face_replace"] as? Bool, false)
             XCTAssertEqual(event["session_uid"] as? String, "task")
             if event["event"] as? String == "start" {

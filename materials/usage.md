@@ -338,14 +338,20 @@ runtime:
 try await realtime.setFrameInterpolationEnabled(false)
 ```
 
-When interpolation is enabled and supported, XmaxSDK keeps the model generation
-size and requests a proportional return size with even dimensions and at most
-900000 pixels. For example, generation at 832 × 1472 returns 702 × 1242. Local
-capture, model input, and touch coordinates remain at the generation size.
+XmaxSDK calculates the return size from the local media baseline and the current
+downlink quality tier, separately from the model generation size. Return width
+and height are always multiples of 4. The SDK preserves the exact aspect ratio
+when possible; otherwise, it rounds both dimensions down, allowing a small ratio
+difference without enlarging the image.
+
+When interpolation is enabled and supported, the return size is also limited to
+900000 pixels. For example, a local media baseline of 832 × 1472 at L1 returns
+676 × 1196. Lower quality tiers may reduce it further. These return-size changes
+do not alter local capture or the model generation size.
 
 During generation, enabling interpolation requests the smaller return size with
-`change_target_size`; disabling it requests the original generation size. The
-connection and generation task remain active. Frames at the old size continue to
+`change_target_size`; disabling it requests the current downlink tier's 4-aligned
+size. The connection and generation task remain active. Frames at the old size continue to
 display without interpolation until frames at the requested size arrive.
 
 Before generation starts, the toggle updates the size used by the next start
@@ -353,19 +359,24 @@ request. Switching while another realtime operation is in progress throws an
 error. Signaling failures also throw without changing the current configuration;
 handle these errors at the call site to give the user feedback.
 
-To inspect the size calculation and device support:
+To inspect the size calculation and device support, pass the original media size
+and a downlink size bound. The SDK first applies this bound, reduces the size only
+if the interpolation pixel limit is exceeded, then performs the final alignment.
+The following example uses the original size as the bound (L1):
 
 ```swift
 let media = client.createMediaService()
-let returnSize = try media.resolveFrameInterpolationSize(
-    CGSize(width: 832, height: 1472)
+let returnSize = try media.resolveTargetSize(
+    CGSize(width: 832, height: 1472),
+    maximumSize: CGSize(width: 832, height: 1472),
+    frameInterpolationEnabled: true
 )
 let supported = media.supportsFrameInterpolation(for: returnSize)
 ```
 
 The calculation itself is device-independent. Unsupported devices retain the
-original return size with interpolation disabled. Only frames matching the
-requested interpolation size enter the interpolation processor; other sizes
+current downlink tier's 4-aligned return size with interpolation disabled. Only
+frames matching the requested interpolation size enter the interpolation processor; other sizes
 continue to display without interpolation. Processor failures disable
 interpolation and are logged without interrupting generation.
 

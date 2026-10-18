@@ -318,7 +318,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 let current = await coordinator.currentState
                 let mediaFormat = await mediaController.currentVideoFormat
                 let targetSize = try mediaFormat.map {
-                    try resolveReturnFormat(
+                    try resolveTargetVideoFormat(
                         baseline: $0,
                         level: streamController.qualityConfiguration?.downlinkLevel ?? 2,
                         interpolation: enabled
@@ -481,7 +481,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
             let stream = try await mediaController.switchCamera()
             try token.ensureCurrent()
-            await reconcileFrameInterpolation(for: stream)
+            try await reconcileFrameInterpolation(for: stream)
             if wasGenerating {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 try await performStartGeneration(
@@ -875,15 +875,22 @@ private extension XmaxRealtimeManager {
     ///   - baseline: 本地媒体的基准规格。
     ///   - level: 下行目标档位，取值范围为 1...5。
     ///   - interpolation: 是否应用插帧所需的像素面积限制。
-    /// - Returns: 保持媒体比例并满足当前传输限制的回传规格。
-    /// - Throws: 无法计算有效的插帧尺寸时抛出错误。
-    nonisolated func resolveReturnFormat(
+    /// - Returns: 优先保持媒体比例并满足档位、插帧限制和 4 对齐要求的回传规格。
+    /// - Throws: 基准规格无效或无法计算有效回传尺寸时抛出错误。
+    nonisolated func resolveTargetVideoFormat(
         baseline: RealtimeVideoFormat,
         level: Int,
         interpolation: Bool
     ) throws -> RealtimeVideoFormat {
-        let limit = interpolation ? try mediaService.resolveFrameInterpolationSize(baseline.size) : nil
-        return QualityVideoFormat.resolveReturnFormat(baseline, level: level, interpolationSize: limit)
+        try baseline.validate()
+        let maximumSize = QualityVideoFormat.resolveDownlinkMaximumSize(baseline, level: level)
+        let targetSize = try mediaService.resolveTargetSize(
+            baseline.size,
+            maximumSize: maximumSize,
+            frameInterpolationEnabled: interpolation
+        )
+        let format = QualityVideoFormat.resolve(baseline, level: level, downlink: true)
+        return format.resized(width: Int(targetSize.width), height: Int(targetSize.height))
     }
 
     /// 根据当前任务的网络采样尝试自动调档，忙碌时跳过本次采样。
@@ -940,7 +947,7 @@ private extension XmaxRealtimeManager {
             if downlink {
                 let interpolation = await renderController.isFrameInterpolationEnabled
                 try token.ensureCurrent()
-                format = try resolveReturnFormat(
+                format = try resolveTargetVideoFormat(
                     baseline: configuration.baseline,
                     level: level,
                     interpolation: interpolation
@@ -1024,7 +1031,7 @@ private extension XmaxRealtimeManager {
         )
         let quality = streamController.prepareQuality(baseline: videoFormat, model: options.model.rawValue)
         try streamController.setVideoEncoderConfig(quality.uplink)
-        let targetSize = await reconcileFrameInterpolation(for: localStream)
+        let targetSize = try await reconcileFrameInterpolation(for: localStream)
         try token.ensureCurrent()
         try await mediaController.startMicrophoneCapture()
         try token.ensureCurrent()
@@ -1102,7 +1109,7 @@ private extension XmaxRealtimeManager {
                 }
                 try token.ensureCurrent()
             }
-            await reconcileFrameInterpolation(for: stream)
+            try await reconcileFrameInterpolation(for: stream)
             try token.ensureCurrent()
             try streamController.setRemoteAudioVolume(source == .video ? 1 : 0)
             if source == .camera {
@@ -1161,17 +1168,19 @@ private extension XmaxRealtimeManager {
     ///
     /// - Parameter stream: 当前本地媒体流。
     /// - Returns: 结合网络档位和插帧限制计算的回传尺寸；没有视频规格时返回 nil。
+    /// - Throws: 本地视频规格无法形成有效的 4 对齐回传尺寸时抛出错误。
     @discardableResult
     func reconcileFrameInterpolation(
         for stream: RealtimeMediaStream
-    ) async -> CGSize? {
+    ) async throws -> CGSize? {
         guard let videoFormat = stream.videoTrack?.videoFormat else {
             return nil
         }
         let level = streamController.qualityConfiguration?.downlinkLevel ?? 2
+        let fallbackFormat = try resolveTargetVideoFormat(baseline: videoFormat, level: level, interpolation: false)
         let interpolation = await renderController.isFrameInterpolationEnabled
         do {
-            let targetSize = try resolveReturnFormat(baseline: videoFormat, level: level, interpolation: interpolation).size
+            let targetSize = try resolveTargetVideoFormat(baseline: videoFormat, level: level, interpolation: interpolation).size
             guard !interpolation || mediaService.supportsFrameInterpolation(for: targetSize) else {
                 throw XmaxError(
                     code: .frameInterpolationUnsupported,
@@ -1190,10 +1199,10 @@ private extension XmaxRealtimeManager {
         } catch {
             try? await renderController.setFrameInterpolationEnabled(
                 false,
-                videoFormat: videoFormat
+                videoFormat: fallbackFormat
             )
             await errorHandler.report(XmaxError.from(error))
-            return QualityVideoFormat.resolve(videoFormat, level: level, downlink: true).size
+            return fallbackFormat.size
         }
     }
 

@@ -42,49 +42,91 @@ final class MediaServiceTests: XCTestCase {
     }
 
     func testInterpolationTargetIsIndependentOfInputBuckets() throws {
-        let target = try MediaService(model: .x2_1_1_preview_us).resolveFrameInterpolationSize(
-            CGSize(width: 1024, height: 1920)
+        let target = try MediaService(model: .x2_1_1_preview_us).resolveTargetSize(
+            CGSize(width: 1024, height: 1920),
+            maximumSize: CGSize(width: 1024, height: 1920),
+            frameInterpolationEnabled: true
         )
-        XCTAssertEqual(target, CGSize(width: 688, height: 1290))
+        XCTAssertEqual(target, CGSize(width: 672, height: 1260))
     }
 
     func testInterpolationSizePreservesExactAspectRatioWithinPixelBudget() throws {
         let cases: [(CGSize, CGSize)] = [
-            (CGSize(width: 832, height: 1472), CGSize(width: 702, height: 1242)),
-            (CGSize(width: 1024, height: 1920), CGSize(width: 688, height: 1290)),
+            (CGSize(width: 720, height: 1280), CGSize(width: 684, height: 1216)),
+            (CGSize(width: 832, height: 1472), CGSize(width: 676, height: 1196)),
+            (CGSize(width: 1024, height: 1920), CGSize(width: 672, height: 1260)),
             (CGSize(width: 1120, height: 1120), CGSize(width: 948, height: 948)),
-            (CGSize(width: 704, height: 1280), CGSize(width: 682, height: 1240)),
-            (CGSize(width: 1472, height: 832), CGSize(width: 1242, height: 702)),
+            (CGSize(width: 704, height: 1280), CGSize(width: 660, height: 1200)),
+            (CGSize(width: 1472, height: 832), CGSize(width: 1196, height: 676)),
             (CGSize(width: 640, height: 480), CGSize(width: 640, height: 480)),
             (CGSize(width: 1000, height: 900), CGSize(width: 1000, height: 900))
         ]
         for (source, expected) in cases {
-            let target = try MediaService().resolveFrameInterpolationSize(source)
+            let target = try MediaService().resolveTargetSize(source, maximumSize: source, frameInterpolationEnabled: true)
             XCTAssertEqual(target, expected)
             XCTAssertEqual(target.width * source.height, target.height * source.width)
             XCTAssertLessThanOrEqual(target.width * target.height, 900000)
             XCTAssertLessThanOrEqual(target.width, source.width)
             XCTAssertLessThanOrEqual(target.height, source.height)
-            XCTAssertTrue(Int(target.width).isMultiple(of: 2))
-            XCTAssertTrue(Int(target.height).isMultiple(of: 2))
+            XCTAssertTrue(Int(target.width).isMultiple(of: 4))
+            XCTAssertTrue(Int(target.height).isMultiple(of: 4))
         }
     }
 
     func testInterpolationSizeRejectsInvalidDimensions() {
         for width: CGFloat in [.nan, .infinity, 0, -1, 704.5, CGFloat(Int.max)] {
-            XCTAssertThrowsError(try MediaService().resolveFrameInterpolationSize(
-                CGSize(width: width, height: 1280)
+            XCTAssertThrowsError(try MediaService().resolveTargetSize(
+                CGSize(width: width, height: 1280),
+                maximumSize: CGSize(width: 720, height: 1280),
+                frameInterpolationEnabled: true
             )) { error in
                 XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
             }
         }
     }
 
-    func testInterpolationSizeRejectsUnrepresentableEvenAspectRatio() {
-        XCTAssertThrowsError(try MediaService().resolveFrameInterpolationSize(
-            CGSize(width: 1001, height: 1000)
-        )) { error in
-            XCTAssertEqual((error as? XmaxError)?.code, .frameInterpolationUnsupported)
+    func testInterpolationSizeAllowsSmallRatioErrorWhenExactAlignmentIsUnavailable() throws {
+        let cases = [
+            (CGSize(width: 1001, height: 1000), CGSize(width: 948, height: 948)),
+            (CGSize(width: 802, height: 600), CGSize(width: 800, height: 600)),
+            (CGSize(width: 600, height: 802), CGSize(width: 600, height: 800))
+        ]
+        for (source, expected) in cases {
+            let target = try MediaService().resolveTargetSize(source, maximumSize: source, frameInterpolationEnabled: true)
+            XCTAssertEqual(target, expected)
+            XCTAssertLessThanOrEqual(target.width * target.height, 900000)
+            let ratioError = abs(target.width * source.height / (target.height * source.width) - 1)
+            XCTAssertLessThan(ratioError, 0.01)
+        }
+    }
+
+    func testInterpolationSizeRejectsDimensionsTooSmallForFourAlignment() {
+        for size in [CGSize(width: 2, height: 600), CGSize(width: 600, height: 2)] {
+            XCTAssertThrowsError(try MediaService().resolveTargetSize(size, maximumSize: size, frameInterpolationEnabled: true)) { error in
+                XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+            }
+        }
+    }
+
+    func testTargetSizeAppliesBoundsProportionallyAndDoesNotUpscale() throws {
+        let service = MediaService()
+        let source = CGSize(width: 720, height: 1280)
+        XCTAssertEqual(
+            try service.resolveTargetSize(source, maximumSize: CGSize(width: 800, height: 1600), frameInterpolationEnabled: false),
+            source
+        )
+        XCTAssertEqual(
+            try service.resolveTargetSize(source, maximumSize: CGSize(width: 600, height: 800), frameInterpolationEnabled: false),
+            CGSize(width: 432, height: 768)
+        )
+    }
+
+    func testTargetSizeRejectsInvalidMaximumSize() {
+        let source = CGSize(width: 720, height: 1280)
+        for invalid: CGFloat in [.nan, .infinity, 0, -1] {
+            for bounds in [CGSize(width: invalid, height: 1280), CGSize(width: 720, height: invalid)] {
+                XCTAssertThrowsError(try MediaService().resolveTargetSize(source, maximumSize: bounds, frameInterpolationEnabled: false))
+            }
         }
     }
 
