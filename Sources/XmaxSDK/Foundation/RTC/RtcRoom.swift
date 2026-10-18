@@ -89,10 +89,20 @@ protocol RtcRoom: AnyObject, Sendable {
     /// - Parameters:
     ///   - message: 完整 JSON 信令。
     ///   - reportFailure: 异步发送失败时是否通知房间故障；false 仅记录日志并由等待调用抛出。
+    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
     /// - Throws: 信令无效或队列不可用时抛出错误。
     /// - Returns: 本条信令的发送任务。
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool) throws -> Task<Void, any Error>
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool,
+        replacingPendingMessage key: String?
+    ) throws -> Task<Void, any Error>
+
+    /// 丢弃尚未开始发送的可合并信令。
+    ///
+    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    func discardPendingMessages(key: String?)
 
     /// 等待此前排队的信令提交给 RTC。
     ///
@@ -103,9 +113,13 @@ protocol RtcRoom: AnyObject, Sendable {
 extension RtcRoom {
     /// 将房间信令入队，并启用异步发送失败通知。
     ///
-    /// - Parameter message: 完整 JSON 信令。
+    /// - Parameters:
+    ///   - message: 完整 JSON 信令。
+    ///   - reportFailure: 异步发送失败时是否通知房间故障。
+    /// - Returns: 本条信令的发送任务。
     /// - Throws: 信令无效或发送队列不可用时抛出错误。
-    func sendRoomMessage(_ message: String) throws {
-        try sendRoomMessage(message, reportFailure: true)
+    @discardableResult
+    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+        try sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: nil)
     }
 }

@@ -80,6 +80,7 @@ final class RtcMessageQueue: @unchecked Sendable {
     private var tasks: [UUID: Task<Void, any Error>] = [:]
     private var lastTask: Task<Void, any Error>?
     private var lastFailureIsFatal = true
+    private var pendingMessages: [String: PendingMessage] = [:]
 
     /// 创建串行且限速的房间信令队列。
     ///
@@ -96,13 +97,22 @@ final class RtcMessageQueue: @unchecked Sendable {
     /// - Parameters:
     ///   - message: 待发送的完整信令。
     ///   - reportFailure: 异步发送失败时是否通知故障回调。
-    /// - Returns: 可独立等待当前信令发送结果的任务。
+    ///   - replacingPendingMessage: 合并键；同键且尚未开始发送的信令仅保留最新内容。
+    /// - Returns: 发送结果任务；被合并的调用共享任务，并发送最终保留的内容。
     /// - Throws: 信令编码失败、队列已关闭或队列已满时抛出错误。
     @discardableResult
-    func enqueue(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func enqueue(
+        _ message: String,
+        reportFailure: Bool = true,
+        replacingPendingMessage key: String? = nil
+    ) throws -> Task<Void, any Error> {
         let packets = try RtcMessageCodec.encode(message)
         return try lock.withLock {
             guard !closed else { throw CancellationError() }
+            if let key, let pending = pendingMessages[key], let task = tasks[pending.id] {
+                pendingMessages[key] = PendingMessage(id: pending.id, packets: packets)
+                return task
+            }
             guard tasks.count < 64 else {
                 throw XmaxError(code: .rtcError, message: "RTC room message queue is full")
             }
@@ -110,20 +120,40 @@ final class RtcMessageQueue: @unchecked Sendable {
             let previous = lastTask
             let previousFailureIsFatal = lastFailureIsFatal
             let id = UUID()
+            if let key {
+                pendingMessages[key] = PendingMessage(id: id, packets: packets)
+            }
             let task = Task { [self] in
-                defer { _ = lock.withLock { tasks.removeValue(forKey: id) } }
+                defer {
+                    lock.withLock {
+                        tasks.removeValue(forKey: id)
+                        if let key, pendingMessages[key]?.id == id {
+                            pendingMessages.removeValue(forKey: key)
+                        }
+                    }
+                }
                 do {
                     if previousFailureIsFatal {
                         try await previous?.value
                     } else {
                         _ = try? await previous?.value
                     }
-                    for packet in packets {
+                    try Task.checkCancellation()
+                    let currentPackets: [Data]
+                    if let key {
+                        currentPackets = try await takePendingPackets(key: key, id: id)
+                    } else {
+                        currentPackets = packets
+                    }
+                    for packet in currentPackets {
                         try await limiter.wait(byteCount: packet.count)
                         try Task.checkCancellation()
                         try send(packet)
+                        await limiter.record(byteCount: packet.count)
                     }
                 } catch {
+                    // 丢弃尚未发送的信令不会中断后续控制信令。
+                    if Task.isCancelled, key != nil, !lock.withLock({ closed }) { return }
                     if !Task.isCancelled, !lock.withLock({ closed }) {
                         if reportFailure {
                             onFailure(XmaxError.from(error))
@@ -138,6 +168,20 @@ final class RtcMessageQueue: @unchecked Sendable {
             lastTask = task
             lastFailureIsFatal = reportFailure
             return task
+        }
+    }
+
+    /// 丢弃尚未开始发送的可合并信令，不影响已开始的分片及普通信令。
+    ///
+    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    func discardPendingMessages(key: String? = nil) {
+        lock.withLock {
+            let keys = key.map { [$0] } ?? Array(pendingMessages.keys)
+            for key in keys {
+                if let pending = pendingMessages.removeValue(forKey: key) {
+                    tasks[pending.id]?.cancel()
+                }
+            }
         }
     }
 
@@ -177,12 +221,52 @@ final class RtcMessageQueue: @unchecked Sendable {
             tasks.values.forEach { $0.cancel() }
             tasks.removeAll()
             lastTask = nil
+            pendingMessages.removeAll()
         }
     }
 }
 
 private extension RtcMessageQueue {
+    /// 保存尚未开始发送的最新信令内容。
+    struct PendingMessage {
+        /// 发送任务标识
+        let id: UUID
+
+        /// 完整分片
+        let packets: [Data]
+    }
+
+    /// 在发送额度可用时取出最新内容，并固定整条信令的分片。
+    ///
+    /// - Parameters:
+    ///   - key: 信令合并键。
+    ///   - id: 当前发送任务标识。
+    /// - Returns: 即将开始发送的完整分片。
+    /// - Throws: 队列关闭或信令已被丢弃时抛出取消错误。
+    func takePendingPackets(key: String, id: UUID) async throws -> [Data] {
+        while true {
+            try Task.checkCancellation()
+            let byteCount = try lock.withLock {
+                guard let pending = pendingMessages[key], pending.id == id else {
+                    throw CancellationError()
+                }
+                return pending.packets[0].count
+            }
+            try await limiter.wait(byteCount: byteCount)
+            let packets: [Data]? = try lock.withLock {
+                guard !closed, let pending = pendingMessages[key], pending.id == id else {
+                    throw CancellationError()
+                }
+                guard pending.packets[0].count <= byteCount else { return nil }
+                pendingMessages.removeValue(forKey: key)
+                return pending.packets
+            }
+            if let packets { return packets }
+        }
+    }
+
     /// 按滑动时间窗口限制信令包数与总字节数。
+    /// 声网单通道上限为 60 包/秒，客户端总上限为 30 KB/秒；保留少量余量。
     actor RateLimiter {
 
         /// 发送窗口
@@ -197,13 +281,19 @@ private extension RtcMessageQueue {
                 try Task.checkCancellation()
                 let now = DispatchTime.now().uptimeNanoseconds
                 sent.removeAll { now - $0.time >= 1000000000 }
-                if sent.count < 28, sent.reduce(0, { $0 + $1.bytes }) + byteCount <= 5800 {
-                    sent.append((now, byteCount))
+                if sent.count < 58, sent.reduce(0, { $0 + $1.bytes }) + byteCount <= 29000 {
                     return
                 }
                 let elapsed = now - sent[0].time
                 try await Task.sleep(nanoseconds: 1000000000 - elapsed)
             }
+        }
+
+        /// 记录已提交的数据包，占用当前窗口的发送额度。
+        ///
+        /// - Parameter byteCount: 已发送的数据包字节数。
+        func record(byteCount: Int) {
+            sent.append((DispatchTime.now().uptimeNanoseconds, byteCount))
         }
     }
 }

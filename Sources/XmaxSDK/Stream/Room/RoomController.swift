@@ -168,7 +168,8 @@ actor RoomController: RoomControlling {
                 context: context,
                 faceRestoration: faceRestoration,
                 paddingContain: paddingContain
-            )
+            ),
+            discardPending: true
         )
     }
 
@@ -200,7 +201,8 @@ actor RoomController: RoomControlling {
                 context: context,
                 faceRestoration: faceRestoration,
                 paddingContain: paddingContain
-            )
+            ),
+            discardPending: true
         )
     }
 
@@ -242,7 +244,8 @@ actor RoomController: RoomControlling {
             RoomEvent.stop(
                 userID: userID,
                 taskID: taskID
-            )
+            ),
+            discardPending: true
         )
     }
 
@@ -256,6 +259,7 @@ actor RoomController: RoomControlling {
         taskID: String,
         points: [RealtimePoint]
     ) throws {
+        try Task.checkCancellation()
         guard !taskID.isEmpty, !points.isEmpty else {
             return
         }
@@ -265,7 +269,8 @@ actor RoomController: RoomControlling {
                 userID: try requireUserID(),
                 taskID: taskID,
                 points: points
-            )
+            ),
+            replacingPendingMessage: "tracks:\(taskID)"
         )
     }
 }
@@ -317,13 +322,27 @@ private extension RoomController {
     /// - Parameters:
     ///   - message: 完整 JSON 房间信令。
     ///   - reportFailure: 异步发送失败时是否通知 RTC 故障回调。
+    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
+    ///   - discardPending: 是否先丢弃尚未发送的轨迹。
     /// - Returns: 本条信令的发送任务。
     /// - Throws: 信令提交失败时抛出 SDK 错误。
     @discardableResult
-    func send(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func send(
+        _ message: String,
+        reportFailure: Bool = true,
+        replacingPendingMessage key: String? = nil,
+        discardPending: Bool = false
+    ) throws -> Task<Void, any Error> {
         let sending: Task<Void, any Error>
         do {
-            sending = try rtcManager.sendRoomMessage(message, reportFailure: reportFailure)
+            if discardPending {
+                rtcManager.discardPendingMessages(key: nil)
+            }
+            sending = try rtcManager.sendRoomMessage(
+                message,
+                reportFailure: reportFailure,
+                replacingPendingMessage: key
+            )
         } catch {
             throw XmaxError.from(error)
         }

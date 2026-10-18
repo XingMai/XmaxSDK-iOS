@@ -334,11 +334,28 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     /// - Parameters:
     ///   - message: 完整 JSON 信令。
     ///   - reportFailure: 异步发送失败时是否上报房间故障。
+    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
     /// - Returns: 本条信令的发送任务，可用于等待独立的发送结果。
     /// - Throws: 入队失败时抛出错误。
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
-        try withRoom { try $0.sendRoomMessage(message, reportFailure: reportFailure) }
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool = true,
+        replacingPendingMessage key: String? = nil
+    ) throws -> Task<Void, any Error> {
+        try withRoom {
+            try $0.sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: key)
+        }
+    }
+
+    /// 丢弃当前房间尚未开始发送的可合并信令。
+    ///
+    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    func discardPendingMessages(key: String?) {
+        operationLock.withLock {
+            let room = stateLock.withLock { activeRoom?.room }
+            room?.discardPendingMessages(key: key)
+        }
     }
 
     /// 等待已入队的房间信令发送完成。

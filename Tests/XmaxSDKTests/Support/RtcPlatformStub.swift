@@ -112,10 +112,16 @@ final class RtcRoomStub: RtcRoom, @unchecked Sendable {
     }
 
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool = true,
+        replacingPendingMessage key: String? = nil
+    ) throws -> Task<Void, any Error> {
         lock.withLock { sentMessages.append(message) }
         return Task {}
     }
+
+    func discardPendingMessages(key: String?) {}
 
     func awaitPendingMessages() async throws {
         try await onFlush()

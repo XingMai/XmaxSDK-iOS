@@ -21,15 +21,11 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// 海外声网实时生成模型。
     case x2_1_1_preview_us = "x2.1.1-preview-us"
 
-    /// Dev 环境的轨迹交互测试模型。
-    case x2_1_preview_drag = "x2.1-preview-drag"
-
     /// 模型展示名称。
     public var displayName: String {
         switch self {
         case .x2_1_1_preview_cn: "X2.1.1-preview-cn"
         case .x2_1_1_preview_us: "X2.1.1-preview-us"
-        case .x2_1_preview_drag: "X2.1-preview-drag (Dev)"
         }
     }
 
@@ -38,7 +34,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         switch self {
         case .x2_1_1_preview_cn: URL(string: "https://cloud.xmax.22duck.cn/open/api/v1")!
         case .x2_1_1_preview_us: URL(string: "https://api.xmax.ai/open/api/v1")!
-        case .x2_1_preview_drag: URL(string: "https://dev.22duck.cn/open/api/v1")!
         }
     }
 

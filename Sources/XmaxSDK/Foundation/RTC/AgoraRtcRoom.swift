@@ -238,17 +238,29 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// - Parameters:
     ///   - message: 完整 JSON 信令。
     ///   - reportFailure: 异步发送失败时是否通知房间故障；false 仅记录日志并由等待调用抛出。
+    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
     /// - Returns: 本条信令的发送任务。
     /// - Throws: 信令无效或队列不可用时抛出错误。
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool = true,
+        replacingPendingMessage key: String? = nil
+    ) throws -> Task<Void, any Error> {
         try platform.lock.withLock {
             try requireJoined()
             guard let sender else {
                 throw XmaxError(code: .rtcError, message: "RTC signaling is unavailable")
             }
-            return try sender.enqueue(message, reportFailure: reportFailure)
+            return try sender.enqueue(message, reportFailure: reportFailure, replacingPendingMessage: key)
         }
+    }
+
+    /// 丢弃尚未开始发送的可合并信令。
+    ///
+    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    func discardPendingMessages(key: String?) {
+        platform.lock.withLock { sender?.discardPendingMessages(key: key) }
     }
 
     /// 等待此前排队的信令提交给 RTC。

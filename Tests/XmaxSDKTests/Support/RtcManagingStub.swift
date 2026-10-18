@@ -70,6 +70,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     // 并发状态
     private let lock = NSLock()
     private var storedCalls: [RtcManagingCall] = []
+    private var storedReplacementKeys: [String?] = []
+    private var storedDiscardedKeys: [String?] = []
     private weak var storedEventListener: (any RtcEventListener)?
     private weak var storedQualityListener: (any RtcQualityListener)?
     private var storedRemoteVideoFrameStream: RemoteStream?
@@ -287,14 +289,26 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     }
 
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool = true,
+        replacingPendingMessage key: String? = nil
+    ) throws -> Task<Void, any Error> {
         try lock.withLock {
             storedCalls.append(.sendRoomMessage(message))
+            storedReplacementKeys.append(key)
             if let sendRoomMessageError {
                 throw sendRoomMessageError
             }
         }
         return Task {}
+    }
+
+    var replacementKeys: [String?] { lock.withLock { storedReplacementKeys } }
+    var discardedKeys: [String?] { lock.withLock { storedDiscardedKeys } }
+
+    func discardPendingMessages(key: String?) {
+        lock.withLock { storedDiscardedKeys.append(key) }
     }
 
     func setSendRoomMessageError(_ error: (any Error)?) {

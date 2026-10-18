@@ -13,17 +13,6 @@ import XCTest
 @testable import XmaxSDK
 
 final class RealtimeModelTests: XCTestCase {
-    func testDragModelUsesDevEnvironmentWithoutChangingProductionModels() {
-        let model = RealtimeModel.x2_1_preview_drag
-        XCTAssertEqual(model.rawValue, "x2.1-preview-drag")
-        XCTAssertEqual(model.apiBaseURL.absoluteString, "https://dev.22duck.cn/open/api/v1")
-        XCTAssertTrue(RealtimeModel.allCases.contains(model))
-        XCTAssertEqual(model.defaultCameraVideoFormat, RealtimeModel.x2_1_1_preview_cn.defaultCameraVideoFormat)
-        XCTAssertEqual(model.resolutionBuckets, RealtimeModel.x2_1_1_preview_cn.resolutionBuckets)
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.apiBaseURL.absoluteString, "https://cloud.xmax.22duck.cn/open/api/v1")
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.apiBaseURL.absoluteString, "https://api.xmax.ai/open/api/v1")
-    }
-
     func testModelDefaultFormatsAndPixelLimits() {
         XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.defaultFrameRate, 30)
         XCTAssertEqual(
