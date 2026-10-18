@@ -14,10 +14,80 @@ import XCTest
 @testable import XmaxSDK
 
 final class MediaServiceTests: XCTestCase {
+    func testLargeImagesAndVideosShareModelAreaLimitWithoutMatchingBuckets() throws {
+        let service = MediaService()
+        let cases = [
+            (CGSize(width: 3840, height: 2160), CGSize(width: 1920, height: 1080)),
+            (CGSize(width: 2160, height: 3840), CGSize(width: 1080, height: 1920)),
+            (CGSize(width: 8000, height: 6000), CGSize(width: 1664, height: 1248)),
+            (CGSize(width: 6000, height: 8000), CGSize(width: 1248, height: 1664))
+        ]
+        for source in [RealtimeMediaSource.image, .video] {
+            for (original, expected) in cases {
+                let size = try service.resolveMediaSize(original, source: source)
+                XCTAssertEqual(size, expected)
+                XCTAssertTrue(Int(size.width).isMultiple(of: 4))
+                XCTAssertTrue(Int(size.height).isMultiple(of: 4))
+                XCTAssertLessThanOrEqual(size.width * size.height, CGFloat(service.model.maximumInputPixels))
+                XCTAssertEqual(size.width * original.height, size.height * original.width)
+            }
+        }
+    }
+
+    func testMediaSizeDoesNotApplyMinimumAreaOrModelAlignment() throws {
+        let service = MediaService()
+        for source in [RealtimeMediaSource.image, .video] {
+            for size in [CGSize(width: 320, height: 180), CGSize(width: 804, height: 600)] {
+                XCTAssertEqual(try service.resolveMediaSize(size, source: source), size)
+            }
+            XCTAssertEqual(
+                try service.resolveMediaSize(CGSize(width: 1001, height: 1000), source: source),
+                CGSize(width: 1000, height: 1000)
+            )
+            XCTAssertEqual(
+                try service.resolveMediaSize(CGSize(width: 802, height: 600), source: source),
+                CGSize(width: 800, height: 600)
+            )
+        }
+    }
+
+    func testCameraBucketValidationOccursBeforeAreaScaling() {
+        XCTAssertThrowsError(try MediaService().resolveMediaSize(CGSize(width: 2048, height: 3840), source: .camera)) { error in
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+    }
+
+    func testMediaSizeRejectsInvalidAndTooSmallDimensions() {
+        for source in RealtimeMediaSource.allCases {
+            for width: CGFloat in [.nan, .infinity, 0, -1, 1, 2, 3, 100.5, CGFloat(Int.max)] {
+                for size in [CGSize(width: width, height: 600), CGSize(width: 600, height: width)] {
+                    XCTAssertThrowsError(try MediaService().resolveMediaSize(size, source: source))
+                }
+            }
+        }
+    }
+
+    func testMediaFourAlignmentAvoidsAdditionalTargetRoundingAtFullTier() throws {
+        let service = MediaService()
+        for source in [RealtimeMediaSource.image, .video] {
+            for (original, expected) in [
+                (CGSize(width: 1280, height: 1707), CGSize(width: 1252, height: 1672)),
+                (CGSize(width: 1707, height: 1280), CGSize(width: 1672, height: 1252)),
+                (CGSize(width: 6000, height: 8000), CGSize(width: 1248, height: 1664))
+            ] {
+                let media = try service.resolveMediaSize(original, source: source)
+                XCTAssertEqual(media, expected)
+                let target = try service.resolveTargetSize(media, maximumSize: media, frameInterpolationEnabled: false)
+                XCTAssertEqual(target, media)
+                XCTAssertLessThanOrEqual(media.width * media.height, CGFloat(service.model.maximumInputPixels))
+            }
+        }
+    }
+
     func testBucketResolutionsArePreservedInBothOrientations() throws {
         let service = MediaService(model: .x2_1_1_preview_us)
         for size in [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)] {
-            XCTAssertEqual(try service.resolveModelInputSize(size), size)
+            XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
         }
     }
 
@@ -35,7 +105,7 @@ final class MediaServiceTests: XCTestCase {
             CGSize(width: CGFloat.infinity, height: 1920)
         ]
         for size in sizes {
-            XCTAssertThrowsError(try service.resolveModelInputSize(size)) { error in
+            XCTAssertThrowsError(try service.resolveMediaSize(size, source: .camera)) { error in
                 XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
             }
         }
@@ -134,7 +204,7 @@ final class MediaServiceTests: XCTestCase {
         for model in RealtimeModel.allCases {
             let format = model.defaultCameraVideoFormat
             let source = CGSize(width: format.width, height: format.height)
-            let size = try MediaService(model: model).resolveModelInputSize(source)
+            let size = try MediaService(model: model).resolveMediaSize(source, source: .camera)
             XCTAssertEqual(size, source)
         }
     }
@@ -143,10 +213,10 @@ final class MediaServiceTests: XCTestCase {
         for model in RealtimeModel.allCases {
             let service = MediaService(model: model)
             for size in model.resolutionBuckets {
-                XCTAssertEqual(try service.resolveModelInputSize(size), size)
+                XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
             }
             for size in [CGSize(width: 640, height: 480), CGSize(width: 1920, height: 1080), CGSize(width: CGFloat.nan, height: 480)] {
-                XCTAssertThrowsError(try service.resolveModelInputSize(size)) { error in
+                XCTAssertThrowsError(try service.resolveMediaSize(size, source: .camera)) { error in
                     XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
                 }
             }

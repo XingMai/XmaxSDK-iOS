@@ -225,7 +225,7 @@ private extension ImageController {
         return try imageManager.decode(data)
     }
 
-    /// 根据图片原始尺寸计算偶数对齐的视频输出规格。
+    /// 根据模型面积上限计算保持图片比例的视频输出规格。
     ///
     /// - Parameter sourceSize: 图片的像素尺寸。
     /// - Returns: 采用模型默认帧率的图片视频规格。
@@ -233,15 +233,10 @@ private extension ImageController {
     func resolveVideoFormat(
         sourceSize: CGSize
     ) throws -> RealtimeVideoFormat {
-        guard sourceSize.width.isFinite, sourceSize.height.isFinite,
-              sourceSize.width >= 2, sourceSize.height >= 2,
-              sourceSize.width < CGFloat(Int.max), sourceSize.height < CGFloat(Int.max) else {
-            throw XmaxError(code: .invalidConfiguration, message: "Image dimensions must be valid pixel dimensions")
-        }
-
+        let size = try mediaService.resolveMediaSize(sourceSize, source: .image)
         let resolvedFormat = RealtimeVideoFormat(
-            width: Int(sourceSize.width) / 2 * 2,
-            height: Int(sourceSize.height) / 2 * 2,
+            width: Int(size.width),
+            height: Int(size.height),
             fps: mediaService.model.defaultFrameRate
         )
         try resolvedFormat.validate()

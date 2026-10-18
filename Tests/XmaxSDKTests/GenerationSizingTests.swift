@@ -13,12 +13,23 @@ import XCTest
 @testable import XmaxSDK
 
 final class GenerationSizingTests: XCTestCase {
+    func testCappedMediaSizeBecomesUplinkBaselineWithoutChangingGenerationBucket() throws {
+        let service = MediaService()
+        let mediaSize = try service.resolveMediaSize(CGSize(width: 3840, height: 2160), source: .video)
+        let baseline = RealtimeVideoFormat(width: Int(mediaSize.width), height: Int(mediaSize.height), fps: 30)
+
+        XCTAssertEqual(mediaSize, CGSize(width: 1920, height: 1080))
+        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: 2, downlink: false).size, CGSize(width: 1536, height: 864))
+        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: 5, downlink: false).size, CGSize(width: 960, height: 540))
+        XCTAssertEqual(try service.resolveGenerationSize(mediaSize), CGSize(width: 1920, height: 1024))
+    }
+
     func testGenerationCanvasUsesNearestBucketWithoutValidatingMediaAsBucket() throws {
         let service = MediaService()
         XCTAssertEqual(try service.resolveGenerationSize(CGSize(width: 1080, height: 1920)), CGSize(width: 1024, height: 1920))
         XCTAssertEqual(try service.resolveGenerationSize(CGSize(width: 3840, height: 2160)), CGSize(width: 1920, height: 1024))
         XCTAssertEqual(try service.resolveGenerationSize(CGSize(width: 640, height: 480)), CGSize(width: 1920, height: 1024))
-        XCTAssertThrowsError(try service.resolveModelInputSize(CGSize(width: 1080, height: 1920)))
+        XCTAssertThrowsError(try service.resolveMediaSize(CGSize(width: 1080, height: 1920), source: .camera))
         XCTAssertThrowsError(try service.resolveGenerationSize(.zero))
     }
 

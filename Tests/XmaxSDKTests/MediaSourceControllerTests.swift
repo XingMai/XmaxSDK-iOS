@@ -17,6 +17,26 @@ import XCTest
 
 @MainActor
 final class MediaSourceControllerTests: XCTestCase {
+    func testRotatedLargeVideoConfiguresCappedOutputDimensions() async throws {
+        let player = VideoPlayerControllingStub()
+        let url = URL(fileURLWithPath: "/tmp/large.mp4")
+        let controller = MediaSourceController(
+            metadataManager: MediaFileMetadataManagingStub(metadata: MediaFileMetadata(
+                width: 3840, height: 2160, rotation: .rotation90,
+                durationSeconds: 5, hasAudio: true
+            )),
+            mediaService: MediaService(),
+            playerController: player
+        )
+        let configuration = try await controller.prepare(fileURL: url)
+        XCTAssertEqual(configuration.videoFormat.size, CGSize(width: 1080, height: 1920))
+        XCTAssertEqual(player.calls, [.configure(
+            fileURL: url, outputWidth: 1080, outputHeight: 1920,
+            rotation: .rotation90, frameRate: 30, hasAudio: true, durationSeconds: 5
+        )])
+        await controller.stop()
+    }
+
     func testSourceSizeAndModelDefaultFrameRateAreIndependentOfBuckets() async throws {
         let components = makeComponents(hasAudio: false, model: .x2_1_1_preview_cn)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
@@ -26,7 +46,7 @@ final class MediaSourceControllerTests: XCTestCase {
         XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await components.controller.stop()
         XCTAssertEqual(defaultConfiguration.videoFormat, RealtimeVideoFormat(width: 1080, height: 1920, fps: 30))
-        XCTAssertTrue(components.mediaService.requestedSizes.isEmpty)
+        XCTAssertEqual(components.mediaService.requestedSizes, [CGSize(width: 1080, height: 1920)])
     }
 
     func testPrepareResolvesRotatedSizeAndPreservesMetadataDuration() async throws {
@@ -46,7 +66,7 @@ final class MediaSourceControllerTests: XCTestCase {
         )
         XCTAssertEqual(
             components.mediaService.requestedSizes,
-            []
+            [CGSize(width: 1080, height: 1920)]
         )
         XCTAssertEqual(components.player.calls, [
             .configure(

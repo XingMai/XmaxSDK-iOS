@@ -98,6 +98,25 @@ Use wording appropriate for your app. XmaxSDK checks and requests the required
 runtime permissions when creating a local stream and reports an `XmaxError` if
 permission is unavailable.
 
+### Media, generation, and return sizes
+
+All local input sources use `resolveMediaSize(_:source:)`. Camera dimensions
+must match a configured model resolution bucket before any scaling. Images and
+videos do not need to match a bucket. Local frames are limited to the model's
+`maximumInputPixels`, without enlarging smaller inputs, and aligned to multiples
+of 4 with the source aspect ratio preserved where possible. For example,
+a 3840 × 2160 video becomes 1920 × 1080 with a 2100000-pixel limit. Upload quality
+tiers scale this bounded media size further; local preview uses the media size.
+
+`resolveGenerationSize(_:)` selects the closest model bucket for the server's
+generation `size`, or applies model area and alignment rules when there are no
+buckets. `resolveTargetSize(_:maximumSize:frameInterpolationEnabled:)` calculates
+the separate return `target_size` from the downlink bound and interpolation limit,
+with final dimensions aligned to multiples of 4.
+
+The local-frame limit does not cap the memory required to decode the original
+image or video. Applications do not need to duplicate these sizing calculations.
+
 <br>
 
 ## Upload encoding

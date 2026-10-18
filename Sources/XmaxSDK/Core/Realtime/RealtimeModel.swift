@@ -42,15 +42,15 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     // 生成尺寸约束
     /// 模型支持的生成分辨率桶；摄像头输入须精确匹配。
     /// 图片和视频保留媒体比例，生成时选择比例最接近的画布。
-    /// 空数组表示不限制固定尺寸，按像素面积上下限和对齐规则计算输入尺寸。
+    /// 空数组表示不限制固定尺寸，生成画布按像素面积上下限和对齐规则计算。
     public var resolutionBuckets: [CGSize] {
         [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)]
     }
 
-    /// 输入分辨率的最小总像素面积；仅在分辨率桶为空时参与尺寸计算。
+    /// 生成画布的最小总像素面积；仅在分辨率桶为空时参与计算，不放大小尺寸媒体帧。
     public var minimumInputPixels: Int { 600000 }
 
-    /// 输入分辨率的最大总像素面积；仅在分辨率桶为空时参与尺寸计算。
+    /// 本地媒体帧的最大总像素面积；分辨率桶为空时也用于限制生成画布。
     public var maximumInputPixels: Int { 2100000 }
 
     /// 输入宽高需要对齐的像素倍数；仅在分辨率桶为空时参与尺寸计算。

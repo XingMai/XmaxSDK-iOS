@@ -15,6 +15,24 @@ import XCTest
 @testable import XmaxSDK
 
 final class ImageControllerTests: XCTestCase {
+    func testLargeImageProducesCappedPreviewAndRtcFrames() async throws {
+        let image = DecodedImageStub(width: 3840, height: 2160)
+        let recorder = ImageFrameRecorder()
+        let controller = ImageController(
+            rtcManager: RtcManagingStub(),
+            imageManager: ImageManagingStub(decodedImage: image),
+            mediaService: MediaService(),
+            frameListener: { recorder.append($0) }
+        )
+        let stream = try await controller.createLocalImageStream(imageData: Data("image".utf8))
+        await controller.stopLocalImageStream()
+
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.size, CGSize(width: 1920, height: 1080))
+        XCTAssertEqual(image.frameSizes, [CGSize(width: 1920, height: 1080)])
+        XCTAssertEqual(recorder.frames.first?.format.width, 1920)
+        XCTAssertEqual(recorder.frames.first?.format.height, 1080)
+    }
+
     func testImageUsesModelDefaultFrameRate() async throws {
         let controller = ImageController(
             rtcManager: RtcManagingStub(),
@@ -123,7 +141,7 @@ final class ImageControllerTests: XCTestCase {
 
         XCTAssertEqual(
             mediaService.requestedSizes,
-            []
+            [CGSize(width: 400, height: 800)]
         )
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,

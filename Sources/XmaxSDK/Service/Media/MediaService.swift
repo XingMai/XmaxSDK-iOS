@@ -11,7 +11,7 @@
 
 import CoreGraphics
 
-/// 提供模型输入尺寸和平台媒体能力相关的业务规则。
+/// 提供本地媒体、回传尺寸和平台媒体能力相关的业务规则。
 final class MediaService: MediaServicing, Sendable {
 
     // 模型约束
@@ -27,62 +27,32 @@ final class MediaService: MediaServicing, Sendable {
         self.model = model
     }
 
-    /// 计算满足模型输入约束的尺寸。
+    /// 计算本地媒体帧尺寸，并校验摄像头的模型分辨率桶。
     ///
-    /// - Parameter size: 指定的视频格式尺寸；未指定格式时为原始媒体的显示尺寸。
-    /// - Returns: 模型分辨率桶非空时，精确匹配后原样返回；为空时按像素面积上下限及对齐要求计算。
-    /// - Throws: 尺寸无效或未匹配模型支持的分辨率桶时抛出 `XmaxError`。
-    func resolveModelInputSize(_ size: CGSize) throws -> CGSize {
+    /// - Parameters:
+    ///   - size: 摄像头请求尺寸或图片、视频按显示方向解析后的整数像素尺寸。
+    ///   - source: 媒体来源；摄像头须精确匹配模型已配置的分辨率桶。
+    /// - Returns: 不放大、不超过模型最大像素面积的 4 对齐尺寸，优先保持精确比例。
+    /// - Throws: 尺寸无效、摄像头不匹配分辨率桶或无法形成有效输出尺寸时抛出错误。
+    func resolveMediaSize(_ size: CGSize, source: RealtimeMediaSource) throws -> CGSize {
+        guard let width = Self.integralDimension(size.width),
+              let height = Self.integralDimension(size.height) else {
+            throw XmaxError(code: .invalidConfiguration, message: "Media dimensions must be positive integers")
+        }
+
         let buckets = model.resolutionBuckets
-        if !buckets.isEmpty {
-            guard buckets.contains(size) else {
-                let supportedSizes = buckets.map { "\(Int($0.width))×\(Int($0.height))" }.joined(separator: ", ")
-                throw XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Model \(model.rawValue) does not support input resolution " +
-                        "\(size.width)×\(size.height). Supported resolutions: \(supportedSizes)"
-                )
-            }
-            return size
+        if source == .camera, !buckets.isEmpty, !buckets.contains(size) {
+            let supportedSizes = buckets.map { "\(Int($0.width))×\(Int($0.height))" }.joined(separator: ", ")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Model \(model.rawValue) does not support camera resolution " +
+                    "\(width)×\(height). Supported resolutions: \(supportedSizes)"
+            )
         }
 
-        let size = try validatedSize(size)
-        let pixels = Double(size.width) * Double(size.height)
-        let scale: Double
-        let rounding: (Double) -> Double
-
-        if pixels < Double(model.minimumInputPixels) {
-            scale = sqrt(Double(model.minimumInputPixels) / pixels)
-            rounding = ceil
-        } else if pixels > Double(model.maximumInputPixels) {
-            scale = sqrt(Double(model.maximumInputPixels) / pixels)
-            rounding = floor
-        } else {
-            scale = 1
-            rounding = round
-        }
-
-        let alignment = Double(model.inputSizeAlignment)
-        let width = max(
-            Int(rounding(Double(size.width) * scale / alignment)) *
-                model.inputSizeAlignment,
-            model.inputSizeAlignment
-        )
-        let height = max(
-            Int(rounding(Double(size.height) * scale / alignment)) *
-                model.inputSizeAlignment,
-            model.inputSizeAlignment
-        )
-        let alignedPixels = width * height
-        if (model.minimumInputPixels...model.maximumInputPixels).contains(alignedPixels) {
-            return CGSize(width: width, height: height)
-        }
-
-        // 对齐可能使边界附近的尺寸越界，选择满足面积限制且最接近目标的尺寸。
-        return boundedAlignedSize(
-            width: Double(size.width) * scale,
-            height: Double(size.height) * scale
-        )
+        let pixels = Double(width) * Double(height)
+        let scale = min(1, sqrt(Double(model.maximumInputPixels) / pixels))
+        return try alignedSize(width: width, height: height, scale: scale, alignment: 4)
     }
 
     /// 综合档位尺寸上限和可选插帧限制，计算最终回传尺寸。
@@ -114,31 +84,7 @@ final class MediaService: MediaServicing, Sendable {
             scale *= sqrt(Double(Self.maximumFrameInterpolationPixels) / targetPixels)
         }
 
-        // 使用最简宽高比的整数倍，避免分别取整导致比例发生变化。
-        var divisor = width
-        var remainder = height
-        while remainder != 0 {
-            (divisor, remainder) = (remainder, divisor % remainder)
-        }
-        let ratioWidth = width / divisor
-        let ratioHeight = height / divisor
-        let alignedScale = Int(floor(Double(divisor) * scale / 4)) * 4
-        if alignedScale >= 4 {
-            return CGSize(
-                width: ratioWidth * alignedScale,
-                height: ratioHeight * alignedScale
-            )
-        }
-
-        let alignedWidth = Int(floor(Double(width) * scale / 4)) * 4
-        let alignedHeight = Int(floor(Double(height) * scale / 4)) * 4
-        guard alignedWidth >= 4, alignedHeight >= 4 else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "No 4-aligned target size is available within the size limits"
-            )
-        }
-        return CGSize(width: alignedWidth, height: alignedHeight)
+        return try alignedSize(width: width, height: height, scale: scale, alignment: 4)
     }
 
     /// 判断当前设备是否支持对指定分辨率的视频进行插帧。
@@ -169,38 +115,41 @@ final class MediaService: MediaServicing, Sendable {
 }
 
 private extension MediaService {
-    /// 选择满足模型面积与对齐约束、最接近目标宽高的尺寸。
+    /// 在指定缩放范围内计算对齐尺寸，优先使用最简宽高比的整数倍。
     ///
     /// - Parameters:
-    ///   - width: 缩放后的目标宽度，单位为像素。
-    ///   - height: 缩放后的目标高度，单位为像素。
-    /// - Returns: 在合法尺寸中相对宽高偏差最小的候选尺寸。
-    func boundedAlignedSize(width: Double, height: Double) -> CGSize {
-        let alignment = model.inputSizeAlignment
-        let unitPixels = alignment * alignment
-        let minimumUnits = (model.minimumInputPixels + unitPixels - 1) / unitPixels
-        let maximumUnits = model.maximumInputPixels / unitPixels
-        var bestSize = CGSize.zero
-        var bestDistance = Double.infinity
-
-        for widthUnits in 1...maximumUnits {
-            let minimumHeight = (minimumUnits + widthUnits - 1) / widthUnits
-            let maximumHeight = maximumUnits / widthUnits
-            guard minimumHeight <= maximumHeight else { continue }
-            let heightUnits = min(
-                max(Int((height / Double(alignment)).rounded()), minimumHeight),
-                maximumHeight
-            )
-            let candidateWidth = Double(widthUnits * alignment)
-            let candidateHeight = Double(heightUnits * alignment)
-            let distance = pow((candidateWidth - width) / width, 2)
-                + pow((candidateHeight - height) / height, 2)
-            if distance < bestDistance {
-                bestDistance = distance
-                bestSize = CGSize(width: candidateWidth, height: candidateHeight)
-            }
+    ///   - width: 原始整数像素宽度。
+    ///   - height: 原始整数像素高度。
+    ///   - scale: 不超过 1 的等比缩放比例。
+    ///   - alignment: 宽高需要对齐的像素倍数。
+    /// - Returns: 不超过缩放边界的对齐尺寸，无法精确等比时分别向下对齐。
+    /// - Throws: 缩放边界内无法容纳一个对齐单位时抛出错误。
+    func alignedSize(width: Int, height: Int, scale: Double, alignment: Int) throws -> CGSize {
+        // 使用最简宽高比的整数倍，避免分别取整导致比例发生变化。
+        var divisor = width
+        var remainder = height
+        while remainder != 0 {
+            (divisor, remainder) = (remainder, divisor % remainder)
         }
-        return bestSize
+        let ratioWidth = width / divisor
+        let ratioHeight = height / divisor
+        let alignedScale = Int(floor(Double(divisor) * scale / Double(alignment))) * alignment
+        if alignedScale >= alignment {
+            return CGSize(
+                width: ratioWidth * alignedScale,
+                height: ratioHeight * alignedScale
+            )
+        }
+
+        let alignedWidth = Int(floor(Double(width) * scale / Double(alignment))) * alignment
+        let alignedHeight = Int(floor(Double(height) * scale / Double(alignment))) * alignment
+        guard alignedWidth >= alignment, alignedHeight >= alignment else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "No aligned video size is available within the size limits"
+            )
+        }
+        return CGSize(width: alignedWidth, height: alignedHeight)
     }
 
     /// 将有效的正整数像素边长转换为整数。
@@ -216,29 +165,5 @@ private extension MediaService {
         let roundedValue = value.rounded()
         guard roundedValue == value else { return nil }
         return Int(roundedValue)
-    }
-
-    /// 校验媒体宽高并将其取整为至少一个像素。
-    ///
-    /// - Parameter size: 待校验的媒体尺寸。
-    /// - Returns: 宽高均为正整数的媒体尺寸。
-    /// - Throws: 宽高非有限、非正数或超出整数范围时抛出配置错误。
-    func validatedSize(_ size: CGSize) throws -> CGSize {
-        guard size.width.isFinite,
-              size.height.isFinite,
-              size.width > 0,
-              size.height > 0,
-              size.width < CGFloat(Int.max),
-              size.height < CGFloat(Int.max) else {
-            throw XmaxError(
-                code: .invalidConfiguration,
-                message: "Image width and height must be finite numbers " +
-                    "greater than zero"
-            )
-        }
-        return CGSize(
-            width: max(size.width.rounded(), 1),
-            height: max(size.height.rounded(), 1)
-        )
     }
 }

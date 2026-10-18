@@ -38,7 +38,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     ///
     /// - Parameters:
     ///   - metadataManager: 读取文件媒体元数据的组件。
-    ///   - mediaService: 提供模型默认帧率的服务。
+    ///   - mediaService: 提供媒体尺寸规则和模型默认帧率的服务。
     ///   - playerController: 负责解码、帧输出和本地预览的播放器。
     init(
         metadataManager: any MediaFileMetadataManaging,
@@ -203,7 +203,7 @@ private extension MediaSourceController {
         await playerController.stop()
     }
 
-    /// 根据源视频显示方向计算偶数对齐的输出规格。
+    /// 根据源视频显示方向和模型面积上限计算输出规格。
     ///
     /// - Parameter metadata: 源视频的编码尺寸、旋转及音频信息。
     /// - Returns: 保留源显示比例并使用模型默认帧率的输出规格。
@@ -215,9 +215,13 @@ private extension MediaSourceController {
             metadata.rotation == .rotation270
         let displayWidth = swapsDimensions ? metadata.height : metadata.width
         let displayHeight = swapsDimensions ? metadata.width : metadata.height
+        let size = try mediaService.resolveMediaSize(
+            CGSize(width: displayWidth, height: displayHeight),
+            source: .video
+        )
         let resolvedFormat = RealtimeVideoFormat(
-            width: displayWidth / 2 * 2,
-            height: displayHeight / 2 * 2,
+            width: Int(size.width),
+            height: Int(size.height),
             fps: mediaService.model.defaultFrameRate
         )
         try resolvedFormat.validate()
