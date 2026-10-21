@@ -22,6 +22,7 @@ final class EncodingController: EncodingControlling, Sendable {
     }
 
     /// 校验视频规格并应用解析后的 RTC 编码参数。
+    /// 未指定最低码率时使用 500 kbps，但不超过当前规格的最高码率。
     ///
     /// - Parameter videoFormat: 包含尺寸、帧率、可选码率及编码偏好的视频规格。
     /// - Throws: 视频规格无效、默认码率解析或 RTC 配置失败时抛出错误。
@@ -30,7 +31,9 @@ final class EncodingController: EncodingControlling, Sendable {
     ) throws {
         try videoFormat.validate()
 
-        let (minimum, maximum) = try EncodingBitratePolicy.resolve(videoFormat)
+        let budget = try EncodingBitratePolicy.resolve(videoFormat)
+        let maximum = budget.maximum
+        let minimum = videoFormat.minimumBitrate ?? min(500, maximum)
 
         let encoderPreference: VideoEncodingConfiguration.EncoderPreference = switch videoFormat.encoderPreference {
             case .auto: .auto

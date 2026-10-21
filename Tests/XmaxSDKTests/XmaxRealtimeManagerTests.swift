@@ -459,7 +459,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 width: 832,
                 height: 1472,
                 frameRate: 24,
-                minimumBitrate: 100,
+                minimumBitrate: 500,
                 maximumBitrate: 2166
             )
         )
@@ -837,7 +837,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                         width: videoFormat.width,
                         height: videoFormat.height,
                         frameRate: videoFormat.fps,
-                        minimumBitrate: 100,
+                        minimumBitrate: 500,
                         maximumBitrate: 1572
                     )
                 )
