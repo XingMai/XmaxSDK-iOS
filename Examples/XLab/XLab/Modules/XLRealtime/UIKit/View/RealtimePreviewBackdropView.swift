@@ -7,9 +7,8 @@ final class RealtimePreviewBackdropView: UIView {
     }
 
     // 显示配置
-    private let videoContentMode: VideoContentMode
+    private let usesFileLayout: Bool
     private let trajectoryRenderer: (any TrajectoryEffectRendering)?
-    private var isLandscapeLayout: Bool?
 
     private var gradientLayer: CAGradientLayer {
         layer as! CAGradientLayer
@@ -19,9 +18,7 @@ final class RealtimePreviewBackdropView: UIView {
     private let videoViewportView = UIView()
 
     private lazy var realtimeVideoView: XmaxRealtimeVideoView = {
-        let view = XmaxRealtimeVideoView(
-            videoContentMode: videoContentMode
-        )
+        let view = XmaxRealtimeVideoView(videoContentMode: .fit)
         view.trajectoryRenderer = trajectoryRenderer
         view.backgroundColor = .feed(rgb: 0x101010)
         return view
@@ -44,7 +41,7 @@ final class RealtimePreviewBackdropView: UIView {
         usesFileLayout: Bool,
         trajectoryRenderer: (any TrajectoryEffectRendering)? = nil
     ) {
-        videoContentMode = usesFileLayout ? .fit : .fill
+        self.usesFileLayout = usesFileLayout
         self.trajectoryRenderer = trajectoryRenderer
         super.init(frame: .zero)
         clipsToBounds = true
@@ -72,17 +69,19 @@ final class RealtimePreviewBackdropView: UIView {
         videoViewportView.frame = bounds
         let contentFrame = videoViewportView.bounds
         realtimeVideoView.frame = contentFrame
-        let isLandscape = isLandscapeLayout ??
-            window?.windowScene?.interfaceOrientation.isLandscape ?? (bounds.width > bounds.height)
-        realtimeVideoView.videoContentMode = isLandscape ? .fit : videoContentMode
+        updateVideoContentMode()
         cameraSwitchBlurView.frame = contentFrame
         realtimeVideoView.layoutIfNeeded()
     }
 
-    /// 在旋转开始时应用目标布局，不等待窗口方向更新。
-    func setLandscapeLayout(_ isLandscape: Bool) {
-        isLandscapeLayout = isLandscape
-        realtimeVideoView.videoContentMode = isLandscape ? .fit : videoContentMode
+    func updateVideoContentMode() {
+        guard !usesFileLayout, let format = realtimeVideoView.localTrack?.videoFormat else {
+            realtimeVideoView.videoContentMode = .fit
+            return
+        }
+        let fillsViewport = (format.width == 1920 && format.height == 1080) ||
+            (format.width == 1080 && format.height == 1920)
+        realtimeVideoView.videoContentMode = fillsViewport ? .fill : .fit
     }
 
     func displayLocal(_ track: RealtimeVideoTrack?) {
@@ -92,6 +91,7 @@ final class RealtimePreviewBackdropView: UIView {
 
     func updateLocal(_ track: RealtimeVideoTrack?) {
         realtimeVideoView.localTrack = track
+        updateVideoContentMode()
     }
 
     func displayRealtime(_ track: RealtimeVideoTrack?) {

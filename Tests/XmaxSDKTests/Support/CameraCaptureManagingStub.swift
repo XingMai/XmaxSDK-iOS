@@ -17,12 +17,14 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
         case start(VideoFormat, Int, CameraPosition)
         case switchCamera(CameraPosition)
         case updateOrientation(CameraOrientation, VideoFormat)
+        case updateFormat(VideoFormat, Int)
         case stop
     }
 
     // 测试配置
     let startError: (any Error)?
     let switchError: (any Error)?
+    let updateError: (any Error)?
 
     // 调用记录
     private let lock = NSLock()
@@ -30,9 +32,10 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
     private var errorListener: XmaxErrorListener?
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
 
-    init(startError: (any Error)? = nil, switchError: (any Error)? = nil) {
+    init(startError: (any Error)? = nil, switchError: (any Error)? = nil, updateError: (any Error)? = nil) {
         self.startError = startError
         self.switchError = switchError
+        self.updateError = updateError
     }
 
     var calls: [Call] { lock.withLock { recordedCalls } }
@@ -70,6 +73,11 @@ final class CameraCaptureManagingStub: CameraCaptureManaging, @unchecked Sendabl
 
     func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws {
         lock.withLock { recordedCalls.append(.updateOrientation(orientation, videoFormat)) }
+    }
+
+    func updateFormat(_ videoFormat: VideoFormat, frameRate: Int) async throws {
+        lock.withLock { recordedCalls.append(.updateFormat(videoFormat, frameRate)) }
+        if let updateError { throw updateError }
     }
 
     var currentErrorListener: XmaxErrorListener? {

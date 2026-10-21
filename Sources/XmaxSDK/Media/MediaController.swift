@@ -364,6 +364,20 @@ actor MediaController: MediaControlling {
         try await cameraController.updateOrientation(orientation)
     }
 
+    /// 更新活动摄像头的媒体规格，保留所有权及轨道。
+    ///
+    /// - Parameter videoFormat: 新的尺寸、帧率与编码配置。
+    /// - Throws: 当前没有摄像头流、存在媒体操作或采集配置失败时抛出错误。
+    func updateCameraFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async throws {
+        guard activeSource?.kind == .camera else {
+            throw XmaxError(code: .invalidConfiguration, message: "Camera preview is not started")
+        }
+        try ensureNoOperationInProgress()
+        try await cameraController.updateVideoFormat(videoFormat)
+    }
+
     /// 判断指定媒体流是否由当前活动媒体来源持有。
     ///
     /// - Parameter stream: 需要验证所有权的媒体流。

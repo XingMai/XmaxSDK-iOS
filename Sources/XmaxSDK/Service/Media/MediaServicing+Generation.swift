@@ -26,7 +26,7 @@ public extension MediaServicing {
         }
 
         let aspect = resolvedMediaSize.width / resolvedMediaSize.height
-        if let bucket = model.resolutionBuckets.min(by: {
+        if let bucket = model.supportedVideoFormats.map(\.size).min(by: {
             abs(log(aspect / ($0.width / $0.height))) < abs(log(aspect / ($1.width / $1.height)))
         }) {
             return bucket

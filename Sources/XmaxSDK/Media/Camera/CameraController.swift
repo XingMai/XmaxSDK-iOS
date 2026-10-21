@@ -59,6 +59,12 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     /// RTC 是否正在采集麦克风音频。
     private var isMicrophoneCapturing = false
 
+    /// 串行提交尺寸及方向更新，避免窗口旋转覆盖手动规格。
+    @MainActor private var formatUpdateTask: Task<Void, any Error>?
+
+    /// 已应用到采集帧的窗口方向，用于判断是否需要交换输出宽高。
+    @MainActor private var appliedOrientation: CameraOrientation?
+
     /// 使用系统权限和采集组件创建摄像头控制器。
     ///
     /// - Parameters:
@@ -237,6 +243,8 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         await captureManager.stop()
         resources.1?.dispatcher.reset()
         await MainActor.run {
+            appliedOrientation = nil
+            formatUpdateTask = nil
             if let track = resources.0 { VideoRenderRegistry.unregister(track) }
             resources.1?.presenter.clear()
         }
@@ -272,29 +280,75 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     func updateOrientation(
         _ orientation: CameraOrientation
     ) async throws {
-        guard let track = currentTrack, let format = track.videoFormat else { return }
-        let longSide = max(format.width, format.height)
-        let shortSide = min(format.width, format.height)
-        let resolved = try resolveVideoFormat(format.resized(
-            width: orientation.isLandscape ? longSide : shortSide,
-            height: orientation.isLandscape ? shortSide : longSide
-        ))
+        guard currentTrack != nil else { return }
+        try await updateCapture(videoFormat: nil, orientation: orientation)
+    }
 
-        try await captureManager.updateOrientation(
-            orientation,
-            videoFormat: VideoFormat(width: resolved.width, height: resolved.height, pixelFormat: .nv12)
-        )
-        await MainActor.run {
-            guard track.displayOrientation == nil || track.displayOrientation == orientation else { return }
-            stateLock.withLock {
-                guard activeTrack === track else { return }
-                track.updateVideoFormat(resolved)
-            }
-        }
+    /// 更新摄像头完整规格，保留方向、镜头和当前轨道。
+    ///
+    /// - Parameter videoFormat: 模型支持的尺寸、采集帧率和编码配置。
+    /// - Throws: 摄像头未启动、规格无效或设备更新失败时抛出错误。
+    func updateVideoFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async throws {
+        try await updateCapture(videoFormat: videoFormat, orientation: nil)
     }
 }
 
 private extension CameraController {
+
+    /// 按提交顺序更新采集配置，再同步轨道和待展示帧。
+    ///
+    /// - Parameters:
+    ///   - videoFormat: 显式目标规格；为空时仅更新方向。
+    ///   - orientation: 新窗口方向；为空时保留当前方向。
+    /// - Throws: 轨道已失效、规格不支持、操作取消或采集配置失败时抛出错误。
+    @MainActor
+    func updateCapture(
+        videoFormat: RealtimeVideoFormat?,
+        orientation: CameraOrientation?
+    ) async throws {
+        guard let track = currentTrack else {
+            throw XmaxError(code: .invalidConfiguration, message: "Camera preview is not started")
+        }
+        let previous = formatUpdateTask
+        let task = Task { @MainActor [self] in
+            _ = try? await previous?.value
+            try Task.checkCancellation()
+            guard currentTrack === track, let current = track.videoFormat else {
+                throw XmaxError(code: .cancelled, message: "Camera stream is no longer active")
+            }
+            var requested = videoFormat ?? current
+            if let orientation, let appliedOrientation,
+               orientation.isLandscape != appliedOrientation.isLandscape {
+                requested = current.resized(width: current.height, height: current.width)
+            }
+            let resolved = try resolveVideoFormat(requested)
+            let output = try VideoFormat(width: resolved.width, height: resolved.height, pixelFormat: .nv12)
+
+            if let orientation {
+                try await captureManager.updateOrientation(orientation, videoFormat: output)
+            } else if resolved != current {
+                try await captureManager.updateFormat(output, frameRate: resolved.fps)
+            }
+
+            // 采集队列已完成旧规格的帧回调；在主线程一起更新元数据和预览队列。
+            guard currentTrack === track else {
+                throw XmaxError(code: .cancelled, message: "Camera stream is no longer active")
+            }
+            stateLock.withLock {
+                preview?.dispatcher.reset()
+                track.updateVideoFormat(resolved)
+            }
+            if let orientation { appliedOrientation = orientation }
+        }
+        formatUpdateTask = task
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
 
     /// 持有摄像头预览呈现器和帧分发器。
     struct Preview: Sendable {

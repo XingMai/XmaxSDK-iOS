@@ -69,6 +69,17 @@ protocol CameraCaptureManaging: Sendable {
         to position: CameraPosition
     ) async throws
 
+    /// 更新输出尺寸和实际采集帧率，保留镜头、方向及帧监听器。
+    ///
+    /// - Parameters:
+    ///   - videoFormat: 新的 NV12 输出规格。
+    ///   - frameRate: 设备需要应用的采集帧率。
+    /// - Throws: 摄像头未启动、格式不支持或设备配置失败时抛出错误。
+    func updateFormat(
+        _ videoFormat: VideoFormat,
+        frameRate: Int
+    ) async throws
+
     /// 更新帧转换方向和输出尺寸，保留采集连接及帧率。
     ///
     /// - Parameters:

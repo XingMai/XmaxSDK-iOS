@@ -213,6 +213,22 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
+    /// 当前摄像头媒体规格；其他媒体来源返回空值。
+    var currentCameraVideoFormat: RealtimeVideoFormat? {
+        get async {
+            guard let track = await mediaController.currentTrack, track.position != nil else { return nil }
+            return track.videoFormat
+        }
+    }
+
+    /// 按当前摄像头媒体宽高匹配的预设，不受帧率和编码档位影响。
+    var currentCameraPreset: RealtimeCameraPreset? {
+        get async {
+            guard let format = await currentCameraVideoFormat else { return nil }
+            return RealtimeCameraPreset.allCases.first { $0.size == format.size }
+        }
+    }
+
     /// 当前已连接会话成功提交的下行档位。
     var downlinkQualityLevel: RealtimeQualityLevel? {
         get async {
@@ -465,6 +481,47 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
             try token.ensureCurrent()
             return stream
+        }
+    }
+
+    /// 更新未连接、已就绪的摄像头规格，保留流及视图绑定。
+    ///
+    /// - Parameter videoFormat: 模型支持的新尺寸、帧率与编码配置。
+    /// - Throws: 状态无效、操作冲突、规格不支持或设备配置失败时抛出错误。
+    func updateCameraFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async throws {
+        try await updateCameraFormat { _ in videoFormat }
+    }
+
+    /// 只更新摄像头分辨率，保留当前帧率与编码配置。
+    ///
+    /// - Parameter preset: 目标分辨率预设。
+    /// - Throws: 状态无效、操作冲突、预设不支持或采集配置失败时抛出错误。
+    func updateCameraFormat(
+        _ preset: RealtimeCameraPreset
+    ) async throws {
+        try await updateCameraFormat { current in
+            current.resized(width: Int(preset.size.width), height: Int(preset.size.height))
+        }
+    }
+
+    /// 在媒体操作内读取当前规格并应用更新，避免覆盖并发配置。
+    ///
+    /// - Parameter resolve: 根据当前摄像头规格生成目标规格。
+    /// - Throws: 摄像头未就绪、连接未断开或配置更新失败时抛出错误。
+    private func updateCameraFormat(
+        resolve: @escaping @Sendable (RealtimeVideoFormat) -> RealtimeVideoFormat
+    ) async throws {
+        try await coordinator.run(kind: .media) { [self] token in
+            try await ensureLocalMediaCanChange(message: "Disconnect realtime before updating the camera format")
+            guard await coordinator.currentState.connectionState == .ready,
+                  let current = await currentCameraVideoFormat else {
+                throw XmaxError(code: .invalidConfiguration, message: "Camera preview must be ready before updating its format")
+            }
+            try token.ensureCurrent()
+            try await mediaController.updateCameraFormat(resolve(current))
+            try token.ensureCurrent()
         }
     }
 

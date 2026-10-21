@@ -1702,6 +1702,59 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
+    func testCameraFormatUpdateRequiresReadyPreviewAndPreservesPresetEncodingOptions() async throws {
+        let components = makeComponents(cameraMediaService: MediaService(model: .x2_1))
+        let manager: any XmaxRealtimeManaging = components.manager
+        let initial = RealtimeVideoFormat(
+            width: 1080, height: 1920, fps: 24,
+            minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+        )
+        let ready = expectation(description: "Camera is ready")
+        await manager.setStateListener { state in
+            if state.connectionState == .ready { ready.fulfill() }
+        }
+        let stream = try await manager.createLocalCameraStream(videoFormat: initial)
+        do {
+            try await manager.updateCameraFormat(.resolution1408x1408)
+            XCTFail("Expected update during preparation to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        let track = try XCTUnwrap(stream.videoTrack)
+        let binding = try XCTUnwrap(VideoRenderRegistry.binding(for: track))
+        let view = XmaxVideoView()
+        try binding.attach(to: view, contentMode: .fit)
+        try components.captureManager.emitFrame(CameraControllerTests.testFrame())
+        await fulfillment(of: [ready], timeout: 2)
+        await manager.setStateListener(nil)
+
+        try await manager.updateCameraFormat(.resolution1408x1408)
+        let current = await manager.currentCameraVideoFormat
+        let preset = await manager.currentCameraPreset
+        XCTAssertEqual(current, initial.resized(width: 1408, height: 1408))
+        XCTAssertEqual(preset, .resolution1408x1408)
+        XCTAssertEqual(track.videoFormat, current)
+        XCTAssertEqual(view.bounds, .zero)
+
+        try await manager.connect(localStream: stream)
+        do {
+            try await manager.updateCameraFormat(.resolution1920x1080)
+            XCTFail("Expected update while connected to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        XCTAssertEqual(track.videoFormat, current)
+        await manager.close()
+    }
+
+    func testCameraPresetCreationUsesModelDefaultFormat() async throws {
+        let components = makeComponents(cameraMediaService: MediaService(model: .x2_1))
+        let manager: any XmaxRealtimeManaging = components.manager
+        let stream = try await manager.createLocalCameraStream(preset: .resolution1152x1536)
+        XCTAssertEqual(stream.videoTrack?.videoFormat, RealtimeVideoFormat(width: 1152, height: 1536, fps: 30))
+        await manager.close()
+    }
+
     func testCameraReadyRequiresCapturedFrameAndAttachedPreview() async throws {
         for frameArrivesFirst in [false, true] {
             let components = makeComponents()
@@ -1825,6 +1878,7 @@ private extension XmaxRealtimeManagerTests {
         rtcManager: RtcManagingStub = RtcManagingStub(),
         captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
+        cameraMediaService: (any MediaServicing)? = nil,
         model: RealtimeModel = .x2_1,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
@@ -1865,7 +1919,7 @@ private extension XmaxRealtimeManagerTests {
         let cameraController = CameraController(
             rtcManager: rtcManager,
             permissionManager: permissionManager,
-            mediaService: mediaService,
+            mediaService: cameraMediaService ?? mediaService,
             captureManager: captureManager,
             videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
             errorListener: { errorHandler.forward($0, target: .all) }

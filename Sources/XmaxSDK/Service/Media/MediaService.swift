@@ -42,7 +42,7 @@ final class MediaService: MediaServicing, Sendable {
             throw XmaxError(code: .invalidConfiguration, message: "Media dimensions must be positive integers")
         }
 
-        let buckets = model.resolutionBuckets
+        let buckets = model.supportedVideoFormats.map(\.size)
         if source == .camera, !buckets.isEmpty, !buckets.contains(sourceMediaSize) {
             let supportedSizes = buckets.map { "\(Int($0.width))×\(Int($0.height))" }.joined(separator: ", ")
             throw XmaxError(

@@ -22,10 +22,10 @@ final class RealtimeModelTests: XCTestCase {
         )
     }
 
-    func testModelResolutionBuckets() {
+    func testModelSupportedVideoFormats() {
         XCTAssertEqual(RealtimeModel.allCases, [.x2_1])
         XCTAssertNil(RealtimeModel(rawValue: "x2.0"))
-        XCTAssertEqual(RealtimeModel.x2_1.resolutionBuckets, [
+        XCTAssertEqual(RealtimeModel.x2_1.supportedVideoFormats.map(\.size), [
             CGSize(width: 1920, height: 1080),
             CGSize(width: 1080, height: 1920),
             CGSize(width: 1408, height: 1408),
@@ -34,6 +34,8 @@ final class RealtimeModelTests: XCTestCase {
         ])
         XCTAssertEqual(RealtimeModel.x2_1.rawValue, "x2.1")
         XCTAssertEqual(RealtimeModel.x2_1.displayName, "X2.1")
+        XCTAssertEqual(RealtimeCameraPreset.allCases.map(\.size), RealtimeModel.x2_1.supportedVideoFormats.map(\.size))
+        XCTAssertTrue(RealtimeModel.x2_1.supportedVideoFormats.allSatisfy { $0.fps == 30 })
     }
 
     func testContextNormalizesPromptAndReferencePath() {

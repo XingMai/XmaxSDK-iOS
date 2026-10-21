@@ -86,7 +86,7 @@ final class MediaServiceTests: XCTestCase {
 
     func testBucketResolutionsArePreservedInBothOrientations() throws {
         let service = MediaService(model: .x2_1)
-        for size in service.model.resolutionBuckets {
+        for size in service.model.supportedVideoFormats.map(\.size) {
             XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
         }
     }
@@ -216,7 +216,7 @@ final class MediaServiceTests: XCTestCase {
             CGSize(width: 1536, height: 1152)
         ]
         let service = MediaService(model: .x2_1)
-        XCTAssertEqual(service.model.resolutionBuckets, buckets)
+        XCTAssertEqual(service.model.supportedVideoFormats.map(\.size), buckets)
         for size in buckets {
             XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
         }

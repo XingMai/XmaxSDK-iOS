@@ -24,18 +24,18 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
-    /// 模型支持的生成分辨率桶；摄像头输入须精确匹配。
+    /// 模型支持的视频规格；摄像头宽高须精确匹配，帧率为推荐默认值。
     /// 图片和视频保留媒体比例，生成时选择比例最接近的画布。
     /// 空数组表示不限制固定尺寸，生成画布按像素面积上下限和对齐规则计算。
-    public var resolutionBuckets: [CGSize] {
+    public var supportedVideoFormats: [RealtimeVideoFormat] {
         switch self {
         case .x2_1:
             [
-                CGSize(width: 1920, height: 1080),
-                CGSize(width: 1080, height: 1920),
-                CGSize(width: 1408, height: 1408),
-                CGSize(width: 1152, height: 1536),
-                CGSize(width: 1536, height: 1152)
+                RealtimeVideoFormat(width: 1920, height: 1080, fps: defaultFrameRate),
+                RealtimeVideoFormat(width: 1080, height: 1920, fps: defaultFrameRate),
+                RealtimeVideoFormat(width: 1408, height: 1408, fps: defaultFrameRate),
+                RealtimeVideoFormat(width: 1152, height: 1536, fps: defaultFrameRate),
+                RealtimeVideoFormat(width: 1536, height: 1152, fps: defaultFrameRate)
             ]
         }
     }

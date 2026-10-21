@@ -16,6 +16,29 @@ import UIKit
 /// 提供常用默认参数，简化实时媒体流创建与生成调用。
 public extension XmaxRealtimeManaging {
 
+    /// 使用指定分辨率和当前模型的默认帧率创建摄像头流。
+    ///
+    /// - Parameters:
+    ///   - preset: 摄像头输出分辨率，须在模型支持范围内。
+    ///   - position: 首次启用的镜头位置。
+    ///   - useMicrophone: 是否使用麦克风，连接时开始采集。
+    /// - Returns: 包含本地摄像头轨道的媒体流。
+    /// - Throws: 预设不支持、权限不足、操作冲突或采集启动失败时抛出错误。
+    func createLocalCameraStream(
+        preset: RealtimeCameraPreset,
+        position: CameraPosition = .front,
+        useMicrophone: Bool = false
+    ) async throws -> RealtimeMediaStream {
+        guard let format = options.model.supportedVideoFormats.first(where: { $0.size == preset.size }) else {
+            throw XmaxError(code: .invalidConfiguration, message: "Model does not support the requested camera preset")
+        }
+        return try await createLocalCameraStream(
+            videoFormat: format,
+            position: position,
+            useMicrophone: useMicrophone
+        )
+    }
+
     /// 使用当前模型的默认视频规格创建本地相机流。
     ///
     /// - Parameters:

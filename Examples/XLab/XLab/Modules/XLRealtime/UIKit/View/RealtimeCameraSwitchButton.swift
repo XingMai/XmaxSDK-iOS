@@ -8,9 +8,21 @@ final class RealtimeCameraActionBar: UIView {
     var onSwitchCamera: (() -> Void)?
     var onFrameInterpolationChanged: ((Bool) -> Void)?
     var onOpenAudioVolume: ((UIView) -> Void)?
+    var onOpenCameraFormat: ((UIView) -> Void)?
 
     // 运行状态
     private var isFrameInterpolationEnabled = false
+
+    private lazy var cameraFormatButton: RealtimeLabeledActionButton = {
+        let button = RealtimeLabeledActionButton(
+            title: XLLocalization.text("realtime.camera.format"),
+            image: UIImage(systemName: "aspectratio")
+        )
+        button.isEnabled = false
+        button.alpha = 0.4
+        button.addTarget(self, action: #selector(openCameraFormat), for: .touchUpInside)
+        return button
+    }()
 
     // 界面组件
     private lazy var statisticsButton: RealtimeLabeledActionButton = {
@@ -82,6 +94,7 @@ final class RealtimeCameraActionBar: UIView {
         let stackView = UIStackView(
             arrangedSubviews: [
                 switchCameraButton,
+                cameraFormatButton,
                 frameInterpolationButton,
                 audioVolumeButton,
                 statisticsButton
@@ -109,6 +122,15 @@ final class RealtimeCameraActionBar: UIView {
 
     func setSwitchCameraEnabled(_ isEnabled: Bool) {
         switchCameraButton.isEnabled = isEnabled
+    }
+
+    func setCameraFormatEnabled(_ enabled: Bool) {
+        cameraFormatButton.isEnabled = enabled
+        cameraFormatButton.alpha = enabled ? 1 : 0.4
+    }
+
+    @objc private func openCameraFormat() {
+        onOpenCameraFormat?(cameraFormatButton)
     }
 
     func setFrameInterpolationEnabled(_ enabled: Bool) {

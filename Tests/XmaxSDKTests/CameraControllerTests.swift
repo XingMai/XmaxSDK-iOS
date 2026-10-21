@@ -15,6 +15,76 @@ import XCTest
 @testable import XmaxSDK
 
 final class CameraControllerTests: XCTestCase {
+    func testUpdatingFormatPreservesTrackAndAppliesCaptureFrameRate() async throws {
+        let capture = CameraCaptureManagingStub()
+        let controller = CameraController(
+            rtcManager: RtcManagingStub(), permissionManager: PermissionManagingStub(),
+            mediaService: MediaService(model: .x2_1), captureManager: capture
+        )
+        let stream = try await controller.createLocalCameraStream(
+            videoFormat: RealtimeModel.x2_1.defaultCameraVideoFormat, position: .back
+        )
+        try await controller.updateOrientation(.portrait)
+        let format = RealtimeVideoFormat(
+            width: 1920, height: 1080, fps: 24,
+            minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
+        )
+        try await controller.updateVideoFormat(format)
+
+        XCTAssertTrue(stream.videoTrack === controller.currentTrack)
+        XCTAssertEqual(stream.videoTrack?.videoFormat, format)
+        XCTAssertEqual(stream.videoTrack?.position, .back)
+        XCTAssertEqual(capture.calls.last, .updateFormat(
+            try VideoFormat(width: 1920, height: 1080, pixelFormat: .nv12), 24
+        ))
+        try await controller.updateOrientation(.portrait)
+        XCTAssertEqual(stream.videoTrack?.videoFormat, format)
+        try await controller.updateOrientation(.landscapeLeft)
+        XCTAssertEqual(stream.videoTrack?.videoFormat, format.resized(width: 1080, height: 1920))
+        XCTAssertFalse(capture.calls.contains(.stop))
+        await controller.stopLocalCameraStream()
+    }
+
+    func testUnsupportedUpdatePreservesPreviewWithoutChangingCapture() async throws {
+        let capture = CameraCaptureManagingStub()
+        let controller = CameraController(
+            rtcManager: RtcManagingStub(), permissionManager: PermissionManagingStub(),
+            mediaService: MediaService(model: .x2_1), captureManager: capture
+        )
+        let original = RealtimeModel.x2_1.defaultCameraVideoFormat
+        let stream = try await controller.createLocalCameraStream(videoFormat: original, position: .front)
+        let calls = capture.calls
+        do {
+            try await controller.updateVideoFormat(RealtimeVideoFormat(width: 720, height: 1280, fps: 30))
+            XCTFail("Expected unsupported dimensions to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+        XCTAssertEqual(stream.videoTrack?.videoFormat, original)
+        XCTAssertEqual(capture.calls, calls)
+        await controller.stopLocalCameraStream()
+    }
+
+    func testFailedCaptureUpdatePreservesTrackFormat() async throws {
+        let capture = CameraCaptureManagingStub(updateError: XmaxError(code: .mediaError, message: "Update failed"))
+        let controller = CameraController(
+            rtcManager: RtcManagingStub(), permissionManager: PermissionManagingStub(),
+            mediaService: MediaService(model: .x2_1), captureManager: capture
+        )
+        let original = RealtimeModel.x2_1.defaultCameraVideoFormat
+        let stream = try await controller.createLocalCameraStream(videoFormat: original, position: .front)
+        do {
+            try await controller.updateVideoFormat(RealtimeVideoFormat(width: 1408, height: 1408, fps: 30))
+            XCTFail("Expected capture update to fail")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .mediaError)
+        }
+        XCTAssertTrue(stream.videoTrack === controller.currentTrack)
+        XCTAssertEqual(stream.videoTrack?.videoFormat, original)
+        XCTAssertFalse(capture.calls.contains(.stop))
+        await controller.stopLocalCameraStream()
+    }
+
     func testCameraOrientationSwapsBucketDimensionsAndPreservesEncodingConfiguration() async throws {
         let capture = CameraCaptureManagingStub()
         let controller = CameraController(
@@ -28,6 +98,7 @@ final class CameraControllerTests: XCTestCase {
             minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
         )
         let stream = try await controller.createLocalCameraStream(videoFormat: portrait, position: .front)
+        try await controller.updateOrientation(.portrait)
 
         for orientation in [CameraOrientation.landscapeLeft, .landscapeRight] {
             try await controller.updateOrientation(orientation)

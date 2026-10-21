@@ -327,6 +327,39 @@ final class XmaxVideoViewTests: XCTestCase {
         XCTAssertEqual(cropped.timestampUs, 123)
     }
 
+    func testChangingPreviewDimensionsAndGravityKeepsLayerWithoutAnimations() throws {
+        let view = XmaxVideoView(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        view.prepareDecodedVideoPreview(contentMode: .fill)
+        let layer = try XCTUnwrap(view.layer.sublayers?.compactMap { $0 as? AVSampleBufferDisplayLayer }.first)
+        let originalBounds = view.bounds
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(false)
+        defer { CATransaction.commit() }
+
+        for (width, height, mode) in [(4, 2, VideoContentMode.fill), (2, 2, .fit), (2, 4, .fill)] {
+            let frame = try VideoFrame(
+                format: VideoFormat(width: width, height: height, pixelFormat: .nv12),
+                timestampUs: 0,
+                planes: [
+                    VideoFramePlane(data: Data(repeating: 128, count: width * height), stride: width),
+                    VideoFramePlane(data: Data(repeating: 128, count: width * height / 2), stride: width)
+                ]
+            )
+            view.prepareDecodedVideoPreview(contentMode: mode)
+            view.displayDecodedVideoFrame(frame, contentMode: mode)
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+
+            XCTAssertTrue(layer === view.layer.sublayers?.compactMap { $0 as? AVSampleBufferDisplayLayer }.first)
+            XCTAssertEqual(layer.videoGravity, mode == .fit ? .resizeAspect : .resizeAspectFill)
+            XCTAssertEqual(layer.frame, originalBounds)
+            XCTAssertEqual(view.bounds, originalBounds)
+            XCTAssertTrue(layer.animationKeys()?.isEmpty ?? true)
+            XCTAssertFalse(CATransaction.disableActions())
+        }
+    }
+
     func testDecodedPreviewMirrorChangesWithoutRecreatingLayer() throws {
         let view = XmaxVideoView(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
         let presenter = DecodedVideoPreviewPresenter()

@@ -183,6 +183,54 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
         }
     }
 
+    /// 更新输出尺寸和设备采集帧率，保留摄像头会话及显示方向。
+    ///
+    /// - Parameters:
+    ///   - videoFormat: 新的 NV12 输出尺寸。
+    ///   - frameRate: 设备采集帧率，须位于设备支持范围内。
+    /// - Throws: 采集未启动、规格不支持或设备配置失败时抛出错误。
+    func updateFormat(
+        _ videoFormat: VideoFormat,
+        frameRate: Int
+    ) async throws {
+        try Task.checkCancellation()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            captureQueue.async { [self] in
+                do {
+                    guard self.videoFormat != nil, let device = input?.device else {
+                        throw Self.cameraError("Camera capture is not running")
+                    }
+                    guard frameRate > 0, frameRate <= Int(Int32.max),
+                          videoFormat.width > 0, videoFormat.height > 0,
+                          videoFormat.width.isMultiple(of: 2), videoFormat.height.isMultiple(of: 2),
+                          videoFormat.pixelFormat == .nv12 else {
+                        throw Self.cameraError("Camera capture format is invalid")
+                    }
+
+                    if self.frameRate != frameRate {
+                        let selected = try selectFormat(device: device, frameRate: frameRate)
+                        try device.lockForConfiguration()
+                        defer { device.unlockForConfiguration() }
+                        session.beginConfiguration()
+                        device.activeFormat = selected
+                        let duration = CMTime(value: 1, timescale: Int32(frameRate))
+                        device.activeVideoMinFrameDuration = duration
+                        device.activeVideoMaxFrameDuration = duration
+                        device.automaticallyAdjustsVideoHDREnabled = false
+                        device.isVideoHDREnabled = false
+                        session.commitConfiguration()
+                    }
+
+                    self.frameRate = frameRate
+                    self.videoFormat = videoFormat
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error as? XmaxError ?? Self.cameraError(error.localizedDescription))
+                }
+            }
+        }
+    }
+
     /// 停止采集，等待正在处理的帧结束并释放设备。
     func stop() async {
         await withCheckedContinuation { continuation in
@@ -313,7 +361,52 @@ private extension CameraCaptureManager {
             throw Self.cameraError("The requested camera is unavailable")
         }
 
-        // 优先选择不超过 1920×1080 的 16:9 格式，再回退到不超过 1920×1440 的 4:3 格式。
+        let selected = try selectFormat(device: device, frameRate: frameRate)
+
+        let newInput = try AVCaptureDeviceInput(device: device)
+        if let input {
+            session.removeInput(input)
+        }
+        input = nil
+
+        guard session.canAddInput(newInput) else {
+            throw Self.cameraError("Failed to attach the requested camera")
+        }
+        session.addInput(newInput)
+        input = newInput
+
+        try device.lockForConfiguration()
+        defer {
+            device.unlockForConfiguration()
+        }
+
+        device.activeFormat = selected
+        let duration = CMTime(value: 1, timescale: Int32(frameRate))
+        device.activeVideoMinFrameDuration = duration
+        device.activeVideoMaxFrameDuration = duration
+        device.automaticallyAdjustsVideoHDREnabled = false
+        device.isVideoHDREnabled = false
+
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+            device.focusMode = .continuousAutoFocus
+        }
+
+        if device.isExposureModeSupported(.continuousAutoExposure) {
+            device.exposureMode = .continuousAutoExposure
+        }
+    }
+
+    /// 选择指定帧率下可用的采集格式，优先使用 16:9，再回退到 4:3。
+    ///
+    /// - Parameters:
+    ///   - device: 当前摄像头设备。
+    ///   - frameRate: 请求的采集帧率。
+    /// - Returns: 不超过 1920×1080 的 16:9 格式或 1920×1440 的 4:3 格式。
+    /// - Throws: 没有兼容格式时抛出错误。
+    func selectFormat(
+        device: AVCaptureDevice,
+        frameRate: Int
+    ) throws -> AVCaptureDevice.Format {
         let selected = device.formats.compactMap { format -> (
             format: AVCaptureDevice.Format, area: Int64, isWide: Bool
         )? in
@@ -348,37 +441,7 @@ private extension CameraCaptureManager {
             )
         }
 
-        let newInput = try AVCaptureDeviceInput(device: device)
-        if let input {
-            session.removeInput(input)
-        }
-        input = nil
-
-        guard session.canAddInput(newInput) else {
-            throw Self.cameraError("Failed to attach the requested camera")
-        }
-        session.addInput(newInput)
-        input = newInput
-
-        try device.lockForConfiguration()
-        defer {
-            device.unlockForConfiguration()
-        }
-
-        device.activeFormat = selected
-        let duration = CMTime(value: 1, timescale: Int32(frameRate))
-        device.activeVideoMinFrameDuration = duration
-        device.activeVideoMaxFrameDuration = duration
-        device.automaticallyAdjustsVideoHDREnabled = false
-        device.isVideoHDREnabled = false
-
-        if device.isFocusModeSupported(.continuousAutoFocus) {
-            device.focusMode = .continuousAutoFocus
-        }
-
-        if device.isExposureModeSupported(.continuousAutoExposure) {
-            device.exposureMode = .continuousAutoExposure
-        }
+        return selected
     }
 
     /// 设置固定的采集连接方向，并关闭系统自动镜像。

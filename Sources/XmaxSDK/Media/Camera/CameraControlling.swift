@@ -71,4 +71,12 @@ protocol CameraControlling: Sendable {
     func updateOrientation(
         _ orientation: CameraOrientation
     ) async throws
+
+    /// 更新输出规格和采集帧率，保留当前镜头及预览轨道。
+    ///
+    /// - Parameter videoFormat: 新的媒体尺寸、帧率和编码配置。
+    /// - Throws: 摄像头未启动、格式不支持或设备配置失败时抛出错误。
+    func updateVideoFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async throws
 }

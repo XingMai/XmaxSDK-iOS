@@ -72,6 +72,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
     // 异步任务
     private var localMediaOperationTask: Task<Void, Never>?
+    private var cameraFormatTask: Task<Void, Never>?
     private var generationOperationTask: Task<Void, Never>?
     private var touchAnimationPreparationTask: Task<Void, Never>?
     private var realtimeListenerTask: Task<Void, Never>?
@@ -176,6 +177,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         actionBar.setSwitchCameraEnabled(false)
         actionBar.onSwitchCamera = { [weak self] in
             self?.switchCamera()
+        }
+        actionBar.onOpenCameraFormat = { [weak self] sourceView in
+            self?.presentCameraFormatMenu(from: sourceView)
         }
         actionBar.onFrameInterpolationChanged = { [weak self] enabled in
             self?.setFrameInterpolationEnabled(enabled)
@@ -528,14 +532,6 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         resumeRealtimeAfterBackgroundIfNeeded()
     }
 
-    override func viewWillTransition(
-        to size: CGSize,
-        with coordinator: any UIViewControllerTransitionCoordinator
-    ) {
-        super.viewWillTransition(to: size, with: coordinator)
-        previewView.setLandscapeLayout(size.width > size.height)
-    }
-
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isMovingFromParent || navigationController?.isBeingDismissed == true {
@@ -544,6 +540,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     deinit {
+        cameraFormatTask?.cancel()
         audioVolumeStateTask?.cancel()
         localAudioVolumeTask?.cancel()
         remoteAudioVolumeTask?.cancel()
@@ -593,7 +590,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
             make.trailing.equalToSuperview().inset(8)
             make.width.equalTo(58)
-            make.height.equalTo(248).priority(750)
+            make.height.equalTo(310).priority(750)
             make.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).offset(-94)
         }
         mediaTopBar.snp.makeConstraints { make in
@@ -714,6 +711,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private func renderRealtimeState(_ state: RealtimeState) {
         statistics.updateState(state)
         connectionState = state.connectionState
+        cameraActionBar.setCameraFormatEnabled(localInput == nil && connectionState == .ready && cameraFormatTask == nil)
         controlPanelView.isUserInteractionEnabled =
             state.connectionState != .idle &&
             state.connectionState != .preparing &&
@@ -1117,6 +1115,46 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         promptKeyboardView.setReference(promptReference)
     }
 
+    private func presentCameraFormatMenu(from sourceView: UIView) {
+        guard localInput == nil, connectionState == .ready, cameraFormatTask == nil else { return }
+        let current = localMediaStream?.videoTrack?.videoFormat
+        let menu = UIAlertController(
+            title: XLLocalization.text("realtime.camera.format"),
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+        for format in realtimeManager.options.model.supportedVideoFormats {
+            let selected = current?.width == format.width && current?.height == format.height
+            let title = "\(format.width) × \(format.height)" + (selected ? " ✓" : "")
+            menu.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.updateCameraFormat(format)
+            })
+        }
+        menu.addAction(UIAlertAction(title: XLLocalization.text("common.cancel"), style: .cancel))
+        menu.popoverPresentationController?.sourceView = sourceView
+        menu.popoverPresentationController?.sourceRect = sourceView.bounds
+        present(menu, animated: true)
+    }
+
+    private func updateCameraFormat(_ format: RealtimeVideoFormat) {
+        guard connectionState == .ready, cameraFormatTask == nil else { return }
+        cameraActionBar.setCameraFormatEnabled(false)
+        cameraFormatTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                cameraFormatTask = nil
+                cameraActionBar.setCameraFormatEnabled(connectionState == .ready)
+            }
+            do {
+                try await realtimeManager.updateCameraFormat(format)
+                previewView.updateVideoContentMode()
+            } catch {
+                guard !Task.isCancelled else { return }
+                XLToast.show(error.localizedDescription, in: view)
+            }
+        }
+    }
+
     private func startLocalMedia() {
         let input = localInput
         let pendingCleanup = mediaCleanupTask
@@ -1202,6 +1240,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let pendingLocalMediaOperation = localMediaOperationTask
         let pendingGenerationOperation = generationOperationTask
         let pendingRealtimeListener = realtimeListenerTask
+        let pendingCameraFormat = cameraFormatTask
+        pendingCameraFormat?.cancel()
 
         pendingLocalMediaOperation?.cancel()
         localMediaOperationTask = nil
@@ -1233,6 +1273,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         controlPanelView.setGenerationActive(false)
         controlPanelView.clearReferenceSelection()
         cameraActionBar.setSwitchCameraEnabled(false)
+        cameraActionBar.setCameraFormatEnabled(false)
         loadingOverlay.hideLoading()
         connectionState = .idle
         controlPanelView.isUserInteractionEnabled = false
@@ -1254,6 +1295,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
             await pendingLocalMediaOperation?.value
             await pendingGenerationOperation?.value
+            await pendingCameraFormat?.value
 
             await realtimeManager.close()
         }

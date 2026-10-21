@@ -1,6 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "realtime.camera.format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ratio" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "比例" } }
+      }
+    },
     "category.charx" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -192,7 +192,10 @@ public final class XmaxVideoView: UIView {
     /// 同步视频图层和交互覆盖层布局，并更新窗口方向。
     public override func layoutSubviews() {
         super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         decodedVideoLayer?.frame = bounds
+        CATransaction.commit()
         trajectoryOverlayView.frame = bounds
         bringSubviewToFront(trajectoryOverlayView)
         updateWindowOrientation()
@@ -299,6 +302,11 @@ extension XmaxVideoView {
     func prepareDecodedVideoPreview(
         contentMode: VideoContentMode
     ) {
+        // 同时关闭视频图层及其内部内容布局的隐式过渡。
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
         let decodedVideoLayer: AVSampleBufferDisplayLayer
         if let currentLayer = self.decodedVideoLayer {
             decodedVideoLayer = currentLayer
@@ -350,6 +358,11 @@ extension XmaxVideoView {
         _ frame: VideoFrame,
         contentMode: VideoContentMode
     ) {
+        // 新尺寸帧和缩放模式直接生效，不插入画面位置或大小的过渡。
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }

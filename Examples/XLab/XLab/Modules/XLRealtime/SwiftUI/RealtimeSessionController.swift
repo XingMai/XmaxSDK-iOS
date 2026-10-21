@@ -20,6 +20,7 @@ final class RealtimeSessionController: ObservableObject {
     // 设备状态
     @Published private(set) var isBackCameraSelected = false
     @Published private(set) var isCameraSwitching = false
+    @Published private(set) var isCameraFormatUpdating = false
     @Published private(set) var isFrameInterpolationEnabled: Bool
 
     // 错误状态
@@ -39,6 +40,7 @@ final class RealtimeSessionController: ObservableObject {
     private var startupTask: Task<Void, Never>?
     private var generationTask: Task<Void, Never>?
     private var cameraSwitchTask: Task<Void, Never>?
+    private var cameraFormatTask: Task<Void, Never>?
     private var frameInterpolationTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
 
@@ -50,6 +52,25 @@ final class RealtimeSessionController: ObservableObject {
             localMediaStream != nil
         case .idle, .preparing:
             false
+        }
+    }
+
+    var supportedCameraFormats: [RealtimeVideoFormat] {
+        realtimeManager.options.model.supportedVideoFormats
+    }
+
+    func updateCameraFormat(_ format: RealtimeVideoFormat) {
+        guard connectionState == .ready, !isCameraFormatUpdating else { return }
+        isCameraFormatUpdating = true
+        cameraFormatTask = Task { [weak self] in
+            guard let self else { return }
+            defer { isCameraFormatUpdating = false }
+            do {
+                try await realtimeManager.updateCameraFormat(format)
+            } catch {
+                guard !Task.isCancelled else { return }
+                toastMessage = error.localizedDescription
+            }
         }
     }
 
@@ -84,6 +105,7 @@ final class RealtimeSessionController: ObservableObject {
         startupTask?.cancel()
         generationTask?.cancel()
         cameraSwitchTask?.cancel()
+        cameraFormatTask?.cancel()
         frameInterpolationTask?.cancel()
     }
 
@@ -245,6 +267,9 @@ final class RealtimeSessionController: ObservableObject {
         let pendingStartup = startupTask
         let pendingGeneration = generationTask
         let pendingCameraSwitch = cameraSwitchTask
+        let pendingCameraFormat = cameraFormatTask
+        cameraFormatTask?.cancel()
+        cameraFormatTask = nil
         let pendingFrameInterpolation = frameInterpolationTask
         startupTask?.cancel()
         startupTask = nil
@@ -271,6 +296,7 @@ final class RealtimeSessionController: ObservableObject {
             await pendingStartup?.value
             await pendingGeneration?.value
             await pendingCameraSwitch?.value
+            await pendingCameraFormat?.value
             await pendingFrameInterpolation?.value
             await realtimeManager.setUplinkVideoStatisticsListener(nil)
             await realtimeManager.setDownlinkVideoStatisticsListener(nil)

@@ -22,6 +22,28 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState { get async }
 
+    /// 当前摄像头媒体输出规格；没有摄像头流时为 `nil`，不随上行调档变化。
+    var currentCameraVideoFormat: RealtimeVideoFormat? { get async }
+
+    /// 当前摄像头分辨率对应的预设；没有摄像头流或没有匹配预设时为 `nil`。
+    var currentCameraPreset: RealtimeCameraPreset? { get async }
+
+    /// 更新未连接、已就绪的摄像头规格，保留原轨道和视图绑定。
+    ///
+    /// - Parameter videoFormat: 新的尺寸、采集帧率与编码配置；尺寸须匹配模型支持列表。
+    /// - Throws: 状态不允许、规格不受支持、操作冲突或设备配置失败时抛出错误。
+    func updateCameraFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async throws
+
+    /// 更新摄像头分辨率，保留当前帧率、码率和编码偏好。
+    ///
+    /// - Parameter preset: 模型支持的目标分辨率预设。
+    /// - Throws: 状态不允许、预设不受支持、操作冲突或设备配置失败时抛出错误。
+    func updateCameraFormat(
+        _ preset: RealtimeCameraPreset
+    ) async throws
+
     /// 当前成功应用的上行档位；连接尚未完成或已开始断开时为 `nil`。
     var uplinkQualityLevel: RealtimeQualityLevel? { get async }
 

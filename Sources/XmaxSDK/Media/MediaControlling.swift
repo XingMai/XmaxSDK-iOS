@@ -75,6 +75,14 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// - Throws: 模型不支持目标尺寸或采集配置失败时抛出错误。
     func updateCameraOrientation() async throws
 
+    /// 更新当前摄像头的媒体规格，保留轨道及预览绑定。
+    ///
+    /// - Parameter videoFormat: 新的输出尺寸、采集帧率与编码配置。
+    /// - Throws: 当前来源不是摄像头、存在媒体操作或配置失败时抛出错误。
+    func updateCameraFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) async throws
+
     /// 从编码后的图片数据创建并持有本地图片媒体流。
     ///
     /// - Parameters:
