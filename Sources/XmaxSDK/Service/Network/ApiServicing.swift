@@ -1,10 +1,9 @@
 //
 //  ApiServicing.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,9 +12,17 @@ import Foundation
 
 /// Xmax API 支持的 HTTP 请求方法。
 enum ApiMethod: String, Sendable {
+
+    /// 读取服务端资源。
     case get = "GET"
+
+    /// 提交数据或创建资源。
     case post = "POST"
+
+    /// 更新服务端资源。
     case put = "PUT"
+
+    /// 删除服务端资源。
     case delete = "DELETE"
 }
 

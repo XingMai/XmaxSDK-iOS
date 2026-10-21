@@ -1,10 +1,9 @@
 //
 //  ImageController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,33 +14,31 @@ import Foundation
 /// 协调本地图片解码、循环帧输出和预览资源。
 final class ImageController: ImageControlling, @unchecked Sendable {
 
-    /// 轨道标识
+    /// 图片本地视频轨道标识。
     private static let localVideoTrackID = "video0"
 
-    /// 基础层组件
+    /// 配置 RTC 外部视频源的组件。
     private let rtcManager: any RtcManaging
+
+    /// 解码图片并生成指定尺寸的图像。
     private let imageManager: any ImageManaging
 
-    /// 服务层组件
+    /// 提供模型默认帧率的服务。
     private let mediaService: any MediaServicing
 
-    /// 事件监听
+    /// 接收图片视频帧的回调。
     private let frameListener: MediaVideoFrameListener
 
-    /// 并发控制
+    /// 保护图片轨道和持续输出任务。
     private let stateLock = NSLock()
 
-    /// 本地资源
+    /// 当前图片对应的视频轨道。
     private var activeTrack: RealtimeVideoTrack?
+
+    /// 按目标帧率持续输出图片帧的任务。
     private var outputTask: Task<Void, Never>?
 
     /// 创建图片解码、预览和持续帧输出控制器。
-    ///
-    /// - Parameters:
-    ///   - rtcManager: 配置 RTC 外部视频源的组件。
-    ///   - imageManager: 图片解码组件。
-    ///   - mediaService: 提供模型默认帧率的服务。
-    ///   - frameListener: 接收图片视频帧的回调。
     init(
         rtcManager: any RtcManaging,
         imageManager: any ImageManaging = ImageManager(),
@@ -54,7 +51,7 @@ final class ImageController: ImageControlling, @unchecked Sendable {
         self.frameListener = frameListener
     }
 
-    /// 本地轨道
+    /// 当前可供预览和发送的图片轨道。
     var currentTrack: RealtimeVideoTrack? {
         stateLock.withLock { activeTrack }
     }
@@ -122,10 +119,17 @@ final class ImageController: ImageControlling, @unchecked Sendable {
 }
 
 private extension ImageController {
+
     /// 统一表示编码数据、已解码图片和本地图片文件。
     enum ImageInput: Sendable {
+
+        /// 待解码的图片数据。
         case data(Data)
+
+        /// 已解码的图片，可直接参与图像处理。
         case decoded(any DecodedImage)
+
+        /// 本地图片文件。
         case file(URL)
     }
 
@@ -196,7 +200,9 @@ private extension ImageController {
     /// - Parameter input: 编码数据、图片对象或文件来源。
     /// - Returns: 可用于视频帧转换的图片。
     /// - Throws: 文件地址或数据无效、文件读取或图片解码失败时抛出错误。
-    func decode(_ input: ImageInput) throws -> any DecodedImage {
+    func decode(
+        _ input: ImageInput
+    ) throws -> any DecodedImage {
         let data: Data
 
         switch input {
@@ -249,7 +255,10 @@ private extension ImageController {
     ///   - frame: 可复用像素数据的图片帧。
     ///   - frameRate: 每秒输出帧数。
     /// - Returns: 可取消的周期输出任务。
-    func startFrameOutput(frame: VideoFrame, frameRate: Int) -> Task<Void, Never> {
+    func startFrameOutput(
+        frame: VideoFrame,
+        frameRate: Int
+    ) -> Task<Void, Never> {
         let interval = max(UInt64(1000000000 / frameRate), 1)
 
         return Task.detached { [weak self] in
@@ -281,7 +290,9 @@ private extension ImageController {
     ///
     /// - Parameter frame: 提供像素数据和格式的图片帧。
     /// - Throws: 帧更新或监听器处理失败时抛出错误。
-    func emitFrame(_ frame: VideoFrame) throws {
+    func emitFrame(
+        _ frame: VideoFrame
+    ) throws {
         let timestampUs = Int64(
             min(
                 DispatchTime.now().uptimeNanoseconds / 1000,

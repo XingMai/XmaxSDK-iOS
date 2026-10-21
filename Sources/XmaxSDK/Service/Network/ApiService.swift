@@ -1,10 +1,9 @@
 //
 //  ApiService.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,15 +13,19 @@ import Foundation
 /// 负责发送 Xmax API 请求并统一处理响应、日志和错误。
 final class ApiService: ApiServicing, Sendable {
 
-    /// API 配置
+    /// HTTP 请求的默认超时时长，单位为秒。
     static let defaultTimeoutInterval: TimeInterval = 15
 
-    /// 请求配置
+    /// 请求 Xmax API 使用的访问密钥。
     private let apiKey: String
+
+    /// 当前 API 请求的基础地址。
     private let baseURL: URL
+
+    /// HTTP 请求超时时长，单位为秒。
     private let timeoutInterval: TimeInterval
 
-    /// 网络资源
+    /// 执行 HTTP 请求的 URL 会话。
     private let session: URLSession
 
     /// 创建使用指定地址、认证信息与网络会话的 API 服务。
@@ -139,16 +142,20 @@ private extension ApiService {
     /// 表示 Xmax API 统一响应中的公共元数据。
     struct EnvelopeMetadata: Decodable {
 
-        /// 响应状态
+        /// 服务端返回的业务成功标记。
         let success: Bool?
+
+        /// 服务端返回的业务错误码。
         let code: Int?
+
+        /// 服务端返回的业务错误说明。
         let message: String?
     }
 
     /// 表示 Xmax API 成功响应中的业务数据。
     struct PayloadEnvelope<Response: Decodable>: Decodable {
 
-        /// 业务数据
+        /// 解码后的业务响应数据。
         let data: Response?
     }
 
@@ -303,7 +310,9 @@ private extension ApiService {
     ///
     /// - Parameter error: 网络请求产生的原始错误。
     /// - Returns: 保留取消语义的 SDK 错误。
-    static func transportError(_ error: any Error) -> XmaxError {
+    static func transportError(
+        _ error: any Error
+    ) -> XmaxError {
         if error is CancellationError {
             return XmaxError(
                 code: .cancelled,
@@ -331,7 +340,9 @@ private extension ApiService {
     ///
     /// - Parameter startedAt: 请求开始时的系统运行时间，单位为纳秒。
     /// - Returns: 已过去的整数毫秒数。
-    static func durationMs(since startedAt: UInt64) -> Int {
+    static func durationMs(
+        since startedAt: UInt64
+    ) -> Int {
         let elapsedNanoseconds = DispatchTime.now().uptimeNanoseconds
             - startedAt
         return Int(elapsedNanoseconds / 1_000_000)

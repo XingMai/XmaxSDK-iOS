@@ -1,7 +1,7 @@
 //
 //  RealtimeModelTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -14,27 +14,26 @@ import XCTest
 
 final class RealtimeModelTests: XCTestCase {
     func testModelDefaultFormatsAndPixelLimits() {
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.defaultFrameRate, 30)
+        XCTAssertEqual(RealtimeModel.x2_1.defaultFrameRate, 30)
+        XCTAssertEqual(RealtimeModel.x2_1.maximumInputPixels, 2100000)
         XCTAssertEqual(
-            RealtimeModel.x2_1_1_preview_cn.defaultCameraVideoFormat,
-            RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
-        )
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.maximumInputPixels, 2100000)
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.defaultFrameRate, 30)
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.maximumInputPixels, 2100000)
-        XCTAssertEqual(
-            RealtimeModel.x2_1_1_preview_us.defaultCameraVideoFormat,
-            RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
+            RealtimeModel.x2_1.defaultCameraVideoFormat,
+            RealtimeVideoFormat(width: 1080, height: 1920, fps: 30)
         )
     }
 
     func testModelResolutionBuckets() {
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.resolutionBuckets, RealtimeModel.x2_1_1_preview_us.resolutionBuckets)
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.resolutionBuckets, [
-            CGSize(width: 1024, height: 1920),
-            CGSize(width: 1920, height: 1024)
+        XCTAssertEqual(RealtimeModel.allCases, [.x2_1])
+        XCTAssertNil(RealtimeModel(rawValue: "x2.0"))
+        XCTAssertEqual(RealtimeModel.x2_1.resolutionBuckets, [
+            CGSize(width: 1920, height: 1080),
+            CGSize(width: 1080, height: 1920),
+            CGSize(width: 1408, height: 1408),
+            CGSize(width: 1152, height: 1536),
+            CGSize(width: 1536, height: 1152)
         ])
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_us.rawValue, "x2.1.1-preview-us")
+        XCTAssertEqual(RealtimeModel.x2_1.rawValue, "x2.1")
+        XCTAssertEqual(RealtimeModel.x2_1.displayName, "X2.1")
     }
 
     func testContextNormalizesPromptAndReferencePath() {
@@ -106,7 +105,7 @@ final class RealtimeModelTests: XCTestCase {
     }
 
     func testRealtimeEnumRawValuesMatchCrossPlatformContract() {
-        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.rawValue, "x2.1.1-preview-cn")
+        XCTAssertEqual(RealtimeModel.x2_1.rawValue, "x2.1")
         XCTAssertEqual(RealtimeConnectionState.generating.rawValue, "Generating")
         XCTAssertEqual(RealtimeNetworkQualityLevel.veryBad.rawValue, "VeryBad")
         XCTAssertEqual(RealtimePerformanceStatus.recovered.rawValue, "Recovered")

@@ -1,7 +1,7 @@
 //
 //  ImageControllerTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -38,14 +38,14 @@ final class ImageControllerTests: XCTestCase {
             rtcManager: RtcManagingStub(),
             imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 800)),
             mediaService: MediaServicingStub(
-                resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_1_1_preview_cn
+                resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_1
             ),
             frameListener: { _ in }
         )
         let prepared = try await controller.createLocalImageStream(
             imageData: Data("encoded-image".utf8)
         )
-        XCTAssertEqual(prepared.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
+        XCTAssertEqual(prepared.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1.defaultFrameRate)
         await controller.stopLocalImageStream()
     }
 

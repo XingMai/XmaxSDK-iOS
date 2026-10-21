@@ -1,10 +1,9 @@
 //
 //  StreamController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -20,40 +19,48 @@ typealias RemoteStreamListener = @MainActor @Sendable (
 final class StreamController: StreamControlling, RtcEventListener,
     @unchecked Sendable {
 
-    /// 基础层组件
+    /// 执行 RTC 媒体发布、订阅和帧推送。
     private let rtcManager: any RtcManaging
 
-    /// 传输层组件
+    /// 管理房间连接和控制信令。
     private let roomController: any RoomControlling
+
+    /// 应用上传编码规格和码率配置。
     private let encodingController: any EncodingControlling
+
+    /// 收集质量统计并计算自适应档位。
     private let qualityController: any QualityControlling
 
-    /// 事件监听
+    /// 接收传输链路的运行故障。
     private let errorListener: XmaxErrorListener
+
+    /// 接收远端结果流的发布和结束通知。
     private let remoteStreamListener: RemoteStreamListener
 
-    /// 生成配置
+    /// 配置等待生成结果流的超时时长。
     private let generationTiming: StreamGenerationTiming
 
-    /// 耗时统计
+    /// 记录连接与生成启动的阶段耗时。
     private let timing: RealtimeTiming
 
-    /// 音频配置
+    /// 远端播放音量百分比，范围为 0...100。
     private var remoteAudioVolumePercentage = 100
 
-    /// 并发控制
+    /// 保护连接、发布、订阅和生成状态。
     private let stateLock = NSLock()
+
+    /// 串行保护流发布、订阅与生成操作。
     private let operationLock = NSRecursiveLock()
 
-    /// 运行状态
+    /// 当前传输链路的状态快照。
     private var state = State()
 
-    /// 生成状态查询
+    /// 当前是否持有尚未结束的生成任务。
     var hasGenerationTask: Bool {
         stateLock.withLock { state.generationTask != nil }
     }
 
-    /// 远端音量查询
+    /// 当前远端播放音量，范围为 0...1。
     var remoteAudioVolume: Float {
         Float(stateLock.withLock { remoteAudioVolumePercentage }) / 100
     }
@@ -130,7 +137,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         try encodingController.configure(videoFormat)
     }
 
-    /// 质量配置查询
+    /// 当前媒体基准与上下行质量档位。
     var qualityConfiguration: QualityConfiguration? { qualityController.qualityConfiguration }
 
     /// 根据媒体基准和模型历史准备上下行档位。
@@ -139,14 +146,19 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///   - baseline: 本地媒体原始输出规格，不随调档改变。
     ///   - model: 用于隔离历史档位的模型标识。
     /// - Returns: 本次连接的初始上下行配置。
-    func prepareQuality(baseline: RealtimeVideoFormat, model: String) -> QualityConfiguration {
+    func prepareQuality(
+        baseline: RealtimeVideoFormat,
+        model: String
+    ) -> QualityConfiguration {
         qualityController.prepareQuality(baseline: baseline, model: model)
     }
 
     /// 设置内部调档采样回调，不影响公开网络质量监听。
     ///
     /// - Parameter listener: 接收网络质量及单调时钟采样时间；nil 表示移除。
-    func setAdaptiveQualityListener(_ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?) {
+    func setAdaptiveQualityListener(
+        _ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
+    ) {
         qualityController.setAdaptiveQualityListener(listener)
     }
 
@@ -156,7 +168,10 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///   - quality: 当前上下行网络质量。
     ///   - sampledAt: 单调时钟的采样时间，单位为秒。
     /// - Returns: 满足连续采样和冷却条件的候选档位。
-    func proposeQuality(_ quality: RealtimeNetworkQuality, sampledAt: TimeInterval) -> QualityChange {
+    func proposeQuality(
+        _ quality: RealtimeNetworkQuality,
+        sampledAt: TimeInterval
+    ) -> QualityChange {
         qualityController.proposeQuality(quality, sampledAt: sampledAt)
     }
 
@@ -166,7 +181,11 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///   - downlink: true 表示下行，false 表示上行。
     ///   - level: 本次尝试的档位，范围为 1...5。
     ///   - success: 配置是否成功应用。
-    func completeQuality(downlink: Bool, level: Int, success: Bool) {
+    func completeQuality(
+        downlink: Bool,
+        level: RealtimeQualityLevel,
+        success: Bool
+    ) {
         qualityController.completeQuality(downlink: downlink, level: level, success: success)
     }
 
@@ -176,14 +195,18 @@ final class StreamController: StreamControlling, RtcEventListener,
     /// 设置视频上行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
-    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
+    func setUplinkVideoStatisticsListener(
+        _ listener: UplinkVideoStatisticsListener?
+    ) {
         qualityController.setUplinkVideoStatisticsListener(listener)
     }
 
     /// 设置视频下行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
-    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) {
+    func setDownlinkVideoStatisticsListener(
+        _ listener: DownlinkVideoStatisticsListener?
+    ) {
         qualityController.setDownlinkVideoStatisticsListener(listener)
     }
 
@@ -209,7 +232,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
     /// - Throws: RTC 音量配置失败时抛出错误。
-    func setRemoteAudioVolume(_ volume: Float) throws {
+    func setRemoteAudioVolume(
+        _ volume: Float
+    ) throws {
         let rtcVolume = Int((volume * 100).rounded())
         try operationLock.withLock {
             let userIDs = stateLock.withLock {
@@ -360,7 +385,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameter taskID: 需要停止的生成任务标识；传入空字符串时停止
     /// - Throws: RTC 停止信令发送失败时抛出错误。
-    func stopGeneration(taskID: String) async throws {
+    func stopGeneration(
+        taskID: String
+    ) async throws {
         let stoppedTaskID = await stopStreamGeneration(taskID: taskID)
         guard taskID.isEmpty || !stoppedTaskID.isEmpty else {
             return
@@ -427,7 +454,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameter includeAudio: 是否同时发布本地音频。
     /// - Throws: 房间未配置或 RTC 媒体发布失败时抛出错误。
-    func publishLocalStream(includeAudio: Bool) throws {
+    func publishLocalStream(
+        includeAudio: Bool
+    ) throws {
         try operationLock.withLock {
             let currentState = stateLock.withLock { state }
             guard !currentState.roomID.isEmpty else {
@@ -468,7 +497,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
     /// - Throws: RTC 资源尚未就绪或视频帧转换失败时抛出错误。
-    func pushLocalVideoFrame(_ frame: VideoFrame) throws {
+    func pushLocalVideoFrame(
+        _ frame: VideoFrame
+    ) throws {
         guard stateLock.withLock({ state.generationTask != nil }) else {
             return
         }
@@ -483,7 +514,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameter frame: 已准备好交给 RTC 的 PCM 音频帧；
     /// - Throws: RTC 资源尚未就绪或音频帧转换失败时抛出错误。
-    func pushLocalAudioFrame(_ frame: AudioFrame) throws {
+    func pushLocalAudioFrame(
+        _ frame: AudioFrame
+    ) throws {
         guard stateLock.withLock({ state.localAudioPublished }) else {
             return
         }
@@ -736,7 +769,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameter error: 连接或信令传输错误。
     @MainActor
-    func onRtcFailure(_ error: XmaxError) {
+    func onRtcFailure(
+        _ error: XmaxError
+    ) {
         let taskID = stateLock.withLock { state.generationWaiter?.taskID }
         if let taskID {
             rejectGenerationStart(taskID: taskID, error: error)
@@ -747,11 +782,14 @@ final class StreamController: StreamControlling, RtcEventListener,
 }
 
 private extension StreamController {
+
     /// 标记开始信令已发送，并确认已发布的目标结果流。
     ///
     /// - Parameter taskID: 开始信令所属的生成任务标识。
     @MainActor
-    func confirmPublishedRemoteStream(taskID: String) {
+    func confirmPublishedRemoteStream(
+        taskID: String
+    ) {
         let stream = stateLock.withLock { () -> RemoteStream? in
             guard let waiter = state.generationWaiter, waiter.taskID == taskID else { return nil }
             waiter.signalSent = true
@@ -767,7 +805,9 @@ private extension StreamController {
     ///
     /// - Parameter stream: 待确认的远端结果流。
     @MainActor
-    func confirmRemoteStream(_ stream: RemoteStream) {
+    func confirmRemoteStream(
+        _ stream: RemoteStream
+    ) {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
                 guard state.generationTask != nil,
@@ -808,55 +848,64 @@ private extension StreamController {
 }
 
 private extension StreamController {
+
     /// 保存当前房间的媒体发布、订阅和生成状态。
     struct State {
 
-        /// 房间标识
+        /// 当前 RTC 房间标识。
         var roomID = ""
+
+        /// 服务端指定的生成结果用户标识。
         var botName = ""
 
-        /// 本地发布
+        /// 本地视频是否已发布到 RTC 房间。
         var localVideoPublished = false
+
+        /// 本地音频是否已发布到 RTC 房间。
         var localAudioPublished = false
 
-        /// 远端订阅
+        /// 当前已订阅视频的远端用户集合。
         var subscribedRemoteUserIDs: Set<String> = []
+
+        /// 当前已订阅音频的远端用户集合。
         var subscribedRemoteAudioUserIDs: Set<String> = []
 
-        /// 生成任务
+        /// 当前已提交的生成任务。
         var generationTask: GenerationTask?
+
+        /// 等待当前生成任务信令和结果流就绪的请求。
         var generationWaiter: GenerationWaiter?
 
-        /// 结果流
+        /// 已确认的远端生成结果流。
         var activeRemoteStream: RemoteStream?
     }
 
     /// 标识当前活动的生成任务。
     struct GenerationTask {
 
-        /// 任务标识
+        /// 生成任务的唯一标识。
         let id: String
     }
 
     /// 管理生成结果流确认、超时与异步通知。
     final class GenerationWaiter: @unchecked Sendable {
 
-        /// 任务标识
+        /// 等待结果流的生成任务标识。
         let taskID: String
 
-        /// 完成通知与超时
+        /// 用于完成确认等待的异步流 continuation。
         let continuation: AsyncThrowingStream<Void, any Error>.Continuation
+
+        /// 等待生成结果的超时任务。
         var timeoutTask: Task<Void, Never>?
 
-        /// 确认状态
+        /// 是否正在确认匹配的远端结果流。
         var confirmationPending = false
+
+        /// 启动信令是否已成功提交。
         var signalSent = false
 
         /// 创建生成结果流确认上下文。
-        ///
-        /// - Parameters:
-        ///   - taskID: 等待结果流的生成任务标识。
-        ///   - continuation: 用于完成确认等待的异步流 continuation。
         init(
             taskID: String,
             continuation:
@@ -870,18 +919,22 @@ private extension StreamController {
     /// 保存停止生成后仍需清理的等待者与音频订阅。
     struct StopResult {
 
-        /// 停止任务
+        /// 需要停止的生成任务标识。
         let taskID: String
+
+        /// 清理时需要结束的生成等待请求。
         let waiter: GenerationWaiter?
 
-        /// 待清理订阅
+        /// 本次停止需要取消的远端音频订阅。
         let remoteAudioUserIDs: Set<String>
     }
 
     /// 订阅远端视频，并将失败交付给当前启动等待或错误回调。
     ///
     /// - Parameter userID: 需要订阅的远端用户账号。
-    func subscribeRemoteVideo(userID: String) {
+    func subscribeRemoteVideo(
+        userID: String
+    ) {
         let alreadySubscribed = stateLock.withLock {
             state.subscribedRemoteUserIDs.contains(userID)
         }
@@ -919,7 +972,9 @@ private extension StreamController {
     ///
     /// - Parameter userID: 需要订阅的远端用户账号。
     /// - Throws: 音量设置或音频订阅失败时抛出错误。
-    func subscribeRemoteAudio(userID: String) throws {
+    func subscribeRemoteAudio(
+        userID: String
+    ) throws {
         let audioState = stateLock.withLock {
             (
                 state.subscribedRemoteAudioUserIDs.contains(userID),
@@ -946,7 +1001,9 @@ private extension StreamController {
     /// 取消已记录的远端音频订阅。
     ///
     /// - Parameter userID: 需要取消订阅的远端用户账号。
-    func unsubscribeRemoteAudio(userID: String) {
+    func unsubscribeRemoteAudio(
+        userID: String
+    ) {
         let wasSubscribed = stateLock.withLock {
             state.subscribedRemoteAudioUserIDs.remove(userID) != nil
         }
@@ -964,7 +1021,9 @@ private extension StreamController {
     /// 成功完成匹配生成任务的结果流确认等待。
     ///
     /// - Parameter taskID: 已确认结果流的生成任务标识。
-    func resolveGenerationStart(taskID: String) {
+    func resolveGenerationStart(
+        taskID: String
+    ) {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
                 guard state.generationTask?.id == taskID,
@@ -1078,10 +1137,10 @@ private extension StreamController {
 /// 定义生成确认等待的超时时间。
 struct StreamGenerationTiming: Sendable {
 
-    /// 确认超时
+    /// 等待生成结果确认的超时时长，单位为纳秒。
     let timeoutNanoseconds: UInt64
 
-    /// 默认配置
+    /// 默认等待生成结果确认的超时配置。
     static let live = StreamGenerationTiming(
         timeoutNanoseconds: 30_000_000_000
     )

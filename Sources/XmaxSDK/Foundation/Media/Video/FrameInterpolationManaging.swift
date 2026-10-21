@@ -1,10 +1,9 @@
 //
 //  FrameInterpolationManaging.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -18,7 +17,9 @@ protocol FrameInterpolationManaging: AnyObject, Sendable {
     ///
     /// - Parameter frame: 待比较的视频帧。
     /// - Returns: 分辨率与像素格式均匹配时返回 `true`。
-    func matches(_ frame: RealtimeVideoFrame) -> Bool
+    func matches(
+        _ frame: RealtimeVideoFrame
+    ) -> Bool
 
     /// 在前一帧和当前帧之间生成一个中间帧。
     ///

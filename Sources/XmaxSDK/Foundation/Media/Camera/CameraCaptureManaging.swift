@@ -1,10 +1,9 @@
 //
 //  CameraCaptureManaging.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,12 +12,20 @@ import Foundation
 
 /// 摄像头画面在窗口中的显示方向。
 enum CameraOrientation: Sendable {
+
+    /// 竖屏，设备顶部朝上。
     case portrait
+
+    /// 倒置竖屏，设备顶部朝下。
     case portraitUpsideDown
+
+    /// 横屏，采用界面的左横屏方向。
     case landscapeLeft
+
+    /// 横屏，采用界面的右横屏方向。
     case landscapeRight
 
-    /// 显示方向规则
+    /// 当前方向是否为横屏。
     var isLandscape: Bool {
         self == .landscapeLeft || self == .landscapeRight
     }
@@ -58,7 +65,9 @@ protocol CameraCaptureManaging: Sendable {
     ///
     /// - Parameter position: 目标摄像头位置。
     /// - Throws: 设备不可用或切换失败时抛出错误。
-    func switchCamera(to position: CameraPosition) async throws
+    func switchCamera(
+        to position: CameraPosition
+    ) async throws
 
     /// 更新帧转换方向和输出尺寸，保留采集连接及帧率。
     ///
@@ -66,7 +75,10 @@ protocol CameraCaptureManaging: Sendable {
     ///   - orientation: 窗口显示方向。
     ///   - videoFormat: 转正后的输出尺寸和像素格式。
     /// - Throws: 采集已停止时抛出错误。
-    func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws
+    func updateOrientation(
+        _ orientation: CameraOrientation,
+        videoFormat: VideoFormat
+    ) async throws
 
     /// 停止采集，等待正在处理的帧结束并释放设备。
     func stop() async

@@ -1,10 +1,9 @@
 //
 //  MediaControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -32,7 +31,9 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 设置当前相机流的一次性内部就绪处理。
     ///
     /// - Parameter handler: 收到有效帧且预览已绑定时调用；传入空值时清除。
-    func setCameraPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?)
+    func setCameraPreviewReadyHandler(
+        _ handler: CameraPreviewReadyHandler?
+    )
 
     /// 创建并持有本地相机媒体流，同时启动采集和本地预览。
     ///
@@ -136,17 +137,23 @@ protocol MediaControlling: Actor, InteractionControlling {
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；
     ///   `false` 表示恢复本地播放器音量。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) async
 
     /// 设置本地文件视频的音频预览音量。
     ///
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
-    func setLocalAudioVolume(_ volume: Float) async
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async
 
     /// 判断指定媒体流是否由当前活动媒体来源持有。
     ///
     /// - Parameter stream: 需要验证所有权的媒体流。
     /// - Returns: 媒体流的视频轨道由当前活动来源持有时返回 `true`，
     ///   否则返回 `false`。
-    func owns(_ stream: RealtimeMediaStream) -> Bool
+    func owns(
+        _ stream: RealtimeMediaStream
+    ) -> Bool
 }

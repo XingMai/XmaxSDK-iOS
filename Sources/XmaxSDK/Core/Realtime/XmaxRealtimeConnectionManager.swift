@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeConnectionManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -29,34 +28,31 @@ typealias RealtimeConnectionHeartbeatFailureHandler = @Sendable (
 /// 协调服务端会话、RTC 房间、本地发布和远端媒体资源。
 actor XmaxRealtimeConnectionManager {
 
-    /// 服务层组件
+    /// 负责创建、保活和关闭服务端会话的服务。
     private let sessionService: any RealtimeSessionServicing
 
-    /// 媒体层组件
+    /// 接收远端渲染视图交互的媒体组件。
     private let interactionController: any InteractionControlling
 
-    /// 渲染层组件
+    /// 管理远端轨道渲染的组件。
     private let renderController: any RenderControlling
 
-    /// 传输层组件
+    /// 管理 RTC 连接与本地流发布的组件。
     private let streamController: any StreamControlling
 
-    /// 耗时统计
+    /// 记录连接启动阶段耗时的组件。
     private let timing: RealtimeTiming
 
-    /// 连接资源
+    /// 当前连接使用的远端视频轨道。
     private var activeRemoteTrack: RealtimeVideoTrack?
+
+    /// 当前连接持有的服务端会话。
     private var activeSession: RealtimeSession?
+
+    /// 最近成功应用的服务端回传尺寸，单位为像素。
     private(set) var currentTargetSize: CGSize?
 
     /// 创建实时连接管理器。
-    ///
-    /// - Parameters:
-    ///   - sessionService: 负责创建、保活和关闭服务端会话的服务。
-    ///   - interactionController: 接收远端渲染视图交互的媒体组件。
-    ///   - renderController: 管理远端轨道渲染的组件。
-    ///   - streamController: 管理 RTC 连接与本地流发布的组件。
-    ///   - timing: 记录连接启动阶段耗时的组件。
     init(
         sessionService: any RealtimeSessionServicing,
         interactionController: any InteractionControlling,
@@ -220,11 +216,14 @@ actor XmaxRealtimeConnectionManager {
 }
 
 private extension XmaxRealtimeConnectionManager {
+
     /// 将当前回传尺寸应用到本地媒体规格。
     ///
     /// - Parameter mediaFormat: 处理后的本地媒体规格。
     /// - Returns: 采用回传宽高的视频规格；未设置回传尺寸时返回原规格。
-    func remoteVideoFormat(for mediaFormat: RealtimeVideoFormat) -> RealtimeVideoFormat {
+    func remoteVideoFormat(
+        for mediaFormat: RealtimeVideoFormat
+    ) -> RealtimeVideoFormat {
         guard let currentTargetSize else { return mediaFormat }
         return mediaFormat.resized(
             width: Int(currentTargetSize.width),
@@ -252,7 +251,10 @@ private extension XmaxRealtimeConnectionManager {
     /// - Parameters:
     ///   - track: 需要注册的远端视频轨道。
     ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于轨迹交互映射。
-    func registerRemoteTrack(_ track: RealtimeVideoTrack, resolvedMediaSize: CGSize) async {
+    func registerRemoteTrack(
+        _ track: RealtimeVideoTrack,
+        resolvedMediaSize: CGSize
+    ) async {
         let interactionController = interactionController
         await renderController.registerRemoteTrack(
             track,
@@ -278,7 +280,9 @@ private extension XmaxRealtimeConnectionManager {
     /// 释放远端轨道的渲染资源，失败时记录日志。
     ///
     /// - Parameter track: 需要重置的远端轨道；可传入 `nil` 清理未绑定轨道的渲染状态。
-    func resetRemoteRendering(track: RealtimeVideoTrack?) async {
+    func resetRemoteRendering(
+        track: RealtimeVideoTrack?
+    ) async {
         do {
             try await renderController.resetRemoteTrack(track)
         } catch {
@@ -294,7 +298,9 @@ private extension XmaxRealtimeConnectionManager {
     /// 关闭连接未成功建立的服务端会话，失败时记录日志。
     ///
     /// - Parameter sessionID: 需要关闭的会话标识。
-    func closeSessionAfterFailedConnection(_ sessionID: String) async {
+    func closeSessionAfterFailedConnection(
+        _ sessionID: String
+    ) async {
         do {
             try await sessionService.closeSession(sessionID: sessionID)
         } catch {

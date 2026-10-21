@@ -2,7 +2,7 @@
 //
 //  Package.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -32,12 +32,12 @@ let package = Package(
         ),
         .binaryTarget(
             name: "QCloudCore",
-            url: "https://github.com/XingMai/XmaxSDK-iOS/releases/download/cos-6.5.7-spm.1/QCloudCore-6.5.7.xcframework.zip",
+            url: "https://github.com/Xmax-AI/XmaxSDK-iOS/releases/download/cos-6.5.7-spm.1/QCloudCore-6.5.7.xcframework.zip",
             checksum: "0c796e1c24b35408ea731b0889c41d481853097323af5a3e9b3c3b3af0900d95"
         ),
         .binaryTarget(
             name: "QCloudCOSXML",
-            url: "https://github.com/XingMai/XmaxSDK-iOS/releases/download/cos-6.5.7-spm.1/QCloudCOSXML-6.5.7.xcframework.zip",
+            url: "https://github.com/Xmax-AI/XmaxSDK-iOS/releases/download/cos-6.5.7-spm.1/QCloudCOSXML-6.5.7.xcframework.zip",
             checksum: "027838546a66fa9ade3db2baeea71e607395607650c6d6036e5d8c99dbe6f4a7"
         )
     ]

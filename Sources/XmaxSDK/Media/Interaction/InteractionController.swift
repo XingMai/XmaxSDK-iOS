@@ -1,10 +1,9 @@
 //
 //  InteractionController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -19,29 +18,36 @@ typealias InteractionListener = @Sendable (
 
 /// 将渲染容器中的触控位置转换为固定媒体基准的归一化坐标并发送。
 actor InteractionController: InteractionControlling {
+
     /// 保存当前生成任务的交互坐标映射配置。
     private struct ActiveInteraction {
 
-        /// 生成任务
+        /// 当前交互所属的生成任务标识。
         let taskID: String
 
-        /// 坐标映射规则
+        /// 用于轨迹归一化的处理后媒体尺寸。
         let resolvedMediaSize: CGSize
     }
 
-    /// 交互事件监听
+    /// 接收任务标识及媒体归一化坐标的异步回调。
     private let listener: InteractionListener
 
-    /// 交互资源
+    /// 当前任务的交互坐标配置。
     private var activeInteraction: ActiveInteraction?
+
+    /// 尚未发送的最新一组轨迹坐标。
     private var pendingPoints: [RealtimePoint]?
+
+    /// 串行发送待处理轨迹的任务。
     private var drainTask: Task<Void, Never>?
+
+    /// 轨迹发送任务的有效期，用于忽略过期任务。
     private var drainGeneration = 0
 
     /// 创建将轨迹坐标交付给信令层的交互控制器。
-    ///
-    /// - Parameter listener: 接收任务标识及媒体归一化坐标的异步回调。
-    init(listener: @escaping InteractionListener = { _, _ in }) {
+    init(
+        listener: @escaping InteractionListener = { _, _ in }
+    ) {
         self.listener = listener
     }
 
@@ -75,7 +81,9 @@ actor InteractionController: InteractionControlling {
     /// 提交触控轨迹。
     ///
     /// - Parameter frame: 当前视图中采集的轨迹及显示尺寸。
-    func submitInteraction(_ frame: InteractionFrame) {
+    func submitInteraction(
+        _ frame: InteractionFrame
+    ) {
         guard let activeInteraction,
               !frame.points.isEmpty else {
             return
@@ -101,6 +109,7 @@ actor InteractionController: InteractionControlling {
 }
 
 private extension InteractionController {
+
     /// 使当前发送任务失效并清空待发送轨迹。
     func cancelPendingFrames() {
         drainGeneration += 1
@@ -112,7 +121,9 @@ private extension InteractionController {
     /// 持续发送最新轨迹采样，并过滤已失效的发送循环。
     ///
     /// - Parameter generation: 当前发送循环的版本标识。
-    func drainPendingFrames(generation: Int) async {
+    func drainPendingFrames(
+        generation: Int
+    ) async {
         while !Task.isCancelled,
               generation == drainGeneration,
               let interaction = activeInteraction,

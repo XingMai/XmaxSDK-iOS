@@ -1,10 +1,9 @@
 //
 //  RealtimeSessionServicing.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -17,7 +16,9 @@ protocol RealtimeSessionServicing: Sendable {
     /// - Parameter model: 本次实时生成使用的模型。
     /// - Returns: 服务端创建的会话及其 RTC 连接信息。
     /// - Throws: 会话请求失败、响应缺失必要字段或任务取消时抛出错误。
-    func createSession(model: RealtimeModel) async throws -> RealtimeSession
+    func createSession(
+        model: RealtimeModel
+    ) async throws -> RealtimeSession
 
     /// 启动指定会话的周期心跳，并替换之前的心跳任务。
     ///
@@ -36,5 +37,7 @@ protocol RealtimeSessionServicing: Sendable {
     ///
     /// - Parameter sessionID: 需要关闭的会话标识。
     /// - Throws: 关闭请求失败或任务取消时抛出错误。
-    func closeSession(sessionID: String) async throws
+    func closeSession(
+        sessionID: String
+    ) async throws
 }

@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeManaging+Extension.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -77,7 +76,9 @@ public extension XmaxRealtimeManaging {
     ///
     /// - Parameter faceRestoration: 是否回贴原始人脸，默认关闭。
     /// - Throws: 没有可复用条件，或生成启动及更新失败时抛出错误。
-    func startGeneration(faceRestoration: Bool = false) async throws {
+    func startGeneration(
+        faceRestoration: Bool = false
+    ) async throws {
         try await startGeneration(context: nil, faceRestoration: faceRestoration)
     }
 
@@ -85,7 +86,9 @@ public extension XmaxRealtimeManaging {
     ///
     /// - Parameter context: 本次生成条件；传入 `nil` 时复用缓存条件。
     /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
-    func startGeneration(context: RealtimeContext?) async throws {
+    func startGeneration(
+        context: RealtimeContext?
+    ) async throws {
         try await startGeneration(context: context, faceRestoration: false)
     }
 

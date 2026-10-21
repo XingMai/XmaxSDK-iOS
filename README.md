@@ -192,7 +192,7 @@ In Xcode, choose **File → Add Package Dependencies**, enter the repository URL
 and add the **XmaxSDK** product to your application target:
 
 ```text
-https://github.com/XingMai/XmaxSDK-iOS.git
+https://github.com/Xmax-AI/XmaxSDK-iOS.git
 ```
 
 ### CocoaPods
@@ -208,7 +208,7 @@ use_frameworks! :linkage => :static
 
 target 'YourApp' do
   pod 'XmaxSDK',
-      :git => 'https://github.com/XingMai/XmaxSDK-iOS.git',
+      :git => 'https://github.com/Xmax-AI/XmaxSDK-iOS.git',
       :tag => '1.0.10'
 end
 
@@ -230,7 +230,7 @@ pod install --repo-update
 ### Manual
 
 Download
-[`XmaxSDK-1.0.10.xcframework.zip`](https://github.com/XingMai/XmaxSDK-iOS/releases/download/1.0.10/XmaxSDK-1.0.10.xcframework.zip),
+[`XmaxSDK-1.0.10.xcframework.zip`](https://github.com/Xmax-AI/XmaxSDK-iOS/releases/download/1.0.10/XmaxSDK-1.0.10.xcframework.zip),
 then follow the [manual integration guide](./Materials/installation.md#manual-integration)
 to add the required dependencies and configure your Xcode target.
 
@@ -267,7 +267,7 @@ let client = XmaxClient(
 )
 
 let realtime = client.createRealtimeManager(
-    options: RealtimeConfiguration(model: .x2_1_1_preview_cn)
+    options: RealtimeConfiguration(model: .x2_1)
 )
 
 let localStream = try await realtime.createLocalCameraStream(
@@ -381,7 +381,7 @@ this through `setStateListener`.
 ## Example Project
 
 A complete example application featuring both UIKit and SwiftUI implementations
-is available in [`Examples/XLab`](https://github.com/XingMai/XmaxSDK-iOS/tree/main/Examples/XLab).
+is available in [`Examples/XLab`](https://github.com/Xmax-AI/XmaxSDK-iOS/tree/main/Examples/XLab).
 It demonstrates real-time generation using live camera feeds, static images, and
 local video files.
 
@@ -399,7 +399,7 @@ local video files.
 ## Contact us
 
 For bug reports and feature requests, please open a
-[GitHub Issue](https://github.com/XingMai/XmaxSDK-iOS/issues). For integration
+[GitHub Issue](https://github.com/Xmax-AI/XmaxSDK-iOS/issues). For integration
 assistance and technical support, contact us at [sdk@xmax.ai](mailto:sdk@xmax.ai).
 
 <br>

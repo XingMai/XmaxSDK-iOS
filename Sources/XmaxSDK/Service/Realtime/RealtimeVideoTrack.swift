@@ -1,10 +1,9 @@
 //
 //  RealtimeVideoTrack.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -17,12 +16,16 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
     /// 视频轨道标识。
     public let id: String
 
-    /// 动态元数据
+    /// 保护可随方向变化更新的轨道元数据。
     private let metadataLock = NSLock()
+
+    /// 受锁保护的媒体尺寸和摄像头位置。
     private var metadata: Metadata
 
-    /// 显示方向事件
+    /// 视图通知的当前摄像头显示方向。
     @MainActor var displayOrientation: CameraOrientation?
+
+    /// 视图方向变化时通知媒体链路；参数表示是否发生横竖屏切换。
     @MainActor var orientationChangeHandler: ((_ changedAxis: Bool) -> Void)?
 
     /// 创建具有指定标识和初始元数据的视频轨道。
@@ -56,7 +59,9 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
     /// 更新视频轨道的当前规格。
     ///
     /// - Parameter videoFormat: 新的尺寸、帧率和编码配置。
-    func updateVideoFormat(_ videoFormat: RealtimeVideoFormat) {
+    func updateVideoFormat(
+        _ videoFormat: RealtimeVideoFormat
+    ) {
         metadataLock.withLock {
             metadata.videoFormat = videoFormat
         }
@@ -65,7 +70,9 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
     /// 更新本地相机轨道的摄像头位置。
     ///
     /// - Parameter position: 当前采集使用的摄像头位置。
-    func updatePosition(_ position: CameraPosition) {
+    func updatePosition(
+        _ position: CameraPosition
+    ) {
         metadataLock.withLock {
             metadata.position = position
         }
@@ -73,11 +80,14 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
 }
 
 private extension RealtimeVideoTrack {
+
     /// 保存可在采集与渲染期间更新的视频规格和摄像头位置。
     struct Metadata {
 
-        /// 当前媒体规格
+        /// 当前处理后媒体的尺寸、帧率和编码配置。
         var videoFormat: RealtimeVideoFormat?
+
+        /// 轨道来自摄像头时对应的镜头位置。
         var position: CameraPosition?
     }
 }

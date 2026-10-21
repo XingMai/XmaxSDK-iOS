@@ -1,10 +1,9 @@
 //
 //  MediaSourceControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -39,12 +38,16 @@ protocol MediaSourceControlling: Sendable {
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；
     ///   `false` 表示恢复本地播放器音量。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) async
 
     /// 设置本地音频预览音量。
     ///
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
-    func setLocalAudioVolume(_ volume: Float) async
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async
 
     /// 将解码预览绑定到指定视图。
     ///
@@ -62,7 +65,9 @@ protocol MediaSourceControlling: Sendable {
     ///
     /// - Parameter view: 需要解除预览的视图。
     @MainActor
-    func detachPreview(from view: UIView)
+    func detachPreview(
+        from view: UIView
+    )
 
     /// 停止输出并释放解码与本地音频播放资源。
     func stop() async

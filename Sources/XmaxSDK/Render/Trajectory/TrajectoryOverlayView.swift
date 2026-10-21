@@ -1,10 +1,9 @@
 //
 //  TrajectoryOverlayView.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,45 +13,54 @@ import UIKit
 /// 采集多指触摸、驱动轨迹效果并按固定频率提交交互帧。
 @MainActor
 final class TrajectoryOverlayView: UIView {
+
     /// 定义触控轨迹的提交频率。
     private enum Sampling {
 
-        /// 采样间隔
+        /// 轨迹发送采样的最小间隔，单位为秒。
         static let interval: TimeInterval = 1.0 / 30.0
     }
 
     /// 保存一个活动触点的稳定标识与当前位置。
     private struct ActiveTouch {
 
-        /// 触点信息
+        /// 触点对应的稳定轨迹标识。
         let id: TrajectoryID
+
+        /// 触点在覆盖层中的位置，单位为点。
         var location: CGPoint
     }
 
-    /// 活动触点
+    /// 按系统触摸对象保存的活动触点。
     private var activeTouches: [ObjectIdentifier: ActiveTouch] = [:]
 
-    /// 交互绑定
+    /// 将采样结果交付媒体交互层的绑定。
     private weak var binding: TrajectoryBinding?
 
-    /// 坐标映射
+    /// 视频在视图中的填充方式。
     private var videoContentMode: VideoContentMode = .fill
+
+    /// 用于计算完整媒体显示区域的处理后尺寸。
     private var resolvedMediaSize: CGSize?
 
-    /// 视觉效果
+    /// 绘制触点和轨迹效果的渲染器。
     private var renderer: any TrajectoryEffectRendering
 
-    /// 交互配置
+    /// 接入方设置的轨迹交互开关。
     private var requestedInteractionEnabled = true
 
-    /// 采样调度
+    /// 最近一次发送采样的时刻，单位为秒。
     private var lastSampleTime: TimeInterval?
+
+    /// 驱动轨迹采样和效果更新的显示时钟。
     private var displayLink: CADisplayLink?
 
     /// 创建多点触控采样和轨迹效果覆盖层。
     ///
     /// - Parameter renderer: 负责触点和轨迹视觉表现的渲染器。
-    init(renderer: any TrajectoryEffectRendering) {
+    init(
+        renderer: any TrajectoryEffectRendering
+    ) {
         self.renderer = renderer
         super.init(frame: .zero)
         backgroundColor = .clear
@@ -66,7 +74,9 @@ final class TrajectoryOverlayView: UIView {
     ///
     /// - Parameter coder: 视图归档解码器。
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    required init?(
+        coder: NSCoder
+    ) {
         fatalError("init(coder:) has not been implemented")
     }
 
@@ -78,7 +88,9 @@ final class TrajectoryOverlayView: UIView {
     /// 清除当前轨迹并替换视觉效果渲染器。
     ///
     /// - Parameter renderer: 新的轨迹效果渲染器。
-    func setRenderer(_ renderer: any TrajectoryEffectRendering) {
+    func setRenderer(
+        _ renderer: any TrajectoryEffectRendering
+    ) {
         cancelInteraction()
         self.renderer.reset()
         self.renderer.view.removeFromSuperview()
@@ -89,7 +101,9 @@ final class TrajectoryOverlayView: UIView {
     /// 设置轨迹提交绑定，并同步交互可用状态。
     ///
     /// - Parameter binding: 媒体交互绑定；传入 `nil` 清除当前轨迹。
-    func setBinding(_ binding: TrajectoryBinding?) {
+    func setBinding(
+        _ binding: TrajectoryBinding?
+    ) {
         self.binding = binding
         if binding == nil {
             cancelInteraction()
@@ -100,7 +114,9 @@ final class TrajectoryOverlayView: UIView {
     /// 更新视频显示模式并清除旧坐标下的活动轨迹。
     ///
     /// - Parameter contentMode: 新的缩放与裁剪方式。
-    func setContentMode(_ contentMode: VideoContentMode) {
+    func setContentMode(
+        _ contentMode: VideoContentMode
+    ) {
         guard videoContentMode != contentMode else { return }
         videoContentMode = contentMode
         cancelInteraction()
@@ -110,7 +126,9 @@ final class TrajectoryOverlayView: UIView {
     /// 更新处理后的媒体尺寸并清除旧坐标下的活动轨迹。
     ///
     /// - Parameter resolvedMediaSize: 处理后的本地媒体尺寸；未知时为 `nil`。
-    func setResolvedMediaSize(_ resolvedMediaSize: CGSize?) {
+    func setResolvedMediaSize(
+        _ resolvedMediaSize: CGSize?
+    ) {
         guard self.resolvedMediaSize != resolvedMediaSize else { return }
         self.resolvedMediaSize = resolvedMediaSize
         cancelInteraction()
@@ -120,7 +138,9 @@ final class TrajectoryOverlayView: UIView {
     /// 设置调用方期望的交互开关。
     ///
     /// - Parameter isEnabled: 是否允许触控轨迹交互。
-    func setRequestedInteractionEnabled(_ isEnabled: Bool) {
+    func setRequestedInteractionEnabled(
+        _ isEnabled: Bool
+    ) {
         guard requestedInteractionEnabled != isEnabled else { return }
         requestedInteractionEnabled = isEnabled
         if !isEnabled {
@@ -251,10 +271,13 @@ final class TrajectoryOverlayView: UIView {
 }
 
 private extension TrajectoryOverlayView {
+
     /// 移除结束触点，并在无活动触点时停止采样。
     ///
     /// - Parameter touches: 需要结束的触摸集合。
-    func finish(_ touches: Set<UITouch>) {
+    func finish(
+        _ touches: Set<UITouch>
+    ) {
         let identifiers = touches.compactMap {
             activeTouches.removeValue(forKey: ObjectIdentifier($0))?.id
         }
@@ -378,7 +401,9 @@ private extension TrajectoryOverlayView {
     ///
     /// - Parameter point: 待约束的覆盖层坐标。
     /// - Returns: 约束后的触点；没有交互区域时保留原位置。
-    func clamped(_ point: CGPoint) -> CGPoint {
+    func clamped(
+        _ point: CGPoint
+    ) -> CGPoint {
         guard let interactionFrame else { return point }
         return CGPoint(
             x: min(max(point.x, interactionFrame.minX), interactionFrame.maxX),
@@ -386,7 +411,7 @@ private extension TrajectoryOverlayView {
         )
     }
 
-    /// 有效显示区域
+    /// 按处理后媒体比例及填充方式计算的完整显示区域。
     var displayedMediaFrame: CGRect? {
         guard let resolvedMediaSize else { return nil }
         return InteractionCoordinateMapper.displayedFrame(
@@ -396,6 +421,7 @@ private extension TrajectoryOverlayView {
         )
     }
 
+    /// 媒体显示区域与视图边界的交集，用于限制有效触摸范围。
     var interactionFrame: CGRect? {
         guard let displayedMediaFrame else { return nil }
         let frame = displayedMediaFrame.intersection(bounds)

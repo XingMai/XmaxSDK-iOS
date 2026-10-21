@@ -1,10 +1,9 @@
 //
 //  LocalAudioPreviewPlayer.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,23 +14,37 @@ import Foundation
 /// 播放与 RTC 外部音频源共用的 PCM 帧。
 final class LocalAudioPreviewPlayer: @unchecked Sendable {
 
-    /// 音频配置
+    /// 本地音频预览默认音量，范围为 0...1。
     static let defaultVolume: Float = 0.45
 
-    /// 平台资源
+    /// 控制本地预览音频的系统会话。
     private let audioSession = AVAudioSession.sharedInstance()
+
+    /// 播放本地 PCM 音频的音频引擎。
     private let engine = AVAudioEngine()
+
+    /// 调度并播放 PCM 缓冲区的节点。
     private let playerNode = AVAudioPlayerNode()
+
+    /// 与本地 PCM 一致的播放格式。
     private let format: AVAudioFormat
+
+    /// 串行执行音频播放和状态更新的队列。
     private let queue = DispatchQueue(
         label: "ai.xmax.sdk.local-audio-preview",
         qos: .userInteractive
     )
 
-    /// 运行状态
+    /// 是否允许向本地播放器提交音频。
     private var isPlaybackEnabled = false
+
+    /// 是否临时静音本地预览。
     private var isMuted = false
+
+    /// 本地预览音量，范围为 0...1。
     private var volume = LocalAudioPreviewPlayer.defaultVolume
+
+    /// 是否已为本地预览配置播放音频会话。
     private var hasConfiguredPlaybackSession = false
 
     /// 创建用于播放单声道浮点 PCM 的音频引擎和节点。
@@ -64,7 +77,9 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
     /// 静音或恢复本地音频预览，不停止播放时间轴。
     ///
     /// - Parameter muted: 是否将播放节点音量置零。
-    func setMuted(_ muted: Bool) {
+    func setMuted(
+        _ muted: Bool
+    ) {
         queue.async { [self] in
             isMuted = muted
             applyVolume()
@@ -74,7 +89,9 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
     /// 设置本地音频预览的恢复音量。
     ///
     /// - Parameter volume: 已校验的音量，范围为 `0...1`。
-    func setVolume(_ volume: Float) {
+    func setVolume(
+        _ volume: Float
+    ) {
         queue.async { [self] in
             self.volume = volume
             applyVolume()
@@ -84,7 +101,9 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
     /// 将固定长度 PCM 帧加入本地串行播放队列。
     ///
     /// - Parameter frame: 48 kHz 单声道 PCM16 音频帧。
-    func enqueue(_ frame: AudioFrame) {
+    func enqueue(
+        _ frame: AudioFrame
+    ) {
         queue.async { [self] in
             guard isPlaybackEnabled,
                   let buffer = makeBuffer(frame) else {
@@ -126,6 +145,7 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
 }
 
 private extension LocalAudioPreviewPlayer {
+
     /// 根据静音状态将当前音量应用到播放节点。
     func applyVolume() {
         playerNode.volume = isMuted ? 0 : volume
@@ -150,7 +170,9 @@ private extension LocalAudioPreviewPlayer {
     ///
     /// - Parameter frame: 待播放的 PCM16 音频帧。
     /// - Returns: 单声道浮点 PCM 缓冲区；帧长度无效或分配失败时返回 `nil`。
-    func makeBuffer(_ frame: AudioFrame) -> AVAudioPCMBuffer? {
+    func makeBuffer(
+        _ frame: AudioFrame
+    ) -> AVAudioPCMBuffer? {
         guard frame.data.count == AudioFrame.samplesPerFrame *
                 MemoryLayout<Int16>.size,
               let buffer = AVAudioPCMBuffer(

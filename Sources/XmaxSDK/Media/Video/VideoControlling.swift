@@ -1,10 +1,9 @@
 //
 //  VideoControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -36,12 +35,16 @@ protocol VideoControlling: Sendable {
     /// 静音或恢复本地文件视频的音频预览，不影响上传的音频帧。
     ///
     /// - Parameter muted: 为 true 时静音，为 false 时恢复配置的预览音量。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) async
 
     /// 设置本地文件视频的音频预览音量。
     ///
     /// - Parameter volume: 已校验且取值范围为 0...1 的音量。
-    func setLocalAudioVolume(_ volume: Float) async
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async
 
     /// 停止文件音视频输出，并释放当前轨道、RTC 外部音频和预览资源。
     func stopLocalVideoStream() async

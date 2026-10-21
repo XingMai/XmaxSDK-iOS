@@ -1,10 +1,9 @@
 //
 //  ImageManaging.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -19,5 +18,7 @@ protocol ImageManaging: Sendable {
     /// - Parameter data: JPEG、PNG 等受支持格式的编码图片数据。
     /// - Returns: 已应用原始方向的解码图像。
     /// - Throws: 数据为空、格式不支持或图片解码失败时抛出错误。
-    func decode(_ data: Data) throws -> any DecodedImage
+    func decode(
+        _ data: Data
+    ) throws -> any DecodedImage
 }

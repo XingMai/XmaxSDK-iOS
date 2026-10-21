@@ -1,10 +1,9 @@
 //
 //  NV12VideoFrameConverter.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,6 +14,7 @@ import Foundation
 
 /// 将系统 NV12 像素缓冲区裁剪、缩放并旋转为目标显示尺寸的连续帧数据。
 enum NV12VideoFrameConverter {
+
     /// 将 NV12 缓冲区居中裁剪、缩放并旋转为指定显示尺寸。
     ///
     /// - Parameters:
@@ -393,7 +393,9 @@ enum NV12VideoFrameConverter {
     ///
     /// - Parameter value: 待对齐的尺寸。
     /// - Returns: 不小于 2 的偶数尺寸。
-    private static func evenFloor(_ value: Double) -> Int {
+    private static func evenFloor(
+        _ value: Double
+    ) -> Int {
         max(Int(floor(value)) / 2 * 2, 2)
     }
 
@@ -401,7 +403,9 @@ enum NV12VideoFrameConverter {
     ///
     /// - Parameter value: 待对齐的偏移。
     /// - Returns: 非负偶数偏移。
-    private static func evenOffset(_ value: Double) -> Int {
+    private static func evenOffset(
+        _ value: Double
+    ) -> Int {
         max(Int(floor(value)) / 2 * 2, 0)
     }
 
@@ -409,7 +413,9 @@ enum NV12VideoFrameConverter {
     ///
     /// - Parameter message: 错误描述。
     /// - Returns: 包含指定描述的媒体错误。
-    private static func mediaError(_ message: String) -> XmaxError {
+    private static func mediaError(
+        _ message: String
+    ) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }

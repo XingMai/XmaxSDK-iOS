@@ -1,7 +1,7 @@
 //
 //  MediaServicingStub.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -27,7 +27,7 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
 
     init(
         resolvedSize: CGSize,
-        model: RealtimeModel = .x2_1_1_preview_cn,
+        model: RealtimeModel = .x2_1,
         resolutionError: (any Error)? = nil,
         frameInterpolationSupported: Bool = false
     ) {

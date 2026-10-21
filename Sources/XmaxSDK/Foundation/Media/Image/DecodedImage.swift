@@ -1,10 +1,9 @@
 //
 //  DecodedImage.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -34,16 +33,18 @@ protocol DecodedImage: Sendable {
 /// 持有已经应用方向信息的 Core Graphics 图片并生成视频帧。
 final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 
-    /// 图片资源
+    /// 持有已解码的图片像素。
     private let image: CGImage
 
-    /// 图片信息
+    /// 已解码图片的宽高，单位为像素。
     let size: CGSize
 
     /// 持有已应用方向信息的 Core Graphics 图片。
     ///
     /// - Parameter image: 作为后续裁剪和缩放源的像素图片。
-    init(image: CGImage) {
+    init(
+        image: CGImage
+    ) {
         self.image = image
         size = CGSize(width: image.width, height: image.height)
     }
@@ -182,12 +183,15 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 }
 
 private extension CoreGraphicsDecodedImage {
+
     /// 计算 BGRA 图像的每行字节数。
     ///
     /// - Parameter width: 图像宽度，单位为像素。
     /// - Returns: 每行四字节像素占用的总字节数。
     /// - Throws: 宽度计算产生整数溢出时抛出媒体错误。
-    static func bytesPerRow(width: Int) throws -> Int {
+    static func bytesPerRow(
+        width: Int
+    ) throws -> Int {
         let (value, overflow) = width.multipliedReportingOverflow(by: 4)
         guard !overflow else {
             throw processingError("Image dimensions are too large")
@@ -199,7 +203,9 @@ private extension CoreGraphicsDecodedImage {
     ///
     /// - Parameter message: 图片处理失败的可读说明。
     /// - Returns: 具有媒体错误码的 SDK 错误。
-    static func processingError(_ message: String) -> XmaxError {
+    static func processingError(
+        _ message: String
+    ) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }

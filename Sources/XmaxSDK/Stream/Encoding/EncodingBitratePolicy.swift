@@ -1,22 +1,24 @@
 //
 //  EncodingBitratePolicy.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
 /// 上下行共用的编码码率预算。
 enum EncodingBitratePolicy {
+
     /// 优先使用指定码率，并为缺省项计算编码预算。
     ///
     /// - Parameter videoFormat: 包含尺寸、帧率和可选码率上下界的视频规格。
     /// - Returns: 以 kbps 表示的最小和最大码率。
     /// - Throws: 视频规格无效、码率超出整数范围或上下界冲突时抛出错误。
-    static func resolve(_ videoFormat: RealtimeVideoFormat) throws -> (minimum: Int, maximum: Int) {
+    static func resolve(
+        _ videoFormat: RealtimeVideoFormat
+    ) throws -> (minimum: Int, maximum: Int) {
         try videoFormat.validate()
         let minimum: Int
         let maximum: Int
@@ -56,10 +58,11 @@ enum EncodingBitratePolicy {
 /// 表外规格按参考比例外推。
 /// 参考：https://docs.byteplus.com/id/docs/byteplus-rtc/docs-70122
 private extension EncodingBitratePolicy {
+
     /// 表示分辨率或帧率与推荐码率的对应参考点。
     typealias BitratePoint = (value: Double, bitrate: Double)
 
-    /// 码率参考表
+    /// 15 fps 下的面积与推荐码率参考点；码率单位为 kbps。
     static let referenceBitratesAt15FPS: [BitratePoint] = [
         (120 * 120, 50),
         (160 * 120, 65),
@@ -78,6 +81,7 @@ private extension EncodingBitratePolicy {
         (1920 * 1080, 2080)
     ]
 
+    /// 30 fps 下的面积与推荐码率参考点；码率单位为 kbps。
     static let referenceBitratesAt30FPS: [BitratePoint] = [
         (360 * 360, 400),
         (480 * 360, 490),
@@ -95,7 +99,10 @@ private extension EncodingBitratePolicy {
     ///   - pixels: 视频像素总面积。
     ///   - fps: 每秒视频帧数。
     /// - Returns: 尚未应用预算系数的参考最高码率，单位为 kbps。
-    static func resolveMaximumBitrate(pixels: Double, fps: Double) -> Double {
+    static func resolveMaximumBitrate(
+        pixels: Double,
+        fps: Double
+    ) -> Double {
         let bitrate15 = interpolate(pixels, points: referenceBitratesAt15FPS)
         let bitrate30: Double
         let first30 = referenceBitratesAt30FPS[0]
@@ -122,7 +129,10 @@ private extension EncodingBitratePolicy {
     ///   - value: 待求值的像素面积或帧率。
     ///   - points: 按横坐标升序排列的非空参考点。
     /// - Returns: 插值或外推得到的码率。
-    static func interpolate(_ value: Double, points: [BitratePoint]) -> Double {
+    static func interpolate(
+        _ value: Double,
+        points: [BitratePoint]
+    ) -> Double {
         let first = points[0]
         if value <= first.value {
             return first.bitrate * (value / first.value)

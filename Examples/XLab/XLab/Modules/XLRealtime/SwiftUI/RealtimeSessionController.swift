@@ -282,6 +282,7 @@ final class RealtimeSessionController: ObservableObject {
     }
 
     private func renderRealtimeState(_ state: RealtimeState) {
+        statistics.updateState(state)
         connectionState = state.connectionState
         if let reason = state.reason, reason != .normal {
             isGenerationRequested = false

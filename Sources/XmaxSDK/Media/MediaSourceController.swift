@@ -1,10 +1,9 @@
 //
 //  MediaSourceController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -16,30 +15,25 @@ import UIKit
 /// 协调本地视频文件元数据、输出格式和解耦的音视频播放器。
 final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 
-    /// 基础层组件
+    /// 读取文件媒体元数据的组件。
     private let metadataManager: any MediaFileMetadataManaging
 
-    /// 服务层组件
+    /// 提供媒体尺寸规则和模型默认帧率的服务。
     private let mediaService: any MediaServicing
 
-    /// 媒体源组件
+    /// 负责解码、帧输出和本地预览的播放器。
     private let playerController: any VideoPlayerControlling
 
-    /// 并发控制
+    /// 保护文件媒体配置和运行状态。
     private let stateLock = NSLock()
 
-    /// 媒体配置
+    /// 已准备完成的媒体帧输出配置。
     private var configuration: MediaSourceConfiguration?
 
-    /// 运行状态
+    /// 文件媒体是否正在播放并输出帧。
     private var isRunning = false
 
     /// 连接文件元数据、模型规则和音视频播放组件。
-    ///
-    /// - Parameters:
-    ///   - metadataManager: 读取文件媒体元数据的组件。
-    ///   - mediaService: 提供媒体尺寸规则和模型默认帧率的服务。
-    ///   - playerController: 负责解码、帧输出和本地预览的播放器。
     init(
         metadataManager: any MediaFileMetadataManaging,
         mediaService: any MediaServicing,
@@ -50,12 +44,12 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
         self.playerController = playerController
     }
 
-    /// 媒体状态
+    /// 当前文件媒体是否包含音轨。
     var hasAudio: Bool {
         stateLock.withLock { configuration?.hasAudio ?? false }
     }
 
-    /// 音频预览
+    /// 当前本地音频预览音量，范围为 0...1。
     var localAudioVolume: Float {
         get async {
             await playerController.localAudioVolume
@@ -124,7 +118,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     /// 静音或恢复本地音频预览，不影响播放器和 RTC 音频帧输出。
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；
-    func setLocalAudioPreviewMuted(_ muted: Bool) async {
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) async {
         guard hasAudio else {
             return
         }
@@ -134,7 +130,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     /// 设置本地音频预览音量。
     ///
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
-    func setLocalAudioVolume(_ volume: Float) async {
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async {
         await playerController.setLocalAudioVolume(volume)
     }
 
@@ -159,7 +157,9 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
     ///
     /// - Parameter view: 需要解除预览的视图。
     @MainActor
-    func detachPreview(from view: UIView) {
+    func detachPreview(
+        from view: UIView
+    ) {
         playerController.detachPreview(from: view)
     }
 
@@ -174,6 +174,7 @@ final class MediaSourceController: MediaSourceControlling, @unchecked Sendable {
 }
 
 private extension MediaSourceController {
+
     /// 校验媒体已经准备并标记开始运行。
     ///
     /// - Throws: 媒体尚未准备或已在运行时抛出错误。

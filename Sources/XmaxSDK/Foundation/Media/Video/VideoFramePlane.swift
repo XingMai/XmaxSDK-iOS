@@ -1,10 +1,9 @@
 //
 //  VideoFramePlane.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,12 +13,16 @@ import Foundation
 /// 表示视频帧中的一个像素数据平面。
 struct VideoFramePlane: Equatable, Sendable {
 
-    /// 像素存储
+    /// 承载像素平面的原始字节数据。
     let data: Data
 
-    /// 平面布局
+    /// 相邻像素行的字节跨度。
     let stride: Int
+
+    /// 该平面在数据缓冲区中的起始字节偏移。
     let byteOffset: Int
+
+    /// 该平面占用的字节数。
     let byteLength: Int
 
     /// 创建指向有效字节范围的视频像素平面。
@@ -60,7 +63,7 @@ struct VideoFramePlane: Equatable, Sendable {
         self.byteLength = resolvedByteLength
     }
 
-    /// 范围校验错误
+    /// 像素平面的字节范围无效时返回的错误。
     private static var invalidRangeError: XmaxError {
         XmaxError(
             code: .invalidConfiguration,

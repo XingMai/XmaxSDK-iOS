@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -17,29 +16,37 @@ import UIKit
 /// 实时生成业务公共入口，统一编排本地媒体、连接、生成和状态通知。
 actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
-    /// 公共配置
+    /// 创建管理器时确定的模型和插帧配置。
     nonisolated let options: RealtimeConfiguration
 
-    /// 业务层组件
+    /// 管理远端轨道、首帧等待和视频渲染。
     private let renderController: any RenderControlling
+
+    /// 管理 RTC 连接、信令和传输质量。
     private let streamController: any StreamControlling
+
+    /// 管理本地媒体输入、预览和交互。
     private let mediaController: any MediaControlling
 
-    /// 服务层组件
+    /// 解析媒体尺寸及模型输入约束。
     private let mediaService: any MediaServicing
 
-    /// 实时管理组件
+    /// 管理服务端会话与 RTC 连接。
     private let connectionManager: XmaxRealtimeConnectionManager
+
+    /// 管理生成请求及结果流确认。
     private let generationManager: XmaxRealtimeGenerationManager
 
-    /// 错误与耗时记录
+    /// 记录并分发媒体和连接运行故障。
     private let errorHandler: RealtimeErrorHandler
+
+    /// 记录一次生成启动的各阶段耗时。
     private let timing: RealtimeTiming
 
-    /// 并发控制
+    /// 串行业务操作并合并并发终止请求。
     private let coordinator: RealtimeCoordinator
 
-    /// 自动调档
+    /// 是否有尚未处理的质量调档请求。
     private var qualityPending = false
 
     /// 创建实时生成组件，并连接媒体、传输、渲染和生命周期管理能力。
@@ -197,6 +204,69 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
+    /// 当前已连接会话成功应用的上行档位。
+    var uplinkQualityLevel: RealtimeQualityLevel? {
+        get async {
+            let state = await coordinator.currentState.connectionState
+            guard state == .connected || state == .generating else { return nil }
+            return streamController.qualityConfiguration?.uplinkLevel
+        }
+    }
+
+    /// 当前已连接会话成功提交的下行档位。
+    var downlinkQualityLevel: RealtimeQualityLevel? {
+        get async {
+            let state = await coordinator.currentState.connectionState
+            guard state == .connected || state == .generating else { return nil }
+            return streamController.qualityConfiguration?.downlinkLevel
+        }
+    }
+
+    /// 在生成中调整上行编码档位，后续仍允许自动调档。
+    ///
+    /// - Parameter level: 目标上行档位。
+    /// - Throws: 未在生成、操作冲突、取消或编码配置失败时抛出错误。
+    func setUplinkQualityLevel(
+        _ level: RealtimeQualityLevel
+    ) async throws {
+        try await setQualityLevel(level, downlink: false)
+    }
+
+    /// 在生成中调整下行回传档位，后续仍允许自动调档。
+    ///
+    /// - Parameter level: 目标下行档位。
+    /// - Throws: 未在生成、操作冲突、取消、信令发送或渲染配置失败时抛出错误。
+    func setDownlinkQualityLevel(
+        _ level: RealtimeQualityLevel
+    ) async throws {
+        try await setQualityLevel(level, downlink: true)
+    }
+
+    /// 将手动调档纳入实时配置操作，避免与连接清理并发提交。
+    ///
+    /// - Parameters:
+    ///   - level: 目标传输档位。
+    ///   - downlink: 是否调整下行；`false` 表示上行。
+    /// - Throws: 状态无效、操作冲突、取消或档位应用失败时抛出错误。
+    private func setQualityLevel(
+        _ level: RealtimeQualityLevel,
+        downlink: Bool
+    ) async throws {
+        try await coordinator.run(kind: .configuration) { [self] token in
+            let state = await coordinator.currentState
+            try token.ensureCurrent()
+            guard state.connectionState == .generating, let taskID = state.taskID,
+                  streamController.qualityConfiguration != nil else {
+                throw XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Quality levels can only be changed while generating"
+                )
+            }
+
+            try await applyQualityLevel(level, downlink: downlink, taskID: taskID, token: token)
+        }
+    }
+
     /// 当前实际生效的远端插帧状态。
     var isFrameInterpolationEnabled: Bool {
         get async {
@@ -219,7 +289,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// 设置实时状态监听器。
     ///
     /// - Parameter listener: 实时状态回调；传入 `nil` 时清除监听器。
-    func setStateListener(_ listener: RealtimeStateListener?) async {
+    func setStateListener(
+        _ listener: RealtimeStateListener?
+    ) async {
         await coordinator.setStateListener(listener)
     }
 
@@ -239,14 +311,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// 设置视频上行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
-    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
+    func setUplinkVideoStatisticsListener(
+        _ listener: UplinkVideoStatisticsListener?
+    ) {
         streamController.setUplinkVideoStatisticsListener(listener)
     }
 
     /// 设置视频下行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
-    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) {
+    func setDownlinkVideoStatisticsListener(
+        _ listener: DownlinkVideoStatisticsListener?
+    ) {
         streamController.setDownlinkVideoStatisticsListener(listener)
     }
 
@@ -272,7 +348,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ///
     /// - Parameter volume: 本地预览音量，取值范围为 `0...1`。
     /// - Throws: 音量超出有效范围时抛出错误。
-    func setLocalAudioVolume(_ volume: Float) async throws {
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async throws {
         do {
             try Self.validateAudioVolume(volume)
             await mediaController.setLocalAudioVolume(volume)
@@ -288,7 +366,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ///
     /// - Parameter volume: 远端播放音量，取值范围为 `0...1`。
     /// - Throws: 音量超出有效范围或 RTC 音量配置失败时抛出错误。
-    func setRemoteAudioVolume(_ volume: Float) async throws {
+    func setRemoteAudioVolume(
+        _ volume: Float
+    ) async throws {
         do {
             try Self.validateAudioVolume(volume)
             try streamController.setRemoteAudioVolume(volume)
@@ -307,7 +387,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ///
     /// - Parameter enabled: 是否开启远端视频插帧。
     /// - Throws: 其他实时操作正在执行、设备或目标尺寸不支持插帧，或信令发送失败时抛出错误。
-    func setFrameInterpolationEnabled(_ enabled: Bool) async throws {
+    func setFrameInterpolationEnabled(
+        _ enabled: Bool
+    ) async throws {
         try await coordinator.run(
             kind: .configuration
         ) { [self] token in
@@ -317,7 +399,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 let targetSize = try mediaFormat.map {
                     try resolveTargetVideoFormat(
                         baseline: $0,
-                        level: streamController.qualityConfiguration?.downlinkLevel ?? 2,
+                        level: streamController.qualityConfiguration?.downlinkLevel ?? .l2,
                         interpolation: enabled
                     ).size
                 }
@@ -511,6 +593,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     }
 
 #if canImport(UIKit)
+
     /// 从 UIKit 图片创建持续输出帧的媒体流。
     ///
     /// 保留媒体显示比例；生成时由模型规则选择生成画布。
@@ -653,7 +736,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// 按指定业务原因断开实时连接，保留可用的本地媒体流。
     ///
     /// - Parameter reason: 本次断开的原因，例如显示方向变化。
-    func disconnect(reason: RealtimeReason) async {
+    func disconnect(
+        reason: RealtimeReason
+    ) async {
         await coordinator.disconnect(reason: reason)
     }
 
@@ -672,7 +757,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ///   - context: 本次生成条件；首次生成不能为空，后续传入 `nil` 时复用缓存条件。
     ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
     /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
-    func startGeneration(context: RealtimeContext?, faceRestoration: Bool = false) async throws {
+    func startGeneration(
+        context: RealtimeContext?,
+        faceRestoration: Bool = false
+    ) async throws {
         try await coordinator.run(
             kind: .generation
         ) { [self] token in
@@ -866,6 +954,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 }
 
 private extension XmaxRealtimeManager {
+
     /// 根据网络档位和插帧限制计算回传视频规格。
     ///
     /// - Parameters:
@@ -876,7 +965,7 @@ private extension XmaxRealtimeManager {
     /// - Throws: 基准规格无效或无法计算有效回传尺寸时抛出错误。
     nonisolated func resolveTargetVideoFormat(
         baseline: RealtimeVideoFormat,
-        level: Int,
+        level: RealtimeQualityLevel,
         interpolation: Bool
     ) throws -> RealtimeVideoFormat {
         try baseline.validate()
@@ -896,7 +985,11 @@ private extension XmaxRealtimeManager {
     ///   - sample: 上下行网络质量采样。
     ///   - sampledAt: 采样时的系统单调时钟时间，单位为秒。
     ///   - taskID: 采样所属的生成任务标识。
-    func adaptQuality(_ sample: RealtimeNetworkQuality, sampledAt: TimeInterval, taskID: String) async {
+    func adaptQuality(
+        _ sample: RealtimeNetworkQuality,
+        sampledAt: TimeInterval,
+        taskID: String
+    ) async {
         guard !qualityPending else { return }
         qualityPending = true
         defer { qualityPending = false }
@@ -932,7 +1025,7 @@ private extension XmaxRealtimeManager {
     ///   - token: 当前配置操作的生命周期凭证。
     /// - Throws: 操作取消、目标尺寸不支持插帧、信令发送或编码配置失败时抛出错误。
     func applyQualityLevel(
-        _ level: Int,
+        _ level: RealtimeQualityLevel,
         downlink: Bool,
         taskID: String,
         token: RealtimeCoordinator.Token
@@ -974,13 +1067,13 @@ private extension XmaxRealtimeManager {
             try token.ensureCurrent()
             streamController.completeQuality(downlink: downlink, level: level, success: true)
             XmaxLogger.realtime.debug(
-                message: "自动调档 (Adaptive Quality)\n" +
-                    "└─ \(downlink ? "Downlink" : "Uplink"): L\(level), \(format.width) × \(format.height)"
+                message: "传输调档 (Quality Adjustment)\n" +
+                    "└─ \(downlink ? "Downlink" : "Uplink"): L\(level.rawValue), \(format.width) × \(format.height)"
             )
         } catch {
             guard token.isCurrent else { throw error }
             streamController.completeQuality(downlink: downlink, level: level, success: false)
-            XmaxLogger.realtime.warn(message: "自动调档失败 (Adaptive Quality Failed)\n└─ \(ErrorMessageFormatter.format(error))")
+            XmaxLogger.realtime.warn(message: "传输调档失败 (Quality Adjustment Failed)\n└─ \(ErrorMessageFormatter.format(error))")
             throw error
         }
     }
@@ -1126,7 +1219,9 @@ private extension XmaxRealtimeManager {
     ///
     /// - Parameter message: 不允许变更媒体时使用的错误信息。
     /// - Throws: 存在会话，或连接正在建立、断开时抛出错误。
-    func ensureLocalMediaCanChange(message: String) async throws {
+    func ensureLocalMediaCanChange(
+        message: String
+    ) async throws {
         let current = await coordinator.currentState
         guard await connectionManager.currentSessionID == "",
               current.connectionState != .connecting,
@@ -1143,7 +1238,10 @@ private extension XmaxRealtimeManager {
     /// - Parameters:
     ///   - track: 报告方向变化的本地视频轨道。
     ///   - changedAxis: 是否在横屏和竖屏之间切换。
-    func handleOrientationChange(for track: RealtimeVideoTrack, changedAxis: Bool) async {
+    func handleOrientationChange(
+        for track: RealtimeVideoTrack,
+        changedAxis: Bool
+    ) async {
         guard await mediaController.currentTrack === track else { return }
         let disconnection = changedAxis
             ? await coordinator.beginDisconnect(reason: .orientationChanged)
@@ -1173,7 +1271,7 @@ private extension XmaxRealtimeManager {
         guard let videoFormat = stream.videoTrack?.videoFormat else {
             return nil
         }
-        let level = streamController.qualityConfiguration?.downlinkLevel ?? 2
+        let level = streamController.qualityConfiguration?.downlinkLevel ?? .l2
         let fallbackFormat = try resolveTargetVideoFormat(baseline: videoFormat, level: level, interpolation: false)
         let interpolation = await renderController.isFrameInterpolationEnabled
         do {
@@ -1226,7 +1324,9 @@ private extension XmaxRealtimeManager {
     /// - Parameter error: 需要记录和转换的原始错误。
     /// - Returns: 供调用方抛出或处理的 XmaxError。
     @discardableResult
-    func reportError(_ error: any Error) async -> XmaxError {
+    func reportError(
+        _ error: any Error
+    ) async -> XmaxError {
         let xmaxError = XmaxError.from(error)
         await errorHandler.report(xmaxError)
         return xmaxError
@@ -1236,7 +1336,9 @@ private extension XmaxRealtimeManager {
     ///
     /// - Parameter volume: 待应用的播放音量。
     /// - Throws: 音量非有限数值或超出范围时抛出错误。
-    static func validateAudioVolume(_ volume: Float) throws {
+    static func validateAudioVolume(
+        _ volume: Float
+    ) throws {
         guard volume.isFinite, (0...1).contains(volume) else {
             throw XmaxError(
                 code: .invalidConfiguration,

@@ -1,7 +1,7 @@
 //
 //  XmaxConfigurationTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -35,6 +35,17 @@ final class XmaxConfigurationTests: XCTestCase {
         )
     }
 
+    func testRealtimeEnvironmentPreservesRegionalSessionEndpoints() {
+        XCTAssertEqual(
+            XmaxEnvironment.china.realtimeApiBaseURL.absoluteString,
+            "https://cloud.xmax.22duck.cn/open/api/v1"
+        )
+        XCTAssertEqual(
+            XmaxEnvironment.global.realtimeApiBaseURL.absoluteString,
+            "https://api.xmax.ai/open/api/v1"
+        )
+    }
+
     func testConfigurationKeepsLoggerOptions() {
         let configuration = XmaxConfiguration(
             apiKey: "test-key",
@@ -59,9 +70,9 @@ final class XmaxConfigurationTests: XCTestCase {
     }
 
     func testRealtimeConfigurationKeepsModelAndEnablesInterpolationByDefault() {
-        let configuration = RealtimeConfiguration(model: .x2_1_1_preview_cn)
+        let configuration = RealtimeConfiguration(model: .x2_1)
 
-        XCTAssertEqual(configuration.model.rawValue, "x2.1.1-preview-cn")
+        XCTAssertEqual(configuration.model.rawValue, "x2.1")
         XCTAssertTrue(configuration.isFrameInterpolationEnabled)
     }
 }

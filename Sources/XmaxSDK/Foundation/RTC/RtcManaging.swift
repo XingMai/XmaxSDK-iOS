@@ -1,10 +1,9 @@
 //
 //  RtcManaging.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -67,13 +66,17 @@ protocol RtcManaging: Sendable {
     ///
     /// - Parameter frame: SDK 中性视频帧。
     /// - Throws: 帧格式或数据无效时抛出错误。
-    func pushExternalVideoFrame(_ frame: VideoFrame) throws
+    func pushExternalVideoFrame(
+        _ frame: VideoFrame
+    ) throws
 
     /// 推送外部音频帧。
     ///
     /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
     /// - Throws: 帧格式或数据无效时抛出错误。
-    func pushExternalAudioFrame(_ frame: AudioFrame) throws
+    func pushExternalAudioFrame(
+        _ frame: AudioFrame
+    ) throws
 
     /// 加入 RTC 房间并等待连接完成。
     ///
@@ -155,7 +158,7 @@ protocol RtcManaging: Sendable {
     /// - Parameters:
     ///   - message: 完整 JSON 信令。
     ///   - reportFailure: 异步发送失败时是否上报房间故障。
-    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
+    ///   - key: 合并键；同键且尚未发送的信令仅保留最新内容。
     /// - Returns: 本条信令的发送任务，可用于等待独立的发送结果。
     /// - Throws: 入队失败时抛出错误。
     @discardableResult
@@ -168,7 +171,9 @@ protocol RtcManaging: Sendable {
     /// 丢弃尚未开始发送的可合并信令。
     ///
     /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
-    func discardPendingMessages(key: String?)
+    func discardPendingMessages(
+        key: String?
+    )
 
     /// 等待已入队的房间信令发送完成。
     ///
@@ -178,15 +183,20 @@ protocol RtcManaging: Sendable {
     /// 设置 RTC 连接及媒体事件监听器。
     ///
     /// - Parameter listener: 事件监听器；传入 `nil` 清除监听。
-    func setEventListener(_ listener: (any RtcEventListener)?)
+    func setEventListener(
+        _ listener: (any RtcEventListener)?
+    )
 
     /// 设置 RTC 网络及媒体质量监听器。
     ///
     /// - Parameter listener: 质量监听器；传入 `nil` 清除监听。
-    func setQualityListener(_ listener: (any RtcQualityListener)?)
+    func setQualityListener(
+        _ listener: (any RtcQualityListener)?
+    )
 }
 
 extension RtcManaging {
+
     /// 将房间信令入队，并启用异步发送失败通知。
     ///
     /// - Parameters:
@@ -195,7 +205,10 @@ extension RtcManaging {
     /// - Returns: 本条信令的发送任务。
     /// - Throws: 信令无法入队时抛出错误。
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool = true
+    ) throws -> Task<Void, any Error> {
         try sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: nil)
     }
 }

@@ -1,10 +1,9 @@
 //
 //  RealtimePerformanceAlarm.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -29,10 +28,6 @@ public struct RealtimePerformanceAlarm: Equatable, Sendable {
     public let suggestedVideoFormat: RealtimeVideoFormat?
 
     /// 创建实时性能告警信息。
-    ///
-    /// - Parameters:
-    ///   - status: 设备当前的性能限制状态。
-    ///   - suggestedVideoFormat: 建议采用的视频规格；没有有效建议时传入 `nil`。
     public init(
         status: RealtimePerformanceStatus,
         suggestedVideoFormat: RealtimeVideoFormat?

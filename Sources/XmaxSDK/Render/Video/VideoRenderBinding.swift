@@ -1,10 +1,9 @@
 //
 //  VideoRenderBinding.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,18 +14,16 @@ import UIKit
 @MainActor
 final class VideoRenderBinding {
 
-    /// 渲染操作
+    /// 将内容绑定到视图并应用显示模式的操作。
     private let attachHandler: (UIView, VideoContentMode) throws -> Void
+
+    /// 解除视图与渲染资源的绑定。
     private let detachHandler: (UIView) throws -> Void
 
-    /// 运行状态
+    /// 当前绑定渲染资源的视图。
     private weak var attachedView: UIView?
 
     /// 创建轨道与视图之间的渲染绑定。
-    ///
-    /// - Parameters:
-    ///   - attachHandler: 将内容绑定到视图并应用显示模式的操作。
-    ///   - detachHandler: 从视图解除内容的操作。
     init(
         attachHandler: @escaping (UIView, VideoContentMode) throws -> Void,
         detachHandler: @escaping (UIView) throws -> Void
@@ -58,7 +55,9 @@ final class VideoRenderBinding {
     ///
     /// - Parameter view: 需要解除绑定的视图。
     /// - Throws: 底层解绑操作失败时抛出错误。
-    func detach(from view: UIView) throws {
+    func detach(
+        from view: UIView
+    ) throws {
         guard attachedView === view else {
             return
         }
@@ -79,10 +78,13 @@ final class VideoRenderBinding {
 }
 
 extension VideoRenderBinding {
+
     /// 创建在 SDK 视频视图中显示静态图片的绑定。
     ///
     /// - Parameter imageFrame: 用于生成图片预览的像素帧。
-    convenience init(imageFrame: VideoFrame) {
+    convenience init(
+        imageFrame: VideoFrame
+    ) {
         self.init(
             attachHandler: { view, contentMode in
                 guard let videoView = view as? XmaxVideoView else {

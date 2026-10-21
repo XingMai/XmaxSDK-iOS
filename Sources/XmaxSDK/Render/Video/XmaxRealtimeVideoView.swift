@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeVideoView.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -57,11 +56,13 @@ public final class XmaxRealtimeVideoView: UIView {
         set { remoteVideoView.trajectoryRenderer = newValue }
     }
 
-    /// 视频视图
+    /// 持续显示本地媒体的预览视图。
     private lazy var localVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,
         isInteractionEnabled: false
     )
+
+    /// 显示生成结果的远端视频视图。
     private lazy var remoteVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,
         isInteractionEnabled: isInteractionEnabled
@@ -91,7 +92,9 @@ public final class XmaxRealtimeVideoView: UIView {
     /// 使用指定布局区域创建实时视频容器。
     ///
     /// - Parameter frame: 视图初始布局区域。
-    public override init(frame: CGRect) {
+    public override init(
+        frame: CGRect
+    ) {
         localTrack = nil
         remoteTrack = nil
         super.init(frame: frame)
@@ -101,7 +104,9 @@ public final class XmaxRealtimeVideoView: UIView {
     /// 从 Interface Builder 归档恢复实时视频容器。
     ///
     /// - Parameter coder: 视图归档解码器。
-    public required init?(coder: NSCoder) {
+    public required init?(
+        coder: NSCoder
+    ) {
         localTrack = nil
         remoteTrack = nil
         super.init(coder: coder)
@@ -117,6 +122,7 @@ public final class XmaxRealtimeVideoView: UIView {
 }
 
 private extension XmaxRealtimeVideoView {
+
     /// 建立本地预览与远端结果的叠层视图。
     func configureView() {
         backgroundColor = .black

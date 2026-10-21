@@ -1,10 +1,9 @@
 //
 //  MediaController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,20 +13,28 @@ import Foundation
 /// 统一协调本地媒体所有权以及 RTC Engine 生命周期。
 actor MediaController: MediaControlling {
 
-    /// 基础层组件
+    /// 配置本地输入并发送音视频帧。
     private let rtcManager: any RtcManaging
 
-    /// 本地媒体组件
+    /// 管理摄像头采集及本地预览。
     private let cameraController: any CameraControlling
+
+    /// 管理图片输入和预览。
     private let imageController: (any ImageControlling)?
+
+    /// 将轨迹映射为媒体坐标并发送。
     private let interactionController: any InteractionControlling
+
+    /// 管理文件视频输入和播放。
     private let videoController: (any VideoControlling)?
 
-    /// 本地媒体资源
+    /// 当前本地媒体来源及其有效期。
     private var activeSource: ActiveLocalMediaSource?
 
-    /// 并发控制
+    /// 正在创建本地媒体流的操作。
     private var mediaOperation: LocalMediaOperation?
+
+    /// 正在执行的本地媒体停止操作。
     private var stopOperation: LocalMediaStopOperation?
 
     /// 创建并连接摄像头、图片、视频及交互控制组件。
@@ -109,6 +116,7 @@ actor MediaController: MediaControlling {
         currentTrack?.videoFormat
     }
 
+    /// 图片和文件视频使用完整内容适配生成画布。
     var usesContainPadding: Bool {
         activeSource?.kind == .image || activeSource?.kind == .video
     }
@@ -138,7 +146,9 @@ actor MediaController: MediaControlling {
     /// 设置当前相机流的一次性内部就绪处理。
     ///
     /// - Parameter handler: 收到有效帧且预览已绑定时调用；传入空值时清除。
-    func setCameraPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?) {
+    func setCameraPreviewReadyHandler(
+        _ handler: CameraPreviewReadyHandler?
+    ) {
         cameraController.setPreviewReadyHandler(handler)
     }
 
@@ -165,7 +175,9 @@ actor MediaController: MediaControlling {
     /// 提交触控轨迹。
     ///
     /// - Parameter frame: 当前视图中采集的轨迹及显示尺寸。
-    func submitInteraction(_ frame: InteractionFrame) async {
+    func submitInteraction(
+        _ frame: InteractionFrame
+    ) async {
         await interactionController.submitInteraction(frame)
     }
 
@@ -309,7 +321,9 @@ actor MediaController: MediaControlling {
     /// 静音或恢复文件视频的本地音频预览，不影响播放时间轴和 RTC 音频推流。
     ///
     /// - Parameter muted: `true` 表示仅静音本地播放器；
-    func setLocalAudioPreviewMuted(_ muted: Bool) async {
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) async {
         guard activeSource?.kind == .video, let videoController else {
             return
         }
@@ -319,7 +333,9 @@ actor MediaController: MediaControlling {
     /// 设置本地文件视频的音频预览音量。
     ///
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
-    func setLocalAudioVolume(_ volume: Float) async {
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async {
         await videoController?.setLocalAudioVolume(volume)
     }
 
@@ -353,7 +369,9 @@ actor MediaController: MediaControlling {
     /// - Parameter stream: 需要验证所有权的媒体流。
     /// - Returns: 媒体流的视频轨道由当前活动来源持有时返回 `true`，
     ///   否则返回 `false`。
-    func owns(_ stream: RealtimeMediaStream) -> Bool {
+    func owns(
+        _ stream: RealtimeMediaStream
+    ) -> Bool {
         guard let videoTrack = stream.videoTrack else {
             return false
         }
@@ -362,26 +380,34 @@ actor MediaController: MediaControlling {
 }
 
 private extension MediaController {
+
     /// 区分当前持有的本地媒体来源。
     enum LocalMediaKind: Sendable {
+
+        /// 摄像头实时采集。
         case camera
+
+        /// 图片持续输出。
         case image
+
+        /// 文件视频播放。
         case video
     }
 
     /// 标识当前活动媒体来源及其类型。
     final class ActiveLocalMediaSource {
 
-        /// 来源标识
+        /// 来源的唯一标识。
         let id: UUID
+
+        /// 当前本地媒体来源。
         let kind: LocalMediaKind
 
         /// 记录当前媒体来源的身份和类型。
-        ///
-        /// - Parameters:
-        ///   - id: 来源的唯一标识。
-        ///   - kind: 来源类型。
-        init(id: UUID, kind: LocalMediaKind) {
+        init(
+            id: UUID,
+            kind: LocalMediaKind
+        ) {
             self.id = id
             self.kind = kind
         }
@@ -390,22 +416,26 @@ private extension MediaController {
     /// 关联媒体创建任务与所属来源。
     struct LocalMediaOperation {
 
-        /// 操作标识
+        /// 媒体创建操作的唯一标识。
         let id: UUID
+
+        /// 本次操作所属媒体流的有效期标识。
         let sourceID: UUID
 
-        /// 创建任务
+        /// 创建并返回本地媒体流的异步任务。
         let task: Task<RealtimeMediaStream, any Error>
     }
 
     /// 关联媒体停止任务与所属来源。
     struct LocalMediaStopOperation {
 
-        /// 操作标识
+        /// 媒体停止操作的唯一标识。
         let id: UUID
+
+        /// 停止操作对应的媒体流标识。
         let sourceID: UUID
 
-        /// 停止任务
+        /// 释放指定媒体流资源的异步任务。
         let task: Task<Void, Never>
     }
 
@@ -461,7 +491,9 @@ private extension MediaController {
     /// 停止指定类型的本地媒体来源。
     ///
     /// - Parameter kind: 需要停止的媒体来源类型。
-    func stopSource(ifKindIs kind: LocalMediaKind) async {
+    func stopSource(
+        ifKindIs kind: LocalMediaKind
+    ) async {
         guard let activeSource, activeSource.kind == kind else {
             return
         }
@@ -527,7 +559,9 @@ private extension MediaController {
     /// 停止指定类型的本地媒体来源。
     ///
     /// - Parameter kind: 需要停止的媒体来源类型。
-    func stopSource(kind: LocalMediaKind) async {
+    func stopSource(
+        kind: LocalMediaKind
+    ) async {
         switch kind {
         case .camera:
             await cameraController.stopLocalCameraStream()
@@ -542,7 +576,9 @@ private extension MediaController {
     ///
     /// - Parameter kind: 本地媒体来源类型。
     /// - Returns: 对应组件的视频轨道；尚未创建时返回 `nil`。
-    func currentTrack(for kind: LocalMediaKind) -> RealtimeVideoTrack? {
+    func currentTrack(
+        for kind: LocalMediaKind
+    ) -> RealtimeVideoTrack? {
         switch kind {
         case .camera:
             cameraController.currentTrack
@@ -602,7 +638,9 @@ private extension MediaController {
     ///
     /// - Parameter sourceID: 媒体创建对应的来源标识。
     /// - Throws: 来源已失效或进入停止流程时抛出取消错误。
-    func ensureCreationActive(sourceID: UUID) throws {
+    func ensureCreationActive(
+        sourceID: UUID
+    ) throws {
         guard activeSource?.id == sourceID,
               stopOperation?.sourceID != sourceID else {
             throw XmaxError(
@@ -627,7 +665,9 @@ private extension MediaController {
     /// 清除匹配的媒体创建操作。
     ///
     /// - Parameter id: 需要清除的操作标识。
-    func clearMediaOperation(id: UUID) {
+    func clearMediaOperation(
+        id: UUID
+    ) {
         if mediaOperation?.id == id {
             mediaOperation = nil
         }
@@ -637,7 +677,9 @@ private extension MediaController {
     ///
     /// - Parameter error: 待判断的错误。
     /// - Returns: SDK 错误码为取消时返回 `true`。
-    static func isCancelled(_ error: any Error) -> Bool {
+    static func isCancelled(
+        _ error: any Error
+    ) -> Bool {
         (error as? XmaxError)?.code == .cancelled
     }
 }

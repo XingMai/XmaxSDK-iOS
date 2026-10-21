@@ -1,10 +1,9 @@
 //
 //  RealtimeTiming.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,10 +13,10 @@ import Foundation
 /// 记录实时生成启动链路各阶段耗时。
 final class RealtimeTiming: @unchecked Sendable {
 
-    /// 并发控制
+    /// 保护跨线程更新的阶段时间记录。
     private let lock = NSLock()
 
-    /// 启动耗时记录
+    /// 当前生成启动的时间记录。
     private var state = State()
 
     /// 开始一次启动耗时记录，并清空上次的阶段时间。
@@ -60,7 +59,9 @@ final class RealtimeTiming: @unchecked Sendable {
     /// 记录生成请求发送的开始时间，并重置该任务的首帧时间。
     ///
     /// - Parameter taskID: 本次生成任务的标识。
-    func beginSignal(taskID: String) {
+    func beginSignal(
+        taskID: String
+    ) {
         lock.withLock {
             state.taskID = taskID
             state.signalStartedAt = Self.now
@@ -71,7 +72,9 @@ final class RealtimeTiming: @unchecked Sendable {
     /// 记录当前生成任务的结果首帧可显示时间。
     ///
     /// - Parameter taskID: 结果帧所属的任务标识；非当前任务的通知被忽略。
-    func finishFirstFrame(taskID: String) {
+    func finishFirstFrame(
+        taskID: String
+    ) {
         lock.withLock {
             guard state.taskID == taskID else { return }
             state.firstFrameAt = Self.now
@@ -81,7 +84,9 @@ final class RealtimeTiming: @unchecked Sendable {
     /// 记录启动完成时间，并在启用性能日志时输出完整耗时汇总。
     ///
     /// - Parameter taskID: 已完成启动的生成任务标识；非当前任务的通知被忽略。
-    func finish(taskID: String) {
+    func finish(
+        taskID: String
+    ) {
         let snapshot = lock.withLock { () -> State? in
             guard state.taskID == taskID,
                   state.startedAt != nil else {
@@ -101,7 +106,9 @@ final class RealtimeTiming: @unchecked Sendable {
     /// 记录启动失败时间，并在启用性能日志时输出未完成阶段的耗时；取消不计为失败。
     ///
     /// - Parameter error: 导致启动失败的错误。
-    func finishFailure(_ error: any Error) {
+    func finishFailure(
+        _ error: any Error
+    ) {
         let xmaxError = XmaxError.from(error)
         guard xmaxError.code != .cancelled else { return }
 
@@ -120,33 +127,44 @@ final class RealtimeTiming: @unchecked Sendable {
 }
 
 extension RealtimeTiming {
+
     /// 保存一次启动的阶段时间与任务标识，所有时间均为单调时钟纳秒值。
     struct State {
 
-        /// 启动起点
+        /// 生成启动请求开始的时刻。
         var startedAt: UInt64?
 
-        /// 服务端会话创建
+        /// 服务端会话创建开始的时刻。
         var sessionStartedAt: UInt64?
+
+        /// 服务端会话创建完成的时刻。
         var sessionFinishedAt: UInt64?
 
-        /// RTC 房间连接
+        /// RTC 进房开始的时刻。
         var roomJoinStartedAt: UInt64?
+
+        /// RTC 进房完成的时刻。
         var roomJoinFinishedAt: UInt64?
 
-        /// 本地流发布
+        /// 本地流发布开始的时刻。
         var publicationStartedAt: UInt64?
+
+        /// 本地流发布完成的时刻。
         var publicationFinishedAt: UInt64?
 
-        /// 生成请求与首帧
+        /// 启动信令开始发送的时刻。
         var signalStartedAt: UInt64?
+
+        /// 生成结果首帧就绪的时刻。
         var firstFrameAt: UInt64?
 
-        /// 启动结果
+        /// 生成启动完成的时刻。
         var readyAt: UInt64?
+
+        /// 启动失败的时刻。
         var failureAt: UInt64?
 
-        /// 生成任务
+        /// 本次耗时统计对应的生成任务标识。
         var taskID: String?
     }
 
@@ -154,7 +172,9 @@ extension RealtimeTiming {
     ///
     /// - Parameter state: 包含启动和各阶段时间的记录。
     /// - Returns: 包含总耗时与四个阶段耗时的日志文本；缺少关键时间时返回不可用提示。
-    static func format(_ state: State) -> String {
+    static func format(
+        _ state: State
+    ) -> String {
         guard let startedAt = state.startedAt,
               state.firstFrameAt != nil,
               let readyAt = state.readyAt else {
@@ -175,7 +195,10 @@ extension RealtimeTiming {
     ///   - state: 包含失败时间与已记录阶段时间的记录。
     ///   - error: 导致启动失败的 SDK 错误。
     /// - Returns: 包含已耗时、阶段耗时、停留阶段和错误原因的日志文本。
-    static func formatFailure(_ state: State, error: XmaxError) -> String {
+    static func formatFailure(
+        _ state: State,
+        error: XmaxError
+    ) -> String {
         guard let startedAt = state.startedAt,
               let failureAt = state.failureAt else {
             return "实时生成启动失败耗时不可用 " +
@@ -204,7 +227,10 @@ private extension RealtimeTiming {
     ///   - state: 启动阶段的时间记录。
     ///   - failureAt: 启动失败时间；非 `nil` 时用于计算尚未完成阶段的耗时。
     /// - Returns: 可拼接到汇总日志中的四个阶段明细。
-    static func stageDetails(_ state: State, failureAt: UInt64? = nil) -> [String] {
+    static func stageDetails(
+        _ state: State,
+        failureAt: UInt64? = nil
+    ) -> [String] {
         let stages: [(String, UInt64?, UInt64?)] = [
             (XmaxLogger.localized("创建会话：", "Session Creation: "),
              state.sessionStartedAt, state.sessionFinishedAt),
@@ -227,7 +253,9 @@ private extension RealtimeTiming {
     ///
     /// - Parameter state: 启动阶段的时间记录。
     /// - Returns: 当前日志语言对应的阶段名称。
-    static func pendingStage(_ state: State) -> String {
+    static func pendingStage(
+        _ state: State
+    ) -> String {
         if state.firstFrameAt != nil {
             return XmaxLogger.localized("首帧已就绪，正在完成启动", "First Frame Ready, Completing Startup")
         }
@@ -261,7 +289,10 @@ private extension RealtimeTiming {
     ///   - start: 阶段开始时间。
     ///   - end: 阶段结束时间。
     /// - Returns: 保留一位小数的毫秒文本；时间缺失或结束早于开始时返回 `—`。
-    static func duration(_ start: UInt64?, _ end: UInt64?) -> String {
+    static func duration(
+        _ start: UInt64?,
+        _ end: UInt64?
+    ) -> String {
         guard let start, let end, end >= start else { return "—" }
         return String(format: "%.1f ms", Double(end - start) / 1000000)
     }

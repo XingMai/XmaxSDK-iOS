@@ -1,7 +1,7 @@
 //
 //  RealtimeSessionServiceTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -14,12 +14,32 @@ import XCTest
 @testable import XmaxSDK
 
 final class RealtimeSessionServiceTests: XCTestCase {
+    func testCreateSessionUsesPublicModelIdentifiers() async throws {
+        XCTAssertEqual(RealtimeModel.allCases.map(\.rawValue), ["x2.1"])
+        for model in RealtimeModel.allCases {
+            let payload = try JSONSerialization.data(withJSONObject: [
+                "sessionUid": "session", "userUid": "user",
+                "modelExtra": [
+                    "room_id": "room", "room_token": "token", "rtc_user_id": "rtc-user",
+                    "rtc_bot_id": "bot", "rtc_app_id": RtcEngineManager.defaultAppID
+                ]
+            ])
+            let api = RealtimeApiServiceStub(responses: [.success(payload)])
+            _ = try await RealtimeSessionService(apiService: api).createSession(model: model)
+            let body = try XCTUnwrap(api.requests.first?.body)
+            XCTAssertEqual(
+                try JSONSerialization.jsonObject(with: body) as? [String: String],
+                ["model": model.rawValue]
+            )
+        }
+    }
+
     func testInvalidAgoraAppIDClosesCreatedSessionAndPreservesOriginalError() async throws {
         let payload = Data(#"{"sessionUid":"invalid-app","userUid":"user","modelExtra":{"room_id":"room","room_token":"token","rtc_user_id":"account","rtc_bot_id":"bot","rtc_app_id":"other-app"}}"#.utf8)
         let api = RealtimeApiServiceStub(responses: [.success(payload), .success(Data("{}".utf8))])
         let service = RealtimeSessionService(apiService: api)
         do {
-            _ = try await service.createSession(model: .x2_1_1_preview_cn)
+            _ = try await service.createSession(model: .x2_1)
             XCTFail("Expected invalid Agora app ID")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .sessionError)
@@ -32,7 +52,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let payload = Data(#"{"sessionUid":"missing-account","userUid":"business-user","modelExtra":{"room_id":"room","room_token":"token","rtc_bot_id":"bot","rtc_app_id":"5588dfe2e7874bd08ea28f4968ec2d40"}}"#.utf8)
         let api = RealtimeApiServiceStub(responses: [.success(payload), .success(Data("{}".utf8))])
         do {
-            _ = try await RealtimeSessionService(apiService: api).createSession(model: .x2_1_1_preview_us)
+            _ = try await RealtimeSessionService(apiService: api).createSession(model: .x2_1)
             XCTFail("Expected missing RTC account")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .sessionError)
@@ -60,7 +80,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         )
         let service = RealtimeSessionService(apiService: apiService)
 
-        let session = try await service.createSession(model: .x2_1_1_preview_cn)
+        let session = try await service.createSession(model: .x2_1)
 
         XCTAssertEqual(
             session,
@@ -83,7 +103,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let body = try XCTUnwrap(request.body)
         XCTAssertEqual(
             try JSONSerialization.jsonObject(with: body) as? [String: String],
-            ["model": "x2.1.1-preview-cn"]
+            ["model": "x2.1"]
         )
     }
 
@@ -101,7 +121,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         )
         let service = RealtimeSessionService(apiService: apiService)
 
-        let session = try await service.createSession(model: .x2_1_1_preview_cn)
+        let session = try await service.createSession(model: .x2_1)
 
         XCTAssertEqual(
             session.connection,
@@ -121,7 +141,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let service = RealtimeSessionService(apiService: apiService)
 
         do {
-            _ = try await service.createSession(model: .x2_1_1_preview_cn)
+            _ = try await service.createSession(model: .x2_1)
             XCTFail("Expected invalid session data to fail")
         } catch {
             XCTAssertEqual(
@@ -147,7 +167,7 @@ final class RealtimeSessionServiceTests: XCTestCase {
         let service = RealtimeSessionService(apiService: apiService)
 
         do {
-            _ = try await service.createSession(model: .x2_1_1_preview_cn)
+            _ = try await service.createSession(model: .x2_1)
             XCTFail("Expected incomplete RTC information to fail")
         } catch {
             XCTAssertEqual(

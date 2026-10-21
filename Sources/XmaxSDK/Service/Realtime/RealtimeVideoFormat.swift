@@ -1,10 +1,9 @@
 //
 //  RealtimeVideoFormat.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -25,33 +24,25 @@ public enum RealtimeVideoEncoderPreference: Equatable, Sendable {
 /// 实时视频的尺寸、帧率和上传编码配置。
 public struct RealtimeVideoFormat: Equatable, Sendable {
 
-    /// 视频宽度，单位为像素。
+    /// 视频宽度，单位为像素；必须为正偶数。
     public let width: Int
 
-    /// 视频高度，单位为像素。
+    /// 视频高度，单位为像素；必须为正偶数。
     public let height: Int
 
-    /// 视频帧率。
+    /// 视频帧率，单位为 fps；必须大于 0。
     public let fps: Int
 
     /// 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
     public let minimumBitrate: Int?
 
-    /// 最高上传码率，单位为 kbps；nil 使用 SDK 默认值，指定时必须大于 0。
+    /// 最高上传码率，单位为 kbps；nil 按最终上传尺寸和帧率计算，指定时必须大于 0。
     public let maximumBitrate: Int?
 
     /// 上传编码策略偏好，默认优先保障帧率。
     public let encoderPreference: RealtimeVideoEncoderPreference
 
     /// 创建实时视频格式。
-    ///
-    /// - Parameters:
-    ///   - width: 视频宽度，单位为像素。
-    ///   - height: 视频高度，单位为像素。
-    ///   - fps: 视频帧率，必须大于 0。
-    ///   - minimumBitrate: 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
-    ///   - maximumBitrate: 最高上传码率，单位为 kbps；nil 按最终上传尺寸和帧率计算。
-    ///   - encoderPreference: 上传编码策略偏好，默认值为 maintainFramerate。
     public init(
         width: Int,
         height: Int,
@@ -96,13 +87,17 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
 }
 
 extension RealtimeVideoFormat {
+
     /// 生成调整宽高后的视频规格，保留帧率和编码配置。
     ///
     /// - Parameters:
     ///   - width: 目标宽度，单位为像素。
     ///   - height: 目标高度，单位为像素。
     /// - Returns: 使用目标宽高的新视频规格。
-    func resized(width: Int, height: Int) -> RealtimeVideoFormat {
+    func resized(
+        width: Int,
+        height: Int
+    ) -> RealtimeVideoFormat {
         RealtimeVideoFormat(
             width: width,
             height: height,

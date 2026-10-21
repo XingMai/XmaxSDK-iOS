@@ -1,10 +1,9 @@
 //
 //  StorageManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,13 +14,13 @@ import Foundation
 /// 封装第三方对象存储上传和 HTTP 文件下载能力。
 final class StorageManager: StorageManaging, Sendable {
 
-    /// 平台资源
+    /// HTTP 下载使用的 URL Session。
     private let session: URLSession
 
     /// 创建存储 Manager。
-    ///
-    /// - Parameter session: HTTP 下载使用的 URL Session。
-    init(session: URLSession = .shared) {
+    init(
+        session: URLSession = .shared
+    ) {
         self.session = session
     }
 
@@ -374,7 +373,9 @@ final class StorageManager: StorageManaging, Sendable {
     /// - Parameter objectKey: 原始对象键。
     /// - Returns: 保留路径分隔符的编码对象键。
     /// - Throws: 任一路径段无法编码时抛出错误。
-    private static func encodeObjectKey(_ objectKey: String) throws -> String {
+    private static func encodeObjectKey(
+        _ objectKey: String
+    ) throws -> String {
         var allowed = CharacterSet.urlPathAllowed
         allowed.remove(charactersIn: "/?#")
         let encodedParts = objectKey
@@ -391,7 +392,9 @@ final class StorageManager: StorageManaging, Sendable {
     ///
     /// - Parameter value: 待校验的标识。
     /// - Returns: 非空且只包含字母、数字、点和连字符时返回 `true`。
-    private static func matchesIdentifier(_ value: String) -> Bool {
+    private static func matchesIdentifier(
+        _ value: String
+    ) -> Bool {
         !value.isEmpty && value.range(
             of: #"^[A-Za-z0-9.-]+$"#,
             options: .regularExpression
@@ -402,7 +405,9 @@ final class StorageManager: StorageManaging, Sendable {
     ///
     /// - Parameter error: 底层平台错误。
     /// - Returns: 保留本地化描述的上传错误。
-    private static func uploadError(_ error: any Error) -> XmaxError {
+    private static func uploadError(
+        _ error: any Error
+    ) -> XmaxError {
         let platformError = error as NSError
         return uploadError(message: platformError.localizedDescription)
     }
@@ -411,7 +416,9 @@ final class StorageManager: StorageManaging, Sendable {
     ///
     /// - Parameter message: 错误描述。
     /// - Returns: 包含指定描述的上传错误。
-    private static func uploadError(message: String) -> XmaxError {
+    private static func uploadError(
+        message: String
+    ) -> XmaxError {
         XmaxError(code: .uploadError, message: message)
     }
 
@@ -419,7 +426,9 @@ final class StorageManager: StorageManaging, Sendable {
     ///
     /// - Parameter operation: 被取消操作的名称。
     /// - Returns: 包含操作名称的取消错误。
-    private static func cancelledError(operation: String) -> XmaxError {
+    private static func cancelledError(
+        operation: String
+    ) -> XmaxError {
         XmaxError(
             code: .cancelled,
             message: "\(operation) was cancelled"
@@ -430,35 +439,40 @@ final class StorageManager: StorageManaging, Sendable {
 /// 持有一次第三方上传请求，并保证完成、失败和取消只恢复异步调用一次。
 private final class StorageUploadOperation: @unchecked Sendable {
 
-    /// 上传资源
+    /// 执行请求的 COS 服务。
     private let service: QCloudCOSXMLService
+
+    /// 本次上传使用的 COS 请求。
     private let request: QCloudPutObjectRequest<AnyObject>
 
-    /// 上传配置
+    /// 上传对象键。
     private let objectKey: String
+
+    /// 上传目标及认证配置。
     private let configuration: StorageConfiguration
+
+    /// 接收上传字节进度。
     private let progress: StorageProgressListener?
 
-    /// 运行统计
+    /// 上传操作的开始时刻，用于记录耗时。
     private let startedAt = Date()
 
-    /// 并发控制
+    /// 保护上传结果和等待器的完成状态。
     private let lock = NSLock()
 
-    /// 运行状态
+    /// 等待 COS 上传结果的异步调用。
     private var continuation: CheckedContinuation<StoredFile, Error>?
+
+    /// 回调先于等待器注册时暂存的上传结果。
     private var pendingResult: Result<StoredFile, Error>?
+
+    /// 上传请求是否已启动。
     private var started = false
+
+    /// 上传是否已结束，避免重复恢复等待器。
     private var completed = false
 
     /// 创建持有一次 COS 上传请求的异步操作。
-    ///
-    /// - Parameters:
-    ///   - service: 执行请求的 COS 服务。
-    ///   - request: 待提交的上传请求。
-    ///   - objectKey: 上传对象键。
-    ///   - configuration: 用于解析结果地址的存储配置。
-    ///   - progress: 上传进度回调；不监听时传入 `nil`。
     init(
         service: QCloudCOSXMLService,
         request: QCloudPutObjectRequest<AnyObject>,
@@ -586,7 +600,9 @@ private final class StorageUploadOperation: @unchecked Sendable {
     /// 记录首个完成结果并恢复等待者。
     ///
     /// - Parameter result: 上传成功信息或失败错误。
-    private func finish(_ result: Result<StoredFile, Error>) {
+    private func finish(
+        _ result: Result<StoredFile, Error>
+    ) {
         lock.lock()
         guard !completed else {
             lock.unlock()

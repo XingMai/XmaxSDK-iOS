@@ -1,10 +1,9 @@
 //
 //  RtcRoom.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,12 +12,26 @@ import Foundation
 
 /// 与厂商无关的单次房间连接事件。
 enum RtcRoomEvent: Sendable {
+
+    /// RTC 房间连接成功。
     case joined
+
+    /// 指定远端用户的视频发布状态变化。
     case publication(userID: String, published: Bool)
+
+    /// 房间连接或媒体传输失败。
     case failure(XmaxError)
+
+    /// 上行和下行网络质量更新。
     case quality(uplink: RtcQualityLevel, downlink: RtcQualityLevel)
+
+    /// 上行视频统计更新。
     case uplinkVideoStatistics(UplinkVideoStatistics)
+
+    /// 下行视频统计更新。
     case downlinkVideoStatistics(DownlinkVideoStatistics)
+
+    /// 本地编码性能状态及实际编码规格更新。
     case performance(limited: Bool, width: Int, height: Int, frameRate: Int)
 }
 
@@ -28,13 +41,17 @@ protocol RtcRoom: AnyObject, Sendable {
     /// 设置房间事件回调。
     ///
     /// - Parameter listener: 中性事件回调；传入 nil 清除监听。
-    func setEventListener(_ listener: (@Sendable (RtcRoomEvent) -> Void)?)
+    func setEventListener(
+        _ listener: (@Sendable (RtcRoomEvent) -> Void)?
+    )
 
     /// 发起进房；成功通过 joined 事件通知。
     ///
     /// - Parameter configuration: 房间、用户账号和令牌。
     /// - Throws: 进房调用立即失败时抛出错误。
-    func join(configuration: RoomJoinConfiguration) throws
+    func join(
+        configuration: RoomJoinConfiguration
+    ) throws
 
     /// 停止回调、清理信令和帧监听，并离开房间；重复调用无副作用。
     func destroy()
@@ -43,13 +60,17 @@ protocol RtcRoom: AnyObject, Sendable {
     ///
     /// - Parameter publish: 是否发布外部视频轨。
     /// - Throws: 发布配置失败时抛出错误。
-    func publishLocalVideo(_ publish: Bool) throws
+    func publishLocalVideo(
+        _ publish: Bool
+    ) throws
 
     /// 更新本地音频发布状态。
     ///
     /// - Parameter publish: 是否发布当前音频源。
     /// - Throws: 发布配置失败时抛出错误。
-    func publishLocalAudio(_ publish: Bool) throws
+    func publishLocalAudio(
+        _ publish: Bool
+    ) throws
 
     /// 更新远端视频订阅。
     ///
@@ -57,7 +78,10 @@ protocol RtcRoom: AnyObject, Sendable {
     ///   - userID: 服务端分配的 RTC 用户账号。
     ///   - subscribe: 是否订阅视频。
     /// - Throws: 用户映射或订阅失败时抛出错误。
-    func subscribeRemoteVideo(userID: String, subscribe: Bool) throws
+    func subscribeRemoteVideo(
+        userID: String,
+        subscribe: Bool
+    ) throws
 
     /// 更新远端音频订阅。
     ///
@@ -65,7 +89,10 @@ protocol RtcRoom: AnyObject, Sendable {
     ///   - userID: 服务端分配的 RTC 用户账号。
     ///   - subscribe: 是否订阅音频。
     /// - Throws: 用户映射或订阅失败时抛出错误。
-    func subscribeRemoteAudio(userID: String, subscribe: Bool) throws
+    func subscribeRemoteAudio(
+        userID: String,
+        subscribe: Bool
+    ) throws
 
     /// 设置远端音频播放音量。
     ///
@@ -73,7 +100,10 @@ protocol RtcRoom: AnyObject, Sendable {
     ///   - volume: 0 到 100 的音量。
     ///   - userID: RTC 用户账号。
     /// - Throws: 用户映射或音量配置失败时抛出错误。
-    func setRemoteAudioVolume(_ volume: Int, for userID: String) throws
+    func setRemoteAudioVolume(
+        _ volume: Int,
+        for userID: String
+    ) throws
 
     /// 设置远端解码帧监听。
     ///
@@ -81,7 +111,10 @@ protocol RtcRoom: AnyObject, Sendable {
     ///   - listener: 帧回调；传入 nil 清除监听。
     ///   - userID: RTC 用户账号。
     /// - Throws: 用户映射失败时抛出错误。
-    func setRemoteVideoFrameListener(_ listener: RtcRemoteVideoFrameListener?, for userID: String)
+    func setRemoteVideoFrameListener(
+        _ listener: RtcRemoteVideoFrameListener?,
+        for userID: String
+    )
         throws
 
     /// 将信令加入房间发送队列。
@@ -89,7 +122,7 @@ protocol RtcRoom: AnyObject, Sendable {
     /// - Parameters:
     ///   - message: 完整 JSON 信令。
     ///   - reportFailure: 异步发送失败时是否通知房间故障；false 仅记录日志并由等待调用抛出。
-    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
+    ///   - key: 合并键；同键且尚未发送的信令仅保留最新内容。
     /// - Throws: 信令无效或队列不可用时抛出错误。
     /// - Returns: 本条信令的发送任务。
     @discardableResult
@@ -102,7 +135,9 @@ protocol RtcRoom: AnyObject, Sendable {
     /// 丢弃尚未开始发送的可合并信令。
     ///
     /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
-    func discardPendingMessages(key: String?)
+    func discardPendingMessages(
+        key: String?
+    )
 
     /// 等待此前排队的信令提交给 RTC。
     ///
@@ -111,6 +146,7 @@ protocol RtcRoom: AnyObject, Sendable {
 }
 
 extension RtcRoom {
+
     /// 将房间信令入队，并启用异步发送失败通知。
     ///
     /// - Parameters:
@@ -119,7 +155,10 @@ extension RtcRoom {
     /// - Returns: 本条信令的发送任务。
     /// - Throws: 信令无效或发送队列不可用时抛出错误。
     @discardableResult
-    func sendRoomMessage(_ message: String, reportFailure: Bool = true) throws -> Task<Void, any Error> {
+    func sendRoomMessage(
+        _ message: String,
+        reportFailure: Bool = true
+    ) throws -> Task<Void, any Error> {
         try sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: nil)
     }
 }

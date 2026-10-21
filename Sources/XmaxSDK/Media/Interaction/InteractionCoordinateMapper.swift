@@ -1,10 +1,9 @@
 //
 //  InteractionCoordinateMapper.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,6 +12,7 @@ import CoreGraphics
 
 /// 将渲染视口坐标映射到固定媒体基准的归一化坐标。
 enum InteractionCoordinateMapper {
+
     /// 按处理后的媒体比例和缩放方式计算视口中的媒体区域。
     ///
     /// - Parameters:

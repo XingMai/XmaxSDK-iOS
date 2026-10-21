@@ -1,10 +1,9 @@
 //
 //  RtcEventListener.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -27,5 +26,7 @@ protocol RtcEventListener: AnyObject {
     ///
     /// - Parameter error: 连接或信令传输错误。
     @MainActor
-    func onRtcFailure(_ error: XmaxError)
+    func onRtcFailure(
+        _ error: XmaxError
+    )
 }

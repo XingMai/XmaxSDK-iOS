@@ -1,10 +1,9 @@
 //
 //  TrajectoryBinding.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,21 +13,19 @@ import UIKit
 /// 将渲染层触摸输入转交给媒体交互层。
 final class TrajectoryBinding: @unchecked Sendable {
 
-    /// 交互事件
+    /// 接收交互采样帧的异步回调。
     private let interactionListener: RenderInteractionListener
 
-    /// 视图绑定
+    /// 当前绑定的轨迹覆盖层。
     @MainActor private weak var overlayView: TrajectoryOverlayView?
 
-    /// 坐标映射
+    /// 当前媒体显示方式，用于触点坐标映射。
     @MainActor private var contentMode: VideoContentMode = .fill
+
+    /// 用于轨迹坐标映射的处理后媒体尺寸。
     private let resolvedMediaSize: CGSize
 
     /// 创建连接轨迹视图与媒体交互层的绑定。
-    ///
-    /// - Parameters:
-    ///   - interactionListener: 接收交互采样帧的异步回调。
-    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，作为固定的交互坐标基准。
     init(
         interactionListener: @escaping RenderInteractionListener,
         resolvedMediaSize: CGSize
@@ -61,7 +58,9 @@ final class TrajectoryBinding: @unchecked Sendable {
     ///
     /// - Parameter overlayView: 需要解除绑定的轨迹覆盖层。
     @MainActor
-    func detach(from overlayView: TrajectoryOverlayView) {
+    func detach(
+        from overlayView: TrajectoryOverlayView
+    ) {
         guard self.overlayView === overlayView else { return }
         self.overlayView = nil
         overlayView.setBinding(nil)
@@ -78,7 +77,9 @@ final class TrajectoryBinding: @unchecked Sendable {
     ///
     /// - Parameter contentMode: 新的缩放与裁剪方式。
     @MainActor
-    func update(contentMode: VideoContentMode) {
+    func update(
+        contentMode: VideoContentMode
+    ) {
         self.contentMode = contentMode
         overlayView?.setContentMode(contentMode)
     }
@@ -89,7 +90,10 @@ final class TrajectoryBinding: @unchecked Sendable {
     ///   - points: 本次采样的视口坐标点。
     ///   - viewportSize: 采样时的视口尺寸。
     @MainActor
-    func submit(points: [CGPoint], viewportSize: CGSize) {
+    func submit(
+        points: [CGPoint],
+        viewportSize: CGSize
+    ) {
         guard !points.isEmpty else { return }
         let frame = InteractionFrame(
             points: points,

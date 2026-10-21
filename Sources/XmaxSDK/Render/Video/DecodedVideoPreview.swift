@@ -1,10 +1,9 @@
 //
 //  DecodedVideoPreview.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,9 +14,13 @@ import Foundation
 @MainActor
 final class DecodedVideoPreviewPresenter {
 
-    /// 预览资源
+    /// 当前承载本地预览的视频视图。
     private weak var view: XmaxVideoView?
+
+    /// 本地视频的填充方式。
     private var contentMode = VideoContentMode.fill
+
+    /// 本地预览是否水平镜像。
     private var mirrored = false
 
     /// 绑定视频视图并应用预览缩放及镜像设置。
@@ -38,7 +41,9 @@ final class DecodedVideoPreviewPresenter {
     /// 清除指定视图的解码预览并解除当前绑定。
     ///
     /// - Parameter view: 需要解除预览的视图。
-    func detach(from view: XmaxVideoView) {
+    func detach(
+        from view: XmaxVideoView
+    ) {
         view.clearDecodedVideoPreview()
         if self.view === view {
             self.view = nil
@@ -48,14 +53,18 @@ final class DecodedVideoPreviewPresenter {
     /// 向当前绑定视图提交解码帧。
     ///
     /// - Parameter frame: 待显示的中性视频帧。
-    func display(_ frame: VideoFrame) {
+    func display(
+        _ frame: VideoFrame
+    ) {
         view?.displayDecodedVideoFrame(frame, contentMode: contentMode)
     }
 
     /// 更新预览镜像并应用到当前视图。
     ///
     /// - Parameter mirrored: 是否水平镜像画面。
-    func setMirrored(_ mirrored: Bool) {
+    func setMirrored(
+        _ mirrored: Bool
+    ) {
         self.mirrored = mirrored
         view?.setDecodedVideoPreviewMirrored(mirrored)
     }
@@ -70,25 +79,31 @@ final class DecodedVideoPreviewPresenter {
 /// 合并主线程来不及显示的帧，只保留最新的视频预览帧。
 final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
 
-    /// 渲染组件
+    /// 负责将帧呈现到视频视图的组件。
     private let presenter: DecodedVideoPreviewPresenter
 
-    /// 并发状态
+    /// 保护待显示帧和主线程交付状态。
     private let lock = NSLock()
+
+    /// 尚未交付主线程的最新视频帧。
     private var pendingFrame: VideoFrame?
+
+    /// 是否已有主线程交付任务等待执行。
     private var isDeliveryScheduled = false
 
     /// 创建向主线程合并投递预览帧的分发器。
-    ///
-    /// - Parameter presenter: 负责将帧呈现到视频视图的组件。
-    init(presenter: DecodedVideoPreviewPresenter) {
+    init(
+        presenter: DecodedVideoPreviewPresenter
+    ) {
         self.presenter = presenter
     }
 
     /// 更新待显示帧，并在需要时安排主线程投递。
     ///
     /// - Parameter frame: 最新可显示的视频帧。
-    func enqueue(_ frame: VideoFrame) {
+    func enqueue(
+        _ frame: VideoFrame
+    ) {
         let shouldSchedule = lock.withLock { () -> Bool in
             pendingFrame = frame
             guard !isDeliveryScheduled else { return false }

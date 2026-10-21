@@ -712,6 +712,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     }
 
     private func renderRealtimeState(_ state: RealtimeState) {
+        statistics.updateState(state)
         connectionState = state.connectionState
         controlPanelView.isUserInteractionEnabled =
             state.connectionState != .idle &&

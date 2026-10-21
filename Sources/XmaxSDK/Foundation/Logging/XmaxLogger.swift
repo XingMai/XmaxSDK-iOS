@@ -1,10 +1,9 @@
 //
 //  XmaxLogger.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -19,9 +18,9 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
     public let rawValue: UInt
 
     /// 使用指定的位掩码创建日志选项。
-    ///
-    /// - Parameter rawValue: 日志类型对应的位掩码。
-    public init(rawValue: UInt) {
+    public init(
+        rawValue: UInt
+    ) {
         self.rawValue = rawValue
     }
 
@@ -40,34 +39,52 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
 /// 调用方不得传入 API Key、Token、Secret、Authorization 或完整敏感响应。
 struct XmaxLogger: Sendable {
 
-    /// 分类日志
+    /// 实时连接与生成生命周期日志。
     static let realtime = Self(category: "Realtime")
+
+    /// RTC 媒体传输日志。
     static let rtc = Self(category: "RTC")
+
+    /// 媒体采集与处理日志。
     static let media = Self(category: "Media")
+
+    /// HTTP API 请求日志。
     static let api = Self(category: "API")
+
+    /// 对象存储日志。
     static let storage = Self(category: "Storage")
+
+    /// 房间信令与心跳日志。
     static let room = Self(category: "Room")
+
+    /// 流发布、订阅及质量调整日志。
     static let stream = Self(category: "Stream")
+
+    /// 视频渲染日志。
     static let render = Self(category: "Render")
+
+    /// 轨迹交互日志。
     static let interaction = Self(category: "Interaction")
+
+    /// 系统权限日志。
     static let permission = Self(category: "Permission")
 
-    /// 日志类别
+    /// 输出到日志前缀中的业务分类名称。
     private let category: String
 
-    /// 日志配置
+    /// 保存全局日志选项和语言环境。
     private static let state = XmaxLoggerState()
 
-    /// 平台资源
+    /// 输出到系统统一日志的底层记录器。
     private static let logger = Logger(
         subsystem: "ai.xmax.XmaxSDK",
         category: "XmaxSDK"
     )
 
     /// 创建使用指定分类前缀的日志入口。
-    ///
-    /// - Parameter category: 输出到日志前缀中的业务分类名称。
-    private init(category: String) {
+    private init(
+        category: String
+    ) {
         self.category = category
     }
 
@@ -89,7 +106,10 @@ struct XmaxLogger: Sendable {
     ///   - chinese: 国内环境使用的中文文案。
     ///   - english: 海外环境使用的英文文案。
     /// - Returns: 当前环境对应的文案。
-    static func localized(_ chinese: String, _ english: String) -> String {
+    static func localized(
+        _ chinese: String,
+        _ english: String
+    ) -> String {
         state.environment == .china ? chinese : english
     }
 
@@ -97,7 +117,9 @@ struct XmaxLogger: Sendable {
     ///
     /// - Parameter option: 需要检查的日志选项；空选项不启用。
     /// - Returns: 配置包含全部指定选项时返回 `true`。
-    static func isEnabled(_ option: XmaxLoggerOption) -> Bool {
+    static func isEnabled(
+        _ option: XmaxLoggerOption
+    ) -> Bool {
         state.isEnabled(option)
     }
 
@@ -169,7 +191,9 @@ struct XmaxLogger: Sendable {
     ///
     /// - Parameter message: 未添加前缀的日志内容。
     /// - Returns: 每行均具有统一分类前缀的日志文本。
-    func formattedMessage(message: String) -> String {
+    func formattedMessage(
+        message: String
+    ) -> String {
         let prefix = "[Xmax][\(category)]"
 
         return message
@@ -210,9 +234,17 @@ struct XmaxLogger: Sendable {
 
     /// 区分日志在系统日志中的严重程度。
     private enum Level {
+
+        /// 辅助定位问题的详细信息。
         case debug
+
+        /// 正常业务流程信息。
         case info
+
+        /// 可恢复异常或使用约束提示。
         case warning
+
+        /// 操作失败信息。
         case error
     }
 }
@@ -220,14 +252,16 @@ struct XmaxLogger: Sendable {
 /// 以线程安全方式保存 SDK 全局日志配置。
 final class XmaxLoggerState: @unchecked Sendable {
 
-    /// 并发控制
+    /// 保护全局日志配置的读写。
     private let lock = NSLock()
 
-    /// 日志配置
+    /// 当前启用的日志类型位掩码。
     private var options: XmaxLoggerOption = []
+
+    /// 决定日志细项语言的运行环境。
     private var storedEnvironment: XmaxEnvironment = .china
 
-    /// 当前语言环境
+    /// 线程安全读取的日志语言环境。
     var environment: XmaxEnvironment {
         lock.withLock { storedEnvironment }
     }
@@ -251,7 +285,9 @@ final class XmaxLoggerState: @unchecked Sendable {
     ///
     /// - Parameter option: 需要检查的日志选项；空选项不启用。
     /// - Returns: 配置包含全部指定选项时返回 `true`。
-    func isEnabled(_ option: XmaxLoggerOption) -> Bool {
+    func isEnabled(
+        _ option: XmaxLoggerOption
+    ) -> Bool {
         guard !option.isEmpty else {
             return false
         }

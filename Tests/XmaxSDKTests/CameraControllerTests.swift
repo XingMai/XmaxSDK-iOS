@@ -1,7 +1,7 @@
 //
 //  CameraControllerTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -20,21 +20,21 @@ final class CameraControllerTests: XCTestCase {
         let controller = CameraController(
             rtcManager: RtcManagingStub(),
             permissionManager: PermissionManagingStub(),
-            mediaService: MediaService(model: .x2_1_1_preview_us),
+            mediaService: MediaService(model: .x2_1),
             captureManager: capture
         )
         let portrait = RealtimeVideoFormat(
-            width: 1024, height: 1920, fps: 30,
+            width: 1080, height: 1920, fps: 30,
             minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
         )
         let stream = try await controller.createLocalCameraStream(videoFormat: portrait, position: .front)
 
         for orientation in [CameraOrientation.landscapeLeft, .landscapeRight] {
             try await controller.updateOrientation(orientation)
-            XCTAssertEqual(stream.videoTrack?.videoFormat, portrait.resized(width: 1920, height: 1024))
+            XCTAssertEqual(stream.videoTrack?.videoFormat, portrait.resized(width: 1920, height: 1080))
             XCTAssertEqual(
                 capture.calls.last,
-                .updateOrientation(orientation, try VideoFormat(width: 1920, height: 1024, pixelFormat: .nv12))
+                .updateOrientation(orientation, try VideoFormat(width: 1920, height: 1080, pixelFormat: .nv12))
             )
         }
 
@@ -45,12 +45,12 @@ final class CameraControllerTests: XCTestCase {
     }
 
     func testBucketCameraPreservesResolutionAndEncodingOptions() async throws {
-        for (width, height) in [(1024, 1920), (1920, 1024)] {
+        for (width, height) in [(1080, 1920), (1920, 1080), (1408, 1408), (1152, 1536), (1536, 1152)] {
             let capture = CameraCaptureManagingStub()
             let controller = CameraController(
                 rtcManager: RtcManagingStub(),
                 permissionManager: PermissionManagingStub(),
-                mediaService: MediaService(model: .x2_1_1_preview_us),
+                mediaService: MediaService(model: .x2_1),
                 captureManager: capture
             )
             let requested = RealtimeVideoFormat(
@@ -72,7 +72,7 @@ final class CameraControllerTests: XCTestCase {
         let controller = CameraController(
             rtcManager: rtc,
             permissionManager: permissions,
-            mediaService: MediaService(model: .x2_1_1_preview_us),
+            mediaService: MediaService(model: .x2_1),
             captureManager: capture
         )
         do {

@@ -1,10 +1,9 @@
 //
 //  ImageManager+UIKit.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -13,12 +12,15 @@
 import UIKit
 
 extension ImageManager {
+
     /// 直接生成已应用显示方向的解码图像，不进行文件格式编码。
     ///
     /// - Parameter image: 需要解码和规范方向的 UIKit 图片。
     /// - Returns: 可直接生成视频帧的解码图像。
     /// - Throws: 图片尺寸无效或无法生成像素图像时抛出错误。
-    func decode(_ image: UIImage) throws -> any DecodedImage {
+    func decode(
+        _ image: UIImage
+    ) throws -> any DecodedImage {
         if image.imageOrientation == .up,
            let cgImage = image.cgImage {
             return CoreGraphicsDecodedImage(image: cgImage)

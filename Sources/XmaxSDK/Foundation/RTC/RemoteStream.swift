@@ -1,10 +1,9 @@
 //
 //  RemoteStream.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -12,8 +11,10 @@
 /// 标识 RTC 房间中的一条远端主流。
 struct RemoteStream: Equatable, Hashable, Sendable {
 
-    /// 流标识
+    /// 远端流所属的 RTC 房间标识。
     let roomID: String
+
+    /// 远端流所属的 RTC 用户标识。
     let userID: String
 
     /// 生成跨房间唯一的远端流键。

@@ -1,10 +1,9 @@
 //
 //  XmaxStorageManaging.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -134,6 +133,7 @@ public protocol XmaxStorageManaging: Sendable {
 }
 
 public extension XmaxStorageManaging {
+
     /// 上传图片数据。不接收进度通知。
     ///
     /// - Parameters:

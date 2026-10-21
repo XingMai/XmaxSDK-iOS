@@ -1,10 +1,9 @@
 //
 //  VideoPlayerController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -54,13 +53,17 @@ protocol VideoPlayerControlling: Sendable {
     ///
     /// - Parameter muted: 是否将本地音频播放音量置零。
     @MainActor
-    func setLocalAudioPreviewMuted(_ muted: Bool)
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    )
 
     /// 设置本地音频预览音量。
     ///
     /// - Parameter volume: 已校验的预览音量，范围为 `0...1`。
     @MainActor
-    func setLocalAudioVolume(_ volume: Float)
+    func setLocalAudioVolume(
+        _ volume: Float
+    )
 
     /// 将解码视频预览绑定到 SDK 视频视图。
     ///
@@ -78,7 +81,9 @@ protocol VideoPlayerControlling: Sendable {
     ///
     /// - Parameter view: 需要解除预览的视图。
     @MainActor
-    func detachPreview(from view: UIView)
+    func detachPreview(
+        from view: UIView
+    )
 
     /// 停止解码并等待全部 reader 在所属任务内安全退出。
     @MainActor
@@ -92,44 +97,55 @@ final class VideoPlayerController: VideoPlayerControlling {
     /// 保存文件解码、旋转、采样和循环播放所需配置。
     private struct PlaybackConfiguration: Sendable {
 
-        /// 文件来源
+        /// 当前播放的本地视频文件地址。
         let fileURL: URL
 
-        /// 视频输出规格
+        /// 处理后的视频宽度，单位为像素。
         let outputWidth: Int
+
+        /// 处理后的视频高度，单位为像素。
         let outputHeight: Int
+
+        /// 源视频转换到显示方向所需的旋转角度。
         let rotation: VideoRotation
+
+        /// 视频输出帧率，单位为 fps。
         let frameRate: Int
 
-        /// 媒体播放信息
+        /// 源文件是否包含音轨。
         let hasAudio: Bool
+
+        /// 源文件时长，单位为秒。
         let durationSeconds: Double
     }
 
-    /// 帧监听
+    /// 接收视频帧的回调。
     private let videoFrameListener: MediaVideoFrameListener
+
+    /// 接收按统一播放时钟输出的音频帧。
     private let audioFrameListener: MediaAudioFrameListener
+
+    /// 接收视频解码与播放失败。
     private let errorListener: XmaxErrorListener
 
-    /// 平台资源
+    /// 播放与视频共享时间轴的本地 PCM 音频。
     private let audioPreviewPlayer = LocalAudioPreviewPlayer()
+
+    /// 管理本地解码视频的预览视图。
     private let previewPresenter = DecodedVideoPreviewPresenter()
+
+    /// 合并待显示帧并交付主线程。
     private lazy var previewDispatcher = DecodedVideoPreviewDispatcher(
         presenter: previewPresenter
     )
 
-    /// 媒体配置
+    /// 当前视频文件的解码与输出配置。
     private var configuration: PlaybackConfiguration?
 
-    /// 运行状态
+    /// 执行文件循环解码和帧调度的任务。
     private var playbackTask: Task<Void, Never>?
 
     /// 创建共享时间轴的视频解码和本地音频播放组件。
-    ///
-    /// - Parameters:
-    ///   - videoFrameListener: 接收视频帧的回调。
-    ///   - audioFrameListener: 接收 10 ms PCM 音频帧的回调。
-    ///   - errorListener: 接收非取消播放错误的回调。
     init(
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
@@ -140,7 +156,7 @@ final class VideoPlayerController: VideoPlayerControlling {
         self.errorListener = errorListener
     }
 
-    /// 音频预览
+    /// 当前本地预览音量，范围为 0...1。
     var localAudioVolume: Float {
         audioPreviewPlayer.currentVolume
     }
@@ -246,14 +262,18 @@ final class VideoPlayerController: VideoPlayerControlling {
     /// 静音或恢复本地音频预览，不改变音视频帧输出。
     ///
     /// - Parameter muted: 是否将本地音频播放音量置零。
-    func setLocalAudioPreviewMuted(_ muted: Bool) {
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) {
         audioPreviewPlayer.setMuted(muted)
     }
 
     /// 设置本地音频预览音量。
     ///
     /// - Parameter volume: 已校验的预览音量，范围为 `0...1`。
-    func setLocalAudioVolume(_ volume: Float) {
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) {
         audioPreviewPlayer.setVolume(volume)
     }
 
@@ -279,7 +299,9 @@ final class VideoPlayerController: VideoPlayerControlling {
     /// 从指定 SDK 视频视图解除解码预览。
     ///
     /// - Parameter view: 需要解除预览的视图。
-    func detachPreview(from view: UIView) {
+    func detachPreview(
+        from view: UIView
+    ) {
         guard let videoView = view as? XmaxVideoView else { return }
         previewPresenter.detach(from: videoView)
     }
@@ -298,8 +320,10 @@ final class VideoPlayerController: VideoPlayerControlling {
 }
 
 private extension VideoPlayerController {
+
     /// 同步接收共享时间轴输出的视频帧。
     typealias VideoHandler = @Sendable (VideoFrame) throws -> Void
+
     /// 同步接收共享时间轴输出的固定长度 PCM 帧。
     typealias AudioHandler = @Sendable (AudioFrame) throws -> Void
 
@@ -616,7 +640,9 @@ private extension VideoPlayerController {
     ///
     /// - Parameter target: 目标时刻，单位为纳秒。
     /// - Throws: 等待被取消时抛出取消错误。
-    nonisolated static func sleep(untilNanoseconds target: UInt64) async throws {
+    nonisolated static func sleep(
+        untilNanoseconds target: UInt64
+    ) async throws {
         let now = DispatchTime.now().uptimeNanoseconds
         guard now < target else { return }
         try await Task.sleep(nanoseconds: target - now)
@@ -626,7 +652,9 @@ private extension VideoPlayerController {
     ///
     /// - Parameter message: 错误描述。
     /// - Returns: 包含指定描述的媒体错误。
-    nonisolated static func mediaError(_ message: String) -> XmaxError {
+    nonisolated static func mediaError(
+        _ message: String
+    ) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }

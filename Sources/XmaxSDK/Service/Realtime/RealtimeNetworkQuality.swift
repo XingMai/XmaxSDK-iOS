@@ -1,10 +1,9 @@
 //
 //  RealtimeNetworkQuality.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -44,10 +43,6 @@ public struct RealtimeNetworkQuality: Equatable, Sendable {
     public let downlink: RealtimeNetworkQualityLevel
 
     /// 创建上下行网络质量快照。
-    ///
-    /// - Parameters:
-    ///   - uplink: 本地媒体上行的网络质量。
-    ///   - downlink: 远端媒体下行的网络质量。
     public init(
         uplink: RealtimeNetworkQualityLevel,
         downlink: RealtimeNetworkQualityLevel

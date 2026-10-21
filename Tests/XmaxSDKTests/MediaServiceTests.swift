@@ -1,7 +1,7 @@
 //
 //  MediaServiceTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -85,17 +85,17 @@ final class MediaServiceTests: XCTestCase {
     }
 
     func testBucketResolutionsArePreservedInBothOrientations() throws {
-        let service = MediaService(model: .x2_1_1_preview_us)
-        for size in [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)] {
+        let service = MediaService(model: .x2_1)
+        for size in service.model.resolutionBuckets {
             XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
         }
     }
 
     func testBucketRejectsOtherSizesWithoutResizingOrRounding() {
-        let service = MediaService(model: .x2_1_1_preview_us)
+        let service = MediaService(model: .x2_1)
         let sizes: [CGSize] = [
             CGSize(width: 832, height: 1472),
-            CGSize(width: 1920, height: 1080),
+            CGSize(width: 1024, height: 1920),
             CGSize(width: 512, height: 960),
             CGSize(width: 2048, height: 3840),
             CGSize(width: 1120, height: 1120),
@@ -112,7 +112,7 @@ final class MediaServiceTests: XCTestCase {
     }
 
     func testInterpolationTargetIsIndependentOfInputBuckets() throws {
-        let target = try MediaService(model: .x2_1_1_preview_us).resolveTargetSize(
+        let target = try MediaService(model: .x2_1).resolveTargetSize(
             CGSize(width: 1024, height: 1920),
             maximumSize: CGSize(width: 1024, height: 1920),
             frameInterpolationEnabled: true
@@ -209,16 +209,20 @@ final class MediaServiceTests: XCTestCase {
         }
     }
 
-    func testBothAgoraModelsRequireExactResolutionBuckets() throws {
-        for model in RealtimeModel.allCases {
-            let service = MediaService(model: model)
-            for size in model.resolutionBuckets {
-                XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
-            }
-            for size in [CGSize(width: 640, height: 480), CGSize(width: 1920, height: 1080), CGSize(width: CGFloat.nan, height: 480)] {
-                XCTAssertThrowsError(try service.resolveMediaSize(size, source: .camera)) { error in
-                    XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
-                }
+    func testX21RequiresExactlyTheFiveResolutionBuckets() throws {
+        let buckets = [
+            CGSize(width: 1920, height: 1080), CGSize(width: 1080, height: 1920),
+            CGSize(width: 1408, height: 1408), CGSize(width: 1152, height: 1536),
+            CGSize(width: 1536, height: 1152)
+        ]
+        let service = MediaService(model: .x2_1)
+        XCTAssertEqual(service.model.resolutionBuckets, buckets)
+        for size in buckets {
+            XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
+        }
+        for size in [CGSize(width: 640, height: 480), CGSize(width: 1024, height: 1920), CGSize(width: CGFloat.nan, height: 480)] {
+            XCTAssertThrowsError(try service.resolveMediaSize(size, source: .camera)) { error in
+                XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
             }
         }
     }

@@ -1,7 +1,7 @@
 //
 //  AdaptiveQualityTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -18,18 +18,18 @@ final class AdaptiveQualityTests: XCTestCase {
     func testTiersAlwaysDeriveFromMediaBaseline() {
         let expected = [(1024, 1920, 30), (816, 1530, 24), (656, 1230, 24), (512, 960, 20), (512, 960, 16)]
         for (index, value) in expected.enumerated() {
-            let format = QualityVideoFormat.resolve(baseline, level: index + 1, downlink: false)
+            let format = QualityVideoFormat.resolve(baseline, level: RealtimeQualityLevel.allCases[index], downlink: false)
             XCTAssertEqual(format.width, value.0)
             XCTAssertEqual(format.height, value.1)
             XCTAssertEqual(format.fps, value.2)
             XCTAssertEqual(format.width * baseline.height, format.height * baseline.width)
         }
-        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: 1, downlink: false), baseline)
+        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: .l1, downlink: false), baseline)
     }
 
     func testSmallInputsAreNotUpscaledAndFrameRateIsOnlyACeiling() {
         let small = RealtimeVideoFormat(width: 160, height: 120, fps: 12)
-        for level in 1...5 {
+        for level in RealtimeQualityLevel.allCases {
             let format = QualityVideoFormat.resolve(small, level: level, downlink: false)
             XCTAssertEqual(format.size, small.size)
             XCTAssertEqual(format.fps, 12)
@@ -38,8 +38,8 @@ final class AdaptiveQualityTests: XCTestCase {
 
     func testExplicitUplinkBitratesAreNotAppliedToDownlink() {
         let custom = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30, minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainQuality)
-        let up = QualityVideoFormat.resolve(custom, level: 3, downlink: false)
-        let down = QualityVideoFormat.resolve(custom, level: 3, downlink: true)
+        let up = QualityVideoFormat.resolve(custom, level: .l3, downlink: false)
+        let down = QualityVideoFormat.resolve(custom, level: .l3, downlink: true)
         XCTAssertEqual(up.minimumBitrate, 1500)
         XCTAssertEqual(up.maximumBitrate, 3000)
         XCTAssertEqual(up.encoderPreference, .maintainQuality)
@@ -48,33 +48,49 @@ final class AdaptiveQualityTests: XCTestCase {
         XCTAssertEqual(down.fps, 24)
     }
 
+    func testQualityLevelOnlyAcceptsSupportedRawValues() {
+        XCTAssertEqual(RealtimeQualityLevel.allCases.map(\.rawValue), [1, 2, 3, 4, 5])
+        XCTAssertNil(RealtimeQualityLevel(rawValue: 0))
+        XCTAssertNil(RealtimeQualityLevel(rawValue: 6))
+    }
+
+    func testManualCommitStillAllowsAutomaticAdaptationAfterCooldown() {
+        var direction = QualityDirection(baseline: baseline, level: .l2, downlink: false)
+        direction.complete(level: .l4, success: true, now: 10)
+        XCTAssertEqual(direction.level, .l4)
+        XCTAssertNil(direction.observe(.bad, sampledAt: 11, now: 11))
+        XCTAssertNil(direction.observe(.bad, sampledAt: 14, now: 14))
+        XCTAssertNil(direction.observe(.bad, sampledAt: 15, now: 15))
+        XCTAssertEqual(direction.observe(.bad, sampledAt: 16, now: 16), .l5)
+    }
+
     func testThreePoorSamplesDowngradeOnlyAfterSuccessfulCommit() {
-        var direction = QualityDirection(baseline: baseline, level: 2, downlink: false)
+        var direction = QualityDirection(baseline: baseline, level: .l2, downlink: false)
         XCTAssertNil(direction.observe(.bad, sampledAt: 1, now: 1))
         XCTAssertNil(direction.observe(.veryBad, sampledAt: 2, now: 2))
-        XCTAssertEqual(direction.observe(.bad, sampledAt: 3, now: 3), 3)
-        XCTAssertEqual(direction.level, 2)
-        direction.complete(level: 3, success: false, now: 3)
-        XCTAssertEqual(direction.level, 2)
+        XCTAssertEqual(direction.observe(.bad, sampledAt: 3, now: 3), .l3)
+        XCTAssertEqual(direction.level, .l2)
+        direction.complete(level: .l3, success: false, now: 3)
+        XCTAssertEqual(direction.level, .l2)
         XCTAssertNil(direction.observe(.bad, sampledAt: 4, now: 4))
-        direction.complete(level: 3, success: true, now: 5)
-        XCTAssertEqual(direction.level, 3)
+        direction.complete(level: .l3, success: true, now: 5)
+        XCTAssertEqual(direction.level, .l3)
     }
 
     func testFailedUpgradeProbePreventsImmediateOscillation() {
-        var direction = QualityDirection(baseline: baseline, level: 3, downlink: false)
+        var direction = QualityDirection(baseline: baseline, level: .l3, downlink: false)
         for time in 1...4 { XCTAssertNil(direction.observe(.good, sampledAt: Double(time), now: Double(time))) }
-        XCTAssertEqual(direction.observe(.good, sampledAt: 5, now: 5), 2)
-        direction.complete(level: 2, success: true, now: 5)
+        XCTAssertEqual(direction.observe(.good, sampledAt: 5, now: 5), .l2)
+        direction.complete(level: .l2, success: true, now: 5)
         for time in 9...10 { XCTAssertNil(direction.observe(.bad, sampledAt: Double(time), now: Double(time))) }
-        XCTAssertEqual(direction.observe(.bad, sampledAt: 11, now: 11), 3)
-        direction.complete(level: 3, success: true, now: 11)
+        XCTAssertEqual(direction.observe(.bad, sampledAt: 11, now: 11), .l3)
+        direction.complete(level: .l3, success: true, now: 11)
         for time in 15...70 { XCTAssertNil(direction.observe(.good, sampledAt: Double(time), now: Double(time))) }
-        XCTAssertEqual(direction.observe(.good, sampledAt: 71, now: 71), 2)
+        XCTAssertEqual(direction.observe(.good, sampledAt: 71, now: 71), .l2)
     }
 
     func testUnknownStaleAndNonMonotonicSamplesDoNotTriggerChanges() {
-        var direction = QualityDirection(baseline: baseline, level: 2, downlink: true)
+        var direction = QualityDirection(baseline: baseline, level: .l2, downlink: true)
         XCTAssertNil(direction.observe(.bad, sampledAt: 1, now: 10))
         XCTAssertNil(direction.observe(.bad, sampledAt: 11, now: 11))
         XCTAssertNil(direction.observe(.bad, sampledAt: 11, now: 11))
@@ -82,16 +98,16 @@ final class AdaptiveQualityTests: XCTestCase {
         XCTAssertNil(direction.observe(.bad, sampledAt: 13, now: 13))
         XCTAssertNil(direction.observe(.bad, sampledAt: 20, now: 20))
         XCTAssertNil(direction.observe(.bad, sampledAt: 21, now: 21))
-        XCTAssertEqual(direction.observe(.bad, sampledAt: 22, now: 22), 3)
+        XCTAssertEqual(direction.observe(.bad, sampledAt: 22, now: 22), .l3)
     }
 
     func testDownlinkSkipsIdenticalLastTierAndDirectionsStayIndependent() {
-        var down = QualityDirection(baseline: baseline, level: 4, downlink: true)
-        var up = QualityDirection(baseline: baseline, level: 4, downlink: false)
+        var down = QualityDirection(baseline: baseline, level: .l4, downlink: true)
+        var up = QualityDirection(baseline: baseline, level: .l4, downlink: false)
         for time in 1...3 {
             XCTAssertNil(down.observe(.bad, sampledAt: Double(time), now: Double(time)))
             let candidate = up.observe(.bad, sampledAt: Double(time), now: Double(time))
-            XCTAssertEqual(candidate, time == 3 ? 5 : nil)
+            XCTAssertEqual(candidate, time == 3 ? .l5 : nil)
         }
     }
 
@@ -100,13 +116,13 @@ final class AdaptiveQualityTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let history = QualityHistory(model: "model-a", defaults: defaults)
-        XCTAssertEqual(history.read(downlink: true, now: 100), 2)
-        history.write(level: 4, downlink: true, now: 100)
-        XCTAssertEqual(history.read(downlink: true, now: 200), 4)
-        XCTAssertEqual(history.read(downlink: false, now: 200), 2)
-        XCTAssertEqual(QualityHistory(model: "model-b", defaults: defaults).read(downlink: true, now: 200), 2)
-        XCTAssertEqual(history.read(downlink: true, now: 99), 2)
-        XCTAssertEqual(history.read(downlink: true, now: 3700), 2)
+        XCTAssertEqual(history.read(downlink: true, now: 100), .l2)
+        history.write(level: .l4, downlink: true, now: 100)
+        XCTAssertEqual(history.read(downlink: true, now: 200), .l4)
+        XCTAssertEqual(history.read(downlink: false, now: 200), .l2)
+        XCTAssertEqual(QualityHistory(model: "model-b", defaults: defaults).read(downlink: true, now: 200), .l2)
+        XCTAssertEqual(history.read(downlink: true, now: 99), .l2)
+        XCTAssertEqual(history.read(downlink: true, now: 3700), .l2)
     }
 
     func testInternalSamplingDoesNotReplacePublicNetworkListener() async {

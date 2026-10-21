@@ -1,10 +1,9 @@
 //
 //  ApiLogger.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -103,7 +102,9 @@ enum ApiLogger {
     ///
     /// - Parameter data: 待格式化的响应正文。
     /// - Returns: 可打印的正文；无法按 UTF-8 解码时返回占位提示。
-    static func formatResponseBody(_ data: Data) -> String {
+    static func formatResponseBody(
+        _ data: Data
+    ) -> String {
         guard let object = try? JSONSerialization.jsonObject(with: data),
               JSONSerialization.isValidJSONObject(object),
               let formattedData = try? JSONSerialization.data(

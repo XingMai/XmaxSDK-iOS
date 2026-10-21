@@ -1,22 +1,35 @@
 //
 //  RtcQualityListener.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
 /// 中性的 RTC 网络质量等级。
 enum RtcQualityLevel: Int, CaseIterable, Sendable {
+
+    /// 尚无可用的网络质量评级。
     case unknown
+
+    /// 网络质量优秀。
     case excellent
+
+    /// 网络质量良好。
     case good
+
+    /// 网络质量一般。
     case poor
+
+    /// 网络质量较差。
     case bad
+
+    /// 网络质量很差。
     case veryBad
+
+    /// 网络连接不可用。
     case down
 }
 
@@ -27,13 +40,17 @@ protocol RtcQualityListener: AnyObject {
     ///
     /// - Parameter statistics: 当前统计周期的上行指标。
     @MainActor
-    func onUplinkVideoStatistics(_ statistics: UplinkVideoStatistics)
+    func onUplinkVideoStatistics(
+        _ statistics: UplinkVideoStatistics
+    )
 
     /// 接收远端视频下行统计。
     ///
     /// - Parameter statistics: 当前统计周期的下行指标。
     @MainActor
-    func onDownlinkVideoStatistics(_ statistics: DownlinkVideoStatistics)
+    func onDownlinkVideoStatistics(
+        _ statistics: DownlinkVideoStatistics
+    )
 
     /// 接收上下行实时网络质量。
     ///

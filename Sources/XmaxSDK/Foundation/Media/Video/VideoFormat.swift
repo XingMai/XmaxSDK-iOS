@@ -1,10 +1,9 @@
 //
 //  VideoFormat.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -12,9 +11,13 @@
 /// 表示视频帧的固定尺寸和像素格式。
 struct VideoFormat: Equatable, Sendable {
 
-    /// 帧规格
+    /// 视频帧宽度，单位为像素。
     let width: Int
+
+    /// 视频帧高度，单位为像素。
     let height: Int
+
+    /// 帧数据的像素排列格式。
     let pixelFormat: VideoPixelFormat
 
     /// 创建具有有效尺寸的像素格式。

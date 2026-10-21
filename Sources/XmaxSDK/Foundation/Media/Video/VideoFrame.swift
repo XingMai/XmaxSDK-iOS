@@ -1,10 +1,9 @@
 //
 //  VideoFrame.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,15 +13,19 @@ import Foundation
 /// 持有中性像素数据及时间信息的视频帧。
 struct VideoFrame: Equatable, Sendable {
 
-    /// 缓冲区标识
+    /// 可复用像素缓冲区的标识，供适配层缓存转换结果。
     let bufferReuseID: UUID?
 
-    /// 帧元数据
+    /// 帧的宽高和像素排列格式。
     let format: VideoFormat
+
+    /// 帧在统一媒体时间轴上的时间戳，单位为微秒。
     let timestampUs: Int64
+
+    /// 将像素数据转换为显示方向所需的旋转角度。
     let rotation: VideoRotation
 
-    /// 像素数据
+    /// 组成当前图像的像素平面。
     let planes: [VideoFramePlane]
 
     /// 创建持有像素平面、时间戳与显示方向的视频帧。

@@ -1,10 +1,9 @@
 //
 //  RoomHeartbeat.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,22 +13,22 @@ import Foundation
 /// 周期发送 RTC 房间心跳并隔离已经停止的旧周期。
 final class RoomHeartbeat: @unchecked Sendable {
 
-    /// 基础层组件
+    /// 提交房间信令的 RTC 管理器。
     private let rtcManager: any RtcManaging
+
+    /// 控制房间心跳发送间隔。
     private let sleeper: RoomHeartbeatSleeper
 
-    /// 并发控制
+    /// 区分每次启动和停止后的心跳周期。
     private let cycle = RoomHeartbeatCycle()
+
+    /// 保护心跳任务的替换与取消。
     private let taskLock = NSLock()
 
-    /// 运行状态
+    /// 当前房间心跳的执行任务。
     private var heartbeatTask: Task<Void, Never>?
 
     /// 创建使用指定等待策略的房间心跳组件。
-    ///
-    /// - Parameters:
-    ///   - rtcManager: 提交房间信令的 RTC 管理器。
-    ///   - sleeper: 控制心跳发送间隔的等待策略。
     init(
         rtcManager: any RtcManaging,
         sleeper: RoomHeartbeatSleeper = .live
@@ -47,7 +46,9 @@ final class RoomHeartbeat: @unchecked Sendable {
     /// 替换旧周期并启动指定用户的房间心跳。
     ///
     /// - Parameter userID: 发送心跳使用的本地用户账号。
-    func start(userID: String) {
+    func start(
+        userID: String
+    ) {
         taskLock.withLock {
             let version = cycle.advance()
             heartbeatTask?.cancel()
@@ -75,25 +76,32 @@ final class RoomHeartbeat: @unchecked Sendable {
 }
 
 private extension RoomHeartbeat {
+
     /// 保存一个房间心跳周期的发送依赖和有效期。
     struct Context: Sendable {
 
-        /// 发送依赖
+        /// 发送房间心跳的 RTC 管理器。
         let rtcManager: any RtcManaging
+
+        /// 等待下一个房间心跳周期。
         let sleeper: RoomHeartbeatSleeper
 
-        /// 周期有效期
+        /// 检查当前房间心跳周期是否有效。
         let cycle: RoomHeartbeatCycle
+
+        /// 该任务所属心跳周期的有效期标识。
         let version: UInt64
 
-        /// 发送身份
+        /// 发送房间心跳的业务用户标识。
         let userID: String
     }
 
     /// 按等待策略发送心跳，忽略已停止周期的迟到结果。
     ///
     /// - Parameter context: 当前心跳周期的依赖和身份信息。
-    static func run(_ context: Context) async {
+    static func run(
+        _ context: Context
+    ) async {
         while context.cycle.isCurrent(context.version) {
             do {
                 try await context.sleeper.sleep()
@@ -122,10 +130,10 @@ private extension RoomHeartbeat {
 /// 提供可替换的房间心跳等待行为。
 struct RoomHeartbeatSleeper: Sendable {
 
-    /// 等待策略
+    /// 等待下一次房间心跳的异步操作，支持取消。
     let sleep: @Sendable () async throws -> Void
 
-    /// 默认配置
+    /// 采用 10 秒间隔的房间心跳等待器。
     static let live = RoomHeartbeatSleeper {
         try await Task.sleep(nanoseconds: 10_000_000_000)
     }
@@ -134,8 +142,10 @@ struct RoomHeartbeatSleeper: Sendable {
 /// 使用版本隔离停止或重启后的旧房间心跳任务。
 private final class RoomHeartbeatCycle: @unchecked Sendable {
 
-    /// 并发状态
+    /// 保护房间心跳版本的读取与递增。
     private let lock = NSLock()
+
+    /// 当前房间心跳周期的递增版本。
     private var value: UInt64 = 0
 
     /// 更新心跳有效期，使先前周期失效。
@@ -153,7 +163,9 @@ private final class RoomHeartbeatCycle: @unchecked Sendable {
     ///
     /// - Parameter version: 需要检查的周期版本。
     /// - Returns: 版本仍有效时返回 `true`。
-    func isCurrent(_ version: UInt64) -> Bool {
+    func isCurrent(
+        _ version: UInt64
+    ) -> Bool {
         lock.withLock { value == version }
     }
 }

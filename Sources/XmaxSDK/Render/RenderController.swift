@@ -1,10 +1,9 @@
 //
 //  RenderController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -18,14 +17,14 @@ final class RenderController: RenderControlling {
     /// 保存一次远端可显示首帧的等待与超时任务。
     private final class RemoteFrameReadyWaiter {
 
-        /// 等待资源
+        /// 用于结束首帧等待的异步流 continuation。
         let continuation:
             AsyncThrowingStream<Void, any Error>.Continuation
+
+        /// 等待远端首帧的超时任务。
         var timeoutTask: Task<Void, Never>?
 
         /// 创建等待远端首帧的通知上下文。
-        ///
-        /// - Parameter continuation: 用于结束首帧等待的异步流 continuation。
         init(
             continuation:
                 AsyncThrowingStream<Void, any Error>.Continuation
@@ -34,19 +33,29 @@ final class RenderController: RenderControlling {
         }
     }
 
-    /// 基础层组件
+    /// 订阅远端视频帧并解除 RTC 帧监听。
     private let rtcManager: any RtcManaging
 
-    /// 事件监听
+    /// 接收远端渲染和插帧处理错误。
     private let errorListener: XmaxErrorListener
 
-    /// 远端帧处理
+    /// 创建渲染管线时采用的插帧开关。
     private let initialFrameInterpolationEnabled: Bool
+
+    /// 检查当前设备及帧尺寸是否支持插帧。
     private let frameInterpolationSupportChecker:
         RemoteVideoFramePipeline.FrameInterpolationSupportChecker
+
+    /// 等待远端首帧就绪的超时时长，单位为纳秒。
     private let remoteFrameReadyTimeoutNanoseconds: UInt64
+
+    /// 将最终远端帧分发到渲染和外部监听器。
     private let remoteVideoFrameDispatcher = RealtimeVideoFrameDispatcher()
+
+    /// 当前渲染流的有效期标识。
     private var renderingToken: UInt64 = 0
+
+    /// 串行处理远端解码帧与插帧输出。
     private lazy var remoteFramePipeline = RemoteVideoFramePipeline(
         interpolationEnabled: initialFrameInterpolationEnabled,
         outputToken: renderingToken,
@@ -63,12 +72,22 @@ final class RenderController: RenderControlling {
         }
     )
 
-    /// 远端渲染资源
+    /// 当前绑定渲染的远端 RTC 流。
     private var remoteStream: RemoteStream?
+
+    /// 当前处理远端帧的 RTC 流。
     private var activeRemoteFrameStream: RemoteStream?
+
+    /// 当前绑定的远端视频视图。
     private weak var remoteView: XmaxVideoView?
+
+    /// 远端视频的填充方式。
     private var remoteContentMode = VideoContentMode.fill
+
+    /// 缓存最近一帧，供视图绑定后立即显示。
     private var latestRemoteFrame: RealtimeVideoFrame?
+
+    /// 等待当前结果流首帧就绪的请求。
     private var remoteFrameReadyWaiters:
         [UUID: RemoteFrameReadyWaiter] = [:]
 
@@ -100,7 +119,7 @@ final class RenderController: RenderControlling {
         self.errorListener = errorListener
     }
 
-    /// 插帧状态
+    /// 当前是否启用远端视频插帧。
     var isFrameInterpolationEnabled: Bool {
         get async {
             await remoteFramePipeline.isFrameInterpolationEnabled
@@ -111,7 +130,9 @@ final class RenderController: RenderControlling {
     ///
     /// - Parameter stream: 新的远端流；传入 `nil` 清除当前来源。
     /// - Throws: 旧流监听解除或新流监听绑定失败时抛出错误。
-    func setRemoteStream(_ stream: RemoteStream?) throws {
+    func setRemoteStream(
+        _ stream: RemoteStream?
+    ) throws {
         let previousStream = remoteStream
         if let previousStream, previousStream != stream {
             try deactivateRemoteFrames(for: previousStream)
@@ -268,7 +289,9 @@ final class RenderController: RenderControlling {
     ///
     /// - Parameter track: 需要注销的远端轨道；没有轨道时仍会清理帧处理资源。
     /// - Throws: 解除 RTC 视频帧监听失败时抛出错误。
-    func resetRemoteTrack(_ track: RealtimeVideoTrack?) async throws {
+    func resetRemoteTrack(
+        _ track: RealtimeVideoTrack?
+    ) async throws {
         if let track {
             VideoRenderRegistry.unregister(track)
             TrajectoryRegistry.unregister(track)
@@ -280,6 +303,7 @@ final class RenderController: RenderControlling {
 }
 
 private extension RenderController {
+
     /// 绑定远端视频视图，并立即提交已缓存的有效帧。
     ///
     /// - Parameters:
@@ -344,7 +368,9 @@ private extension RenderController {
     ///
     /// - Parameter reportsError: 绑定失败时是否同时通知错误回调。
     /// - Throws: RTC 帧监听设置失败时抛出错误。
-    func activateRemoteFramesIfReady(reportsError: Bool) throws {
+    func activateRemoteFramesIfReady(
+        reportsError: Bool
+    ) throws {
         guard let remoteStream else { return }
         guard activeRemoteFrameStream != remoteStream else { return }
         let outputToken = renderingToken
@@ -373,7 +399,9 @@ private extension RenderController {
     ///
     /// - Parameter stream: 需要停止监听的远端流。
     /// - Throws: RTC 帧监听解除失败时抛出错误。
-    func deactivateRemoteFrames(for stream: RemoteStream) throws {
+    func deactivateRemoteFrames(
+        for stream: RemoteStream
+    ) throws {
         guard activeRemoteFrameStream == stream else { return }
         try rtcManager.setRemoteVideoFrameListener(nil, for: stream)
         activeRemoteFrameStream = nil
@@ -440,7 +468,9 @@ private extension RenderController {
     /// 结束当前全部首帧等待。
     ///
     /// - Parameter error: 等待失败的原因；`nil` 表示首帧已就绪。
-    func finishAllRemoteFrameReadyWaiters(error: XmaxError? = nil) {
+    func finishAllRemoteFrameReadyWaiters(
+        error: XmaxError? = nil
+    ) {
         let waiterIDs = Array(remoteFrameReadyWaiters.keys)
         for waiterID in waiterIDs {
             finishRemoteFrameReadyWaiter(waiterID, error: error)

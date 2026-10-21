@@ -1,10 +1,9 @@
 //
 //  QualityVideoFormat.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,8 +13,10 @@ import Foundation
 /// 从媒体基准计算传输档位，不改变采集或模型生成规格。
 enum QualityVideoFormat {
 
-    /// 档位配置
+    /// 各档位相对媒体基准的宽高缩放系数。
     static let scales: [Double] = [1, 0.8, 0.65, 0.5, 0.5]
+
+    /// 各档位的目标帧率，单位为 fps。
     static let frameRates = [30, 24, 24, 20, 16]
 
     /// 计算下行档位的尺寸上限，不进行像素对齐或插帧限制。
@@ -24,7 +25,10 @@ enum QualityVideoFormat {
     ///   - baseline: 不随调档变化的媒体原始规格。
     ///   - level: 下行目标档位，取值范围为 1...5。
     /// - Returns: 保持原始比例的尺寸上限，可包含小数像素。
-    static func resolveDownlinkMaximumSize(_ baseline: RealtimeVideoFormat, level: Int) -> CGSize {
+    static func resolveDownlinkMaximumSize(
+        _ baseline: RealtimeVideoFormat,
+        level: RealtimeQualityLevel
+    ) -> CGSize {
         let scale = sizeScale(baseline, level: level)
         return CGSize(width: Double(baseline.width) * scale, height: Double(baseline.height) * scale)
     }
@@ -36,8 +40,12 @@ enum QualityVideoFormat {
     ///   - level: 目标档位，范围限制为 `1...5`。
     ///   - downlink: 是否为下行；下行固定使用 24 fps，上行不超过基准帧率。
     /// - Returns: 完成尺寸、帧率和编码选项映射的传输规格。
-    static func resolve(_ baseline: RealtimeVideoFormat, level: Int, downlink: Bool) -> RealtimeVideoFormat {
-        let index = min(5, max(1, level)) - 1
+    static func resolve(
+        _ baseline: RealtimeVideoFormat,
+        level: RealtimeQualityLevel,
+        downlink: Bool
+    ) -> RealtimeVideoFormat {
+        let index = level.rawValue - 1
         let scale = sizeScale(baseline, level: level)
         let size = scaledSize(baseline.size, scale: scale)
         return RealtimeVideoFormat(
@@ -55,7 +63,10 @@ enum QualityVideoFormat {
     ///   - size: 原始整数像素尺寸。
     ///   - scale: 目标尺寸缩放比例。
     /// - Returns: 偶数对齐的像素尺寸；无法保持精确比例时按像素精度向下对齐。
-    static func scaledSize(_ size: CGSize, scale: Double) -> CGSize {
+    static func scaledSize(
+        _ size: CGSize,
+        scale: Double
+    ) -> CGSize {
         let width = Int(size.width)
         let height = Int(size.height)
         var divisor = width
@@ -77,8 +88,11 @@ enum QualityVideoFormat {
     ///   - baseline: 原始媒体规格。
     ///   - level: 目标档位，取值范围为 1...5。
     /// - Returns: 不超过 1 的尺寸缩放比例。
-    private static func sizeScale(_ baseline: RealtimeVideoFormat, level: Int) -> Double {
-        let index = min(5, max(1, level)) - 1
+    private static func sizeScale(
+        _ baseline: RealtimeVideoFormat,
+        level: RealtimeQualityLevel
+    ) -> Double {
+        let index = level.rawValue - 1
         let shortSide = min(baseline.width, baseline.height)
         return max(scales[index], Double(min(shortSide, 240)) / Double(shortSide))
     }

@@ -1,10 +1,9 @@
 //
 //  RoomController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,17 +13,19 @@ import Foundation
 /// 管理 RTC 房间生命周期、心跳和实时生成信令。
 actor RoomController: RoomControlling {
 
-    /// 基础层组件
+    /// 底层 RTC 管理器。
     private let rtcManager: any RtcManaging
 
-    /// 传输层组件
+    /// 维护房间周期信令的心跳组件。
     private let heartbeat: RoomHeartbeat
 
-    /// 耗时统计
+    /// 共享的实时启动耗时记录器。
     private let timing: RealtimeTiming
 
-    /// 房间资源
+    /// 当前房间连接阶段。
     private var state = State.idle
+
+    /// 正在执行的离房操作，供并发请求共同等待。
     private var leaveOperation: LeaveOperation?
 
     /// 创建房间控制器及默认心跳组件。
@@ -42,11 +43,6 @@ actor RoomController: RoomControlling {
     }
 
     /// 使用指定心跳组件创建房间控制器。
-    ///
-    /// - Parameters:
-    ///   - rtcManager: 底层 RTC 管理器。
-    ///   - heartbeat: 维护房间周期信令的心跳组件。
-    ///   - timing: 共享的实时启动耗时记录器。
     init(
         rtcManager: any RtcManaging,
         heartbeat: RoomHeartbeat,
@@ -234,7 +230,9 @@ actor RoomController: RoomControlling {
     ///
     /// - Parameter taskID: 需要停止的生成任务标识。
     /// - Throws: 停止信令编码或入队失败时抛出错误。
-    func stopGeneration(taskID: String) throws {
+    func stopGeneration(
+        taskID: String
+    ) throws {
         guard !taskID.isEmpty,
               case .joined(let userID) = state else {
             return
@@ -276,14 +274,23 @@ actor RoomController: RoomControlling {
 }
 
 private extension RoomController {
+
     /// 表示房间连接及离开流程所处阶段。
     enum State {
+
+        /// 尚未加入房间。
         case idle
+
+        /// 正在加入房间，并记录本次操作标识。
         case joining(id: UUID)
+
+        /// 已加入房间，并记录本地用户标识。
         case joined(userID: String)
+
+        /// 正在离开房间。
         case leaving
 
-        /// 资源状态
+        /// 当前状态是否仍持有需要清理的房间资源。
         var hasRoomResources: Bool {
             switch self {
             case .idle, .leaving:
@@ -297,17 +304,19 @@ private extension RoomController {
     /// 记录可由重复离房调用共同等待的清理任务。
     struct LeaveOperation {
 
-        /// 操作标识
+        /// 离房操作的唯一标识。
         let id: UUID
 
-        /// 离房任务
+        /// 供并发离房请求共同等待的任务。
         let task: Task<Void, Never>
     }
 
     /// 停止房间心跳并完成当前离房操作。
     ///
     /// - Parameter operationID: 用于核对离房任务有效性的操作标识。
-    func performLeave(operationID: UUID) async {
+    func performLeave(
+        operationID: UUID
+    ) async {
         state = .idle
         heartbeat.stop()
         await rtcManager.leaveRoom()
@@ -322,7 +331,7 @@ private extension RoomController {
     /// - Parameters:
     ///   - message: 完整 JSON 房间信令。
     ///   - reportFailure: 异步发送失败时是否通知 RTC 故障回调。
-    ///   - replacingPendingMessage: 合并键；同键且尚未发送的信令仅保留最新内容。
+    ///   - key: 合并键；同键且尚未发送的信令仅保留最新内容。
     ///   - discardPending: 是否先丢弃尚未发送的轨迹。
     /// - Returns: 本条信令的发送任务。
     /// - Throws: 信令提交失败时抛出 SDK 错误。
@@ -356,7 +365,9 @@ private extension RoomController {
     ///
     /// - Parameter message: 原始房间信令文本。
     /// - Returns: 包含事件类型和 JSON 正文的日志；无法解析时保留原文。
-    func formatSignalLog(_ message: String) -> String {
+    func formatSignalLog(
+        _ message: String
+    ) -> String {
         guard let data = message.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data),
               let event = object as? [String: Any],

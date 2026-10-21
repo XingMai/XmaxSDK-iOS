@@ -1,10 +1,9 @@
 //
 //  StreamControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -23,12 +22,17 @@ protocol StreamControlling: Sendable {
     ///   - baseline: 本地媒体原始输出规格，不随调档改变。
     ///   - model: 用于隔离历史档位的模型标识。
     /// - Returns: 本次连接的初始上下行配置。
-    func prepareQuality(baseline: RealtimeVideoFormat, model: String) -> QualityConfiguration
+    func prepareQuality(
+        baseline: RealtimeVideoFormat,
+        model: String
+    ) -> QualityConfiguration
 
     /// 设置内部调档采样回调，不影响公开网络质量监听。
     ///
     /// - Parameter listener: 接收网络质量及单调时钟采样时间；nil 表示移除。
-    func setAdaptiveQualityListener(_ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?)
+    func setAdaptiveQualityListener(
+        _ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
+    )
 
     /// 消费当前网络采样并返回候选档位。
     ///
@@ -36,7 +40,10 @@ protocol StreamControlling: Sendable {
     ///   - quality: 当前上下行网络质量。
     ///   - sampledAt: 单调时钟的采样时间，单位为秒。
     /// - Returns: 满足连续采样和冷却条件的候选档位。
-    func proposeQuality(_ quality: RealtimeNetworkQuality, sampledAt: TimeInterval) -> QualityChange
+    func proposeQuality(
+        _ quality: RealtimeNetworkQuality,
+        sampledAt: TimeInterval
+    ) -> QualityChange
 
     /// 提交调档结果，成功时保存历史档位。
     ///
@@ -44,7 +51,11 @@ protocol StreamControlling: Sendable {
     ///   - downlink: true 表示下行，false 表示上行。
     ///   - level: 本次尝试的档位，范围为 1...5。
     ///   - success: 配置是否成功应用。
-    func completeQuality(downlink: Bool, level: Int, success: Bool)
+    func completeQuality(
+        downlink: Bool,
+        level: RealtimeQualityLevel,
+        success: Bool
+    )
 
     /// 清除连续采样窗口。
     func resetQualitySamples()
@@ -59,17 +70,23 @@ protocol StreamControlling: Sendable {
     ///
     /// - Parameter videoFormat: RTC 视频编码使用的宽度、高度和帧率。
     /// - Throws: 视频格式无效或 RTC 编码配置失败时抛出错误。
-    func setVideoEncoderConfig(_ videoFormat: RealtimeVideoFormat) throws
+    func setVideoEncoderConfig(
+        _ videoFormat: RealtimeVideoFormat
+    ) throws
 
     /// 设置视频上行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
-    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?)
+    func setUplinkVideoStatisticsListener(
+        _ listener: UplinkVideoStatisticsListener?
+    )
 
     /// 设置视频下行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
-    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?)
+    func setDownlinkVideoStatisticsListener(
+        _ listener: DownlinkVideoStatisticsListener?
+    )
 
     /// 设置网络质量监听器，传入空值时清除监听器。
     ///
@@ -91,7 +108,9 @@ protocol StreamControlling: Sendable {
     ///
     /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
     /// - Throws: RTC 音量配置失败时抛出错误。
-    func setRemoteAudioVolume(_ volume: Float) throws
+    func setRemoteAudioVolume(
+        _ volume: Float
+    ) throws
 
     /// 加入 RTC 房间并发布本地媒体流。
     ///
@@ -116,14 +135,18 @@ protocol StreamControlling: Sendable {
     ///
     /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
     /// - Throws: RTC 资源尚未就绪或视频帧转换失败时抛出错误。
-    func pushLocalVideoFrame(_ frame: VideoFrame) throws
+    func pushLocalVideoFrame(
+        _ frame: VideoFrame
+    ) throws
 
     /// 推送本地外部音频帧。
     ///
     /// - Parameter frame: 已准备好交给 RTC 的 PCM 音频帧；
     ///   本地音频尚未发布时忽略。
     /// - Throws: RTC 资源尚未就绪或音频帧转换失败时抛出错误。
-    func pushLocalAudioFrame(_ frame: AudioFrame) throws
+    func pushLocalAudioFrame(
+        _ frame: AudioFrame
+    ) throws
 
     /// 建立生成任务、发送开始信令并启动结果流确认等待。
     ///
@@ -187,7 +210,9 @@ protocol StreamControlling: Sendable {
     /// - Parameter taskID: 需要停止的生成任务标识；传入空字符串时停止
     ///   当前任务。
     /// - Throws: RTC 停止信令发送失败时抛出错误。
-    func stopGeneration(taskID: String) async throws
+    func stopGeneration(
+        taskID: String
+    ) async throws
 
     /// 发送生成任务的交互轨迹。
     ///

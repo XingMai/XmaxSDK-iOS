@@ -1,10 +1,9 @@
 //
 //  RoomControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -83,7 +82,9 @@ protocol RoomControlling: Actor {
     ///
     /// - Parameter taskID: 需要停止的生成任务标识。
     /// - Throws: 停止信令编码或入队失败时抛出错误。
-    func stopGeneration(taskID: String) throws
+    func stopGeneration(
+        taskID: String
+    ) throws
 
     /// 提交当前生成任务的交互轨迹。
     ///

@@ -1,10 +1,9 @@
 //
 //  XmaxVideo.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,7 +14,7 @@ import SwiftUI
 @MainActor
 public struct XmaxVideo: UIViewRepresentable {
 
-    /// 当前显示的视频轨道。
+    /// 当前显示的视频轨道；nil 时显示空白容器。
     public let track: RealtimeVideoTrack?
 
     /// 视频内容在容器中的显示模式。
@@ -25,11 +24,6 @@ public struct XmaxVideo: UIViewRepresentable {
     public let isInteractionEnabled: Bool
 
     /// 创建 SwiftUI 视频渲染组件。
-    ///
-    /// - Parameters:
-    ///   - track: 需要显示的视频轨道；传入空值时显示空白容器。
-    ///   - videoContentMode: 视频内容显示模式。
-    ///   - isInteractionEnabled: 是否允许在远端视频上进行轨迹交互。
     public init(
         track: RealtimeVideoTrack?,
         videoContentMode: VideoContentMode = .fill,
@@ -44,7 +38,9 @@ public struct XmaxVideo: UIViewRepresentable {
     ///
     /// - Parameter context: SwiftUI 提供的视图创建上下文。
     /// - Returns: 配置当前轨道的 SDK 视频视图。
-    public func makeUIView(context: Context) -> XmaxVideoView {
+    public func makeUIView(
+        context: Context
+    ) -> XmaxVideoView {
         let view = XmaxVideoView(
             track: track,
             videoContentMode: videoContentMode,

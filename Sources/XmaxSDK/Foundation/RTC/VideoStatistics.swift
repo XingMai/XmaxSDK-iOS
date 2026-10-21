@@ -1,10 +1,9 @@
 //
 //  VideoStatistics.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -34,15 +33,6 @@ public struct UplinkVideoStatistics: Equatable, Sendable {
     public let packetLossPercent: Int?
 
     /// 创建视频统计信息。
-    ///
-    /// - Parameters:
-    ///   - width: 实际编码宽度，单位为像素。不可用时传入 nil。
-    ///   - height: 实际编码高度，单位为像素。不可用时传入 nil。
-    ///   - captureFrameRate: 实际采集帧率，单位为 fps。不可用时传入 nil。
-    ///   - encodeFrameRate: 实际编码帧率，单位为 fps。不可用时传入 nil。
-    ///   - sendFrameRate: 实际发送帧率，单位为 fps。不可用时传入 nil。
-    ///   - bitrateKbps: 发送码率，单位为 kbps。不可用时传入 nil。
-    ///   - packetLossPercent: 本地到 RTC 服务的丢包率，范围为 0...100。不可用时传入 nil。
     public init(
         width: Int? = nil,
         height: Int? = nil,
@@ -90,16 +80,6 @@ public struct DownlinkVideoStatistics: Equatable, Sendable {
     public let endToEndDelayMs: Int?
 
     /// 创建视频统计信息。
-    ///
-    /// - Parameters:
-    ///   - userID: 远端用户标识。
-    ///   - width: 接收视频宽度，单位为像素。不可用时传入 nil。
-    ///   - height: 接收视频高度，单位为像素。不可用时传入 nil。
-    ///   - decodeFrameRate: 解码帧率，单位为 fps。不可用时传入 nil。
-    ///   - renderFrameRate: RTC 渲染帧率，单位为 fps；不包含 SDK 插帧后的帧率。不可用时传入 nil。
-    ///   - bitrateKbps: 接收码率，单位为 kbps。不可用时传入 nil。
-    ///   - packetLossPercent: 下行视频丢包率，范围为 0...100。不可用时传入 nil。
-    ///   - endToEndDelayMs: RTC 媒体端到端时延，单位为毫秒；不代表完整 AI 生成耗时。不可用时传入 nil。
     public init(
         userID: String,
         width: Int? = nil,

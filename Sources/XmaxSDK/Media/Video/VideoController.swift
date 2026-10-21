@@ -1,10 +1,9 @@
 //
 //  VideoController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,20 +13,22 @@ import Foundation
 /// 协调本地视频播放器、RTC 外部音视频源和预览资源。
 final class VideoController: VideoControlling, @unchecked Sendable {
 
-    /// 轨道标识
+    /// 文件视频的本地轨道标识。
     private static let localVideoTrackID = "video0"
 
-    /// 基础层组件
+    /// RTC 外部媒体源适配组件。
     private let rtcManager: any RtcManaging
+
+    /// 处理本地视频播放所需的权限检查。
     private let permissionManager: any PermissionManaging
 
-    /// 业务层组件
+    /// 负责文件准备与播放的媒体源组件。
     private let mediaSourceController: any MediaSourceControlling
 
-    /// 并发控制
+    /// 保护文件视频轨道的创建与停止。
     private let stateLock = NSLock()
 
-    /// 本地资源
+    /// 当前文件视频对应的本地轨道。
     private var activeTrack: RealtimeVideoTrack?
 
     /// 创建文件解码、音视频输出和本地预览控制器。
@@ -64,11 +65,6 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     }
 
     /// 使用指定媒体源和权限组件创建视频控制器。
-    ///
-    /// - Parameters:
-    ///   - rtcManager: RTC 外部媒体源适配组件。
-    ///   - permissionManager: 音频使用所需的权限组件。
-    ///   - mediaSourceController: 负责文件准备与播放的媒体源组件。
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
@@ -120,7 +116,9 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     /// 静音或恢复本地文件视频的音频预览，不影响上传的音频帧。
     ///
     /// - Parameter muted: 为 true 时静音，为 false 时恢复配置的预览音量。
-    func setLocalAudioPreviewMuted(_ muted: Bool) async {
+    func setLocalAudioPreviewMuted(
+        _ muted: Bool
+    ) async {
         guard currentTrack != nil else {
             return
         }
@@ -130,7 +128,9 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     /// 设置本地文件视频的音频预览音量。
     ///
     /// - Parameter volume: 已校验且取值范围为 0...1 的音量。
-    func setLocalAudioVolume(_ volume: Float) async {
+    func setLocalAudioVolume(
+        _ volume: Float
+    ) async {
         await mediaSourceController.setLocalAudioVolume(volume)
     }
 
@@ -168,6 +168,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
 }
 
 private extension VideoController {
+
     /// 准备文件视频并启动外部音视频源及循环播放。
     ///
     /// - Parameter fileURL: 待播放的本地视频文件地址。
@@ -234,7 +235,9 @@ private extension VideoController {
     ///
     /// - Parameter track: 需要绑定预览的本地视频轨道。
     @MainActor
-    func registerPreview(for track: RealtimeVideoTrack) {
+    func registerPreview(
+        for track: RealtimeVideoTrack
+    ) {
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(

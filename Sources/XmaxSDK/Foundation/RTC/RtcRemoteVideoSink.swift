@@ -1,10 +1,9 @@
 //
 //  RtcRemoteVideoSink.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -17,19 +16,25 @@ import Foundation
 /// 将声网解码帧复制到自有缓冲区，供异步渲染和插帧使用。
 final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Sendable {
 
-    /// 事件回调
+    /// 接收数字用户标识、频道标识和自有像素缓冲区的回调。
     private let frameListener: @Sendable (UInt, String, RealtimeVideoFrame) -> Void
 
-    /// 缓冲区资源
+    /// 保护远端像素缓冲池的复用与重建。
     private let lock = NSLock()
+
+    /// 复用远端视频帧的像素缓冲区。
     private var pool: CVPixelBufferPool?
+
+    /// 当前像素缓冲池对应的宽高，单位为像素。
     private var dimensions = CGSize.zero
+
+    /// 当前像素缓冲池对应的像素格式。
     private var pixelFormat: OSType = 0
 
     /// 创建远端解码帧接收器。
-    ///
-    /// - Parameter frameListener: 接收数字用户标识、频道标识和自有像素缓冲区的回调。
-    init(frameListener: @escaping @Sendable (UInt, String, RealtimeVideoFrame) -> Void) {
+    init(
+        frameListener: @escaping @Sendable (UInt, String, RealtimeVideoFrame) -> Void
+    ) {
         self.frameListener = frameListener
     }
 
@@ -37,18 +42,22 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
     ///
     /// - Returns: NV12 视频帧格式。
     func getVideoFormatPreference() -> AgoraVideoFormat { .cvPixelNV12 }
+
     /// 指定在 RTC 渲染前接收解码帧。
     ///
     /// - Returns: 渲染前帧观察位置。
     func getObservedFramePosition() -> AgoraVideoFramePosition { .preRenderer }
+
     /// 指定回调只读取 RTC 原始帧。
     ///
     /// - Returns: 只读处理模式。
     func getVideoFrameProcessMode() -> AgoraVideoFrameProcessMode { .readOnly }
+
     /// 要求 RTC 在回调前将旋转应用到像素。
     ///
     /// - Returns: 始终返回 `true`。
     func getRotationApplied() -> Bool { true }
+
     /// 要求 RTC 保留未镜像的解码帧。
     ///
     /// - Returns: 始终返回 `false`。
@@ -61,7 +70,11 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
     ///   - uid: 远端用户数字标识。
     ///   - channelId: 帧所属频道标识。
     /// - Returns: 始终返回 `true`，不阻止 RTC 继续处理该帧。
-    func onRenderVideoFrame(_ frame: AgoraOutputVideoFrame, uid: UInt, channelId: String) -> Bool {
+    func onRenderVideoFrame(
+        _ frame: AgoraOutputVideoFrame,
+        uid: UInt,
+        channelId: String
+    ) -> Bool {
         guard let source = frame.pixelBuffer,
               let buffer = lock.withLock({ copy(source) }) else { return true }
 
@@ -76,7 +89,9 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
     ///
     /// - Parameter source: 源像素缓冲区。
     /// - Returns: 可独立持有的复制缓冲区；布局不支持或分配失败时返回 `nil`。
-    private func copy(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+    private func copy(
+        _ source: CVPixelBuffer
+    ) -> CVPixelBuffer? {
         let width = CVPixelBufferGetWidth(source)
         let height = CVPixelBufferGetHeight(source)
         let size = CGSize(width: width, height: height)

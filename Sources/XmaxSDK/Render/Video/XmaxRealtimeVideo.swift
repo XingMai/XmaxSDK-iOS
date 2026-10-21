@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeVideo.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -28,12 +27,6 @@ public struct XmaxRealtimeVideo: UIViewRepresentable {
     public let isInteractionEnabled: Bool
 
     /// 创建 SwiftUI 实时视频组件。
-    ///
-    /// - Parameters:
-    ///   - localTrack: 需要持续预览的本地视频轨道。
-    ///   - remoteTrack: 需要覆盖显示的远端生成视频轨道。
-    ///   - videoContentMode: 本地与远端视频的内容显示模式。
-    ///   - isInteractionEnabled: 是否允许在远端视频上进行轨迹交互。
     public init(
         localTrack: RealtimeVideoTrack?,
         remoteTrack: RealtimeVideoTrack?,
@@ -50,7 +43,9 @@ public struct XmaxRealtimeVideo: UIViewRepresentable {
     ///
     /// - Parameter context: SwiftUI 提供的视图创建上下文。
     /// - Returns: 配置本地与远端轨道的 SDK 实时视频视图。
-    public func makeUIView(context: Context) -> XmaxRealtimeVideoView {
+    public func makeUIView(
+        context: Context
+    ) -> XmaxRealtimeVideoView {
         XmaxRealtimeVideoView(
             localTrack: localTrack,
             remoteTrack: remoteTrack,

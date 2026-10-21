@@ -1,10 +1,9 @@
 //
 //  MediaFileMetadataManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -21,7 +20,9 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
     /// - Parameter fileURL: 可读取的本地视频文件 URL。
     /// - Returns: 用于准备本地视频流的媒体元数据。
     /// - Throws: 文件不可读、无视频轨道或媒体元数据无效时抛出错误。
-    func readMetadata(fileURL: URL) async throws -> MediaFileMetadata {
+    func readMetadata(
+        fileURL: URL
+    ) async throws -> MediaFileMetadata {
         guard fileURL.isFileURL,
               FileManager.default.fileExists(atPath: fileURL.path) else {
             throw Self.mediaError("Media file does not exist")
@@ -77,6 +78,7 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
 }
 
 private extension MediaFileMetadataManager {
+
     /// 将媒体轨道变换转换为最接近的四分之一圈旋转方向。
     ///
     /// - Parameter transform: 视频轨道的首选显示变换。
@@ -94,7 +96,9 @@ private extension MediaFileMetadataManager {
     ///
     /// - Parameter message: 可读的媒体错误说明。
     /// - Returns: 带有指定说明的媒体错误。
-    static func mediaError(_ message: String) -> XmaxError {
+    static func mediaError(
+        _ message: String
+    ) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }

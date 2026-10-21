@@ -18,7 +18,7 @@ and add only the **XmaxSDK** product to your application target.
   and `QCloudCore/WithoutMTA`, without the optional Tencent analytics components.
   This is an Xmax packaging of Tencent's source, not an official Tencent Swift package.
   The archives and notices are published in the
-  [COS dependency release](https://github.com/XingMai/XmaxSDK-iOS/releases/tag/cos-6.5.7-spm.1).
+  [COS dependency release](https://github.com/Xmax-AI/XmaxSDK-iOS/releases/tag/cos-6.5.7-spm.1).
 - COS archives contain the upstream copyright and license notices; the COS XML
   framework also includes the upstream privacy manifest. Keep these files when
   redistributing the frameworks.

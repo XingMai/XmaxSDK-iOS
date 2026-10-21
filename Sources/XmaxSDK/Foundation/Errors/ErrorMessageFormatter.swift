@@ -1,10 +1,9 @@
 //
 //  ErrorMessageFormatter.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -18,7 +17,9 @@ enum ErrorMessageFormatter {
     ///
     /// - Parameter error: 待格式化的错误。
     /// - Returns: 可读的错误说明。
-    static func format(_ error: any Error) -> String {
+    static func format(
+        _ error: any Error
+    ) -> String {
         if let xmaxError = error as? XmaxError {
             let apiCode = xmaxError.apiCode.map { "，业务码 \($0)" } ?? ""
             let httpStatus = xmaxError.httpStatus.map { "，HTTP \($0)" } ?? ""

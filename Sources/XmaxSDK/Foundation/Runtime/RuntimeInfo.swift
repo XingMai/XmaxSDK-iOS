@@ -1,10 +1,9 @@
 //
 //  RuntimeInfo.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,13 +14,19 @@ import Foundation
 /// 描述 SDK 当前运行环境。
 struct RuntimeInfo: Encodable, Sendable {
 
-    /// 运行环境信息
+    /// SDK 运行的平台名称。
     let platform: String
+
+    /// 操作系统版本。
     let osVersion: String
+
+    /// XmaxSDK 版本。
     let sdkVersion: String
+
+    /// 设备型号标识。
     let deviceModel: String
 
-    /// 当前环境快照
+    /// 当前平台、系统、SDK 和设备信息快照。
     static let current = RuntimeInfo(
         platform: "ios",
         osVersion: currentOSVersion(),
@@ -31,14 +36,23 @@ struct RuntimeInfo: Encodable, Sendable {
 
     /// 定义运行环境字段在请求中的编码名称。
     enum CodingKeys: String, CodingKey {
+
+        /// 客户端平台字段。
         case platform
+
+        /// 操作系统版本字段。
         case osVersion = "os_version"
+
+        /// SDK 版本字段。
         case sdkVersion = "sdk_version"
+
+        /// 设备型号字段。
         case deviceModel = "device_model"
     }
 }
 
 private extension RuntimeInfo {
+
     /// 读取当前操作系统版本并省略零补丁号。
     ///
     /// - Returns: 以点分隔的系统主版本、次版本和可选补丁版本。

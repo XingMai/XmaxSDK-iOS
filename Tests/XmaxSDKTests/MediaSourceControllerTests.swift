@@ -1,7 +1,7 @@
 //
 //  MediaSourceControllerTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -38,12 +38,12 @@ final class MediaSourceControllerTests: XCTestCase {
     }
 
     func testSourceSizeAndModelDefaultFrameRateAreIndependentOfBuckets() async throws {
-        let components = makeComponents(hasAudio: false, model: .x2_1_1_preview_cn)
+        let components = makeComponents(hasAudio: false, model: .x2_1)
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
         let defaultConfiguration = try await components.controller.prepare(
             fileURL: fileURL
         )
-        XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
+        XCTAssertEqual(defaultConfiguration.videoFormat.fps, RealtimeModel.x2_1.defaultFrameRate)
         await components.controller.stop()
         XCTAssertEqual(defaultConfiguration.videoFormat, RealtimeVideoFormat(width: 1080, height: 1920, fps: 30))
         XCTAssertEqual(components.mediaService.requestedSizes, [CGSize(width: 1080, height: 1920)])
@@ -194,7 +194,7 @@ private extension MediaSourceControllerTests {
         RealtimeVideoFormat(width: 1080, height: 1920, fps: 30)
     }
 
-    func makeComponents(hasAudio: Bool, model: RealtimeModel = .x2_1_1_preview_cn) -> Components {
+    func makeComponents(hasAudio: Bool, model: RealtimeModel = .x2_1) -> Components {
         let metadataManager = MediaFileMetadataManagingStub(
             metadata: MediaFileMetadata(
                 width: 1_920,

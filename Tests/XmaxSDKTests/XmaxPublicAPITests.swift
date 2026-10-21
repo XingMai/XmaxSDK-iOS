@@ -1,7 +1,7 @@
 //
 //  XmaxPublicAPITests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -36,12 +36,12 @@ final class XmaxPublicAPITests: XCTestCase {
 
         let manager: any XmaxRealtimeManaging = client.createRealtimeManager(
             options: RealtimeConfiguration(
-                model: .x2_1_1_preview_cn,
+                model: .x2_1,
                 isFrameInterpolationEnabled: true
             )
         )
 
-        XCTAssertEqual(manager.options.model, .x2_1_1_preview_cn)
+        XCTAssertEqual(manager.options.model, .x2_1)
         XCTAssertTrue(manager.options.isFrameInterpolationEnabled)
     }
 
@@ -51,7 +51,7 @@ final class XmaxPublicAPITests: XCTestCase {
             configuration: XmaxConfiguration(apiKey: "test-key")
         )
         let manager = client.createRealtimeManager(
-            options: RealtimeConfiguration(model: .x2_1_1_preview_cn)
+            options: RealtimeConfiguration(model: .x2_1)
         )
         let listener: RealtimeVideoFrameListener = { frame in
             _ = frame.pixelBuffer

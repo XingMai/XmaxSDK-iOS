@@ -1,10 +1,9 @@
 //
 //  CameraCaptureManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,24 +14,40 @@ import Foundation
 /// 使用 AVFoundation 采集视频；设备操作和帧处理由同一串行队列管理。
 final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Sendable {
 
-    /// 平台资源
+    /// 管理摄像头输入和视频输出的采集会话。
     private let session = AVCaptureSession()
+
+    /// 接收摄像头原始视频帧的输出端。
     private let output = AVCaptureVideoDataOutput()
+
+    /// 串行执行采集配置和帧处理的队列。
     private let captureQueue = DispatchQueue(label: "ai.xmax.sdk.camera", qos: .userInitiated)
 
-    /// 采集配置（仅在 captureQueue 访问）
+    /// 当前摄像头输入；仅在 captureQueue 中访问。
     private var input: AVCaptureDeviceInput?
+
+    /// 裁剪缩放后的视频帧规格。
     private var videoFormat: VideoFormat?
+
+    /// 请求的采集帧率，单位为 fps。
     private var frameRate = 0
+
+    /// 用于转换采集帧的目标显示方向。
     private var orientation: CameraOrientation = .portrait
 
-    /// 事件监听
+    /// 接收经过方向转换和缩放的视频帧。
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
+
+    /// 接收采集与帧处理失败。
     private var errorListener: XmaxErrorListener?
+
+    /// 采集会话通知的观察者，用于停止时移除监听。
     private var observers: [NSObjectProtocol] = []
 
-    /// 运行状态
+    /// 最近输出帧的微秒时间戳，用于维持时间递增。
     private var lastTimestampUs: Int64?
+
+    /// 是否已上报当前采集周期的帧处理错误，避免重复通知。
     private var hasReportedFrameError = false
 
     /// 启动摄像头，输出已经转正并调整到目标尺寸的 NV12 帧。
@@ -122,7 +137,9 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
     ///
     /// - Parameter position: 目标摄像头位置。
     /// - Throws: 设备不可用或切换失败时抛出错误。
-    func switchCamera(to position: CameraPosition) async throws {
+    func switchCamera(
+        to position: CameraPosition
+    ) async throws {
         try Task.checkCancellation()
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
@@ -182,7 +199,10 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
     ///   - orientation: 窗口显示方向。
     ///   - videoFormat: 转正后的输出尺寸和像素格式。
     /// - Throws: 采集已停止时抛出错误。
-    func updateOrientation(_ orientation: CameraOrientation, videoFormat: VideoFormat) async throws {
+    func updateOrientation(
+        _ orientation: CameraOrientation,
+        videoFormat: VideoFormat
+    ) async throws {
         try Task.checkCancellation()
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
@@ -208,6 +228,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 }
 
 extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
+
     /// 将采集帧转换为目标尺寸和方向，并回调使用主机时钟时间戳的视频帧。
     ///
     /// - Parameters:
@@ -276,11 +297,14 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 }
 
 private extension CameraCaptureManager {
+
     /// 替换摄像头输入，并应用支持目标帧率的采集格式。
     ///
     /// - Parameter position: 目标摄像头位置。
     /// - Throws: 摄像头不可用、采集格式不受支持或设备配置失败时抛出错误。
-    func replaceInput(position: CameraPosition) throws {
+    func replaceInput(
+        position: CameraPosition
+    ) throws {
         guard let device = AVCaptureDevice.default(
             .builtInWideAngleCamera,
             for: .video,
@@ -444,7 +468,9 @@ private extension CameraCaptureManager {
     ///
     /// - Parameter message: 错误描述。
     /// - Returns: 包含指定描述的媒体错误。
-    static func cameraError(_ message: String) -> XmaxError {
+    static func cameraError(
+        _ message: String
+    ) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }

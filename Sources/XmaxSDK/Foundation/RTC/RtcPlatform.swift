@@ -1,10 +1,9 @@
 //
 //  RtcPlatform.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -21,7 +20,9 @@ protocol RtcPlatform: AnyObject, Sendable {
     ///
     /// - Parameter configuration: 尺寸、帧率、码率和编码偏好。
     /// - Throws: 厂商引擎拒绝配置时抛出错误。
-    func configureVideoEncoding(_ configuration: VideoEncodingConfiguration) throws
+    func configureVideoEncoding(
+        _ configuration: VideoEncodingConfiguration
+    ) throws
 
     /// 启用外部视频输入。
     ///
@@ -32,7 +33,9 @@ protocol RtcPlatform: AnyObject, Sendable {
     ///
     /// - Parameter position: 当前摄像头位置。
     /// - Throws: 编码镜像配置失败时抛出错误。
-    func configureLocalVideoMirror(for position: CameraPosition) throws
+    func configureLocalVideoMirror(
+        for position: CameraPosition
+    ) throws
 
     /// 切换至麦克风输入并开始采集。
     ///
@@ -58,18 +61,24 @@ protocol RtcPlatform: AnyObject, Sendable {
     ///
     /// - Parameter frame: SDK 中性视频帧。
     /// - Throws: 帧格式或数据无效时抛出错误。
-    func pushExternalVideoFrame(_ frame: VideoFrame) throws
+    func pushExternalVideoFrame(
+        _ frame: VideoFrame
+    ) throws
 
     /// 推送外部音频帧。
     ///
     /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
     /// - Throws: 帧格式或数据无效时抛出错误。
-    func pushExternalAudioFrame(_ frame: AudioFrame) throws
+    func pushExternalAudioFrame(
+        _ frame: AudioFrame
+    ) throws
 
     /// 创建独立的房间适配对象，尚不发起连接。
     ///
     /// - Parameter roomID: 服务端分配的 RTC 房间标识。
     /// - Returns: 尚未加入的房间。
     /// - Throws: 已存在未释放房间时抛出错误。
-    func createRoom(roomID: String) throws -> any RtcRoom
+    func createRoom(
+        roomID: String
+    ) throws -> any RtcRoom
 }

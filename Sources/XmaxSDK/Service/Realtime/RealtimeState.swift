@@ -1,10 +1,9 @@
 //
 //  RealtimeState.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -64,12 +63,6 @@ public struct RealtimeState: Equatable, Sendable {
     public let reason: RealtimeReason?
 
     /// 创建实时状态快照。
-    ///
-    /// - Parameters:
-    ///   - connectionState: 当前连接生命周期状态。
-    ///   - sessionID: 当前或最近一次实时 Session 标识。
-    ///   - taskID: 当前生成任务标识。
-    ///   - reason: 状态变化原因，默认无。
     public init(
         connectionState: RealtimeConnectionState,
         sessionID: String? = nil,

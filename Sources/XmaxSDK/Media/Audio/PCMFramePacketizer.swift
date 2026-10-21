@@ -1,10 +1,9 @@
 //
 //  PCMFramePacketizer.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -17,32 +16,42 @@ struct PCMFramePacketizer {
     /// 保存一段实际 PCM 或静音样本及其消费进度。
     private struct Segment {
 
-        /// 样本内容
+        /// 该段 PCM 数据；nil 表示对应长度的静音。
         let data: Data?
+
+        /// 该段实际音频或静音包含的采样数。
         let sampleCount: Int
 
-        /// 消费进度
+        /// 该段已被分帧器消费的采样数。
         var consumedSamples = 0
     }
 
-    /// 音频配置
+    /// 单个 PCM16 采样占用的字节数。
     private static let bytesPerSample = MemoryLayout<Int16>.size
+
+    /// 一个固定 10 ms PCM 包占用的字节数。
     private static let frameByteCount = AudioFrame.samplesPerFrame *
         bytesPerSample
 
-    /// 输入状态
+    /// 当前播放周期的总采样数，应按固定帧采样数对齐。
     private let totalSamples: Int
+
+    /// 等待消费的音频与静音片段。
     private var segments: [Segment] = []
+
+    /// 当前正在消费的片段索引。
     private var segmentIndex = 0
+
+    /// 当前播放周期中已写入的采样位置。
     private var timelineWriteCursor = 0
 
-    /// 输出状态
+    /// 当前播放周期中已输出的采样位置。
     private var outputCursor = 0
 
     /// 创建限定总采样长度的 PCM 分帧器。
-    ///
-    /// - Parameter totalSamples: 当前播放周期的总采样数，应按固定帧采样数对齐。
-    init(totalSamples: Int) {
+    init(
+        totalSamples: Int
+    ) {
         self.totalSamples = totalSamples
     }
 
@@ -51,7 +60,10 @@ struct PCMFramePacketizer {
     /// - Parameters:
     ///   - data: 单声道 PCM16 数据。
     ///   - requestedStartSample: 数据在当前周期内的起始采样位置。
-    mutating func append(_ data: Data, at requestedStartSample: Int) {
+    mutating func append(
+        _ data: Data,
+        at requestedStartSample: Int
+    ) {
         guard !data.isEmpty, timelineWriteCursor < totalSamples else {
             return
         }
@@ -144,7 +156,9 @@ struct PCMFramePacketizer {
     /// 向输入时间轴追加静音样本。
     ///
     /// - Parameter sampleCount: 需要补齐的采样数；非正值不追加。
-    private mutating func appendSilence(sampleCount: Int) {
+    private mutating func appendSilence(
+        sampleCount: Int
+    ) {
         guard sampleCount > 0 else { return }
         segments.append(Segment(data: nil, sampleCount: sampleCount))
         timelineWriteCursor += sampleCount

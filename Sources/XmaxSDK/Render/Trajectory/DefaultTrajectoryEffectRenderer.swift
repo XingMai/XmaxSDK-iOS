@@ -1,10 +1,9 @@
 //
 //  DefaultTrajectoryEffectRenderer.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -19,8 +18,10 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 定义轨迹颜色、线宽及淡出效果参数。
     private enum Style {
 
-        /// 效果颜色
+        /// 轨迹中心线的颜色。
         static let coreColor = UIColor.white
+
+        /// 轨迹光晕颜色。
         static let glowColor = UIColor(
             red: 0,
             green: 1,
@@ -28,41 +29,59 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
             alpha: 1
         )
 
-        /// 轨迹宽度
+        /// 轨迹中心线宽度，单位为点。
         static let coreWidth: CGFloat = 3
+
+        /// 轨迹光晕宽度，单位为点。
         static let glowWidth: CGFloat = 18
 
-        /// 淡出配置
+        /// 每次刷新时尾迹透明度的衰减量。
         static let fadeStep: CGFloat = 0.05
+
+        /// 停止交互后最多执行的淡出帧数。
         static let idleFadeFrameLimit = 64
     }
 
     /// 保存活动轨迹的当前位置和开始时间。
     private struct ActiveTrajectory {
 
-        /// 轨迹状态
+        /// 轨迹最新位置，单位为视图坐标点。
         var location: CGPoint
+
+        /// 脉冲动画的起始时刻，单位为秒。
         let startTime: TimeInterval
     }
 
-    /// 效果视图
+    /// 承载轨迹效果的视图。
     public var view: UIView { self }
 
-    /// 轨迹资源
+    /// 按轨迹标识保存的活动触点和动画起点。
     private var activeTrajectories: [TrajectoryID: ActiveTrajectory] = [:]
+
+    /// 绘制持久轨迹尾迹的位图上下文。
     private var trailBitmapContext: CGContext?
+
+    /// 尾迹位图对应的视图尺寸，单位为点。
     private var trailBitmapSize: CGSize = .zero
+
+    /// 尾迹位图采用的屏幕缩放系数。
     private var trailBitmapScale: CGFloat = 0
 
-    /// 动画状态
+    /// 尾迹位图是否仍有需要绘制的内容。
     private var hasTrailPixels = false
+
+    /// 停止交互后已执行的淡出帧数。
     private var idleFadeFrameCount = 0
+
+    /// 驱动轨迹动画刷新的显示时钟。
     private var displayLink: CADisplayLink?
 
     /// 创建 SDK 内置发光轨迹渲染视图。
     ///
     /// - Parameter frame: 视图初始布局区域。
-    public override init(frame: CGRect = .zero) {
+    public override init(
+        frame: CGRect = .zero
+    ) {
         super.init(frame: frame)
         backgroundColor = .clear
         isOpaque = false
@@ -74,7 +93,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     ///
     /// - Parameter coder: 视图归档解码器。
     @available(*, unavailable)
-    public required init?(coder: NSCoder) {
+    public required init?(
+        coder: NSCoder
+    ) {
         fatalError("init(coder:) has not been implemented")
     }
 
@@ -102,7 +123,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 开始绘制指定触点对应的轨迹。
     ///
     /// - Parameter points: 新开始的轨迹触点。
-    public func renderBegan(_ points: [TrajectoryPoint]) {
+    public func renderBegan(
+        _ points: [TrajectoryPoint]
+    ) {
         for point in points {
             activeTrajectories[point.id] = ActiveTrajectory(
                 location: point.location,
@@ -116,7 +139,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 更新活动轨迹的触点位置。
     ///
     /// - Parameter points: 当前活动轨迹的最新触点。
-    public func renderMoved(_ points: [TrajectoryPoint]) {
+    public func renderMoved(
+        _ points: [TrajectoryPoint]
+    ) {
         for point in points {
             guard var trajectory = activeTrajectories[point.id] else {
                 activeTrajectories[point.id] = ActiveTrajectory(
@@ -143,7 +168,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 结束指定轨迹的活动绘制。
     ///
     /// - Parameter identifiers: 需要结束的轨迹标识。
-    public func renderEnded(_ identifiers: [TrajectoryID]) {
+    public func renderEnded(
+        _ identifiers: [TrajectoryID]
+    ) {
         identifiers.forEach {
             activeTrajectories.removeValue(forKey: $0)
         }
@@ -161,7 +188,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
     /// 绘制累计轨迹位图和当前触点的动态效果。
     ///
     /// - Parameter rect: 需要重绘的视图区域。
-    public override func draw(_ rect: CGRect) {
+    public override func draw(
+        _ rect: CGRect
+    ) {
         if let trailImage = trailBitmapContext?.makeImage() {
             UIImage(
                 cgImage: trailImage,
@@ -179,6 +208,7 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
 }
 
 private extension DefaultTrajectoryEffectRenderer {
+
     /// 推进轨迹淡出并在无可见效果时停止刷新。
     @objc func tick() {
         fadeTrailBitmap()
@@ -249,7 +279,10 @@ private extension DefaultTrajectoryEffectRenderer {
     /// - Parameters:
     ///   - start: 线段起点，使用视图坐标。
     ///   - end: 线段终点，使用视图坐标。
-    func drawTrailSegment(from start: CGPoint, to end: CGPoint) {
+    func drawTrailSegment(
+        from start: CGPoint,
+        to end: CGPoint
+    ) {
         rebuildTrailBitmapIfNeeded()
         guard let context = trailBitmapContext else { return }
 
@@ -382,7 +415,10 @@ private extension DefaultTrajectoryEffectRenderer {
     /// - Parameters:
     ///   - point: 触点的视图坐标。
     ///   - context: 目标绘图上下文。
-    func drawHeadGlow(at point: CGPoint, in context: CGContext) {
+    func drawHeadGlow(
+        at point: CGPoint,
+        in context: CGContext
+    ) {
         let headRadius = max(Style.coreWidth * 5 / 3, 3)
         let glowRadius = max(Style.glowWidth * 8 / 9, headRadius)
         let colors = [

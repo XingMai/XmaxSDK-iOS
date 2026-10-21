@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeGenerationManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -19,26 +18,25 @@ typealias RealtimeGenerationValidity = @Sendable () throws -> Void
 /// 协调生成信令、远端结果确认、条件更新和轨迹交互。
 actor XmaxRealtimeGenerationManager {
 
-    /// 业务层组件
+    /// 管理生成期间轨迹交互的组件。
     private let interactionController: any InteractionControlling
+
+    /// 发布本地流并发送生成控制信令。
     private let streamController: any StreamControlling
 
-    /// 生成配置
+    /// 生成新任务标识的回调。
     private let taskIDGenerator: @Sendable () -> String
 
-    /// 生成资源
+    /// 当前生成任务的提示词和参考图条件。
     private var currentContext: RealtimeContext?
+
+    /// 当前生成任务是否启用人脸修复。
     private var currentFaceRestoration = false
 
     /// 自动重启生成时复用上次成功请求的人脸还原设置。
     var cachedFaceRestoration: Bool { currentFaceRestoration }
 
     /// 创建实时生成管理器。
-    ///
-    /// - Parameters:
-    ///   - interactionController: 管理生成期间轨迹交互的组件。
-    ///   - streamController: 发送生成信令并确认远端结果的组件。
-    ///   - taskIDGenerator: 生成新任务标识的回调。
     init(
         interactionController: any InteractionControlling,
         streamController: any StreamControlling,
@@ -54,7 +52,9 @@ actor XmaxRealtimeGenerationManager {
     ///
     /// - Parameter context: 本次生成上下文；传入 `nil` 时检查已有上下文。
     /// - Throws: 本次未提供上下文且没有可复用上下文时抛出错误。
-    func validateContext(_ context: RealtimeContext?) throws {
+    func validateContext(
+        _ context: RealtimeContext?
+    ) throws {
         guard context != nil || currentContext != nil else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -173,7 +173,9 @@ actor XmaxRealtimeGenerationManager {
     ///
     /// - Parameter taskID: 需要停止的生成任务标识。
     /// - Throws: 停止生成信令发送失败时抛出错误。
-    func stop(taskID: String) async throws {
+    func stop(
+        taskID: String
+    ) async throws {
         await interactionController.stopInteraction()
         try await streamController.stopGeneration(taskID: taskID)
     }
@@ -182,7 +184,9 @@ actor XmaxRealtimeGenerationManager {
     ///
     /// - Parameter taskID: 需要停止的生成任务标识；没有任务时为空字符串。
     /// - Throws: 停止生成信令发送失败时抛出错误。
-    func reset(taskID: String = "") async throws {
+    func reset(
+        taskID: String = ""
+    ) async throws {
         currentContext = nil
         currentFaceRestoration = false
         try await stop(taskID: taskID)

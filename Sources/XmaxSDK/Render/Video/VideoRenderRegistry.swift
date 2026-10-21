@@ -1,10 +1,9 @@
 //
 //  VideoRenderRegistry.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,7 +14,7 @@ import Foundation
 @MainActor
 enum VideoRenderRegistry {
 
-    /// 渲染绑定
+    /// 按视频轨道标识保存的渲染绑定。
     private static var bindings: [ObjectIdentifier: VideoRenderBinding] = [:]
 
     /// 登记视频轨道对应的渲染绑定。
@@ -33,7 +32,9 @@ enum VideoRenderRegistry {
     /// 移除指定轨道的渲染绑定记录。
     ///
     /// - Parameter track: 需要移除的视频轨道。
-    static func unregister(_ track: RealtimeVideoTrack) {
+    static func unregister(
+        _ track: RealtimeVideoTrack
+    ) {
         bindings.removeValue(forKey: ObjectIdentifier(track))
     }
 

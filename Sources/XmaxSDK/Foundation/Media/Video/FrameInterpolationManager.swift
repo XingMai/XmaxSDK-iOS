@@ -1,10 +1,9 @@
 //
 //  FrameInterpolationManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -20,27 +19,43 @@ import VideoToolbox
 @available(iOS 26.0, *)
 actor FrameInterpolationManager: FrameInterpolationManaging {
 
-    /// 输入规格
+    /// 插帧输入宽度，单位为像素。
     private let sourceWidth: Int
+
+    /// 插帧输入高度，单位为像素。
     private let sourceHeight: Int
+
+    /// 插帧输入的像素格式。
     private let sourcePixelFormat: OSType
 
-    /// 平台资源
+    /// 执行系统视频插帧处理。
     private let processor = VTFrameProcessor()
+
+    /// 转换插帧输入图像的 Core Image 上下文。
     private let imageContext = CIContext(options: nil)
+
+    /// 复用插帧输入像素缓冲区。
     private let sourcePool: CVPixelBufferPool
+
+    /// 复用插帧输出像素缓冲区。
     private let destinationPool: CVPixelBufferPool
 
-    /// 运行状态
+    /// 与当前帧配对生成中间帧的上一输入帧。
     private var previousSourceFrame: VTFrameProcessorFrame?
+
+    /// 最近一次规范化后的时间戳，用于保持帧时间递增。
     private var lastNormalizedTimeStamp: CMTime?
+
+    /// 是否已关闭插帧会话。
     private var isClosed = false
 
     /// 根据首帧规格建立低延迟插帧会话及像素缓冲池。
     ///
     /// - Parameter frame: 确定输入尺寸和像素格式的首帧。
     /// - Throws: 设备或尺寸不支持插帧、缓冲池创建失败或处理会话启动失败时抛出错误。
-    init(frame: RealtimeVideoFrame) throws {
+    init(
+        frame: RealtimeVideoFrame
+    ) throws {
         sourceWidth = CVPixelBufferGetWidth(frame.pixelBuffer)
         sourceHeight = CVPixelBufferGetHeight(frame.pixelBuffer)
         sourcePixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
@@ -94,7 +109,9 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
     ///
     /// - Parameter frame: 待比较的视频帧。
     /// - Returns: 分辨率与像素格式均匹配时返回 `true`。
-    nonisolated func matches(_ frame: RealtimeVideoFrame) -> Bool {
+    nonisolated func matches(
+        _ frame: RealtimeVideoFrame
+    ) -> Bool {
         CVPixelBufferGetWidth(frame.pixelBuffer) == sourceWidth &&
             CVPixelBufferGetHeight(frame.pixelBuffer) == sourceHeight &&
             CVPixelBufferGetPixelFormatType(frame.pixelBuffer) ==
@@ -198,6 +215,7 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
 
 @available(iOS 26.0, *)
 private extension FrameInterpolationManager {
+
     /// 提交一次 VideoToolbox 帧处理并等待完成。
     ///
     /// - Parameter parameters: 当前帧处理所需的输入和输出参数。
@@ -423,17 +441,22 @@ private extension FrameInterpolationManager {
     ///
     /// - Parameter message: 错误描述。
     /// - Returns: 包含指定描述的媒体错误。
-    static func mediaError(_ message: String) -> XmaxError {
+    static func mediaError(
+        _ message: String
+    ) -> XmaxError {
         XmaxError(code: .mediaError, message: message)
     }
 }
 
 private extension CMTime {
+
     /// 将时间按浮点倍数缩放。
     ///
     /// - Parameter multiplier: 时间缩放倍数。
     /// - Returns: 缩放后的时间。
-    func multiplied(by multiplier: Float64) -> CMTime {
+    func multiplied(
+        by multiplier: Float64
+    ) -> CMTime {
         CMTimeMultiplyByFloat64(self, multiplier: multiplier)
     }
 
@@ -441,7 +464,9 @@ private extension CMTime {
     ///
     /// - Parameter divisor: 时间除数。
     /// - Returns: 分割后的时间。
-    func divided(by divisor: Int32) -> CMTime {
+    func divided(
+        by divisor: Int32
+    ) -> CMTime {
         CMTimeMultiplyByRatio(self, multiplier: 1, divisor: divisor)
     }
 }

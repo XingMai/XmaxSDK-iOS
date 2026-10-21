@@ -1,10 +1,9 @@
 //
 //  PermissionManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,13 +13,13 @@ import Foundation
 /// 检查并申请 SDK 使用相机和麦克风所需的平台权限。
 final class PermissionManager: PermissionManaging, Sendable {
 
-    /// 依赖
+    /// 查询授权状态和发起授权请求的平台接口。
     private let authorizationClient: PermissionAuthorizationClient
 
     /// 创建媒体权限管理器。
-    ///
-    /// - Parameter authorizationClient: 查询授权状态和发起授权请求的平台接口。
-    init(authorizationClient: PermissionAuthorizationClient = .live) {
+    init(
+        authorizationClient: PermissionAuthorizationClient = .live
+    ) {
         self.authorizationClient = authorizationClient
     }
 

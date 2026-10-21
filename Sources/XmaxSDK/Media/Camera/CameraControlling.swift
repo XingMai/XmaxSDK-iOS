@@ -1,10 +1,9 @@
 //
 //  CameraControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -28,7 +27,9 @@ protocol CameraControlling: Sendable {
     /// 设置当前相机流的一次性内部就绪处理；条件为已收到有效帧且预览已绑定。
     ///
     /// - Parameter handler: 就绪时调用的处理闭包；传入空值时清除。
-    func setPreviewReadyHandler(_ handler: CameraPreviewReadyHandler?)
+    func setPreviewReadyHandler(
+        _ handler: CameraPreviewReadyHandler?
+    )
 
     /// 创建并启动本地相机流。
     ///
@@ -67,5 +68,7 @@ protocol CameraControlling: Sendable {
     ///
     /// - Parameter orientation: 目标窗口方向。
     /// - Throws: 模型不支持目标尺寸或采集更新失败时抛出错误。
-    func updateOrientation(_ orientation: CameraOrientation) async throws
+    func updateOrientation(
+        _ orientation: CameraOrientation
+    ) async throws
 }

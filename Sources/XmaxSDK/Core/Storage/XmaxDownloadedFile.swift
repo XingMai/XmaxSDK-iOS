@@ -1,10 +1,9 @@
 //
 //  XmaxDownloadedFile.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -21,11 +20,10 @@ public struct XmaxDownloadedFile: Equatable, Sendable {
     public let byteCount: Int64
 
     /// 创建下载结果。
-    ///
-    /// - Parameters:
-    ///   - fileURL: 下载完成后的本地文件地址。
-    ///   - byteCount: 本地文件的字节数。
-    init(fileURL: URL, byteCount: Int64) {
+    init(
+        fileURL: URL,
+        byteCount: Int64
+    ) {
         self.fileURL = fileURL
         self.byteCount = byteCount
     }

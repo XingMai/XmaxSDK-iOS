@@ -1,7 +1,7 @@
 //
 //  XmaxRealtimeManagerTests.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
+//  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
 //  GitHub: https://github.com/WengYuehTing
@@ -53,8 +53,107 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await super.tearDown()
     }
 
+    func testManualQualityIsUnavailableBeforeGenerationAndClearedAfterDisconnect() async throws {
+        let components = makeComponents()
+        var uplink = await components.manager.uplinkQualityLevel
+        var downlink = await components.manager.downlinkQualityLevel
+        XCTAssertNil(uplink)
+        XCTAssertNil(downlink)
+        do {
+            try await components.manager.setUplinkQualityLevel(.l3)
+            XCTFail("Expected rejection before connection")
+        } catch {
+            XCTAssertEqual(XmaxError.from(error).code, .invalidConfiguration)
+        }
+
+        let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
+        _ = try await components.manager.connect(localStream: local)
+        uplink = await components.manager.uplinkQualityLevel
+        downlink = await components.manager.downlinkQualityLevel
+        XCTAssertEqual(uplink, .l1)
+        XCTAssertEqual(downlink, .l1)
+        do {
+            try await components.manager.setDownlinkQualityLevel(.l3)
+            XCTFail("Expected rejection before generation")
+        } catch {
+            XCTAssertEqual(XmaxError.from(error).code, .invalidConfiguration)
+        }
+        await components.manager.disconnect()
+        uplink = await components.manager.uplinkQualityLevel
+        downlink = await components.manager.downlinkQualityLevel
+        XCTAssertNil(uplink)
+        XCTAssertNil(downlink)
+        await components.manager.close()
+    }
+
+    func testManualQualityUsesSharedSizingAndKeepsGenerationActive() async throws {
+        let components = makeComponents(frameInterpolationSupported: true)
+        let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
+        _ = try await components.manager.connect(localStream: local)
+        let start = Task { try await components.manager.startGeneration(context: RealtimeContext(prompt: "test")) }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await start.value
+        let originalState = await components.manager.currentState
+
+        try await components.manager.setUplinkQualityLevel(.l3)
+        let uplink = await components.manager.uplinkQualityLevel
+        let unchangedDownlink = await components.manager.downlinkQualityLevel
+        XCTAssertEqual(uplink, .l3)
+        XCTAssertEqual(unchangedDownlink, .l1)
+        let expectedUplink = QualityVideoFormat.resolve(imageFormat, level: .l3, downlink: false)
+        XCTAssertEqual(components.rtcManager.encodingConfigurations.last?.width, expectedUplink.width)
+        XCTAssertEqual(components.rtcManager.encodingConfigurations.last?.height, expectedUplink.height)
+
+        try await components.manager.setFrameInterpolationEnabled(true)
+        try await components.manager.setDownlinkQualityLevel(.l3)
+        let downlink = await components.manager.downlinkQualityLevel
+        let target = await components.connectionManager.currentTargetSize
+        let expectedTarget = try MediaService().resolveTargetSize(
+            imageFormat.size,
+            maximumSize: QualityVideoFormat.resolveDownlinkMaximumSize(imageFormat, level: .l3),
+            frameInterpolationEnabled: true
+        )
+        XCTAssertEqual(downlink, .l3)
+        XCTAssertEqual(target, expectedTarget)
+        XCTAssertEqual(local.videoTrack?.videoFormat, imageFormat)
+        let current = await components.manager.currentState
+        XCTAssertEqual(current, originalState)
+        XCTAssertEqual(decodedEvents(components.rtcManager).filter { $0["event"] as? String == "start" }.count, 1)
+        await components.manager.close()
+    }
+
+    func testFailedManualDownlinkKeepsCurrentLevelAndConnection() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
+        _ = try await components.manager.connect(localStream: local)
+        let start = Task { try await components.manager.startGeneration(context: RealtimeContext(prompt: "test")) }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await start.value
+        let originalState = await components.manager.currentState
+        let originalTarget = await components.connectionManager.currentTargetSize
+        components.rtcManager.setSendRoomMessageError(XmaxError(code: .rtcError, message: "send failed"))
+        do {
+            try await components.manager.setDownlinkQualityLevel(.l4)
+            XCTFail("Expected signaling failure")
+        } catch {
+            XCTAssertEqual(XmaxError.from(error).code, .rtcError)
+        }
+        let downlink = await components.manager.downlinkQualityLevel
+        let target = await components.connectionManager.currentTargetSize
+        let state = await components.manager.currentState
+        XCTAssertEqual(downlink, .l1)
+        XCTAssertEqual(target, originalTarget)
+        XCTAssertEqual(state, originalState)
+        components.rtcManager.setSendRoomMessageError(nil)
+        await components.manager.close()
+    }
+
     func testQualityAndInterpolationShareReturnSizeWithoutChangingMediaOrGenerationCanvas() async throws {
-        for level in [1, 2, 4] {
+        for level in [RealtimeQualityLevel.l1, .l2, .l4] {
             let components = makeComponents(frameInterpolationSupported: true, initialQualityLevel: level)
             let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
             _ = try await components.manager.connect(localStream: local)
@@ -72,14 +171,14 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
             try await components.manager.setFrameInterpolationEnabled(true)
             var target = await components.connectionManager.currentTargetSize
-            let interpolationTarget = level == 1 ? CGSize(width: 676, height: 1196) : networkTarget
+            let interpolationTarget = level == .l1 ? CGSize(width: 676, height: 1196) : networkTarget
             XCTAssertEqual(target, interpolationTarget)
 
             try await components.manager.setFrameInterpolationEnabled(false)
             target = await components.connectionManager.currentTargetSize
             XCTAssertEqual(target, networkTarget)
             let sizeChanges = decodedEvents(components.rtcManager).filter { $0["event"] as? String == "change_target_size" }
-            XCTAssertEqual(sizeChanges.count, level == 1 ? 2 : 0)
+            XCTAssertEqual(sizeChanges.count, level == .l1 ? 2 : 0)
 
             XCTAssertEqual(local.videoTrack?.videoFormat, imageFormat)
             let current = await components.manager.currentState
@@ -370,11 +469,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             $0["event"] as? String == "change_condition"
         })
         let startParams = try XCTUnwrap(start["params"] as? [String: Any])
-        XCTAssertEqual(startParams["size"] as? [Int], [1024, 1920])
+        XCTAssertEqual(startParams["size"] as? [Int], [1080, 1920])
         XCTAssertEqual(startParams["target_size"] as? [Int], [832, 1472])
         XCTAssertEqual(startParams["padding"] as? String, "contain")
         let changeParams = try XCTUnwrap(change["params"] as? [String: Any])
-        XCTAssertEqual(changeParams["size"] as? [Int], [1024, 1920])
+        XCTAssertEqual(changeParams["size"] as? [Int], [1080, 1920])
         XCTAssertNil(changeParams["target_size"])
         XCTAssertEqual(remote.videoTrack?.videoFormat, targetFormat)
         await components.mediaController.submitInteraction(InteractionFrame(
@@ -477,12 +576,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     }
 
     func testCameraUsesModelDefaultFrameRate() async throws {
-        let components = makeComponents(model: .x2_1_1_preview_cn)
+        let components = makeComponents(model: .x2_1)
         let manager: any XmaxRealtimeManaging = components.manager
         let stream = try await manager.createLocalCameraStream()
         let currentTrack = await components.mediaController.currentTrack
         XCTAssertTrue(currentTrack === stream.videoTrack)
-        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1.defaultFrameRate)
         await manager.close()
     }
 
@@ -626,7 +725,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let switchedStream = try await manager.switchCamera()
         try await manager.stopLocalCameraStream()
 
-        XCTAssertEqual(manager.options.model, .x2_1_1_preview_cn)
+        XCTAssertEqual(manager.options.model, .x2_1)
         XCTAssertTrue(stream.videoTrack === switchedStream.videoTrack)
         XCTAssertEqual(switchedStream.videoTrack?.position, .back)
         XCTAssertEqual(components.rtcManager.calls.first, .initialize)
@@ -1026,7 +1125,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         XCTAssertEqual(
             components.sessionService.calls.filter {
-                $0 == .createSession(.x2_1_1_preview_cn)
+                $0 == .createSession(.x2_1)
             }.count,
             1
         )
@@ -1162,7 +1261,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
 
         XCTAssertFalse(
-            components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn))
+            components.sessionService.calls.contains(.createSession(.x2_1))
         )
 
         let startTask = Task {
@@ -1189,7 +1288,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertEqual(remoteStream.id, StreamID.remote.rawValue)
         XCTAssertTrue(
-            components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn))
+            components.sessionService.calls.contains(.createSession(.x2_1))
         )
 
         await components.manager.disconnect()
@@ -1311,7 +1410,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         }
         XCTAssertTrue(components.rtcManager.calls.contains(.stopAudioCapture))
         XCTAssertFalse(components.rtcManager.calls.contains(.publishLocalAudio))
-        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn)))
+        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_1)))
         let ownsPreview = await components.mediaController.owns(stream)
         XCTAssertTrue(ownsPreview)
         await components.manager.close()
@@ -1726,12 +1825,12 @@ private extension XmaxRealtimeManagerTests {
         rtcManager: RtcManagingStub = RtcManagingStub(),
         captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
-        model: RealtimeModel = .x2_1_1_preview_cn,
+        model: RealtimeModel = .x2_1,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
         frameInterpolationEnabled: Bool = false,
         frameInterpolationSupported: Bool = false,
-        initialQualityLevel: Int = 1
+        initialQualityLevel: RealtimeQualityLevel = .l1
     ) -> Components {
         let errorHandler = RealtimeErrorHandler()
         let mediaService = MediaServicingStub(

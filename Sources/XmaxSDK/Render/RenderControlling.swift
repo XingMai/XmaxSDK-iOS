@@ -1,10 +1,9 @@
 //
 //  RenderControlling.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -27,7 +26,9 @@ protocol RenderControlling: AnyObject, Sendable {
     ///
     /// - Parameter stream: 新的远端流；传入 `nil` 清除当前来源。
     /// - Throws: 旧流监听解除或新流监听绑定失败时抛出错误。
-    func setRemoteStream(_ stream: RemoteStream?) throws
+    func setRemoteStream(
+        _ stream: RemoteStream?
+    ) throws
 
     /// 设置远端最终视频帧监听器。
     ///
@@ -68,5 +69,7 @@ protocol RenderControlling: AnyObject, Sendable {
     ///
     /// - Parameter track: 需要注销的远端轨道；没有轨道时仍会清理帧处理资源。
     /// - Throws: 解除 RTC 视频帧监听失败时抛出错误。
-    func resetRemoteTrack(_ track: RealtimeVideoTrack?) async throws
+    func resetRemoteTrack(
+        _ track: RealtimeVideoTrack?
+    ) async throws
 }

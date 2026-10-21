@@ -1,10 +1,9 @@
 //
 //  QualityController.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,26 +14,46 @@ import Foundation
 final class QualityController: QualityControlling, RtcQualityListener,
     @unchecked Sendable {
 
-    /// 并发控制
+    /// 保护质量监听器和统计有效期。
     private let listenerLock = NSLock()
 
-    /// 事件监听
+    /// 接收上下行网络质量变化。
     private var networkQualityListener: RealtimeNetworkQualityListener?
+
+    /// 接收本地编码性能告警。
     private var performanceAlarmListener: RealtimePerformanceAlarmListener?
+
+    /// 接收上行视频统计。
     private var uplinkStatisticsListener: UplinkVideoStatisticsListener?
+
+    /// 接收下行视频统计。
     private var downlinkStatisticsListener: DownlinkVideoStatisticsListener?
 
-    /// 统计生命周期
+    /// 当前是否交付上行视频统计。
     private var uplinkStatisticsEnabled = false
+
+    /// 当前下行统计所属的远端用户。
     private var downlinkStatisticsUser: String?
+
+    /// 上行统计监听版本，用于过滤过期回调。
     private var uplinkStatisticsVersion = 0
+
+    /// 下行统计监听版本，用于过滤过期回调。
     private var downlinkStatisticsVersion = 0
 
-    /// 自动调档
+    /// 上行网络采样与升降档策略。
     private var uplinkQuality: QualityDirection?
+
+    /// 下行网络采样与升降档策略。
     private var downlinkQuality: QualityDirection?
+
+    /// 当前模型的历史档位存储。
     private var history: QualityHistory?
+
+    /// 向调档流程交付网络质量和采样时刻。
     private var adaptiveListener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
+
+    /// 保存历史档位的偏好存储。
     private let historyDefaults: UserDefaults
 
     /// 创建质量控制器并注册 RTC 质量回调。
@@ -42,12 +61,15 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// - Parameters:
     ///   - rtcManager: 提供网络和媒体质量统计的 RTC 管理器。
     ///   - historyDefaults: 保存按模型隔离的档位历史的偏好存储。
-    init(rtcManager: any RtcManaging, historyDefaults: UserDefaults = .standard) {
+    init(
+        rtcManager: any RtcManaging,
+        historyDefaults: UserDefaults = .standard
+    ) {
         self.historyDefaults = historyDefaults
         rtcManager.setQualityListener(self)
     }
 
-    /// 质量配置
+    /// 当前媒体基准及上下行档位快照。
     var qualityConfiguration: QualityConfiguration? {
         listenerLock.withLock { configuration() }
     }
@@ -58,7 +80,10 @@ final class QualityController: QualityControlling, RtcQualityListener,
     ///   - baseline: 本地媒体原始输出规格，不随调档改变。
     ///   - model: 用于隔离历史档位的模型标识。
     /// - Returns: 本次连接的初始上下行配置。
-    func prepareQuality(baseline: RealtimeVideoFormat, model: String) -> QualityConfiguration {
+    func prepareQuality(
+        baseline: RealtimeVideoFormat,
+        model: String
+    ) -> QualityConfiguration {
         listenerLock.withLock {
             let history = QualityHistory(model: model, defaults: historyDefaults)
             self.history = history
@@ -71,7 +96,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// 设置内部自适应采样监听，不覆盖接入方的网络监听。
     ///
     /// - Parameter listener: 接收网络质量及单调时钟采样时间；nil 表示移除。
-    func setAdaptiveQualityListener(_ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?) {
+    func setAdaptiveQualityListener(
+        _ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
+    ) {
         listenerLock.withLock { adaptiveListener = listener }
     }
 
@@ -81,7 +108,10 @@ final class QualityController: QualityControlling, RtcQualityListener,
     ///   - quality: 当前上下行网络质量。
     ///   - sampledAt: 单调时钟的采样时间，单位为秒。
     /// - Returns: 满足连续采样和冷却条件的候选档位。
-    func proposeQuality(_ quality: RealtimeNetworkQuality, sampledAt: TimeInterval) -> QualityChange {
+    func proposeQuality(
+        _ quality: RealtimeNetworkQuality,
+        sampledAt: TimeInterval
+    ) -> QualityChange {
         listenerLock.withLock {
             let now = ProcessInfo.processInfo.systemUptime
             return QualityChange(
@@ -97,7 +127,11 @@ final class QualityController: QualityControlling, RtcQualityListener,
     ///   - downlink: true 表示下行，false 表示上行。
     ///   - level: 本次尝试的档位，范围为 1...5。
     ///   - success: 配置是否成功应用。
-    func completeQuality(downlink: Bool, level: Int, success: Bool) {
+    func completeQuality(
+        downlink: Bool,
+        level: RealtimeQualityLevel,
+        success: Bool
+    ) {
         listenerLock.withLock {
             let now = ProcessInfo.processInfo.systemUptime
             if downlink {
@@ -138,7 +172,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// 设置视频上行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
-    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) {
+    func setUplinkVideoStatisticsListener(
+        _ listener: UplinkVideoStatisticsListener?
+    ) {
         listenerLock.withLock {
             uplinkStatisticsVersion &+= 1
             uplinkStatisticsListener = listener
@@ -148,7 +184,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// 设置视频下行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
-    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) {
+    func setDownlinkVideoStatisticsListener(
+        _ listener: DownlinkVideoStatisticsListener?
+    ) {
         listenerLock.withLock {
             downlinkStatisticsVersion &+= 1
             downlinkStatisticsListener = listener
@@ -158,7 +196,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// 设置上行统计接收状态，并通知监听器清空旧统计。
     ///
     /// - Parameter enabled: 是否已经发布本地视频。
-    func setUplinkVideoStatisticsEnabled(_ enabled: Bool) {
+    func setUplinkVideoStatisticsEnabled(
+        _ enabled: Bool
+    ) {
         let version = listenerLock.withLock {
             uplinkStatisticsVersion &+= 1
             uplinkStatisticsEnabled = enabled
@@ -177,7 +217,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// 设置下行统计目标用户，并通知监听器清空旧统计。
     ///
     /// - Parameter userID: 结果流用户标识；nil 表示停止接收。
-    func setDownlinkVideoStatisticsUser(_ userID: String?) {
+    func setDownlinkVideoStatisticsUser(
+        _ userID: String?
+    ) {
         let version = listenerLock.withLock {
             downlinkStatisticsVersion &+= 1
             downlinkStatisticsUser = userID
@@ -197,7 +239,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     ///
     /// - Parameter statistics: 当前统计周期的上行指标。
     @MainActor
-    func onUplinkVideoStatistics(_ statistics: UplinkVideoStatistics) {
+    func onUplinkVideoStatistics(
+        _ statistics: UplinkVideoStatistics
+    ) {
         let listener = listenerLock.withLock {
             uplinkStatisticsEnabled ? uplinkStatisticsListener : nil
         }
@@ -208,7 +252,9 @@ final class QualityController: QualityControlling, RtcQualityListener,
     ///
     /// - Parameter statistics: 当前统计周期的下行指标。
     @MainActor
-    func onDownlinkVideoStatistics(_ statistics: DownlinkVideoStatistics) {
+    func onDownlinkVideoStatistics(
+        _ statistics: DownlinkVideoStatistics
+    ) {
         let listener = listenerLock.withLock {
             statistics.userID == downlinkStatisticsUser ? downlinkStatisticsListener : nil
         }
@@ -286,6 +332,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
 }
 
 private extension QualityController {
+
     /// 将 RTC 质量等级映射为公开网络质量等级。
     ///
     /// - Parameter level: 底层 RTC 网络质量等级。

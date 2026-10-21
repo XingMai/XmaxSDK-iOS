@@ -1,10 +1,9 @@
 //
 //  RealtimeSessionConnection.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -12,10 +11,16 @@
 /// 实时会话对应的 RTC 连接参数。
 struct RealtimeSessionConnection: Equatable, Sendable {
 
-    /// 房间连接参数
+    /// 服务端分配的 RTC 房间标识。
     let roomID: String
+
+    /// 本地 RTC 用户标识。
     let userID: String
+
+    /// RTC 房间认证令牌。
     let token: String
+
+    /// 生成结果流对应的远端用户标识。
     let botName: String?
 }
 

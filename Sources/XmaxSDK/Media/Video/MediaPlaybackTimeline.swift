@@ -1,10 +1,9 @@
 //
 //  MediaPlaybackTimeline.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,15 +13,21 @@ import Foundation
 /// 为同一文件的音频和视频提供统一的循环播放时钟。
 struct MediaPlaybackTimeline: Sendable {
 
-    /// 播放时钟
+    /// 第一轮播放的主机单调时钟起点，单位为纳秒。
     let anchorNanoseconds: UInt64
+
+    /// 单次循环的采样数，按完整 PCM 包对齐。
     let cycleSampleCount: Int
+
+    /// 单次循环的时长，单位为纳秒。
     let cycleDurationNanoseconds: UInt64
 
     /// 创建以完整 PCM 包对齐循环时长的音视频播放时钟。
     ///
     /// - Parameter mediaDurationSeconds: 已校验为正有限值的文件时长，单位为秒。
-    init(mediaDurationSeconds: Double) {
+    init(
+        mediaDurationSeconds: Double
+    ) {
         let rawSampleCount = Int(
             ceil(mediaDurationSeconds * Double(AudioFrame.sampleRate))
         )

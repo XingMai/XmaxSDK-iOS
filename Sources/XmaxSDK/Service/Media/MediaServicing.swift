@@ -1,10 +1,9 @@
 //
 //  MediaServicing.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -24,7 +23,10 @@ public protocol MediaServicing: Sendable {
     ///   - source: 媒体来源；摄像头须精确匹配模型已配置的分辨率桶。
     /// - Returns: 不放大、不超过模型最大像素面积的 4 对齐尺寸，优先保持精确比例。
     /// - Throws: 尺寸无效、摄像头不匹配分辨率桶或无法形成有效输出尺寸时抛出错误。
-    func resolveMediaSize(_ sourceMediaSize: CGSize, source: RealtimeMediaSource) throws -> CGSize
+    func resolveMediaSize(
+        _ sourceMediaSize: CGSize,
+        source: RealtimeMediaSource
+    ) throws -> CGSize
 
     /// 综合档位尺寸上限和可选插帧限制，计算最终回传尺寸。
     ///
@@ -44,5 +46,7 @@ public protocol MediaServicing: Sendable {
     ///
     /// - Parameter size: 客户端收到的、用于插帧处理的视频分辨率。
     /// - Returns: 当前系统、设备和视频规格均支持插帧时返回 `true`。
-    func supportsFrameInterpolation(for size: CGSize) -> Bool
+    func supportsFrameInterpolation(
+        for size: CGSize
+    ) -> Bool
 }

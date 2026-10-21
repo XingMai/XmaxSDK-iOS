@@ -1,10 +1,9 @@
 //
 //  StorageService.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -16,23 +15,19 @@ import ImageIO
 /// 协调图片和视频的上传、下载、临时凭证及图片安全检查。
 final class StorageService: StorageServicing, Sendable {
 
-    /// 服务层组件
+    /// 请求临时凭证与安全检查的 API 服务。
     private let apiService: any ApiServicing
 
-    /// 基础层组件
+    /// 执行实际文件上传与下载的基础组件。
     private let storageManager: any StorageManaging
 
-    /// 标识生成
+    /// 生成对象路径所用当前时间的回调。
     private let dateGenerator: @Sendable () -> Date
+
+    /// 为上传对象生成唯一名称。
     private let identifierGenerator: @Sendable () -> String
 
     /// 创建媒体存储服务并配置对象路径生成策略。
-    ///
-    /// - Parameters:
-    ///   - apiService: 请求临时凭证与安全检查的 API 服务。
-    ///   - storageManager: 执行实际文件上传与下载的基础组件。
-    ///   - dateGenerator: 生成对象路径所用当前时间的回调。
-    ///   - identifierGenerator: 生成对象路径所用随机标识的回调。
     init(
         apiService: any ApiServicing,
         storageManager: any StorageManaging,
@@ -244,20 +239,27 @@ final class StorageService: StorageServicing, Sendable {
 }
 
 private extension StorageService {
+
     /// 包含对象路径前缀和临时存储访问配置。
     struct TemporaryStorageConfiguration: Sendable {
 
-        /// 上传配置
+        /// 上传对象路径的前缀。
         let prefix: String
+
+        /// 上传所需的目标存储位置与凭证。
         let configuration: StorageConfiguration
     }
 
     /// 区分图片与视频的上传校验和元数据读取规则。
     enum StorageMediaType: String, Sendable {
+
+        /// 图片上传与安全检查。
         case image
+
+        /// 视频文件上传。
         case video
 
-        /// 类型名称
+        /// 日志中使用的媒体类型名称。
         var displayName: String {
             rawValue.prefix(1).uppercased() + rawValue.dropFirst()
         }
@@ -266,21 +268,37 @@ private extension StorageService {
     /// 接收服务端返回的临时存储位置与凭证字段。
     struct TemporaryStoragePayload: Decodable, Sendable {
 
-        /// 存储位置
+        /// COS 存储桶名称。
         let bucket: String?
+
+        /// COS 存储桶所在地域。
         let region: String?
+
+        /// 对象存储服务地址。
         let endpoint: String?
+
+        /// 上传对象路径的前缀。
         let prefix: String?
 
-        /// 临时凭证
+        /// 当前存储请求使用的临时认证信息。
         let credentials: CredentialPayload?
 
         /// 定义服务端字段与本地属性的编码映射。
         enum CodingKeys: CodingKey {
+
+            /// 存储桶名称字段。
             case bucket
+
+            /// 存储地域字段。
             case region
+
+            /// 存储服务地址字段。
             case endpoint
+
+            /// 对象路径前缀字段。
             case prefix
+
+            /// 临时认证凭证字段。
             case credentials
         }
 
@@ -288,7 +306,9 @@ private extension StorageService {
         ///
         /// - Parameter decoder: 提供存储响应字段的解码器。
         /// - Throws: 字段解码容器创建失败时抛出解码错误。
-        init(from decoder: any Decoder) throws {
+        init(
+            from decoder: any Decoder
+        ) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             bucket = try? container.decode(String.self, forKey: .bucket)
             region = try? container.decode(String.self, forKey: .region)
@@ -304,15 +324,25 @@ private extension StorageService {
     /// 接收对象存储的临时认证字段。
     struct CredentialPayload: Decodable, Sendable {
 
-        /// 认证字段
+        /// 临时访问密钥标识。
         let accessKeyID: String?
+
+        /// 临时访问密钥。
         let secretAccessKey: String?
+
+        /// 临时访问会话令牌。
         let sessionToken: String?
 
         /// 定义服务端字段与本地属性的编码映射。
         enum CodingKeys: String, CodingKey {
+
+            /// 临时访问密钥标识字段。
             case accessKeyID = "accessKeyId"
+
+            /// 临时访问密钥字段。
             case secretAccessKey
+
+            /// 临时会话令牌字段。
             case sessionToken
         }
 
@@ -320,7 +350,9 @@ private extension StorageService {
         ///
         /// - Parameter decoder: 提供凭证字段的解码器。
         /// - Throws: 字段解码容器创建失败时抛出解码错误。
-        init(from decoder: any Decoder) throws {
+        init(
+            from decoder: any Decoder
+        ) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             accessKeyID = try? container.decode(
                 String.self,
@@ -340,20 +372,26 @@ private extension StorageService {
     /// 提交待检查图片的远端地址。
     struct ImageSafetyRequest: Encodable, Sendable {
 
-        /// 检查请求
+        /// 需要执行安全检查的图片地址。
         let url: String
     }
 
     /// 接收图片安全检查结果及可使用的图片地址。
     struct ImageSafetyPayload: Decodable, Sendable {
 
-        /// 检查结果
+        /// 服务端是否判定图片通过安全检查。
         let safe: Bool?
+
+        /// 服务端返回的图片访问地址。
         let url: String?
 
         /// 定义服务端字段与本地属性的编码映射。
         enum CodingKeys: CodingKey {
+
+            /// 图片安全检查结果字段。
             case safe
+
+            /// 图片访问地址字段。
             case url
         }
 
@@ -361,7 +399,9 @@ private extension StorageService {
         ///
         /// - Parameter decoder: 提供安全检查响应的解码器。
         /// - Throws: 字段解码容器创建失败时抛出解码错误。
-        init(from decoder: any Decoder) throws {
+        init(
+            from decoder: any Decoder
+        ) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             safe = try? container.decode(Bool.self, forKey: .safe)
             url = try? container.decode(String.self, forKey: .url)
@@ -505,7 +545,9 @@ private extension StorageService {
     /// - Parameter url: 已上传图片的远端地址。
     /// - Returns: 服务端确认可使用的图片地址。
     /// - Throws: 请求失败、检查结果无效或图片未通过安全检查时抛出错误。
-    func checkImage(_ url: URL) async throws -> URL {
+    func checkImage(
+        _ url: URL
+    ) async throws -> URL {
         let payload = try await apiService.post(
             "/cos/image/check",
             body: ImageSafetyRequest(url: url.absoluteString),
@@ -618,7 +660,9 @@ private extension StorageService {
     /// - Parameter fileName: 包含图片扩展名的文件名。
     /// - Returns: 扩展名对应的图片 MIME 类型。
     /// - Throws: 扩展名不在支持列表内时抛出配置错误。
-    func inferImageContentType(_ fileName: String) throws -> String {
+    func inferImageContentType(
+        _ fileName: String
+    ) throws -> String {
         try inferContentType(
             fileName: fileName,
             types: [
@@ -645,7 +689,9 @@ private extension StorageService {
     /// - Parameter fileName: 包含视频扩展名的文件名。
     /// - Returns: 扩展名对应的视频 MIME 类型。
     /// - Throws: 扩展名不在支持列表内时抛出配置错误。
-    func inferVideoContentType(_ fileName: String) throws -> String {
+    func inferVideoContentType(
+        _ fileName: String
+    ) throws -> String {
         try inferContentType(
             fileName: fileName,
             types: [
@@ -693,7 +739,9 @@ private extension StorageService {
     ///
     /// - Parameter value: 待规范化的原始文件名。
     /// - Returns: 仅包含字母、数字及允许分隔符的文件名；无有效字符时为空字符串。
-    func sanitizeFileName(_ value: String) -> String {
+    func sanitizeFileName(
+        _ value: String
+    ) -> String {
         var allowed = CharacterSet.alphanumerics
         allowed.formUnion(CharacterSet(charactersIn: "._-"))
         let components = value
@@ -714,7 +762,10 @@ private extension StorageService {
     ///   - prefix: 服务端允许写入的对象路径前缀。
     ///   - fileName: 已校验的安全文件名。
     /// - Returns: 本次上传使用的完整对象路径。
-    func makeObjectKey(prefix: String, fileName: String) -> String {
+    func makeObjectKey(
+        prefix: String,
+        fileName: String
+    ) -> String {
         let milliseconds = Int64(
             dateGenerator().timeIntervalSince1970 * 1_000
         )
@@ -727,7 +778,9 @@ private extension StorageService {
     /// - Parameter source: 待上传的数据或本地文件。
     /// - Returns: 数据长度或文件大小，单位为字节。
     /// - Throws: 读取本地文件属性失败时抛出文件系统错误。
-    func sourceByteCount(_ source: StorageUploadSource) throws -> Int64 {
+    func sourceByteCount(
+        _ source: StorageUploadSource
+    ) throws -> Int64 {
         switch source {
         case .data(let data):
             return Int64(data.count)
@@ -766,7 +819,9 @@ private extension StorageService {
     /// - Parameter source: 图片编码数据或本地图片文件。
     /// - Returns: 图片宽高文本；元数据缺失时返回 `--`。
     /// - Throws: 无；无法读取图片属性时返回占位文本。
-    func readImageResolution(_ source: StorageUploadSource) throws -> String {
+    func readImageResolution(
+        _ source: StorageUploadSource
+    ) throws -> String {
         let imageSource: CGImageSource?
         switch source {
         case .data(let data):
@@ -822,7 +877,10 @@ private extension StorageService {
     ///   - width: 媒体宽度，单位为像素。
     ///   - height: 媒体高度，单位为像素。
     /// - Returns: 宽高文本；任一边长非正数时返回 `--`。
-    func formatResolution(width: Int, height: Int) -> String {
+    func formatResolution(
+        width: Int,
+        height: Int
+    ) -> String {
         guard width > 0, height > 0 else {
             return "--"
         }
@@ -833,7 +891,9 @@ private extension StorageService {
     ///
     /// - Parameter byteCount: 文件大小，单位为字节。
     /// - Returns: 以 B、KB、MB 或 GB 表示的大小文本。
-    func formatByteCount(_ byteCount: Int64) -> String {
+    func formatByteCount(
+        _ byteCount: Int64
+    ) -> String {
         let count = Double(byteCount)
         if byteCount < 1_024 {
             return "\(byteCount) B"
@@ -854,7 +914,9 @@ private extension StorageService {
     ///
     /// - Parameter startedAt: 操作开始时间。
     /// - Returns: 格式化后的耗时文本。
-    func formatDuration(since startedAt: Date) -> String {
+    func formatDuration(
+        since startedAt: Date
+    ) -> String {
         let milliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
         if milliseconds < 1_000 {
             return "\(milliseconds) ms"
@@ -867,7 +929,10 @@ private extension StorageService {
     /// - Parameters:
     ///   - error: 需要记录的上传错误。
     ///   - startedAt: 本次上传操作的开始时间。
-    func logUploadFailure(_ error: XmaxError, startedAt: Date) {
+    func logUploadFailure(
+        _ error: XmaxError,
+        startedAt: Date
+    ) {
         XmaxLogger.storage.error(
             message: "上传失败 (Upload Failed)\n" +
                 "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(error.code.rawValue)\n" +
@@ -880,7 +945,9 @@ private extension StorageService {
     ///
     /// - Parameter value: 需要规范化的可选字符串。
     /// - Returns: 规范化的字符串；原值为 `nil` 时仍返回 `nil`。
-    func normalizedString(_ value: String?) -> String? {
+    func normalizedString(
+        _ value: String?
+    ) -> String? {
         value?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -888,7 +955,9 @@ private extension StorageService {
     ///
     /// - Parameter value: 需要校验的可选字段。
     /// - Returns: 非空字段值；缺失或仅包含空白时返回 `nil`。
-    func requiredString(_ value: String?) -> String? {
+    func requiredString(
+        _ value: String?
+    ) -> String? {
         guard let value = normalizedString(value), !value.isEmpty else {
             return nil
         }
@@ -899,7 +968,9 @@ private extension StorageService {
     ///
     /// - Parameter url: 待检查的 URL。
     /// - Returns: 协议与主机名均符合要求时返回 `true`。
-    func isHTTPURL(_ url: URL) -> Bool {
+    func isHTTPURL(
+        _ url: URL
+    ) -> Bool {
         let scheme = url.scheme?.lowercased()
         return (scheme == "https" || scheme == "http")
             && url.host?.trimmingCharacters(

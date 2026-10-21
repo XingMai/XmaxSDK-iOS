@@ -1,10 +1,9 @@
 //
 //  AgoraRtcPlatform.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -15,23 +14,31 @@ import Foundation
 /// 将中性引擎操作转换为声网调用。
 final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
 
-    /// 平台资源
+    /// 已初始化的声网引擎。
     let engine: AgoraRtcEngineKit
+
+    /// 串行保护引擎配置与房间操作。
     let lock = NSRecursiveLock()
+
+    /// 当前平台实例创建的 RTC 房间。
     private weak var room: AgoraRtcRoom?
 
-    /// 视频配置
+    /// 复用外部视频帧的声网适配结果。
     private let videoFrameCache = RtcVideoFrameCache()
+
+    /// 最近应用的视频编码配置。
     private var videoConfiguration: VideoEncodingConfiguration?
+
+    /// 当前本地视频编码镜像模式。
     private var videoMirrorMode = AgoraVideoMirrorMode.disabled
 
-    /// 音频资源
+    /// 当前外部音频轨标识。
     private(set) var audioTrackID: Int?
 
     /// 包装声网引擎以提供 SDK 平台接口。
-    ///
-    /// - Parameter engine: 已初始化的声网引擎。
-    private init(engine: AgoraRtcEngineKit) {
+    private init(
+        engine: AgoraRtcEngineKit
+    ) {
         self.engine = engine
     }
 
@@ -39,7 +46,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///
     /// - Parameter appID: 声网应用标识。
     /// - Returns: 初始化成功的平台适配器；配置失败时返回 `nil`。
-    static func create(appID: String) -> (any RtcPlatform)? {
+    static func create(
+        appID: String
+    ) -> (any RtcPlatform)? {
         let configuration = AgoraRtcEngineConfig()
         configuration.appId = appID
         configuration.channelProfile = .liveBroadcasting
@@ -63,7 +72,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///
     /// - Parameter configuration: 尺寸、帧率、码率和编码偏好。
     /// - Throws: 厂商引擎拒绝配置时抛出错误。
-    func configureVideoEncoding(_ configuration: VideoEncodingConfiguration) throws {
+    func configureVideoEncoding(
+        _ configuration: VideoEncodingConfiguration
+    ) throws {
         try lock.withLock {
             try applyVideoConfiguration(configuration)
             videoConfiguration = configuration
@@ -86,7 +97,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///
     /// - Parameter position: 当前摄像头位置。
     /// - Throws: 编码镜像配置失败时抛出错误。
-    func configureLocalVideoMirror(for position: CameraPosition) throws {
+    func configureLocalVideoMirror(
+        for position: CameraPosition
+    ) throws {
         try lock.withLock {
             videoMirrorMode = position == .front ? .enabled : .disabled
             try reapplyVideoConfiguration()
@@ -145,7 +158,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///
     /// - Parameter frame: SDK 中性视频帧。
     /// - Throws: 帧格式或数据无效时抛出错误。
-    func pushExternalVideoFrame(_ frame: VideoFrame) throws {
+    func pushExternalVideoFrame(
+        _ frame: VideoFrame
+    ) throws {
         try lock.withLock {
             let converted = try videoFrameCache.frame(for: frame)
             _ = withExtendedLifetime(converted) {
@@ -158,7 +173,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///
     /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
     /// - Throws: 帧格式或数据无效时抛出错误。
-    func pushExternalAudioFrame(_ frame: AudioFrame) throws {
+    func pushExternalAudioFrame(
+        _ frame: AudioFrame
+    ) throws {
         let data = try RtcAudioConverter.convertFrame(frame)
         lock.withLock {
             guard let audioTrackID else { return }
@@ -180,7 +197,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     /// - Parameter roomID: 服务端分配的 RTC 房间标识。
     /// - Returns: 尚未加入的房间。
     /// - Throws: 已存在未释放房间时抛出错误。
-    func createRoom(roomID: String) throws -> any RtcRoom {
+    func createRoom(
+        roomID: String
+    ) throws -> any RtcRoom {
         try lock.withLock {
             guard room == nil || room?.isClosed == true else {
                 throw XmaxError(code: .rtcError, message: "RTC room is already active")
@@ -206,7 +225,10 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///   - result: 平台调用返回码。
     ///   - operation: 用于错误描述的操作名称。
     /// - Throws: 返回码为负数时抛出错误。
-    static func checkResult<T: BinaryInteger>(_ result: T, operation: String) throws {
+    static func checkResult<T: BinaryInteger>(
+        _ result: T,
+        operation: String
+    ) throws {
         if result < 0 {
             throw XmaxError(code: .rtcError, message: "\(operation) failed: \(result)")
         }
@@ -216,7 +238,9 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
     ///
     /// - Parameter configuration: 待应用的视频编码配置。
     /// - Throws: 声网编码配置失败时抛出错误。
-    private func applyVideoConfiguration(_ configuration: VideoEncodingConfiguration) throws {
+    private func applyVideoConfiguration(
+        _ configuration: VideoEncodingConfiguration
+    ) throws {
         let rtcConfiguration = RtcVideoConverter.makeEncoderConfiguration(configuration)
         rtcConfiguration.mirrorMode = videoMirrorMode
         let result: Int32

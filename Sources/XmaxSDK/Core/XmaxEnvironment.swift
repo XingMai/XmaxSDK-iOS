@@ -1,10 +1,9 @@
 //
 //  XmaxEnvironment.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -30,6 +29,16 @@ extension XmaxEnvironment {
             URL(string: "https://cloud.xmax.22duck.cn/open/api/v1")!
         case .global:
             URL(string: "https://api.xmax.cloud/open/api/v1")!
+        }
+    }
+
+    /// 当前环境的实时会话 API 地址。
+    var realtimeApiBaseURL: URL {
+        switch self {
+        case .china:
+            apiBaseURL
+        case .global:
+            URL(string: "https://api.xmax.ai/open/api/v1")!
         }
     }
 }

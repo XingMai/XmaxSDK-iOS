@@ -1,10 +1,9 @@
 //
 //  XmaxRealtimeManaging.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -22,6 +21,31 @@ public protocol XmaxRealtimeManaging: Sendable {
 
     /// 当前实时连接与生成状态。
     var currentState: RealtimeState { get async }
+
+    /// 当前成功应用的上行档位；连接尚未完成或已开始断开时为 `nil`。
+    var uplinkQualityLevel: RealtimeQualityLevel? { get async }
+
+    /// 当前成功提交的下行档位；连接尚未完成或已开始断开时为 `nil`。
+    /// 服务端返回新尺寸可能稍晚于本属性更新。
+    var downlinkQualityLevel: RealtimeQualityLevel? { get async }
+
+    /// 在生成中调整上行编码档位，不改变媒体采集规格或生成尺寸。
+    /// 后续网络采样仍可自动调整档位，不会锁定为手动选择值。
+    ///
+    /// - Parameter level: 目标上行档位。
+    /// - Throws: 未在生成、操作冲突、取消或编码配置失败时抛出错误。
+    func setUplinkQualityLevel(
+        _ level: RealtimeQualityLevel
+    ) async throws
+
+    /// 在生成中调整下行回传档位，并保留当前插帧尺寸限制。
+    /// 后续网络采样仍可自动调整档位，不会锁定为手动选择值。
+    ///
+    /// - Parameter level: 目标下行档位。
+    /// - Throws: 未在生成、操作冲突、取消、信令发送或渲染配置失败时抛出错误。
+    func setDownlinkQualityLevel(
+        _ level: RealtimeQualityLevel
+    ) async throws
 
     /// 当前实际生效的远端视频插帧状态。
     var isFrameInterpolationEnabled: Bool { get async }
@@ -54,12 +78,16 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 设置视频上行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
-    func setUplinkVideoStatisticsListener(_ listener: UplinkVideoStatisticsListener?) async
+    func setUplinkVideoStatisticsListener(
+        _ listener: UplinkVideoStatisticsListener?
+    ) async
 
     /// 设置视频下行统计监听器。
     ///
     /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
-    func setDownlinkVideoStatisticsListener(_ listener: DownlinkVideoStatisticsListener?) async
+    func setDownlinkVideoStatisticsListener(
+        _ listener: DownlinkVideoStatisticsListener?
+    ) async
 
     /// 设置网络质量监听器。
     ///
@@ -149,6 +177,7 @@ public protocol XmaxRealtimeManaging: Sendable {
     ) async throws -> RealtimeMediaStream
 
 #if canImport(UIKit)
+
     /// 从 UIKit 图片创建持续输出帧的媒体流。
     ///
     /// 保留媒体显示比例；生成时由模型规则选择生成画布。
@@ -208,7 +237,9 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// 按指定业务原因断开实时连接，保留可用的本地媒体流。
     ///
     /// - Parameter reason: 本次断开的原因，例如显示方向变化。
-    func disconnect(reason: RealtimeReason) async
+    func disconnect(
+        reason: RealtimeReason
+    ) async
 
     /// 关闭当前实时生命周期并释放连接、本地媒体和 RTC Engine。
     ///

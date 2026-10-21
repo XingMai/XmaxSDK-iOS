@@ -1,10 +1,9 @@
 //
 //  XmaxStorageManager.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -14,20 +13,22 @@ import Foundation
 /// 文件存储公共入口，负责将服务层能力转换为公开 API。
 final class XmaxStorageManager: XmaxStorageManaging, Sendable {
 
-    /// 服务层组件
+    /// 执行文件上传、下载和安全检查的服务。
     private let storageService: any StorageServicing
 
     /// 使用指定存储服务创建文件管理组件。
-    ///
-    /// - Parameter storageService: 执行文件上传、下载和安全检查的服务。
-    init(storageService: any StorageServicing) {
+    init(
+        storageService: any StorageServicing
+    ) {
         self.storageService = storageService
     }
 
     /// 创建使用默认对象存储实现的文件管理组件。
     ///
     /// - Parameter apiService: 提供临时存储凭证和内容安全检查的 API 服务。
-    convenience init(apiService: any ApiServicing) {
+    convenience init(
+        apiService: any ApiServicing
+    ) {
         self.init(
             storageService: StorageService(
                 apiService: apiService,
@@ -223,6 +224,7 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
 }
 
 private extension XmaxStorageManager {
+
     /// 将字节进度转换为公开的文件进度回调。
     ///
     /// - Parameter handler: 接收 Progress 的回调；nil 表示不监听。

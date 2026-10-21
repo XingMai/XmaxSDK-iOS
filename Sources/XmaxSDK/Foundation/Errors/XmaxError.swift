@@ -1,10 +1,9 @@
 //
 //  XmaxError.swift
 //  XmaxSDK
-//  Repo: https://github.com/XingMai/XmaxSDK-iOS
 //
 //  Author: 翁跃庭 (Yueting Weng)
-//  GitHub: https://github.com/WengYuehTing
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
@@ -83,12 +82,6 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
     public let httpStatus: Int?
 
     /// 创建 SDK 错误。
-    ///
-    /// - Parameters:
-    ///   - code: SDK 统一错误码。
-    ///   - message: 面向接入方的可读错误说明。
-    ///   - apiCode: Xmax API 返回的可选业务错误码。
-    ///   - httpStatus: 可选的 HTTP 响应状态码。
     public init(
         code: XmaxErrorCode,
         message: String,
@@ -110,7 +103,9 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
     ///
     /// - Parameter error: 待转换的错误。
     /// - Returns: 可向接入方抛出或回调的统一错误。
-    public static func from(_ error: any Error) -> XmaxError {
+    public static func from(
+        _ error: any Error
+    ) -> XmaxError {
         if let xmaxError = error as? XmaxError {
             return xmaxError
         }
