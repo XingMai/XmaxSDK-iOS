@@ -21,10 +21,12 @@ protocol QualityControlling: Sendable {
     /// - Parameters:
     ///   - baseline: 本地媒体原始输出规格，不随调档改变。
     ///   - model: 用于隔离历史档位的模型标识。
+    ///   - isAdaptiveQualityEnabled: 是否启用自适应调档；关闭时从 L1 开始，不读写历史档位。
     /// - Returns: 本次连接的初始上下行配置。
     func prepareQuality(
         baseline: RealtimeVideoFormat,
-        model: String
+        model: String,
+        isAdaptiveQualityEnabled: Bool
     ) -> QualityConfiguration
 
     /// 设置内部自适应采样监听，不覆盖接入方的网络监听。

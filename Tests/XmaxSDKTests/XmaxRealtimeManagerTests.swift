@@ -152,6 +152,60 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await components.manager.close()
     }
 
+    func testDisabledAdaptationKeepsStatisticsManualQualityAndInterpolationAvailable() async throws {
+        let components = makeComponents(
+            frameInterpolationEnabled: true,
+            frameInterpolationSupported: true,
+            initialQualityLevel: .l4,
+            isAdaptiveQualityEnabled: false
+        )
+        let local = try await components.manager.createLocalImageStream(fileURL: URL(fileURLWithPath: "/tmp/image.png"))
+        _ = try await components.manager.connect(localStream: local)
+        let initialUplink = await components.manager.uplinkQualityLevel
+        let initialDownlink = await components.manager.downlinkQualityLevel
+        XCTAssertEqual(initialUplink, .l1)
+        XCTAssertEqual(initialDownlink, .l1)
+        let target = await components.connectionManager.currentTargetSize
+        let expectedTarget = try MediaService().resolveTargetSize(
+            imageFormat.size,
+            maximumSize: imageFormat.size,
+            frameInterpolationEnabled: true
+        )
+        XCTAssertEqual(target, expectedTarget)
+
+        let start = Task { try await components.manager.startGeneration(context: RealtimeContext(prompt: "test")) }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: RemoteStream(roomID: "room-id", userID: "bot-user"))
+        try components.rtcManager.emitRemoteVideoFrame()
+        try await start.value
+
+        var receivedQuality: RealtimeNetworkQuality?
+        await components.manager.setNetworkQualityListener { receivedQuality = $0 }
+        for _ in 0..<10 {
+            components.rtcManager.emitNetworkQuality(uplink: .bad, downlink: .bad)
+            await Task.yield()
+        }
+        XCTAssertEqual(receivedQuality, RealtimeNetworkQuality(uplink: .bad, downlink: .bad))
+        let unchangedUplink = await components.manager.uplinkQualityLevel
+        let unchangedDownlink = await components.manager.downlinkQualityLevel
+        XCTAssertEqual(unchangedUplink, .l1)
+        XCTAssertEqual(unchangedDownlink, .l1)
+
+        try await components.manager.setUplinkQualityLevel(.l3)
+        try await components.manager.setDownlinkQualityLevel(.l4)
+        let manualUplink = await components.manager.uplinkQualityLevel
+        let manualDownlink = await components.manager.downlinkQualityLevel
+        XCTAssertEqual(manualUplink, .l3)
+        XCTAssertEqual(manualDownlink, .l4)
+        await components.manager.disconnect()
+        _ = try await components.manager.connect(localStream: local)
+        let reconnectedUplink = await components.manager.uplinkQualityLevel
+        let reconnectedDownlink = await components.manager.downlinkQualityLevel
+        XCTAssertEqual(reconnectedUplink, .l1)
+        XCTAssertEqual(reconnectedDownlink, .l1)
+        await components.manager.close()
+    }
+
     func testQualityAndInterpolationShareReturnSizeWithoutChangingMediaOrGenerationCanvas() async throws {
         for level in [RealtimeQualityLevel.l1, .l2, .l4] {
             let components = makeComponents(frameInterpolationSupported: true, initialQualityLevel: level)
@@ -1884,7 +1938,8 @@ private extension XmaxRealtimeManagerTests {
         sessionCloseError: (any Error)? = nil,
         frameInterpolationEnabled: Bool = false,
         frameInterpolationSupported: Bool = false,
-        initialQualityLevel: RealtimeQualityLevel = .l1
+        initialQualityLevel: RealtimeQualityLevel = .l1,
+        isAdaptiveQualityEnabled: Bool = true
     ) -> Components {
         let errorHandler = RealtimeErrorHandler()
         let mediaService = MediaServicingStub(
@@ -1974,7 +2029,8 @@ private extension XmaxRealtimeManagerTests {
                 options: RealtimeConfiguration(
                     model: model,
                     isFrameInterpolationEnabled:
-                        frameInterpolationEnabled
+                        frameInterpolationEnabled,
+                    isAdaptiveQualityEnabled: isAdaptiveQualityEnabled
                 ),
                 streamController: streamController,
                 mediaController: mediaController,

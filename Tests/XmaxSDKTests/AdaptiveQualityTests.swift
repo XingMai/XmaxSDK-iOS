@@ -137,4 +137,58 @@ final class AdaptiveQualityTests: XCTestCase {
         controller.resetQuality()
         XCTAssertNil(controller.qualityConfiguration)
     }
+
+    func testDisabledAdaptationStartsAtL1AndManualChangesDoNotOverwriteHistory() throws {
+        let name = "xmax-quality-test-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let history = QualityHistory(model: "model-a", defaults: defaults)
+        history.write(level: .l4, downlink: false)
+        history.write(level: .l3, downlink: true)
+        let controller = QualityController(rtcManager: RtcManagingStub(), historyDefaults: defaults)
+
+        let initial = controller.prepareQuality(
+            baseline: baseline,
+            model: "model-a",
+            isAdaptiveQualityEnabled: false
+        )
+        XCTAssertEqual(initial.uplinkLevel, .l1)
+        XCTAssertEqual(initial.downlinkLevel, .l1)
+        XCTAssertEqual(initial.uplink, baseline)
+
+        controller.completeQuality(downlink: false, level: .l2, success: true)
+        controller.completeQuality(downlink: true, level: .l5, success: true)
+        XCTAssertEqual(controller.qualityConfiguration?.uplinkLevel, .l2)
+        XCTAssertEqual(controller.qualityConfiguration?.downlinkLevel, .l5)
+        XCTAssertEqual(history.read(downlink: false), .l4)
+        XCTAssertEqual(history.read(downlink: true), .l3)
+
+        controller.resetQuality()
+        let reconnected = controller.prepareQuality(
+            baseline: baseline,
+            model: "model-a",
+            isAdaptiveQualityEnabled: false
+        )
+        XCTAssertEqual(reconnected.uplinkLevel, .l1)
+        XCTAssertEqual(reconnected.downlinkLevel, .l1)
+    }
+
+    func testEnabledAdaptationUsesAndUpdatesHistory() throws {
+        let name = "xmax-quality-test-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let history = QualityHistory(model: "model-a", defaults: defaults)
+        history.write(level: .l4, downlink: false)
+        let controller = QualityController(rtcManager: RtcManagingStub(), historyDefaults: defaults)
+
+        let initial = controller.prepareQuality(
+            baseline: baseline,
+            model: "model-a",
+            isAdaptiveQualityEnabled: true
+        )
+        XCTAssertEqual(initial.uplinkLevel, .l4)
+        XCTAssertEqual(initial.downlinkLevel, .l2)
+        controller.completeQuality(downlink: true, level: .l3, success: true)
+        XCTAssertEqual(history.read(downlink: true), .l3)
+    }
 }

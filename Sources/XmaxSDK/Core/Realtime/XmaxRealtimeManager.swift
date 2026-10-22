@@ -999,8 +999,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 streamController.completeQuality(downlink: false, level: quality.uplinkLevel, success: true)
                 streamController.completeQuality(downlink: true, level: quality.downlinkLevel, success: true)
             }
-            streamController.setAdaptiveQualityListener { [weak self] quality, time in
-                Task { await self?.adaptQuality(quality, sampledAt: time, taskID: taskID) }
+            if options.isAdaptiveQualityEnabled {
+                streamController.setAdaptiveQualityListener { [weak self] quality, time in
+                    Task { await self?.adaptQuality(quality, sampledAt: time, taskID: taskID) }
+                }
             }
             timing.finish(taskID: taskID)
         } catch {
@@ -1176,7 +1178,11 @@ private extension XmaxRealtimeManager {
             RealtimeState(connectionState: .connecting),
             token: token
         )
-        let quality = streamController.prepareQuality(baseline: videoFormat, model: options.model.rawValue)
+        let quality = streamController.prepareQuality(
+            baseline: videoFormat,
+            model: options.model.rawValue,
+            isAdaptiveQualityEnabled: options.isAdaptiveQualityEnabled
+        )
         try streamController.setVideoEncoderConfig(quality.uplink)
         let targetSize = try await reconcileFrameInterpolation(for: localStream)
         try token.ensureCurrent()

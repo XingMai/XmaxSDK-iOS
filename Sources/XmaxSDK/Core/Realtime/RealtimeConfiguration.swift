@@ -17,12 +17,19 @@ public struct RealtimeConfiguration: Equatable, Sendable {
     /// 是否默认开启远端生成画面的插帧。
     public let isFrameInterpolationEnabled: Bool
 
+    /// 是否自动调整上下行档位，默认开启。
+    ///
+    /// 关闭时每次连接从 L1 开始，不读写历史档位，仍可手动调档。
+    public let isAdaptiveQualityEnabled: Bool
+
     /// 创建实时业务配置。
     public init(
         model: RealtimeModel,
-        isFrameInterpolationEnabled: Bool = true
+        isFrameInterpolationEnabled: Bool = true,
+        isAdaptiveQualityEnabled: Bool = true
     ) {
         self.model = model
         self.isFrameInterpolationEnabled = isFrameInterpolationEnabled
+        self.isAdaptiveQualityEnabled = isAdaptiveQualityEnabled
     }
 }

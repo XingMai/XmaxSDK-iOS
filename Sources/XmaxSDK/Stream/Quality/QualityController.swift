@@ -79,16 +79,20 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// - Parameters:
     ///   - baseline: 本地媒体原始输出规格，不随调档改变。
     ///   - model: 用于隔离历史档位的模型标识。
+    ///   - isAdaptiveQualityEnabled: 是否启用自适应调档；关闭时从 L1 开始，不读写历史档位。
     /// - Returns: 本次连接的初始上下行配置。
     func prepareQuality(
         baseline: RealtimeVideoFormat,
-        model: String
+        model: String,
+        isAdaptiveQualityEnabled: Bool
     ) -> QualityConfiguration {
         listenerLock.withLock {
-            let history = QualityHistory(model: model, defaults: historyDefaults)
+            let history = isAdaptiveQualityEnabled
+                ? QualityHistory(model: model, defaults: historyDefaults)
+                : nil
             self.history = history
-            uplinkQuality = QualityDirection(baseline: baseline, level: history.read(downlink: false), downlink: false)
-            downlinkQuality = QualityDirection(baseline: baseline, level: history.read(downlink: true), downlink: true)
+            uplinkQuality = QualityDirection(baseline: baseline, level: history?.read(downlink: false) ?? .l1, downlink: false)
+            downlinkQuality = QualityDirection(baseline: baseline, level: history?.read(downlink: true) ?? .l1, downlink: true)
             return configuration()!
         }
     }
