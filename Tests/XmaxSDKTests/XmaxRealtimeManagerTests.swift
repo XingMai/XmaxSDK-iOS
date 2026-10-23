@@ -2127,7 +2127,9 @@ private extension XmaxRealtimeManagerTests {
             sessionService: sessionService,
             interactionController: mediaController,
             renderController: renderController,
-            streamController: streamController
+            streamController: streamController,
+            mediaService: mediaService,
+            errorHandler: errorHandler
         )
         return Components(
             manager: XmaxRealtimeManager(
@@ -2145,7 +2147,8 @@ private extension XmaxRealtimeManagerTests {
                 errorHandler: errorHandler,
                 generationManager: XmaxRealtimeGenerationManager(
                     interactionController: mediaController,
-                    streamController: streamController
+                    streamController: streamController,
+                    renderController: renderController
                 )
             ),
             connectionManager: connectionManager,

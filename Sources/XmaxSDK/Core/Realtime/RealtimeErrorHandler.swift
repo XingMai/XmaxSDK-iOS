@@ -17,7 +17,7 @@ final class RealtimeErrorHandler: @unchecked Sendable {
     typealias FailureHandler =
         @Sendable (
             XmaxError,
-            RealtimeCoordinator.TerminationScope,
+            XmaxRealtimeLifecycleManager.TerminationScope,
             @escaping @Sendable () -> Bool
         ) async -> Void
 
@@ -49,7 +49,7 @@ final class RealtimeErrorHandler: @unchecked Sendable {
     /// - Parameter target: The released resource scope. Full cleanup invalidates both connection
     ///   and media failures.
     func invalidatePendingFailures(
-        target: RealtimeCoordinator.TerminationScope = .all
+        target: XmaxRealtimeLifecycleManager.TerminationScope = .all
     ) {
         lock.withLock {
             connectionRevision = UUID()
@@ -66,7 +66,7 @@ final class RealtimeErrorHandler: @unchecked Sendable {
     ///   - target: The affected resources, or `nil` to log without terminating the lifecycle.
     func forward(
         _ error: XmaxError,
-        target: RealtimeCoordinator.TerminationScope? = nil
+        target: XmaxRealtimeLifecycleManager.TerminationScope? = nil
     ) {
         let (revision, handler) = lock.withLock {
             (target == .all ? mediaRevision : connectionRevision, failureHandler)

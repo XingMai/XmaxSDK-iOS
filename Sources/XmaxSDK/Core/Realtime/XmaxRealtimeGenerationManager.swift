@@ -25,6 +25,11 @@ actor XmaxRealtimeGenerationManager {
     /// The controller that publishes local media and sends generation signaling.
     private let streamController: any StreamControlling
 
+    /// Observes processed result frames without owning the connection or remote track.
+    private let renderController: any RenderControlling
+
+    private let timing: RealtimeTiming
+
     /// The closure that generates identifiers for new tasks.
     private let taskIDGenerator: @Sendable () -> String
 
@@ -43,11 +48,15 @@ actor XmaxRealtimeGenerationManager {
     init(
         interactionController: any InteractionControlling,
         streamController: any StreamControlling,
+        renderController: any RenderControlling,
+        timing: RealtimeTiming = RealtimeTiming(),
         taskIDGenerator: @escaping @Sendable () -> String =
             XmaxRealtimeGenerationManager.createTaskID
     ) {
         self.interactionController = interactionController
         self.streamController = streamController
+        self.renderController = renderController
+        self.timing = timing
         self.taskIDGenerator = taskIDGenerator
     }
 
@@ -67,7 +76,7 @@ actor XmaxRealtimeGenerationManager {
         }
     }
 
-    /// Starts generation and waits for remote stream confirmation.
+    /// Starts generation and waits for result-stream confirmation and a processed first frame.
     ///
     /// - Parameters:
     ///   - videoFormat: The resolved local media format used for interaction coordinates.
@@ -79,7 +88,7 @@ actor XmaxRealtimeGenerationManager {
     ///   - paddingContain: Whether to preserve the entire input within the generation canvas.
     ///   - ensureCurrent: A closure that verifies the operation is still current.
     ///
-    /// - Returns: The task identifier whose remote stream has been confirmed.
+    /// - Returns: The task identifier whose video is ready and audio subscription is configured.
     ///
     /// - Throws: An error if the context is missing, signaling or stream confirmation fails, or the
     ///   operation is invalidated.
@@ -120,6 +129,11 @@ actor XmaxRealtimeGenerationManager {
                 taskID: taskID,
                 videoFormat: videoFormat
             )
+            try ensureCurrent()
+            try await renderController.waitUntilRemoteFrameReady()
+            try ensureCurrent()
+            timing.finishFirstFrame(taskID: taskID)
+            try streamController.activateRemoteAudio()
             try ensureCurrent()
             currentContext = resolvedContext
             currentFaceRestoration = faceRestoration

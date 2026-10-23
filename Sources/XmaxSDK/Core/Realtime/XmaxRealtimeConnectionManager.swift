@@ -41,6 +41,12 @@ actor XmaxRealtimeConnectionManager {
     /// The controller that manages RTC connections and local stream publishing.
     private let streamController: any StreamControlling
 
+    /// Model sizing and capability rules for transport and remote output.
+    private nonisolated let mediaService: any MediaServicing
+
+    /// Reports recoverable output-configuration failures.
+    private let errorHandler: RealtimeErrorHandler
+
     /// The recorder for connection startup timings.
     private let timing: RealtimeTiming
 
@@ -59,12 +65,16 @@ actor XmaxRealtimeConnectionManager {
         interactionController: any InteractionControlling,
         renderController: any RenderControlling,
         streamController: any StreamControlling,
+        mediaService: any MediaServicing = MediaService(),
+        errorHandler: RealtimeErrorHandler = RealtimeErrorHandler(),
         timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.sessionService = sessionService
         self.interactionController = interactionController
         self.renderController = renderController
         self.streamController = streamController
+        self.mediaService = mediaService
+        self.errorHandler = errorHandler
         self.timing = timing
     }
 
@@ -233,6 +243,278 @@ actor XmaxRealtimeConnectionManager {
         }
         return sessionID
     }
+    /// Prepares the initial encoder and remote dimensions for a connection.
+    func prepareQuality(
+        baseline: RealtimeVideoFormat,
+        options: RealtimeConfiguration,
+        ensureCurrent: @Sendable () throws -> Void
+    ) async throws -> CGSize? {
+        try ensureCurrent()
+        let quality = streamController.prepareQuality(
+            baseline: baseline,
+            model: options.model.rawValue,
+            minimumInputPixels: options.model.minimumInputPixels,
+            isAdaptiveQualityEnabled: options.isAdaptiveQualityEnabled
+        )
+        try streamController.setVideoEncoderConfig(quality.uplink)
+        let targetSize = try await reconcileFrameInterpolation(
+            for: baseline
+        )
+        try ensureCurrent()
+        return targetSize
+    }
+
+    /// Records the successfully applied initial quality after generation becomes ready.
+    func completeInitialQuality() {
+        guard let quality = streamController.qualityConfiguration else { return }
+        streamController.completeQuality(downlink: false, level: quality.uplinkLevel, success: true)
+        streamController.completeQuality(downlink: true, level: quality.downlinkLevel, success: true)
+    }
+
+    /// Resolves the returned video format using the quality level and interpolation limits.
+    ///
+    /// - Parameters:
+    ///   - baseline: The resolved local media format.
+    ///   - level: The requested downlink quality level.
+    ///   - interpolation: Whether to apply the frame interpolation pixel limit.
+    ///
+    /// - Returns: A format that prioritizes the media aspect ratio within quality and interpolation
+    ///   limits, aligned to multiples of 4.
+    ///
+    /// - Throws: An error if the baseline is invalid or valid output dimensions cannot be resolved.
+    nonisolated func resolveTargetVideoFormat(
+        baseline: RealtimeVideoFormat,
+        level: RealtimeQualityLevel,
+        interpolation: Bool
+    ) throws -> RealtimeVideoFormat {
+        try baseline.validate()
+        let maximumSize = QualityVideoFormat.resolveDownlinkMaximumSize(
+            baseline,
+            level: level
+        )
+        let targetSize = try mediaService.resolveTargetSize(
+            baseline.size,
+            maximumSize: maximumSize,
+            frameInterpolationEnabled: interpolation
+        )
+        let format = QualityVideoFormat.resolve(
+            baseline,
+            level: level,
+            downlink: true
+        )
+        return format.resized(
+            width: Int(targetSize.width),
+            height: Int(targetSize.height)
+        )
+    }
+
+    /// Applies a quality level to uplink encoding or downlink output.
+    ///
+    /// - Parameters:
+    ///   - level: The requested quality level.
+    ///   - downlink: Whether to change returned dimensions rather than local encoding settings.
+    ///   - taskID: The generation task whose transport settings are being updated.
+    ///   - ensureCurrent: Validates the admitted operation across asynchronous boundaries.
+    ///
+    /// - Throws: An error if cancelled, interpolation is unsupported, or signaling or encoder
+    ///   configuration fails.
+    func applyQualityLevel(
+        _ level: RealtimeQualityLevel,
+        downlink: Bool,
+        taskID: String,
+        ensureCurrent: @escaping @Sendable () throws -> Void
+    ) async throws {
+        guard let configuration = streamController.qualityConfiguration else {
+            return
+        }
+        do {
+            try ensureCurrent()
+            let format: RealtimeVideoFormat
+            if downlink {
+                let interpolation = await renderController.isFrameInterpolationEnabled
+                try ensureCurrent()
+                format = try resolveTargetVideoFormat(
+                    baseline: configuration.baseline,
+                    level: level,
+                    interpolation: interpolation
+                )
+                guard !interpolation || mediaService.supportsFrameInterpolation(for: format.size)
+                else {
+                    throw XmaxError(
+                        code: .frameInterpolationUnsupported,
+                        message: "Frame interpolation is unavailable for the target size"
+                    )
+                }
+
+                if currentTargetSize != format.size {
+                    try ensureCurrent()
+                    try await streamController.changeTargetSize(
+                        taskID: taskID,
+                        targetSize: format.size,
+                        ensureActive: {
+                            try ensureCurrent()
+                        }
+                    )
+                    // Commit expected dimensions after signaling; disconnection waits for this commit before cleanup.
+                    await updateTargetSize(
+                        format.size,
+                        videoFormat: configuration.baseline
+                    )
+                    try await renderController.setFrameInterpolationEnabled(
+                        interpolation,
+                        videoFormat: format
+                    )
+                }
+            } else {
+                format = QualityVideoFormat.resolve(
+                    configuration.baseline,
+                    level: level,
+                    downlink: false,
+                    minimumInputPixels: configuration.minimumInputPixels
+                )
+                try streamController.setVideoEncoderConfig(format)
+            }
+            try ensureCurrent()
+            streamController.completeQuality(
+                downlink: downlink,
+                level: level,
+                success: true
+            )
+            XmaxLogger.realtime.debug(
+                message: "传输调档 (Quality Adjustment)\n"
+                    + "└─ \(downlink ? "Downlink" : "Uplink"): L\(level.rawValue), \(format.width) × \(format.height)"
+            )
+        } catch {
+            guard (try? ensureCurrent()) != nil else {
+                throw error
+            }
+            streamController.completeQuality(
+                downlink: downlink,
+                level: level,
+                success: false
+            )
+            XmaxLogger.realtime.warn(
+                message:
+                    "传输调档失败 (Quality Adjustment Failed)\n└─ \(ErrorMessageFormatter.format(error))"
+            )
+            throw error
+        }
+    }
+
+    /// Applies output dimensions and the requested interpolation mode within an admitted operation.
+    func setFrameInterpolationEnabled(
+        _ enabled: Bool,
+        mediaFormat: RealtimeVideoFormat?,
+        taskID: String?,
+        ensureCurrent: @escaping @Sendable () throws -> Void
+    ) async throws {
+        do {
+            let targetSize = try mediaFormat.map {
+                try resolveTargetVideoFormat(
+                    baseline: $0,
+                    level: streamController.qualityConfiguration?.downlinkLevel ?? .l2,
+                    interpolation: enabled
+                ).size
+            }
+            if enabled, let targetSize,
+                !mediaService.supportsFrameInterpolation(for: targetSize)
+            {
+                throw XmaxError(
+                    code: .frameInterpolationUnsupported,
+                    message: "Frame interpolation is unavailable for "
+                        + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
+                )
+            }
+            try ensureCurrent()
+            if let taskID, let targetSize,
+                currentTargetSize != targetSize
+            {
+                try await streamController.changeTargetSize(
+                    taskID: taskID,
+                    targetSize: targetSize,
+                    ensureActive: {
+                        try ensureCurrent()
+                    }
+                )
+            }
+
+            // Complete the local commit after signaling; concurrent disconnection waits before cleanup.
+            if let mediaFormat, let targetSize {
+                await updateTargetSize(
+                    targetSize,
+                    videoFormat: mediaFormat
+                )
+            }
+            var returnFormat = mediaFormat
+            if let mediaFormat, let targetSize {
+                returnFormat = mediaFormat.resized(
+                    width: Int(targetSize.width),
+                    height: Int(targetSize.height)
+                )
+            }
+            try await renderController.setFrameInterpolationEnabled(
+                enabled,
+                videoFormat: returnFormat
+            )
+        } catch {
+            throw XmaxError.from(error)
+        }
+    }
+
+    /// Configures output dimensions, disabling unsupported interpolation without stopping local
+    /// media.
+    ///
+    /// - Parameter videoFormat: The resolved local media format.
+    ///
+    /// - Returns: Dimensions constrained by quality and interpolation limits, or `nil` without a
+    ///   video format.
+    ///
+    /// - Throws: An error if valid output dimensions aligned to multiples of 4 cannot be resolved.
+    @discardableResult
+    func reconcileFrameInterpolation(
+        for videoFormat: RealtimeVideoFormat?
+    ) async throws -> CGSize? {
+        guard let videoFormat else {
+            return nil
+        }
+        let level = streamController.qualityConfiguration?.downlinkLevel ?? .l2
+        let fallbackFormat = try resolveTargetVideoFormat(
+            baseline: videoFormat,
+            level: level,
+            interpolation: false
+        )
+        let interpolation = await renderController.isFrameInterpolationEnabled
+        do {
+            let targetSize = try resolveTargetVideoFormat(
+                baseline: videoFormat,
+                level: level,
+                interpolation: interpolation
+            ).size
+            guard !interpolation || mediaService.supportsFrameInterpolation(for: targetSize) else {
+                throw XmaxError(
+                    code: .frameInterpolationUnsupported,
+                    message: "Frame interpolation is unavailable for "
+                        + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
+                )
+            }
+            try await renderController.setFrameInterpolationEnabled(
+                interpolation,
+                videoFormat: videoFormat.resized(
+                    width: Int(targetSize.width),
+                    height: Int(targetSize.height)
+                )
+            )
+            return targetSize
+        } catch {
+            try? await renderController.setFrameInterpolationEnabled(
+                false,
+                videoFormat: fallbackFormat
+            )
+            await errorHandler.report(XmaxError.from(error))
+            return fallbackFormat.size
+        }
+    }
+
 }
 
 private extension XmaxRealtimeConnectionManager {

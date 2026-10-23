@@ -1,5 +1,5 @@
 //
-//  RealtimeCoordinator.swift
+//  XmaxRealtimeLifecycleManager.swift
 //  XmaxSDK
 //
 //  Author: 翁跃庭 (Yueting Weng)
@@ -10,8 +10,12 @@
 
 import Foundation
 
-/// Coordinates operation admission, state commits, and scoped resource cleanup.
-actor RealtimeCoordinator {
+/// Owns operation admission, lifecycle state, and scoped termination for a realtime manager.
+///
+/// Media, connection, and generation components execute work inside admitted operations. This
+/// coordinator validates operation tokens, prioritizes foreground work over quality adaptation,
+/// and invokes injected cleanup without owning RTC, capture, or rendering resources.
+actor XmaxRealtimeLifecycleManager {
 
     /// The kinds of mutually coordinated media and realtime operations.
     enum OperationKind: Sendable {
@@ -234,7 +238,11 @@ actor RealtimeCoordinator {
             }
             try Task.checkCancellation()
             try token.ensureCurrent()
+            let completionState = operation.completionState
             finish(operation)
+            if let completionState {
+                await setState(completionState)
+            }
             return value
         } catch {
             return try await handleFailure(
@@ -301,7 +309,28 @@ actor RealtimeCoordinator {
         token: Token
     ) async throws {
         try token.ensureCurrent()
+        if nextState.connectionState == .preparing,
+            let activeOperation, activeOperation.lease === token.lease,
+            activeOperation.kind == .media
+        {
+            activeOperation.didBeginMediaPreparation = true
+        }
         await setState(nextState)
+    }
+
+    /// Stages the final state of an operation for publication after it releases admission.
+    ///
+    /// Callers finish their resource work before staging completion. Unlike an intermediate
+    /// commit, the listener can immediately submit the next operation when it receives this state.
+    func complete(
+        _ nextState: RealtimeState,
+        token: Token
+    ) throws {
+        try token.ensureCurrent()
+        guard let activeOperation, activeOperation.lease === token.lease else {
+            throw Self.cancelledError()
+        }
+        activeOperation.completionState = nextState
     }
 
     /// Marks preparing media as ready when its current preview becomes available.
@@ -398,7 +427,7 @@ actor RealtimeCoordinator {
     }
 }
 
-private extension RealtimeCoordinator {
+private extension XmaxRealtimeLifecycleManager {
 
     /// A thread-safe lease for operation validity and failure cleanup.
     final class OperationLease: @unchecked Sendable {
@@ -500,6 +529,12 @@ private extension RealtimeCoordinator {
     /// A realtime operation and its cancellation and cleanup controls.
     final class Operation: @unchecked Sendable {
 
+        /// Whether this operation owns the preparation state it may roll back on failure.
+        var didBeginMediaPreparation = false
+
+        /// The final state published only after successful completion and admission release.
+        var completionState: RealtimeState?
+
         /// The identifier distinguishing this operation from concurrent requests.
         let id = UUID()
 
@@ -598,7 +633,7 @@ private extension RealtimeCoordinator {
                 termination == nil
             {
                 finish(operation)
-                if operation.kind == .media, state.connectionState == .preparing {
+                if operation.didBeginMediaPreparation, state.connectionState == .preparing {
                     await setState(RealtimeState(connectionState: .idle))
                 }
                 throw Self.cancelledError()
@@ -633,7 +668,7 @@ private extension RealtimeCoordinator {
             await terminationTask.value
         } else {
             finish(operation)
-            if operation.kind == .media, state.connectionState == .preparing {
+            if operation.didBeginMediaPreparation, state.connectionState == .preparing {
                 await setState(RealtimeState(connectionState: .idle))
             }
             await errorHandler.report(resolvedError)

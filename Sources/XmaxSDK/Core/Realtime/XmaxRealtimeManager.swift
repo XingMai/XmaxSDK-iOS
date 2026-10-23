@@ -13,7 +13,7 @@ import Foundation
 import UIKit
 #endif
 
-/// Coordinates local media, connections, generation, and state notifications.
+/// Implements the public realtime API and sequences media, connection, and generation workflows.
 actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     /// The model, interpolation, and adaptive quality configuration supplied at creation.
@@ -45,136 +45,36 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// The recorder for generation startup stage durations.
     private let timing: RealtimeTiming
 
-    /// The coordinator that admits operations and merges termination requests.
-    private let coordinator: RealtimeCoordinator
+    /// The lifecycle owner that admits operations and merges termination requests.
+    private let lifecycleManager: XmaxRealtimeLifecycleManager
 
     /// Whether an adaptive quality request is already pending.
     private var qualityPending = false
 
     /// Creates a realtime manager using the default SDK components.
-    ///
-    /// - Parameters:
-    ///   - options: The model, initial interpolation, and adaptive quality settings.
-    ///   - apiService: The API service that creates and closes realtime sessions.
     @MainActor
-    init(
-        options: RealtimeConfiguration,
-        apiService: any ApiServicing
-    ) {
-        self.options = options
-
-        let errorHandler = RealtimeErrorHandler()
-        let rtcManager = RtcManager()
-        let mediaService = MediaService(model: options.model)
-        let timing = RealtimeTiming()
-
-        let renderController = RenderController(
-            rtcManager: rtcManager,
-            frameInterpolationEnabled: options.isFrameInterpolationEnabled,
-            frameInterpolationSupportChecker: {
-                mediaService.supportsFrameInterpolation(for: $0)
-            },
-            errorListener: {
-                errorHandler.forward(
-                    $0,
-                    target: .connection
-                )
-            }
+    init(options: RealtimeConfiguration, apiService: any ApiServicing) {
+        self.init(
+            options: options,
+            components: XmaxRealtimeFactory.make(options: options, apiService: apiService)
         )
-
-        let streamController = StreamController(
-            rtcManager: rtcManager,
-            errorListener: {
-                errorHandler.forward(
-                    $0,
-                    target: .connection
-                )
-            },
-            remoteStreamListener: { stream in
-                try renderController.setRemoteStream(stream)
-            },
-            timing: timing
-        )
-
-        let mediaController = MediaController(
-            rtcManager: rtcManager,
-            mediaService: mediaService,
-            videoFrameListener: { frame in
-                try streamController.pushLocalVideoFrame(frame)
-            },
-            audioFrameListener: { frame in
-                try streamController.pushLocalAudioFrame(frame)
-            },
-            errorListener: {
-                errorHandler.forward(
-                    $0,
-                    target: .all
-                )
-            },
-            interactionListener: { taskID, points in
-                try await streamController.sendTracks(
-                    taskID: taskID,
-                    points: points
-                )
-            }
-        )
-
-        let connectionManager = XmaxRealtimeConnectionManager(
-            sessionService: RealtimeSessionService(apiService: apiService),
-            interactionController: mediaController,
-            renderController: renderController,
-            streamController: streamController,
-            timing: timing
-        )
-
-        let generationManager = XmaxRealtimeGenerationManager(
-            interactionController: mediaController,
-            streamController: streamController
-        )
-        let coordinator = RealtimeCoordinator(
-            errorHandler: errorHandler,
-            cleanup: { scope, taskID in
-                await XmaxRealtimeManager.cleanup(
-                    scope: scope,
-                    taskID: taskID,
-                    mediaController: mediaController,
-                    connectionManager: connectionManager,
-                    generationManager: generationManager
-                )
-            }
-        )
-
-        self.streamController = streamController
-        self.mediaController = mediaController
-        self.renderController = renderController
-        self.mediaService = mediaService
-        self.connectionManager = connectionManager
-        self.errorHandler = errorHandler
-        self.generationManager = generationManager
-        self.timing = timing
-        self.coordinator = coordinator
-
-        errorHandler.setFailureHandler { [weak coordinator] error, target, isCurrent in
-            await coordinator?.terminate(
-                with: error,
-                target: target,
-                isCurrent: isCurrent
-            )
-        }
     }
 
-    /// Creates a realtime manager with the specified components.
-    ///
-    /// - Parameters:
-    ///   - options: The model, initial interpolation, and adaptive quality settings.
-    ///   - streamController: The controller for RTC transport, signaling, and network quality.
-    ///   - mediaController: The controller for local media and trajectory interactions.
-    ///   - renderController: The controller for video rendering and frame interpolation.
-    ///   - mediaService: The service defining model sizing and interpolation capabilities.
-    ///   - connectionManager: The manager for server sessions and remote media resources.
-    ///   - errorHandler: The handler for logging and lifecycle failures.
-    ///   - generationManager: The manager for generation tasks and condition updates.
-    ///   - timing: The recorder for generation startup stages.
+    /// Creates a facade over a fully wired set of components.
+    init(options: RealtimeConfiguration, components: XmaxRealtimeComponents) {
+        self.options = options
+        self.renderController = components.renderController
+        self.streamController = components.streamController
+        self.mediaController = components.mediaController
+        self.mediaService = components.mediaService
+        self.connectionManager = components.connectionManager
+        self.generationManager = components.generationManager
+        self.errorHandler = components.errorHandler
+        self.timing = components.timing
+        self.lifecycleManager = components.lifecycleManager
+    }
+
+    /// Creates a realtime manager with injected components and shared lifecycle wiring.
     init(
         options: RealtimeConfiguration,
         streamController: any StreamControlling,
@@ -186,48 +86,32 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         generationManager: XmaxRealtimeGenerationManager,
         timing: RealtimeTiming = RealtimeTiming()
     ) {
-        self.options = options
-        self.streamController = streamController
-        self.mediaController = mediaController
-        self.renderController = renderController
-        self.mediaService = mediaService
-        self.connectionManager = connectionManager
-        self.errorHandler = errorHandler
-        self.generationManager = generationManager
-        self.timing = timing
-        let coordinator = RealtimeCoordinator(
-            errorHandler: errorHandler,
-            cleanup: { scope, taskID in
-                await XmaxRealtimeManager.cleanup(
-                    scope: scope,
-                    taskID: taskID,
-                    mediaController: mediaController,
-                    connectionManager: connectionManager,
-                    generationManager: generationManager
-                )
-            }
-        )
-        self.coordinator = coordinator
-        errorHandler.setFailureHandler { [weak coordinator] error, target, isCurrent in
-            await coordinator?.terminate(
-                with: error,
-                target: target,
-                isCurrent: isCurrent
+        self.init(
+            options: options,
+            components: XmaxRealtimeFactory.assemble(
+                streamController: streamController,
+                mediaController: mediaController,
+                renderController: renderController,
+                mediaService: mediaService,
+                connectionManager: connectionManager,
+                generationManager: generationManager,
+                errorHandler: errorHandler,
+                timing: timing
             )
-        }
+        )
     }
 
     /// The current connection and generation state.
     var currentState: RealtimeState {
         get async {
-            await coordinator.currentState
+            await lifecycleManager.currentState
         }
     }
 
     /// The uplink level successfully applied to the current connection.
     var uplinkQualityLevel: RealtimeQualityLevel? {
         get async {
-            let state = await coordinator.currentState.connectionState
+            let state = await lifecycleManager.currentState.connectionState
             guard state == .connected || state == .generating else {
                 return nil
             }
@@ -260,7 +144,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// The downlink level successfully submitted for the current connection.
     var downlinkQualityLevel: RealtimeQualityLevel? {
         get async {
-            let state = await coordinator.currentState.connectionState
+            let state = await lifecycleManager.currentState.connectionState
             guard state == .connected || state == .generating else {
                 return nil
             }
@@ -310,8 +194,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         _ level: RealtimeQualityLevel,
         downlink: Bool
     ) async throws {
-        try await coordinator.run(kind: .configuration) { [self] token in
-            let state = await coordinator.currentState
+        try await lifecycleManager.run(kind: .configuration) { [self] token in
+            let state = await lifecycleManager.currentState
             try token.ensureCurrent()
             guard state.connectionState == .generating, let taskID = state.taskID,
                 streamController.qualityConfiguration != nil
@@ -322,11 +206,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             }
 
-            try await applyQualityLevel(
+            try await connectionManager.applyQualityLevel(
                 level,
                 downlink: downlink,
                 taskID: taskID,
-                token: token
+                ensureCurrent: { try token.ensureCurrent() }
             )
         }
     }
@@ -356,7 +240,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     func setStateListener(
         _ listener: RealtimeStateListener?
     ) async {
-        await coordinator.setStateListener(listener)
+        await lifecycleManager.setStateListener(listener)
     }
 
     /// Sets a listener for remote video frames after optional interpolation.
@@ -456,76 +340,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// Enables or disables frame interpolation for remote video.
-    ///
-    /// This setting overrides the initial configuration. Enabling interpolation requests reduced
-    /// output dimensions; disabling it restores the dimensions for the current quality level
-    /// without reconnecting or restarting generation. Original frames remain visible while output
-    /// dimensions change.
-    ///
-    /// - Parameter enabled: Whether to enable remote video frame interpolation.
-    ///
-    /// - Throws: An error if another operation is active, interpolation is unsupported, or
-    ///   signaling fails.
-    func setFrameInterpolationEnabled(
-        _ enabled: Bool
-    ) async throws {
-        try await coordinator.run(
-            kind: .configuration
-        ) { [self] token in
-            do {
-                let current = await coordinator.currentState
-                let mediaFormat = await mediaController.currentVideoFormat
-                let targetSize = try mediaFormat.map {
-                    try resolveTargetVideoFormat(
-                        baseline: $0,
-                        level: streamController.qualityConfiguration?.downlinkLevel ?? .l2,
-                        interpolation: enabled
-                    ).size
-                }
-                if enabled, let targetSize,
-                    !mediaService.supportsFrameInterpolation(for: targetSize)
-                {
-                    throw XmaxError(
-                        code: .frameInterpolationUnsupported,
-                        message: "Frame interpolation is unavailable for "
-                            + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
-                    )
-                }
-                try token.ensureCurrent()
-                if let taskID = current.taskID, let targetSize,
-                    await connectionManager.currentTargetSize != targetSize
-                {
-                    try await streamController.changeTargetSize(
-                        taskID: taskID,
-                        targetSize: targetSize,
-                        ensureActive: {
-                            try token.ensureCurrent()
-                        }
-                    )
-                }
-
-                // Complete the local commit after signaling; concurrent disconnection waits before cleanup.
-                if let mediaFormat, let targetSize {
-                    await connectionManager.updateTargetSize(
-                        targetSize,
-                        videoFormat: mediaFormat
-                    )
-                }
-                var returnFormat = mediaFormat
-                if let mediaFormat, let targetSize {
-                    returnFormat = mediaFormat.resized(
-                        width: Int(targetSize.width),
-                        height: Int(targetSize.height)
-                    )
-                }
-                try await renderController.setFrameInterpolationEnabled(
-                    enabled,
-                    videoFormat: returnFormat
-                )
-            } catch {
-                throw XmaxError.from(error)
-            }
+    /// Updates interpolation and output dimensions within one lifecycle operation.
+    func setFrameInterpolationEnabled(_ enabled: Bool) async throws {
+        try await lifecycleManager.run(kind: .configuration) { [self] token in
+            let state = await lifecycleManager.currentState
+            let format = await mediaController.currentVideoFormat
+            try token.ensureCurrent()
+            try await connectionManager.setFrameInterpolationEnabled(
+                enabled,
+                mediaFormat: format,
+                taskID: state.taskID,
+                ensureCurrent: { try token.ensureCurrent() }
+            )
         }
     }
 
@@ -600,11 +426,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     private func updateCameraFormat(
         resolve: @escaping @Sendable (RealtimeVideoFormat) -> RealtimeVideoFormat
     ) async throws {
-        try await coordinator.run(kind: .media) { [self] token in
+        try await lifecycleManager.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before updating the camera format"
             )
-            guard await coordinator.currentState.connectionState == .ready,
+            guard await lifecycleManager.currentState.connectionState == .ready,
                 let current = await currentCameraVideoFormat
             else {
                 throw XmaxError(
@@ -623,7 +449,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalCameraStream() async throws {
-        try await coordinator.run(
+        try await lifecycleManager.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
@@ -634,7 +460,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try token.ensureCurrent()
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
-            try await coordinator.commit(
+            try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
                 token: token
             )
@@ -652,7 +478,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if no camera stream exists, realtime startup is in progress, or camera
     ///   switching or generation restart fails.
     func switchCamera() async throws -> RealtimeMediaStream {
-        let current = await coordinator.currentState
+        let current = await lifecycleManager.currentState
         guard current.connectionState != .connecting,
             current.connectionState != .disconnecting
         else {
@@ -673,10 +499,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         }
 
-        return try await coordinator.run(
+        return try await lifecycleManager.run(
             kind: .cameraSwitch
         ) { [self] token in
-            let current = await coordinator.currentState
+            let current = await lifecycleManager.currentState
             guard current.connectionState != .connecting,
                 current.connectionState != .disconnecting
             else {
@@ -701,7 +527,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     taskID: current.taskID ?? ""
                 )
                 await mediaController.setLocalAudioPreviewMuted(false)
-                try await coordinator.commit(
+                try await lifecycleManager.commit(
                     RealtimeState(
                         connectionState: .connected,
                         sessionID: current.sessionID
@@ -712,7 +538,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
             let stream = try await mediaController.switchCamera()
             try token.ensureCurrent()
-            try await reconcileFrameInterpolation(for: stream)
+            try await connectionManager.reconcileFrameInterpolation(for: stream.videoTrack?.videoFormat)
             if wasGenerating {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 try await performStartGeneration(
@@ -819,7 +645,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalImageStream() async throws {
-        try await coordinator.run(
+        try await lifecycleManager.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
@@ -830,7 +656,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try token.ensureCurrent()
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
-            try await coordinator.commit(
+            try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
                 token: token
             )
@@ -865,7 +691,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalVideoStream() async throws {
-        try await coordinator.run(
+        try await lifecycleManager.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
@@ -876,7 +702,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try token.ensureCurrent()
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
-            try await coordinator.commit(
+            try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
                 token: token
             )
@@ -906,7 +732,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, an operation conflicts, or the operation
     ///   is cancelled.
     func stopExternalVideoStream() async throws {
-        try await coordinator.run(kind: .media) { [self] token in
+        try await lifecycleManager.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before stopping the external video stream"
             )
@@ -915,7 +741,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try token.ensureCurrent()
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
-            try await coordinator.commit(
+            try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
                 token: token
             )
@@ -933,19 +759,20 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     func connect(
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await lifecycleManager.run(
             kind: .connection
         ) { [self] token in
             try await performConnect(
                 localStream: localStream,
-                token: token
+                token: token,
+                completesOperation: true
             )
         }
     }
 
     /// Disconnects realtime while preserving the local media preview.
     func disconnect() async {
-        await coordinator.disconnect()
+        await lifecycleManager.disconnect()
     }
 
     /// Disconnects for the specified reason while preserving available local media.
@@ -954,7 +781,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     func disconnect(
         reason: RealtimeReason
     ) async {
-        await coordinator.disconnect(reason: reason)
+        await lifecycleManager.disconnect(reason: reason)
     }
 
     /// Closes the realtime lifecycle and releases the connection, local media, and RTC engine.
@@ -962,7 +789,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// Concurrent calls await the same cleanup task. Local streams can be created again after
     /// closing completes.
     func close() async {
-        await coordinator.terminate(
+        await lifecycleManager.terminate(
             .all
         )
     }
@@ -979,10 +806,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         context: RealtimeContext?,
         faceRestoration: Bool = false
     ) async throws {
-        try await coordinator.run(
+        try await lifecycleManager.run(
             kind: .generation
         ) { [self] token in
-            let current = await coordinator.currentState
+            let current = await lifecycleManager.currentState
             try token.ensureCurrent()
             let measuresStartup = current.connectionState == .connected
             if measuresStartup {
@@ -1021,10 +848,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         context: RealtimeContext?,
         faceRestoration: Bool = false
     ) async throws -> RealtimeMediaStream {
-        try await coordinator.run(
+        try await lifecycleManager.run(
             kind: .generation
         ) { [self] token in
-            let initialState = await coordinator.currentState
+            let initialState = await lifecycleManager.currentState
             let hasConnection = await connectionManager.currentSessionID != ""
             try token.ensureCurrent()
             let measuresStartup =
@@ -1093,11 +920,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     private func performStartGeneration(
         context: RealtimeContext?,
         faceRestoration: Bool,
-        token: RealtimeCoordinator.Token
+        token: XmaxRealtimeLifecycleManager.Token
     ) async throws {
         try token.ensureCurrent()
         let sessionID = await connectionManager.currentSessionID
-        let current = await coordinator.currentState
+        let current = await lifecycleManager.currentState
         guard !sessionID.isEmpty,
             current.connectionState == .connected || current.connectionState == .generating,
             let videoFormat = await mediaController.currentVideoFormat
@@ -1153,37 +980,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     try token.ensureCurrent()
                 }
             )
-            try await renderController.waitUntilRemoteFrameReady()
             try token.ensureCurrent()
-            timing.finishFirstFrame(taskID: taskID)
-            try streamController.activateRemoteAudio()
             guard await connectionManager.currentSessionID == sessionID else {
                 throw XmaxError(
                     code: .cancelled,
                     message: "Realtime connection was cancelled"
                 )
             }
-            try await coordinator.commit(
-                RealtimeState(
-                    connectionState: .generating,
-                    sessionID: sessionID,
-                    taskID: taskID
-                ),
-                token: token
-            )
-            try token.ensureCurrent()
-            if let quality = streamController.qualityConfiguration {
-                streamController.completeQuality(
-                    downlink: false,
-                    level: quality.uplinkLevel,
-                    success: true
-                )
-                streamController.completeQuality(
-                    downlink: true,
-                    level: quality.downlinkLevel,
-                    success: true
-                )
-            }
+            await connectionManager.completeInitialQuality()
             if options.isAdaptiveQualityEnabled {
                 streamController.setAdaptiveQualityListener { [weak self] quality, time in
                     Task {
@@ -1195,6 +999,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     }
                 }
             }
+            try await lifecycleManager.complete(
+                RealtimeState(
+                    connectionState: .generating,
+                    sessionID: sessionID,
+                    taskID: taskID
+                ),
+                token: token
+            )
             timing.finish(taskID: taskID)
         } catch {
             await mediaController.setLocalAudioPreviewMuted(false)
@@ -1204,43 +1016,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 }
 
 private extension XmaxRealtimeManager {
-
-    /// Resolves the returned video format using the quality level and interpolation limits.
-    ///
-    /// - Parameters:
-    ///   - baseline: The resolved local media format.
-    ///   - level: The requested downlink quality level.
-    ///   - interpolation: Whether to apply the frame interpolation pixel limit.
-    ///
-    /// - Returns: A format that prioritizes the media aspect ratio within quality and interpolation
-    ///   limits, aligned to multiples of 4.
-    ///
-    /// - Throws: An error if the baseline is invalid or valid output dimensions cannot be resolved.
-    nonisolated func resolveTargetVideoFormat(
-        baseline: RealtimeVideoFormat,
-        level: RealtimeQualityLevel,
-        interpolation: Bool
-    ) throws -> RealtimeVideoFormat {
-        try baseline.validate()
-        let maximumSize = QualityVideoFormat.resolveDownlinkMaximumSize(
-            baseline,
-            level: level
-        )
-        let targetSize = try mediaService.resolveTargetSize(
-            baseline.size,
-            maximumSize: maximumSize,
-            frameInterpolationEnabled: interpolation
-        )
-        let format = QualityVideoFormat.resolve(
-            baseline,
-            level: level,
-            downlink: true
-        )
-        return format.resized(
-            width: Int(targetSize.width),
-            height: Int(targetSize.height)
-        )
-    }
 
     /// Attempts automatic adaptation for the current task, skipping samples while busy.
     ///
@@ -1261,8 +1036,8 @@ private extension XmaxRealtimeManager {
             qualityPending = false
         }
         do {
-            let accepted = try await coordinator.runAdaptiveConfiguration { [self] token in
-                let state = await coordinator.currentState
+            let accepted = try await lifecycleManager.runAdaptiveConfiguration { [self] token in
+                let state = await lifecycleManager.currentState
                 try token.ensureCurrent()
                 guard state.taskID == taskID, state.connectionState == .generating else {
                     return
@@ -1272,20 +1047,20 @@ private extension XmaxRealtimeManager {
                     sampledAt: sampledAt
                 )
                 if let level = change.uplink {
-                    try? await applyQualityLevel(
+                    try? await connectionManager.applyQualityLevel(
                         level,
                         downlink: false,
                         taskID: taskID,
-                        token: token
+                        ensureCurrent: { try token.ensureCurrent() }
                     )
                 }
                 try token.ensureCurrent()
                 if let level = change.downlink {
-                    try? await applyQualityLevel(
+                    try? await connectionManager.applyQualityLevel(
                         level,
                         downlink: true,
                         taskID: taskID,
-                        token: token
+                        ensureCurrent: { try token.ensureCurrent() }
                     )
                 }
             }
@@ -1294,102 +1069,9 @@ private extension XmaxRealtimeManager {
             }
         } catch {
             // Do not let cancellation or disconnection reset samples for a newer task.
-            if !Task.isCancelled, await coordinator.currentState.taskID == taskID {
+            if !Task.isCancelled, await lifecycleManager.currentState.taskID == taskID {
                 streamController.resetQualitySamples()
             }
-        }
-    }
-
-    /// Applies a quality level to uplink encoding or downlink output.
-    ///
-    /// - Parameters:
-    ///   - level: The requested quality level.
-    ///   - downlink: Whether to change returned dimensions rather than local encoding settings.
-    ///   - taskID: The generation task whose transport settings are being updated.
-    ///   - token: The validity token for this configuration operation.
-    ///
-    /// - Throws: An error if cancelled, interpolation is unsupported, or signaling or encoder
-    ///   configuration fails.
-    func applyQualityLevel(
-        _ level: RealtimeQualityLevel,
-        downlink: Bool,
-        taskID: String,
-        token: RealtimeCoordinator.Token
-    ) async throws {
-        guard let configuration = streamController.qualityConfiguration else {
-            return
-        }
-        do {
-            try token.ensureCurrent()
-            let format: RealtimeVideoFormat
-            if downlink {
-                let interpolation = await renderController.isFrameInterpolationEnabled
-                try token.ensureCurrent()
-                format = try resolveTargetVideoFormat(
-                    baseline: configuration.baseline,
-                    level: level,
-                    interpolation: interpolation
-                )
-                guard !interpolation || mediaService.supportsFrameInterpolation(for: format.size)
-                else {
-                    throw XmaxError(
-                        code: .frameInterpolationUnsupported,
-                        message: "Frame interpolation is unavailable for the target size"
-                    )
-                }
-
-                if await connectionManager.currentTargetSize != format.size {
-                    try token.ensureCurrent()
-                    try await streamController.changeTargetSize(
-                        taskID: taskID,
-                        targetSize: format.size,
-                        ensureActive: {
-                            try token.ensureCurrent()
-                        }
-                    )
-                    // Commit expected dimensions after signaling; disconnection waits for this commit before cleanup.
-                    await connectionManager.updateTargetSize(
-                        format.size,
-                        videoFormat: configuration.baseline
-                    )
-                    try await renderController.setFrameInterpolationEnabled(
-                        interpolation,
-                        videoFormat: format
-                    )
-                }
-            } else {
-                format = QualityVideoFormat.resolve(
-                    configuration.baseline,
-                    level: level,
-                    downlink: false,
-                    minimumInputPixels: configuration.minimumInputPixels
-                )
-                try streamController.setVideoEncoderConfig(format)
-            }
-            try token.ensureCurrent()
-            streamController.completeQuality(
-                downlink: downlink,
-                level: level,
-                success: true
-            )
-            XmaxLogger.realtime.debug(
-                message: "传输调档 (Quality Adjustment)\n"
-                    + "└─ \(downlink ? "Downlink" : "Uplink"): L\(level.rawValue), \(format.width) × \(format.height)"
-            )
-        } catch {
-            guard token.isCurrent else {
-                throw error
-            }
-            streamController.completeQuality(
-                downlink: downlink,
-                level: level,
-                success: false
-            )
-            XmaxLogger.realtime.warn(
-                message:
-                    "传输调档失败 (Quality Adjustment Failed)\n└─ \(ErrorMessageFormatter.format(error))"
-            )
-            throw error
         }
     }
 
@@ -1405,9 +1087,10 @@ private extension XmaxRealtimeManager {
     ///   cancelled, or session or RTC setup fails.
     func performConnect(
         localStream: RealtimeMediaStream,
-        token: RealtimeCoordinator.Token
+        token: XmaxRealtimeLifecycleManager.Token,
+        completesOperation: Bool = false
     ) async throws -> RealtimeMediaStream {
-        let current = await coordinator.currentState
+        let current = await lifecycleManager.currentState
         guard await connectionManager.currentSessionID == "",
             current.connectionState != .connecting,
             current.connectionState != .disconnecting
@@ -1437,18 +1120,15 @@ private extension XmaxRealtimeManager {
         token.setFailureScope(.connection)
         try await generationManager.reset()
         try token.ensureCurrent()
-        try await coordinator.commit(
+        try await lifecycleManager.commit(
             RealtimeState(connectionState: .connecting),
             token: token
         )
-        let quality = streamController.prepareQuality(
+        let targetSize = try await connectionManager.prepareQuality(
             baseline: videoFormat,
-            model: options.model.rawValue,
-            minimumInputPixels: options.model.minimumInputPixels,
-            isAdaptiveQualityEnabled: options.isAdaptiveQualityEnabled
+            options: options,
+            ensureCurrent: { try token.ensureCurrent() }
         )
-        try streamController.setVideoEncoderConfig(quality.uplink)
-        let targetSize = try await reconcileFrameInterpolation(for: localStream)
         try token.ensureCurrent()
         try await mediaController.startMicrophoneCapture()
         try token.ensureCurrent()
@@ -1476,13 +1156,12 @@ private extension XmaxRealtimeManager {
             )
         }
 
-        try await coordinator.commit(
-            RealtimeState(
-                connectionState: .connected,
-                sessionID: sessionID
-            ),
-            token: token
-        )
+        let connectedState = RealtimeState(connectionState: .connected, sessionID: sessionID)
+        if completesOperation {
+            try await lifecycleManager.complete(connectedState, token: token)
+        } else {
+            try await lifecycleManager.commit(connectedState, token: token)
+        }
         return remoteStream
     }
 
@@ -1500,10 +1179,10 @@ private extension XmaxRealtimeManager {
     func createLocalMediaStream(
         source: RealtimeMediaSource,
         prepare:
-            @escaping @Sendable (RealtimeCoordinator.Token) async throws
+            @escaping @Sendable (XmaxRealtimeLifecycleManager.Token) async throws
             -> RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
-        return try await coordinator.run(
+        return try await lifecycleManager.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
@@ -1518,7 +1197,7 @@ private extension XmaxRealtimeManager {
             }
             try token.ensureCurrent()
             errorHandler.invalidatePendingFailures()
-            try await coordinator.commit(
+            try await lifecycleManager.commit(
                 RealtimeState(connectionState: .preparing),
                 token: token
             )
@@ -1543,17 +1222,17 @@ private extension XmaxRealtimeManager {
                 }
                 try token.ensureCurrent()
             }
-            try await reconcileFrameInterpolation(for: stream)
+            try await connectionManager.reconcileFrameInterpolation(for: stream.videoTrack?.videoFormat)
             try token.ensureCurrent()
             try streamController.setRemoteAudioVolume(source == .video ? 1 : 0)
             if source == .camera {
-                await mediaController.setCameraPreviewReadyHandler { [coordinator] isCurrent in
+                await mediaController.setCameraPreviewReadyHandler { [lifecycleManager] isCurrent in
                     Task {
-                        await coordinator.localPreviewDidBecomeReady(isCurrent: isCurrent)
+                        await lifecycleManager.localPreviewDidBecomeReady(isCurrent: isCurrent)
                     }
                 }
             } else {
-                try await coordinator.commit(
+                try await lifecycleManager.complete(
                     RealtimeState(connectionState: .ready),
                     token: token
                 )
@@ -1570,7 +1249,7 @@ private extension XmaxRealtimeManager {
     func ensureLocalMediaCanChange(
         message: String
     ) async throws {
-        let current = await coordinator.currentState
+        let current = await lifecycleManager.currentState
         guard await connectionManager.currentSessionID == "",
             current.connectionState != .connecting,
             current.connectionState != .disconnecting
@@ -1596,7 +1275,7 @@ private extension XmaxRealtimeManager {
         }
         let disconnection =
             changedAxis
-            ? await coordinator.beginDisconnect(reason: .orientationChanged)
+            ? await lifecycleManager.beginDisconnect(reason: .orientationChanged)
             : nil
 
         if await mediaController.currentTrack === track {
@@ -1604,7 +1283,7 @@ private extension XmaxRealtimeManager {
                 try await mediaController.updateCameraOrientation()
             } catch {
                 if await mediaController.currentTrack === track {
-                    await coordinator.terminate(
+                    await lifecycleManager.terminate(
                         with: XmaxError.from(error),
                         target: .all
                     )
@@ -1612,60 +1291,6 @@ private extension XmaxRealtimeManager {
             }
         }
         await disconnection?.value
-    }
-
-    /// Configures output dimensions, disabling unsupported interpolation without stopping local
-    /// media.
-    ///
-    /// - Parameter stream: The current local media stream.
-    ///
-    /// - Returns: Dimensions constrained by quality and interpolation limits, or `nil` without a
-    ///   video format.
-    ///
-    /// - Throws: An error if valid output dimensions aligned to multiples of 4 cannot be resolved.
-    @discardableResult
-    func reconcileFrameInterpolation(
-        for stream: RealtimeMediaStream
-    ) async throws -> CGSize? {
-        guard let videoFormat = stream.videoTrack?.videoFormat else {
-            return nil
-        }
-        let level = streamController.qualityConfiguration?.downlinkLevel ?? .l2
-        let fallbackFormat = try resolveTargetVideoFormat(
-            baseline: videoFormat,
-            level: level,
-            interpolation: false
-        )
-        let interpolation = await renderController.isFrameInterpolationEnabled
-        do {
-            let targetSize = try resolveTargetVideoFormat(
-                baseline: videoFormat,
-                level: level,
-                interpolation: interpolation
-            ).size
-            guard !interpolation || mediaService.supportsFrameInterpolation(for: targetSize) else {
-                throw XmaxError(
-                    code: .frameInterpolationUnsupported,
-                    message: "Frame interpolation is unavailable for "
-                        + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
-                )
-            }
-            try await renderController.setFrameInterpolationEnabled(
-                interpolation,
-                videoFormat: videoFormat.resized(
-                    width: Int(targetSize.width),
-                    height: Int(targetSize.height)
-                )
-            )
-            return targetSize
-        } catch {
-            try? await renderController.setFrameInterpolationEnabled(
-                false,
-                videoFormat: fallbackFormat
-            )
-            await errorHandler.report(XmaxError.from(error))
-            return fallbackFormat.size
-        }
     }
 
     /// Terminates the current session after heartbeat failure, ignoring notifications from old
@@ -1681,7 +1306,7 @@ private extension XmaxRealtimeManager {
         guard await connectionManager.currentSessionID == sessionID else {
             return
         }
-        await coordinator.terminate(
+        await lifecycleManager.terminate(
             with: error,
             target: .connection
         )
@@ -1717,80 +1342,4 @@ private extension XmaxRealtimeManager {
         }
     }
 
-    /// Releases the requested realtime resources and reports remaining session and media state.
-    ///
-    /// - Parameters:
-    ///   - scope: The resource scope to release.
-    ///   - taskID: The task to stop, or an empty string if no task is specified.
-    ///   - mediaController: The controller that stops capture or restores local preview.
-    ///   - connectionManager: The manager that releases the RTC room and server session.
-    ///   - generationManager: The manager that stops generation and clears cached conditions.
-    ///
-    /// - Returns: The terminated session identifier and whether local media remains available.
-    nonisolated static func cleanup(
-        scope: RealtimeCoordinator.TerminationScope,
-        taskID: String,
-        mediaController: any MediaControlling,
-        connectionManager: XmaxRealtimeConnectionManager,
-        generationManager: XmaxRealtimeGenerationManager
-    ) async -> RealtimeCoordinator.CleanupResult {
-        if scope == .all {
-            await mediaController.setLocalAudioPreviewMuted(true)
-        }
-
-        do {
-            try await mediaController.stopMicrophoneCapture()
-        } catch {
-            XmaxLogger.realtime.error(
-                message: """
-                    停止麦克风采集失败 (Failed to Stop Microphone Capture)
-                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                    """
-            )
-        }
-
-        do {
-            try await generationManager.reset(taskID: taskID)
-        } catch {
-            XmaxLogger.realtime.error(
-                message: """
-                    停止实时生成失败 (Failed to Stop Realtime Generation)
-                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                    """
-            )
-        }
-
-        let activeSessionID = await connectionManager.currentSessionID
-        var sessionID = activeSessionID.isEmpty ? nil : activeSessionID
-        do {
-            sessionID = try await connectionManager.disconnect() ?? sessionID
-        } catch {
-            XmaxLogger.realtime.error(
-                message: """
-                    断开实时连接失败 (Failed to Disconnect Realtime)
-                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                    """
-            )
-        }
-
-        if scope == .all {
-            await mediaController.stopLocalStream()
-        } else {
-            await mediaController.setLocalAudioPreviewMuted(false)
-            do {
-                try await mediaController.updateCameraOrientation()
-            } catch {
-                XmaxLogger.realtime.error(
-                    message: """
-                        更新摄像头方向失败 (Failed to Update Camera Orientation)
-                        └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                        """
-                )
-            }
-        }
-        return RealtimeCoordinator.CleanupResult(
-            sessionID: sessionID,
-            hasLocalMedia: await mediaController.currentTrack != nil
-        )
-    }
 }

@@ -14,6 +14,68 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeGenerationManagerTests: XCTestCase {
+    func testStartWaitsForFirstFrameBeforeSubscribingRemoteAudio() async throws {
+        let render = RenderControllingStub()
+        let gate = GenerationFrameGate()
+        render.frameReadyHandler = { await gate.wait() }
+        let components = try await makeComponents(renderController: render)
+        let start = Task {
+            try await components.manager.start(
+                videoFormat: videoFormat,
+                context: RealtimeContext(prompt: "first frame"),
+                ensureCurrent: {}
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: remoteStream)
+        for _ in 0..<1_000 {
+            if await gate.isWaiting { break }
+            await Task.yield()
+        }
+        let waiting = await gate.isWaiting
+        XCTAssertTrue(waiting)
+        XCTAssertEqual(render.frameReadyWaitCount, 1)
+        XCTAssertFalse(components.rtcManager.calls.contains(.subscribeRemoteAudio(userID: "bot-user", subscribe: true)))
+        await gate.release()
+        let taskID = try await start.value
+        XCTAssertTrue(components.rtcManager.calls.contains(.subscribeRemoteAudio(userID: "bot-user", subscribe: true)))
+        try await components.manager.stop(taskID: taskID)
+        await components.roomController.leave()
+    }
+
+    func testFirstFrameFailureStopsGenerationWithoutCachingConditions() async throws {
+        let render = RenderControllingStub()
+        let failure = XmaxError(code: .timeout, message: "First frame timed out")
+        render.frameReadyHandler = { throw failure }
+        let components = try await makeComponents(renderController: render)
+        let start = Task {
+            try await components.manager.start(
+                videoFormat: videoFormat,
+                context: RealtimeContext(prompt: "must not be cached"),
+                faceRestoration: true,
+                ensureCurrent: {}
+            )
+        }
+        await waitForEvent("start", rtcManager: components.rtcManager)
+        components.rtcManager.emitRemoteVideoAvailable(stream: remoteStream)
+        do {
+            _ = try await start.value
+            XCTFail("Expected first-frame failure")
+        } catch {
+            XCTAssertEqual(error as? XmaxError, failure)
+        }
+        await waitForEvent("stop", rtcManager: components.rtcManager)
+        let restoration = await components.manager.cachedFaceRestoration
+        XCTAssertFalse(restoration)
+        do {
+            try await components.manager.validateContext(nil)
+            XCTFail("Failed startup must not cache generation conditions")
+        } catch {
+            XCTAssertEqual(XmaxError.from(error).code, .invalidConfiguration)
+        }
+        await components.roomController.leave()
+    }
+
     func testAllMediaSourcesKeepTrajectoryBasisAcrossReturnSizeAndConditionChanges() async throws {
         for source in RealtimeMediaSource.allCases {
             let components = try await makeComponents()
@@ -393,6 +455,20 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
     }
 }
 
+private actor GenerationFrameGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    var isWaiting: Bool { continuation != nil }
+
+    func wait() async {
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
 private extension XmaxRealtimeGenerationManagerTests {
     struct Components {
         let manager: XmaxRealtimeGenerationManager
@@ -411,6 +487,7 @@ private extension XmaxRealtimeGenerationManagerTests {
     }
 
     func makeComponents(
+        renderController: RenderControllingStub = RenderControllingStub(),
         timing: StreamGenerationTiming = StreamGenerationTiming(
             timeoutNanoseconds: 1_000_000_000
         )
@@ -453,6 +530,7 @@ private extension XmaxRealtimeGenerationManagerTests {
             manager: XmaxRealtimeGenerationManager(
                 interactionController: interactionController,
                 streamController: streamController,
+                renderController: renderController,
                 taskIDGenerator: { "task-fixed" }
             ),
             interactionController: interactionController,
