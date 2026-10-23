@@ -23,7 +23,7 @@ final class RealtimeModelTests: XCTestCase {
     }
 
     func testModelSupportedVideoFormats() {
-        XCTAssertEqual(RealtimeModel.allCases, [.x2_1])
+        XCTAssertEqual(RealtimeModel.allCases, [.x2_1, .x2_1_1_preview_cn, .x2_1_1_preview_us])
         XCTAssertNil(RealtimeModel(rawValue: "x2.0"))
         XCTAssertEqual(RealtimeModel.x2_1.supportedVideoFormats.map(\.size), [
             CGSize(width: 1920, height: 1080),
@@ -36,6 +36,27 @@ final class RealtimeModelTests: XCTestCase {
         XCTAssertEqual(RealtimeModel.x2_1.displayName, "X2.1")
         XCTAssertEqual(RealtimeCameraPreset.allCases.map(\.size), RealtimeModel.x2_1.supportedVideoFormats.map(\.size))
         XCTAssertTrue(RealtimeModel.x2_1.supportedVideoFormats.allSatisfy { $0.fps == 30 })
+    }
+
+    func testPreviewModelCameraFormats() {
+        let models: [RealtimeModel] = [.x2_1_1_preview_cn, .x2_1_1_preview_us]
+        XCTAssertEqual(models.map(\.rawValue), ["x2.1.1-preview-cn", "x2.1.1-preview-us"])
+        XCTAssertEqual(models.map(\.displayName), ["X2.1.1-preview-cn", "X2.1.1-preview-us"])
+
+        for model in models {
+            XCTAssertEqual(model.defaultFrameRate, 30)
+            XCTAssertEqual(model.minimumInputPixels, 600000)
+            XCTAssertEqual(model.maximumInputPixels, 2100000)
+            XCTAssertEqual(model.inputSizeAlignment, 32)
+            XCTAssertEqual(
+                model.defaultCameraVideoFormat,
+                RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
+            )
+            XCTAssertEqual(model.supportedVideoFormats, [
+                RealtimeVideoFormat(width: 1024, height: 1920, fps: 30),
+                RealtimeVideoFormat(width: 1920, height: 1024, fps: 30)
+            ])
+        }
     }
 
     func testContextNormalizesPromptAndReferencePath() {

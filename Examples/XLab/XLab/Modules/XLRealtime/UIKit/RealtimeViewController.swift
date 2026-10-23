@@ -613,7 +613,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.top.equalTo(view.safeAreaLayoutGuide).offset(6)
             make.trailing.equalToSuperview().inset(8)
             make.width.equalTo(58)
-            make.height.equalTo(310).priority(750)
+            make.height.equalTo(248).priority(750)
             make.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).offset(-94)
         }
         mediaTopBar.snp.makeConstraints { make in

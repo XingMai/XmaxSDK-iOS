@@ -282,7 +282,7 @@ final class FeedModelRegistryCardView: FeedCardView, UITextFieldDelegate {
     }()
 
     init() {
-        let models = RealtimeModel.allCases
+        let models = RealtimePreferences.availableModels
 
         super.init(
             colors: [.feed(rgb: 0x121B19, alpha: 0.91), .feed(rgb: 0x0D1218, alpha: 0.91)],

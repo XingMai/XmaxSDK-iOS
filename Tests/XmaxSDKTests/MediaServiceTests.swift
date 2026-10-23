@@ -227,6 +227,25 @@ final class MediaServiceTests: XCTestCase {
         }
     }
 
+    func testPreviewModelCameraBuckets() throws {
+        for model in [RealtimeModel.x2_1_1_preview_cn, .x2_1_1_preview_us] {
+            let service = MediaService(model: model)
+            for size in [CGSize(width: 1024, height: 1920), CGSize(width: 1920, height: 1024)] {
+                XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
+                XCTAssertEqual(try service.resolveGenerationSize(size), size)
+            }
+            for size in [CGSize(width: 1080, height: 1920), CGSize(width: 1920, height: 1080), CGSize(width: 1408, height: 1408)] {
+                XCTAssertThrowsError(try service.resolveMediaSize(size, source: .camera)) { error in
+                    XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+                }
+            }
+            XCTAssertEqual(
+                try service.resolveGenerationSize(CGSize(width: 720, height: 1280)),
+                CGSize(width: 1024, height: 1920)
+            )
+        }
+    }
+
     func testFrameInterpolationRejectsInvalidVideoSize() {
         let service = MediaService()
 
