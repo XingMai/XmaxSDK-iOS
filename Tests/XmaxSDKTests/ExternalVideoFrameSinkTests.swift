@@ -14,6 +14,45 @@ import XCTest
 @testable import XmaxSDK
 
 final class ExternalVideoFrameSinkTests: XCTestCase {
+    func testAudioRequiresOptInAndStopsWithBinding() throws {
+        let recorder = Recorder()
+        let silentSink = makeSink(recorder)
+        silentSink.pushAudio(try AudioSampleBufferFactory.make())
+        XCTAssertTrue(recorder.audioFrames.isEmpty)
+
+        let sink = makeSink(recorder, hasAudio: true)
+        sink.pushAudio(try AudioSampleBufferFactory.make())
+        XCTAssertEqual(recorder.audioFrames.count, 1)
+        XCTAssertEqual(recorder.audioFrames.first?.timestampUs, 0)
+        sink.invalidate()
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 1, timescale: 1)))
+        XCTAssertEqual(recorder.audioFrames.count, 1)
+        XCTAssertFalse(sink.isRequestingFrames)
+    }
+
+    func testAudioAndVideoRetainTheirOriginalTimeDifference() throws {
+        let recorder = Recorder()
+        let sink = makeSink(recorder, hasAudio: true)
+        sink.pushVideo(try makeBuffer(), timestamp: CMTime(value: 20, timescale: 1))
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 20025, timescale: 1000)))
+        XCTAssertEqual(recorder.frames.first?.timestampUs, 20000000)
+        XCTAssertEqual(recorder.audioFrames.first?.timestampUs, 20025000)
+    }
+
+    func testAudioFailureInvalidatesBothInputsAndReportsOnce() throws {
+        let recorder = Recorder()
+        let sink = makeSink(recorder, hasAudio: true)
+        sink.pushAudio(try AudioSampleBufferFactory.make())
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 1, timescale: 1), channels: 2))
+        sink.pushVideo(try makeBuffer(), timestamp: .zero)
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 2, timescale: 1)))
+        sink.reportError(XmaxError(code: .mediaError, message: "late"))
+        XCTAssertFalse(sink.isRequestingFrames)
+        XCTAssertTrue(recorder.frames.isEmpty)
+        XCTAssertEqual(recorder.audioFrames.count, 1)
+        XCTAssertEqual(recorder.errors.map(\.code), [.mediaError])
+    }
+
     func testCopiesPixelsAndPreservesTimestamp() throws {
         let recorder = Recorder()
         let sink = makeSink(recorder)
@@ -167,12 +206,15 @@ final class ExternalVideoFrameSinkTests: XCTestCase {
     private func makeSink(
         _ recorder: Recorder,
         sourceFormat: RealtimeVideoFormat = RealtimeVideoFormat(width: 4, height: 4, fps: 24),
-        resolvedFormat: RealtimeVideoFormat = RealtimeVideoFormat(width: 4, height: 4, fps: 24)
+        resolvedFormat: RealtimeVideoFormat = RealtimeVideoFormat(width: 4, height: 4, fps: 24),
+        hasAudio: Bool = false
     ) -> ExternalVideoFrameSink {
         ExternalVideoFrameSink(
             sourceVideoFormat: sourceFormat,
             videoFormat: resolvedFormat,
             frameListener: { recorder.append($0) },
+            hasAudio: hasAudio,
+            audioFrameListener: { recorder.append($0) },
             errorListener: { recorder.append($0) }
         )
     }
@@ -180,10 +222,13 @@ final class ExternalVideoFrameSinkTests: XCTestCase {
     private final class Recorder: @unchecked Sendable {
         private let lock = NSLock()
         private var storedFrames: [VideoFrame] = []
+        private var storedAudioFrames: [AudioFrame] = []
         private var storedErrors: [XmaxError] = []
         var frames: [VideoFrame] { lock.withLock { storedFrames } }
+        var audioFrames: [AudioFrame] { lock.withLock { storedAudioFrames } }
         var errors: [XmaxError] { lock.withLock { storedErrors } }
         func append(_ frame: VideoFrame) { lock.withLock { storedFrames.append(frame) } }
+        func append(_ frame: AudioFrame) { lock.withLock { storedAudioFrames.append(frame) } }
         func append(_ error: XmaxError) { lock.withLock { storedErrors.append(error) } }
     }
 }

@@ -24,6 +24,9 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
     /// The handler delivering video to transport.
     private let videoFrameListener: MediaVideoFrameListener
 
+    /// The handler delivering external audio to transport without local playback.
+    private let audioFrameListener: MediaAudioFrameListener
+
     /// The handler delivering failures to lifecycle coordination.
     private let errorListener: XmaxErrorListener
 
@@ -34,6 +37,9 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
 
     /// The external source's current track.
     private var track: RealtimeVideoTrack?
+
+    /// Whether the current binding owns an external RTC audio track.
+    private var storedHasAudio = false
 
     /// Source binding and preview.
 
@@ -54,11 +60,14 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
         rtcManager: any RtcManaging,
         mediaService: any MediaServicing,
         videoFrameListener: @escaping MediaVideoFrameListener,
+        audioFrameListener: @escaping MediaAudioFrameListener = { _ in
+        },
         errorListener: @escaping XmaxErrorListener
     ) {
         self.rtcManager = rtcManager
         self.mediaService = mediaService
         self.videoFrameListener = videoFrameListener
+        self.audioFrameListener = audioFrameListener
         self.errorListener = errorListener
     }
 
@@ -66,6 +75,13 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
     var currentTrack: RealtimeVideoTrack? {
         lock.withLock {
             track
+        }
+    }
+
+    /// Whether the current source supplies external audio.
+    var hasAudio: Bool {
+        lock.withLock {
+            storedHasAudio
         }
     }
 
@@ -88,6 +104,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
             )
         }
         let requested = source.videoFormat
+        let hasAudio = source.hasAudio
         try requested.validate()
         let size = try mediaService.resolveMediaSize(
             CGSize(
@@ -116,6 +133,8 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
                 dispatcher.enqueue(frame)
                 try videoFrameListener(frame)
             },
+            hasAudio: hasAudio,
+            audioFrameListener: audioFrameListener,
             errorListener: errorListener
         )
         self.source = source
@@ -124,10 +143,14 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
         self.dispatcher = dispatcher
         lock.withLock {
             self.track = track
+            storedHasAudio = hasAudio
         }
 
         do {
             try rtcManager.useExternalVideoSource()
+            if hasAudio {
+                try rtcManager.startExternalAudioSource()
+            }
             VideoRenderRegistry.register(
                 track,
                 binding: VideoRenderBinding(
@@ -179,12 +202,26 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
         presenter = nil
         let previousSource = source
         source = nil
-        let previousTrack = lock.withLock {
+        let previousState = lock.withLock {
             let previous = track
+            let hadAudio = storedHasAudio
             track = nil
-            return previous
+            storedHasAudio = false
+            return (track: previous, hasAudio: hadAudio)
         }
-        if let previousTrack {
+        if previousState.hasAudio {
+            do {
+                try rtcManager.stopExternalAudioSource()
+            } catch {
+                XmaxLogger.media.error(
+                    message: """
+                        停止 RTC 外部音频源失败 (Failed to Stop RTC External Audio Source)
+                        └─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)
+                        """
+                )
+            }
+        }
+        if let previousTrack = previousState.track {
             do {
                 try VideoRenderRegistry.binding(for: previousTrack)?.detach()
             } catch {

@@ -88,6 +88,7 @@ actor MediaController: MediaControlling {
             rtcManager: rtcManager,
             mediaService: mediaService,
             videoFrameListener: videoFrameListener,
+            audioFrameListener: audioFrameListener,
             errorListener: errorListener
         )
     }
@@ -150,6 +151,8 @@ actor MediaController: MediaControlling {
             return cameraController.useMicrophone
         case .video:
             return videoController?.hasAudio ?? false
+        case .external:
+            return externalController?.hasAudio ?? false
         default:
             return false
         }

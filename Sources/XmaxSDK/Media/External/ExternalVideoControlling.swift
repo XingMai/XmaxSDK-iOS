@@ -16,6 +16,11 @@ protocol ExternalVideoControlling: Sendable {
         get
     }
 
+    /// Whether the current source supplies external audio for publication.
+    var hasAudio: Bool {
+        get
+    }
+
     /// Binds an external source without taking ownership of its capture resources.
     ///
     /// - Parameter source: The external source owned by your app.

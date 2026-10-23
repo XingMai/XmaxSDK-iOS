@@ -269,7 +269,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             remoteAudioVolume = volumes.remote
 
             let menu = RealtimeAudioVolumeMenuViewController(
-                localVolume: localInput?.kind == .video ? volumes.local : nil,
+                localVolume: localInput?.kind == .video && localInput?.usesExternalSource != true
+                    ? volumes.local : nil,
                 remoteVolume: volumes.remote
             )
             menu.onLocalVolumeChanged = { [weak self] volume in
@@ -1200,6 +1201,16 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             return try await realtimeManager.createLocalVideoStream(
                 fileURL: fileURL
             )
+        case let .externalVideo(fileURL):
+            let source = try await RealtimeFileVideoSource.make(
+                fileURL: fileURL,
+                frameRate: realtimeManager.options.model.defaultFrameRate
+            )
+            let stream = try await realtimeManager.createExternalVideoStream(source: source)
+            if source.hasAudio {
+                try await realtimeManager.setRemoteAudioVolume(1)
+            }
+            return stream
         case nil:
             return try await realtimeManager.createLocalCameraStream(
                 videoFormat: RealtimePreferences.cameraVideoFormat,
@@ -1539,7 +1550,11 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
 
             switch result {
             case let .success(.some(input)):
-                replaceLocalMedia(with: input)
+                if localInput?.usesExternalSource == true, case let .video(fileURL) = input {
+                    replaceLocalMedia(with: .externalVideo(fileURL))
+                } else {
+                    replaceLocalMedia(with: input)
+                }
             case .success(.none):
                 break
             case let .failure(error):

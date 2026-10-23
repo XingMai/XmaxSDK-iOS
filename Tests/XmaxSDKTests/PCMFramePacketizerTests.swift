@@ -14,6 +14,23 @@ import XCTest
 @testable import XmaxSDK
 
 final class PCMFramePacketizerTests: XCTestCase {
+    func testContinuousInputRetainsPartialPacketsAndSampleOffsets() {
+        var packetizer = PCMFramePacketizer()
+        let samples = pcmData(sample: 3, count: 240)
+        for index in 0..<1000 {
+            packetizer.append(samples, at: index * 240)
+            if index.isMultiple(of: 2) {
+                XCTAssertNil(packetizer.nextFrame())
+            } else {
+                let packet = packetizer.nextFrame()
+                XCTAssertEqual(packet?.sampleOffset, (index - 1) * 240)
+                XCTAssertEqual(packet?.data, samples + samples)
+            }
+        }
+        packetizer.finishWithSilence()
+        XCTAssertNil(packetizer.nextFrame())
+    }
+
     func testPacketizesPCMIntoTenMillisecondFrames() {
         let firstFrame = pcmData(sample: 1, count: AudioFrame.samplesPerFrame)
         let secondFrame = pcmData(sample: 2, count: AudioFrame.samplesPerFrame)

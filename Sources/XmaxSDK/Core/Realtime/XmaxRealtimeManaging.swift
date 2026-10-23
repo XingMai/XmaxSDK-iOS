@@ -312,12 +312,15 @@ public protocol XmaxRealtimeManaging: Sendable {
     ///   operation is cancelled.
     func stopLocalVideoStream() async throws
 
-    /// Binds a video-only external source for local preview and realtime generation.
+    /// Binds an external video source with optional audio for realtime generation.
     ///
     /// The source frame rate and encoding settings are retained. Media dimensions are limited by
     /// the model's maximum area and aligned to multiples of 4. Camera resolution buckets do not
     /// apply. Submit frames at `source.videoFormat` dimensions; XmaxSDK resizes them automatically
     /// and exposes the resolved format through `sink.videoFormat`.
+    ///
+    /// Sources declaring `hasAudio` can submit PCM for RTC upload. XmaxSDK doesn't request
+    /// microphone permission or play submitted audio locally.
     ///
     /// The state becomes `ready` when binding completes, without waiting for a frame. Disconnection
     /// preserves frame delivery and preview. `stopExternalVideoStream()` and `close()` unbind the

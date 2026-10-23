@@ -28,6 +28,9 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
     /// The handler delivering frames to preview and RTC.
     private let frameListener: MediaVideoFrameListener
 
+    /// The receiver for converted RTC audio packets, without local playback.
+    private let audioFrameListener: MediaAudioFrameListener
+
     /// The unrecoverable failure handler for this binding.
     private let errorListener: XmaxErrorListener
 
@@ -42,16 +45,24 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
     /// The last accepted timestamp, in microseconds.
     private var lastTimestampUs: Int64 = -1
 
+    /// The optional audio converter, serialized with frame submission and invalidation.
+    private var audioConverter: ExternalAudioFrameConverter?
+
     /// Creates a frame sink for a source binding.
     init(
         sourceVideoFormat: RealtimeVideoFormat,
         videoFormat: RealtimeVideoFormat,
         frameListener: @escaping MediaVideoFrameListener,
+        hasAudio: Bool = false,
+        audioFrameListener: @escaping MediaAudioFrameListener = { _ in
+        },
         errorListener: @escaping XmaxErrorListener
     ) {
         self.sourceVideoFormat = sourceVideoFormat
         self.videoFormat = videoFormat
         self.frameListener = frameListener
+        self.audioFrameListener = audioFrameListener
+        audioConverter = hasAudio ? ExternalAudioFrameConverter() : nil
         self.errorListener = errorListener
     }
 
@@ -127,6 +138,29 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
         }
     }
 
+    /// Converts and submits PCM audio while the source binding accepts frames.
+    ///
+    /// - Parameter sampleBuffer: PCM samples timestamped on the source's video timeline.
+    func pushAudio(
+        _ sampleBuffer: CMSampleBuffer
+    ) {
+        lock.withLock {
+            guard active, let audioConverter else {
+                return
+            }
+            do {
+                try audioConverter.append(
+                    sampleBuffer,
+                    handler: audioFrameListener
+                )
+            } catch {
+                active = false
+                self.audioConverter = nil
+                errorListener(XmaxError.from(error))
+            }
+        }
+    }
+
     /// Reports the binding's first unrecoverable failure.
     ///
     /// - Parameter error: The external capture or processing error.
@@ -151,6 +185,7 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
     func invalidate() {
         lock.withLock {
             active = false
+            audioConverter = nil
         }
     }
 }

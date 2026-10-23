@@ -9,10 +9,11 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private enum MediaSelectionKind: Sendable {
         case image
         case video
+        case externalVideo
         case customTrajectoryImage
 
         var isVideo: Bool {
-            self == .video
+            self == .video || self == .externalVideo
         }
 
         var usesCustomTrajectoryRenderer: Bool {
@@ -237,6 +238,23 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         )
         contentStack.addArrangedSubview(swiftUICard)
         contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
+        let externalCaptureCard = FeedFeatureCardView(
+            category: "SDK MEDIA / EXTERNAL",
+            watermark: "PCM",
+            accentColor: FeedPalette.mint,
+            iconName: "video",
+            iconLabel: "EXTERNAL",
+            title: XLLocalization.text("feed.external.title"),
+            subtitle: XLLocalization.text("feed.external.subtitle"),
+            tags: ["EXTERNAL SOURCE", "VIDEO", "PCM AUDIO"],
+            highlightedTag: "EXTERNAL SOURCE"
+        )
+        externalCaptureCard.isUserInteractionEnabled = true
+        externalCaptureCard.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(selectExternalVideo))
+        )
+        contentStack.addArrangedSubview(externalCaptureCard)
+        contentStack.addArrangedSubview(feedFixedSpacer(height: 14))
         let customTrajectoryCard = FeedFeatureCardView(
             category: "SDK RENDERING / TRAJECTORY",
             watermark: "FX",
@@ -313,6 +331,11 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         presentMediaPicker(for: .video)
     }
 
+    @objc private func selectExternalVideo() {
+        guard validateAPIKey() else { return }
+        presentMediaPicker(for: .externalVideo)
+    }
+
     @objc private func selectLocalImage() {
         guard validateAPIKey() else { return }
         presentMediaPicker(for: .image)
@@ -371,11 +394,12 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
         switch kind {
         case .image, .customTrajectoryImage:
             loadSelectedImage(from: provider, kind: kind)
-        case .video:
+        case .video, .externalVideo:
             loadSelectedVideo(
                 from: provider,
                 typeIdentifier: typeIdentifier,
-                preferredExtension: preferredExtension
+                preferredExtension: preferredExtension,
+                kind: kind
             )
         }
     }
@@ -415,7 +439,8 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
     private func loadSelectedVideo(
         from provider: NSItemProvider,
         typeIdentifier: String,
-        preferredExtension: String?
+        preferredExtension: String?,
+        kind: MediaSelectionKind
     ) {
         provider.loadFileRepresentation(
             forTypeIdentifier: typeIdentifier
@@ -423,7 +448,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
             guard let self else { return }
             if let error {
                 DispatchQueue.main.async {
-                    self.finishMediaSelection(error: error, kind: .video)
+                    self.finishMediaSelection(error: error, kind: kind)
                 }
                 return
             }
@@ -431,7 +456,7 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
                 DispatchQueue.main.async {
                     self.finishMediaSelection(
                         error: FeedMediaSelectionError.unreadableFile,
-                        kind: .video
+                        kind: kind
                     )
                 }
                 return
@@ -444,13 +469,13 @@ final class FeedViewController: UIViewController, UIGestureRecognizerDelegate {
                 )
                 DispatchQueue.main.async {
                     self.finishMediaSelection(
-                        with: .video(localURL),
+                        with: kind == .externalVideo ? .externalVideo(localURL) : .video(localURL),
                         usesCustomTrajectoryRenderer: false
                     )
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.finishMediaSelection(error: error, kind: .video)
+                    self.finishMediaSelection(error: error, kind: kind)
                 }
             }
         }

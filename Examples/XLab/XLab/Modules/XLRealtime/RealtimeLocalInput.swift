@@ -8,12 +8,18 @@ enum RealtimeLocalInput: Sendable {
 
     case image(UIImage)
     case video(URL)
+    case externalVideo(URL)
+
+    var usesExternalSource: Bool {
+        if case .externalVideo = self { return true }
+        return false
+    }
 
     var kind: Kind {
         switch self {
         case .image:
             .image
-        case .video:
+        case .video, .externalVideo:
             .video
         }
     }

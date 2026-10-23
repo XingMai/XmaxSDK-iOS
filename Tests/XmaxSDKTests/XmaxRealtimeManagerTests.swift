@@ -11,6 +11,7 @@
 
 import CoreGraphics
 import UIKit
+import CoreMedia
 import XCTest
 @testable import XmaxSDK
 
@@ -637,6 +638,38 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         XCTAssertTrue(currentTrack === stream.videoTrack)
         XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1.defaultFrameRate)
         await manager.close()
+    }
+
+    func testExternalAudioPublishesOnlyWhileConnectedAndReconnectsWithoutMicrophone() async throws {
+        let components = makeComponents()
+        let source = RealtimeExternalVideoSourceStub(hasAudio: true)
+        let stream = try await components.manager.createExternalVideoStream(source: source)
+        let sink = try XCTUnwrap(source.sink)
+        let hasAudio = await components.mediaController.hasAudio
+        XCTAssertTrue(hasAudio)
+
+        sink.pushAudio(try AudioSampleBufferFactory.make())
+        _ = try await components.manager.connect(localStream: stream)
+        XCTAssertTrue(components.rtcManager.calls.contains(.publishLocalAudio))
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 1, timescale: 1)))
+        await components.manager.disconnect()
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 2, timescale: 1)))
+        XCTAssertTrue(sink.isRequestingFrames)
+        XCTAssertEqual(source.stopCount, 0)
+
+        _ = try await components.manager.connect(localStream: stream)
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 3, timescale: 1)))
+        let sentFrames = components.rtcManager.calls.compactMap { call -> AudioFrame? in
+            if case let .pushExternalAudioFrame(frame) = call { return frame }
+            return nil
+        }
+        XCTAssertEqual(sentFrames.map(\.timestampUs), [1000000, 3000000])
+        XCTAssertFalse(components.rtcManager.calls.contains(.startAudioCapture))
+        await components.manager.close()
+        sink.pushAudio(try AudioSampleBufferFactory.make(timestamp: CMTime(value: 4, timescale: 1)))
+        XCTAssertFalse(sink.isRequestingFrames)
+        XCTAssertEqual(source.stopCount, 1)
+        XCTAssertEqual(components.rtcManager.calls.filter { $0 == .stopExternalAudioSource }.count, 1)
     }
 
     func testExternalStreamDisconnectPreservesSourceAndCloseUnbinds() async throws {
@@ -2070,6 +2103,7 @@ private extension XmaxRealtimeManagerTests {
                 rtcManager: rtcManager,
                 mediaService: MediaService(model: model),
                 videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
+                audioFrameListener: { try streamController.pushLocalAudioFrame($0) },
                 errorListener: { errorHandler.forward($0, target: .all) }
             )
         )

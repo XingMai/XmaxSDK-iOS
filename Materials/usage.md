@@ -136,7 +136,31 @@ controls frame pacing. Timestamps must be nonnegative and monotonically
 increasing, including across loops and seeks. Pixels are copied synchronously;
 the buffer may be reused after `pushVideo` returns.
 
-This input is video-only and does not request camera or microphone permission.
+To upload audio as well, implement `hasAudio` on your source and return `true`.
+From the audio callback, submit decoded PCM buffers through the same sink:
+
+```swift
+if sink.isRequestingFrames {
+    sink.pushAudio(audioSampleBuffer)
+}
+```
+
+The audio buffer's presentation timestamp identifies its first sample and must use
+the same monotonic timeline as the video timestamp. Keep timestamps increasing
+across loops and seeks; do not independently reset audio and video to zero. Submit
+buffers at their playback or capture cadence rather than decoding an entire file
+into the sink at once. Invalid timestamps and overlapping audio buffers are
+ignored. Gaps start new audio segments without inserting silence.
+
+XmaxSDK copies PCM synchronously, converts it to 48 kHz mono PCM16, and sends it
+in 10 ms packets. The PCM format and `hasAudio` must remain unchanged while bound.
+Compressed audio must be decoded first. Audio is uploaded only while published;
+disconnected audio is not queued for reconnection. XmaxSDK does not play submitted
+audio locally. Remote playback remains controlled by `setRemoteAudioVolume` and
+starts muted for external sources; set a nonzero volume after creating the stream
+if remote audio playback is needed.
+
+External input does not request camera or microphone permission.
 Frames also drive the SDK preview, so continue supplying them before generation
 and after `disconnect()`. Creating the stream marks it ready once binding succeeds;
 it does not wait for the first frame or start a session. Use the same generation

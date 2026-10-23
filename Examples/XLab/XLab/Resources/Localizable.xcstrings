@@ -1,6 +1,20 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "feed.external.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "External Capture" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "外部采集" } }
+      }
+    },
+    "feed.external.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose a video and supply decoded video and PCM audio through an external source." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择视频，通过外部源提交解码后的视频帧和 PCM 音频。" } }
+      }
+    },
     "realtime.camera.format" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -13,6 +13,38 @@ import XCTest
 
 @MainActor
 final class ExternalVideoControllerTests: XCTestCase {
+    func testAudioSourceOwnsCustomTrackWithoutMicrophoneCapture() async throws {
+        let rtc = RtcManagingStub()
+        let controller = makeController(rtc)
+        let source = RealtimeExternalVideoSourceStub(hasAudio: true)
+        _ = try await controller.createExternalVideoStream(source: source)
+        XCTAssertTrue(controller.hasAudio)
+        XCTAssertEqual(rtc.calls, [.useExternalVideoSource, .startExternalAudioSource])
+        await controller.stopExternalVideoStream()
+        await controller.stopExternalVideoStream()
+        XCTAssertFalse(controller.hasAudio)
+        XCTAssertEqual(rtc.calls.filter { $0 == .stopExternalAudioSource }.count, 1)
+        XCTAssertFalse(rtc.calls.contains(.startAudioCapture))
+    }
+
+    func testFailedAudioSourceStartupReleasesTrackAndAllowsSilentRetry() async throws {
+        let rtc = RtcManagingStub()
+        let controller = makeController(rtc)
+        let source = RealtimeExternalVideoSourceStub(hasAudio: true)
+        source.startHandler = { throw XmaxError(code: .mediaError, message: "failed") }
+        do {
+            _ = try await controller.createExternalVideoStream(source: source)
+            XCTFail("Expected startup failure")
+        } catch {}
+        XCTAssertFalse(controller.hasAudio)
+        XCTAssertNil(controller.currentTrack)
+        XCTAssertEqual(rtc.calls.filter { $0 == .stopExternalAudioSource }.count, 1)
+        _ = try await controller.createExternalVideoStream(source: RealtimeExternalVideoSourceStub())
+        XCTAssertFalse(controller.hasAudio)
+        await controller.stopExternalVideoStream()
+        XCTAssertEqual(rtc.calls.filter { $0 == .stopExternalAudioSource }.count, 1)
+    }
+
     func testResolvesSizePreservesSourceFPSAndEncodingWithoutMicrophone() async throws {
         let rtc = RtcManagingStub()
         let controller = makeController(rtc)

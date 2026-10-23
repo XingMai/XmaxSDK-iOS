@@ -34,8 +34,8 @@ struct PCMFramePacketizer {
     /// The bytes per 10 ms packet.
     private static let frameByteCount = AudioFrame.samplesPerFrame * bytesPerSample
 
-    /// The playback cycle sample count, aligned to whole frames.
-    private let totalSamples: Int
+    /// The optional sample limit for a finite playback cycle.
+    private let totalSamples: Int?
 
     /// Playback cycle state.
 
@@ -51,9 +51,9 @@ struct PCMFramePacketizer {
     /// The samples emitted in this playback cycle.
     private var outputCursor = 0
 
-    /// Creates a PCM packetizer for a fixed sample count.
+    /// Creates a PCM packetizer with an optional playback cycle limit.
     init(
-        totalSamples: Int
+        totalSamples: Int? = nil
     ) {
         self.totalSamples = totalSamples
     }
@@ -67,7 +67,8 @@ struct PCMFramePacketizer {
         _ data: Data,
         at requestedStartSample: Int
     ) {
-        guard !data.isEmpty, timelineWriteCursor < totalSamples else {
+        let sampleLimit = totalSamples ?? Int.max
+        guard !data.isEmpty, timelineWriteCursor < sampleLimit else {
             return
         }
         let startSample = max(
@@ -78,7 +79,7 @@ struct PCMFramePacketizer {
             appendSilence(
                 sampleCount: min(
                     startSample - timelineWriteCursor,
-                    totalSamples - timelineWriteCursor
+                    sampleLimit - timelineWriteCursor
                 )
             )
         }
@@ -94,7 +95,7 @@ struct PCMFramePacketizer {
         let availableSamples = (data.count - overlapBytes) / Self.bytesPerSample
         let acceptedSamples = min(
             availableSamples,
-            totalSamples - timelineWriteCursor
+            sampleLimit - timelineWriteCursor
         )
         guard acceptedSamples > 0 else {
             return
@@ -114,6 +115,9 @@ struct PCMFramePacketizer {
 
     /// Pads the rest of the playback cycle with silence.
     mutating func finishWithSilence() {
+        guard let totalSamples else {
+            return
+        }
         appendSilence(sampleCount: totalSamples - timelineWriteCursor)
     }
 
@@ -121,9 +125,7 @@ struct PCMFramePacketizer {
     ///
     /// - Returns: The audio and cycle sample offset, or `nil` if no complete frame remains.
     mutating func nextFrame() -> (data: Data, sampleOffset: Int)? {
-        guard timelineWriteCursor - outputCursor >= AudioFrame.samplesPerFrame,
-            outputCursor < totalSamples
-        else {
+        guard timelineWriteCursor - outputCursor >= AudioFrame.samplesPerFrame else {
             return nil
         }
 
@@ -158,6 +160,10 @@ struct PCMFramePacketizer {
 
         let sampleOffset = outputCursor
         outputCursor += AudioFrame.samplesPerFrame
+        if segmentIndex > 0 {
+            segments.removeFirst(segmentIndex)
+            segmentIndex = 0
+        }
         return (data, sampleOffset)
     }
 
