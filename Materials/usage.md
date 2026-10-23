@@ -104,7 +104,7 @@ final class MyVideoSource: RealtimeExternalVideoSource {
     private(set) var sink: (any RealtimeExternalFrameSink)?
 
     func start(sink: any RealtimeExternalFrameSink) async throws {
-        // Configure your producer to output sink.videoFormat, then start delivery.
+        // Bind your producer's callback and submit frames in source.videoFormat.
         self.sink = sink
     }
 
@@ -128,10 +128,11 @@ if sink.isRequestingFrames {
 ```
 
 Store or capture the sink safely for your callback queue. Frames must be upright
-NV12 video-range (`420v`) or BGRA buffers matching `sink.videoFormat`. XmaxSDK
-limits input dimensions to the model's maximum pixel area and aligns them to 4;
-the source frame rate and encoding options are preserved. The producer handles
-resizing and frame pacing. Timestamps must be nonnegative and monotonically
+NV12 video-range (`420v`) or BGRA buffers matching `source.videoFormat`. XmaxSDK
+automatically processes them to `sink.videoFormat`, applying the model's maximum
+pixel area and four-pixel alignment. The processed frame is shared by local preview
+and uplink; the source frame rate and encoding options are preserved. The producer
+controls frame pacing. Timestamps must be nonnegative and monotonically
 increasing, including across loops and seeks. Pixels are copied synchronously;
 the buffer may be reused after `pushVideo` returns.
 
@@ -155,7 +156,7 @@ canvas (`size`), and `targetSize` is the return resolution (`target_size`).
 
 All local input sources use `resolveMediaSize(_:source:)`. Camera dimensions
 must match a configured model resolution bucket before any scaling. Images and
-videos do not need to match a bucket. Local frames are limited to the model's
+videos and external inputs do not need to match a bucket. Local frames are limited to the model's
 `maximumInputPixels`, without enlarging smaller inputs, and aligned to multiples
 of 4 with the source aspect ratio preserved where possible. For example,
 a 3840 × 2160 video becomes 1920 × 1080 with a 2100000-pixel limit. Upload quality

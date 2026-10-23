@@ -10,22 +10,23 @@
 
 import Foundation
 
-/// 文件存储公共入口，负责将服务层能力转换为公开 API。
+/// Provides public file transfer operations backed by the storage service.
 final class XmaxStorageManager: XmaxStorageManaging, Sendable {
 
-    /// 执行文件上传、下载和安全检查的服务。
+    /// The service that uploads, downloads, and checks media.
     private let storageService: any StorageServicing
 
-    /// 使用指定存储服务创建文件管理组件。
+    /// Creates a file manager with the specified storage service.
     init(
         storageService: any StorageServicing
     ) {
         self.storageService = storageService
     }
 
-    /// 创建使用默认对象存储实现的文件管理组件。
+    /// Creates a file manager backed by the default object storage implementation.
     ///
-    /// - Parameter apiService: 提供临时存储凭证和内容安全检查的 API 服务。
+    /// - Parameter apiService: The API service that supplies storage credentials and media safety
+    ///   checks.
     convenience init(
         apiService: any ApiServicing
     ) {
@@ -37,15 +38,17 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         )
     }
 
-    /// 上传图片数据。
+    /// Uploads encoded image data.
     ///
     /// - Parameters:
-    ///   - data: 图片的文件编码数据。
-    ///   - fileName: 包含扩展名的文件名，用于生成存储对象名。
-    ///   - contentType: 文件的 MIME 类型，例如 image/jpeg。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 上传文件的访问地址、对象标识和可用的实体标识。
-    /// - Throws: 输入无效、凭证获取或上传失败时抛出错误。
+    ///   - data: The encoded image file data.
+    ///   - fileName: The filename, including its extension.
+    ///   - contentType: The file's MIME type, such as `image/jpeg`.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The remote file URL, object key, and entity tag, if available.
+    ///
+    /// - Throws: An error if input validation, credential retrieval, or the upload fails.
     func uploadImage(
         _ data: Data,
         fileName: String,
@@ -62,14 +65,16 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 上传本地图片文件。
+    /// Uploads a local image file.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地图片文件地址。
-    ///   - contentType: 文件的 MIME 类型；nil 时根据文件名推断。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 上传文件的访问地址、对象标识和可用的实体标识。
-    /// - Throws: 输入无效、凭证获取或上传失败时抛出错误。
+    ///   - fileURL: The URL of a readable local image file.
+    ///   - contentType: The file's MIME type, or `nil` to infer it from the filename.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The remote file URL, object key, and entity tag, if available.
+    ///
+    /// - Throws: An error if input validation, credential retrieval, or the upload fails.
     func uploadImage(
         at fileURL: URL,
         contentType: String?,
@@ -84,15 +89,18 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 上传图片数据，并完成内容安全检查后返回结果。
+    /// Uploads encoded image data and checks its content before returning.
     ///
     /// - Parameters:
-    ///   - data: 图片的文件编码数据。
-    ///   - fileName: 包含扩展名的文件名，用于生成存储对象名。
-    ///   - contentType: 文件的 MIME 类型，例如 image/jpeg。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 上传文件的访问地址、对象标识和可用的实体标识。
-    /// - Throws: 输入无效、凭证获取或上传失败、内容安全检查未通过时抛出错误。
+    ///   - data: The encoded image file data.
+    ///   - fileName: The filename, including its extension.
+    ///   - contentType: The file's MIME type, such as `image/jpeg`.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The remote file URL, object key, and entity tag, if available.
+    ///
+    /// - Throws: An error if input validation, credential retrieval, the upload, or the content
+    ///   safety check fails.
     func uploadImageWithSafetyCheck(
         _ data: Data,
         fileName: String,
@@ -109,14 +117,17 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 上传本地图片文件，并完成内容安全检查后返回结果。
+    /// Uploads a local image file and checks its content before returning.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地图片文件地址。
-    ///   - contentType: 文件的 MIME 类型；nil 时根据文件名推断。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 上传文件的访问地址、对象标识和可用的实体标识。
-    /// - Throws: 输入无效、凭证获取或上传失败、内容安全检查未通过时抛出错误。
+    ///   - fileURL: The URL of a readable local image file.
+    ///   - contentType: The file's MIME type, or `nil` to infer it from the filename.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The remote file URL, object key, and entity tag, if available.
+    ///
+    /// - Throws: An error if input validation, credential retrieval, the upload, or the content
+    ///   safety check fails.
     func uploadImageWithSafetyCheck(
         at fileURL: URL,
         contentType: String?,
@@ -131,15 +142,17 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 上传视频数据。
+    /// Uploads encoded video data.
     ///
     /// - Parameters:
-    ///   - data: 视频的文件编码数据。
-    ///   - fileName: 包含扩展名的文件名，用于生成存储对象名。
-    ///   - contentType: 文件的 MIME 类型，例如 video/mp4。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 上传文件的访问地址、对象标识和可用的实体标识。
-    /// - Throws: 输入无效、凭证获取或上传失败时抛出错误。
+    ///   - data: The encoded video file data.
+    ///   - fileName: The filename, including its extension.
+    ///   - contentType: The file's MIME type, such as `video/mp4`.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The remote file URL, object key, and entity tag, if available.
+    ///
+    /// - Throws: An error if input validation, credential retrieval, or the upload fails.
     func uploadVideo(
         _ data: Data,
         fileName: String,
@@ -156,14 +169,16 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 上传本地视频文件。
+    /// Uploads a local video file.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地视频文件地址。
-    ///   - contentType: 文件的 MIME 类型；nil 时根据文件名推断。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 上传文件的访问地址、对象标识和可用的实体标识。
-    /// - Throws: 输入无效、凭证获取或上传失败时抛出错误。
+    ///   - fileURL: The URL of a readable local video file.
+    ///   - contentType: The file's MIME type, or `nil` to infer it from the filename.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The remote file URL, object key, and entity tag, if available.
+    ///
+    /// - Throws: An error if input validation, credential retrieval, or the upload fails.
     func uploadVideo(
         at fileURL: URL,
         contentType: String?,
@@ -178,14 +193,16 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 下载图片到指定本地文件。
+    /// Downloads an image to the specified local file.
     ///
     /// - Parameters:
-    ///   - remoteURL: 待下载图片的远端地址。
-    ///   - destinationURL: 下载文件的本地保存地址。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 本地文件地址及下载字节数。
-    /// - Throws: 地址无效、文件写入或下载失败时抛出错误。
+    ///   - remoteURL: The URL of the remote image.
+    ///   - destinationURL: The local URL at which to save the downloaded file.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The local file URL and the number of bytes downloaded.
+    ///
+    /// - Throws: An error if a URL is invalid, the file cannot be written, or the download fails.
     func downloadImage(
         from remoteURL: URL,
         to destinationURL: URL,
@@ -200,14 +217,16 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
         }
     }
 
-    /// 下载视频到指定本地文件。
+    /// Downloads a video to the specified local file.
     ///
     /// - Parameters:
-    ///   - remoteURL: 待下载视频的远端地址。
-    ///   - destinationURL: 下载文件的本地保存地址。
-    ///   - progress: 文件传输进度回调；nil 表示不接收进度。
-    /// - Returns: 本地文件地址及下载字节数。
-    /// - Throws: 地址无效、文件写入或下载失败时抛出错误。
+    ///   - remoteURL: The URL of the remote video.
+    ///   - destinationURL: The local URL at which to save the downloaded file.
+    ///   - progress: The transfer progress handler, or `nil` to omit progress notifications.
+    ///
+    /// - Returns: The local file URL and the number of bytes downloaded.
+    ///
+    /// - Throws: An error if a URL is invalid, the file cannot be written, or the download fails.
     func downloadVideo(
         from remoteURL: URL,
         to destinationURL: URL,
@@ -225,10 +244,11 @@ final class XmaxStorageManager: XmaxStorageManaging, Sendable {
 
 private extension XmaxStorageManager {
 
-    /// 将字节进度转换为公开的文件进度回调。
+    /// Adapts byte counts to public file transfer progress notifications.
     ///
-    /// - Parameter handler: 接收 Progress 的回调；nil 表示不监听。
-    /// - Returns: 供存储服务调用的字节进度监听器；未提供回调时返回 nil。
+    /// - Parameter handler: The progress handler, or `nil` to omit notifications.
+    ///
+    /// - Returns: A byte progress listener, or `nil` if no handler was supplied.
     func progressListener(
         _ handler: XmaxStorageProgressHandler?
     ) -> StorageProgressListener? {
@@ -242,11 +262,13 @@ private extension XmaxStorageManager {
         }
     }
 
-    /// 执行上传并转换为公开的上传结果。
+    /// Uploads a file and returns its metadata.
     ///
-    /// - Parameter operation: 返回服务层上传结果的异步操作。
-    /// - Returns: 供接入方使用的远端文件信息。
-    /// - Throws: 上传失败时抛出转换后的 XmaxError。
+    /// - Parameter operation: The asynchronous upload returning a service-level result.
+    ///
+    /// - Returns: The uploaded file metadata.
+    ///
+    /// - Throws: The upload error converted to an `XmaxError`.
     func uploadedFile(
         _ operation: () async throws -> StoredFile
     ) async throws -> XmaxUploadedFile {
@@ -262,11 +284,13 @@ private extension XmaxStorageManager {
         }
     }
 
-    /// 执行下载并转换为公开的下载结果。
+    /// Downloads a file and returns its metadata.
     ///
-    /// - Parameter operation: 返回服务层下载结果的异步操作。
-    /// - Returns: 供接入方使用的本地文件信息。
-    /// - Throws: 下载失败时抛出转换后的 XmaxError。
+    /// - Parameter operation: The asynchronous download returning a service-level result.
+    ///
+    /// - Returns: The downloaded file metadata.
+    ///
+    /// - Throws: The download error converted to an `XmaxError`.
     func downloadedFile(
         _ operation: () async throws -> DownloadedFile
     ) async throws -> XmaxDownloadedFile {

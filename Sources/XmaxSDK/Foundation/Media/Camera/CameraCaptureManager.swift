@@ -325,7 +325,7 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         lastTimestampUs = timestampUs
 
         do {
-            let frame = try NV12VideoFrameConverter.convert(
+            let frame = try VideoFrameConverter.convert(
                 pixelBuffer: pixelBuffer,
                 outputWidth: videoFormat.width,
                 outputHeight: videoFormat.height,

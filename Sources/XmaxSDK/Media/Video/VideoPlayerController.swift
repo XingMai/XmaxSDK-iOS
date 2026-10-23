@@ -442,7 +442,7 @@ private extension VideoPlayerController {
                 }
                 let frame: VideoFrame
                 do {
-                    frame = try NV12VideoFrameConverter.convert(
+                    frame = try VideoFrameConverter.convert(
                         pixelBuffer: pixelBuffer,
                         outputWidth: configuration.outputWidth,
                         outputHeight: configuration.outputHeight,

@@ -13,301 +13,387 @@ import Foundation
 import UIKit
 #endif
 
-/// 定义 SDK 对接入方提供的实时媒体与生成控制能力。
+/// An interface for local media, realtime connections, and video generation.
 public protocol XmaxRealtimeManaging: Sendable {
 
-    /// 实时能力配置。
-    var options: RealtimeConfiguration { get }
+    /// The realtime configuration.
+    var options: RealtimeConfiguration {
+        get
+    }
 
-    /// 当前实时连接与生成状态。
-    var currentState: RealtimeState { get async }
+    /// The current connection and generation state.
+    var currentState: RealtimeState {
+        get async
+    }
 
-    /// 当前摄像头媒体输出规格；没有摄像头流时为 `nil`，不随上行调档变化。
-    var currentCameraVideoFormat: RealtimeVideoFormat? { get async }
+    /// The camera's resolved media format, or `nil` without a camera stream. Uplink quality changes
+    /// do not affect it.
+    var currentCameraVideoFormat: RealtimeVideoFormat? {
+        get async
+    }
 
-    /// 当前摄像头分辨率对应的预设；没有摄像头流或没有匹配预设时为 `nil`。
-    var currentCameraPreset: RealtimeCameraPreset? { get async }
+    /// The preset matching the camera dimensions, or `nil` if no camera or matching preset exists.
+    var currentCameraPreset: RealtimeCameraPreset? {
+        get async
+    }
 
-    /// 更新未连接、已就绪的摄像头规格，保留原轨道和视图绑定。
+    /// Updates a ready, disconnected camera stream while preserving its track and view bindings.
     ///
-    /// - Parameter videoFormat: 新的尺寸、采集帧率与编码配置；尺寸须匹配模型支持列表。
-    /// - Throws: 状态不允许、规格不受支持、操作冲突或设备配置失败时抛出错误。
+    /// - Parameter videoFormat: The new capture dimensions, frame rate, and encoding settings.
+    ///   Dimensions must match a supported model format.
+    ///
+    /// - Throws: An error if the state or format is invalid, another operation is active, or device
+    ///   configuration fails.
     func updateCameraFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async throws
 
-    /// 更新摄像头分辨率，保留当前帧率、码率和编码偏好。
+    /// Updates camera dimensions while preserving the current frame rate, bitrate, and encoding
+    /// preference.
     ///
-    /// - Parameter preset: 模型支持的目标分辨率预设。
-    /// - Throws: 状态不允许、预设不受支持、操作冲突或设备配置失败时抛出错误。
+    /// - Parameter preset: A resolution preset supported by the model.
+    ///
+    /// - Throws: An error if the state or preset is invalid, another operation is active, or device
+    ///   configuration fails.
     func updateCameraFormat(
         _ preset: RealtimeCameraPreset
     ) async throws
 
-    /// 当前成功应用的上行档位；连接尚未完成或已开始断开时为 `nil`。
-    var uplinkQualityLevel: RealtimeQualityLevel? { get async }
+    /// The applied uplink level, or `nil` before connection completes or after disconnection
+    /// begins.
+    var uplinkQualityLevel: RealtimeQualityLevel? {
+        get async
+    }
 
-    /// 当前成功提交的下行档位；连接尚未完成或已开始断开时为 `nil`。
-    /// 服务端返回新尺寸可能稍晚于本属性更新。
-    var downlinkQualityLevel: RealtimeQualityLevel? { get async }
-
-    /// 在生成中调整上行编码档位，不改变媒体采集规格或生成尺寸。
-    /// 后续网络采样仍可自动调整档位，不会锁定为手动选择值。
+    /// The submitted downlink level, or `nil` before connection completes or after disconnection
+    /// begins.
     ///
-    /// - Parameter level: 目标上行档位。
-    /// - Throws: 未在生成、操作冲突、取消或编码配置失败时抛出错误。
+    /// The server may begin returning the new dimensions after this value changes.
+    var downlinkQualityLevel: RealtimeQualityLevel? {
+        get async
+    }
+
+    /// Changes the uplink encoding level during generation without changing capture or generation
+    /// dimensions.
+    ///
+    /// Automatic adaptation may subsequently change the level; a manual selection does not lock it.
+    ///
+    /// - Parameter level: The requested uplink quality level.
+    ///
+    /// - Throws: An error if generation is inactive, an operation conflicts or is cancelled, or
+    ///   encoder configuration fails.
     func setUplinkQualityLevel(
         _ level: RealtimeQualityLevel
     ) async throws
 
-    /// 在生成中调整下行回传档位，并保留当前插帧尺寸限制。
-    /// 后续网络采样仍可自动调整档位，不会锁定为手动选择值。
+    /// Changes the downlink level during generation while retaining frame interpolation limits.
     ///
-    /// - Parameter level: 目标下行档位。
-    /// - Throws: 未在生成、操作冲突、取消、信令发送或渲染配置失败时抛出错误。
+    /// Automatic adaptation may subsequently change the level; a manual selection does not lock it.
+    ///
+    /// - Parameter level: The requested downlink quality level.
+    ///
+    /// - Throws: An error if generation is inactive, an operation conflicts or is cancelled, or
+    ///   signaling or rendering configuration fails.
     func setDownlinkQualityLevel(
         _ level: RealtimeQualityLevel
     ) async throws
 
-    /// 当前实际生效的远端视频插帧状态。
-    var isFrameInterpolationEnabled: Bool { get async }
+    /// Whether remote video frame interpolation is currently enabled.
+    var isFrameInterpolationEnabled: Bool {
+        get async
+    }
 
-    /// 当前本地媒体预览音量，取值范围为 `0...1`。
-    var localAudioVolume: Float { get async }
+    /// The local media preview volume, in the range `0...1`.
+    var localAudioVolume: Float {
+        get async
+    }
 
-    /// 当前远端生成音频播放音量，取值范围为 `0...1`。
-    /// 新建摄像头或图片流后初始值为 0，文件视频流为 1。
-    var remoteAudioVolume: Float { get async }
-
-    /// 设置实时状态监听器。
+    /// The remote audio playback volume, in the range `0...1`.
     ///
-    /// - Parameter listener: 实时状态回调；传入 `nil` 时清除监听器。
+    /// Creating a video file stream sets this value to 1. Other local stream types set it to 0.
+    var remoteAudioVolume: Float {
+        get async
+    }
+
+    /// Sets the realtime state listener.
+    ///
+    /// - Parameter listener: The state change handler, or `nil` to remove the listener.
     func setStateListener(
         _ listener: RealtimeStateListener?
     ) async
 
-    /// 设置远端最终视频帧监听器。
+    /// Sets a listener for remote video frames after optional interpolation.
     ///
-    /// 监听器接收完成可选插帧处理、即将用于画面显示的视频帧。回调由 SDK
-    /// 内部串行队列触发，不会阻塞主线程；调用方应快速转交帧数据，避免在
-    /// 回调中执行耗时编码。传入 `nil` 时清除监听器。
+    /// Frames are delivered on an internal serial queue before display. Forward frames promptly and
+    /// avoid expensive encoding in the callback. Pass `nil` to remove the listener.
     ///
-    /// - Parameter listener: 远端最终视频帧回调。
+    /// - Parameter listener: The handler for remote output frames.
     func setRemoteVideoFrameListener(
         _ listener: RealtimeVideoFrameListener?
     ) async
 
-    /// 设置视频上行统计监听器。
+    /// Sets the uplink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: A main-actor handler that receives `nil` when unpublished or
+    ///   disconnected. Pass `nil` to remove it.
     func setUplinkVideoStatisticsListener(
         _ listener: UplinkVideoStatisticsListener?
     ) async
 
-    /// 设置视频下行统计监听器。
+    /// Sets the downlink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: A main-actor handler that receives `nil` when the result stream is
+    ///   cleared. Pass `nil` to remove it.
     func setDownlinkVideoStatisticsListener(
         _ listener: DownlinkVideoStatisticsListener?
     ) async
 
-    /// 设置网络质量监听器。
+    /// Sets the network quality listener.
     ///
-    /// - Parameter listener: 上下行网络质量回调；传入 `nil` 时清除监听器。
+    /// - Parameter listener: The uplink and downlink quality handler, or `nil` to remove it.
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) async
 
-    /// 设置设备性能告警监听器。
+    /// Sets the device performance alarm listener.
     ///
-    /// - Parameter listener: 设备性能告警回调；传入 `nil` 时清除监听器。
+    /// - Parameter listener: The device performance alarm handler, or `nil` to remove it.
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     ) async
 
-    /// 设置本地媒体预览音量。
+    /// Sets the local media preview volume.
     ///
-    /// - Parameter volume: 本地预览音量，取值范围为 `0...1`。
-    /// - Throws: 音量超出有效范围时抛出错误。
+    /// - Parameter volume: The preview volume, in the range `0...1`.
+    ///
+    /// - Throws: An error if the volume is outside the valid range.
     func setLocalAudioVolume(
         _ volume: Float
     ) async throws
 
-    /// 设置远端生成音频播放音量。
+    /// Sets the remote audio playback volume.
     ///
-    /// 尚未连接或订阅远端流时保存配置，并在远端音频开始播放前应用。
-    /// 如需覆盖初始音量，请在创建本地流后调用。
+    /// The setting is retained before connection or subscription and applied before remote audio
+    /// playback. Call this method after creating the local stream to override its initial volume.
     ///
-    /// - Parameter volume: 远端播放音量，取值范围为 `0...1`。
-    /// - Throws: 音量超出有效范围或 RTC 音量配置失败时抛出错误。
+    /// - Parameter volume: The remote playback volume, in the range `0...1`.
+    ///
+    /// - Throws: An error if the volume is invalid or RTC volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Float
     ) async throws
 
-    /// 开启或关闭远端生成画面的插帧。
+    /// Enables or disables frame interpolation for remote video.
     ///
-    /// 设置结果覆盖初始化配置。生成中开启时请求等比例缩小回传尺寸，关闭时
-    /// 请求恢复当前网络档位的回传尺寸；不会重新连接或重启生成。
-    /// 尺寸切换期间继续显示原始帧。
+    /// This setting overrides the initial configuration. Enabling interpolation requests reduced
+    /// output dimensions; disabling it restores the dimensions for the current quality level
+    /// without reconnecting or restarting generation. Original frames remain visible while output
+    /// dimensions change.
     ///
-    /// - Parameter enabled: 是否开启远端视频插帧。
-    /// - Throws: 其他实时操作正在执行、设备或目标尺寸不支持插帧，或信令发送失败时抛出错误。
+    /// - Parameter enabled: Whether to enable remote video frame interpolation.
+    ///
+    /// - Throws: An error if another operation is active, interpolation is unsupported, or
+    ///   signaling fails.
     func setFrameInterpolationEnabled(
         _ enabled: Bool
     ) async throws
 
-    /// 创建本地相机流并开始预览。
+    /// Creates a local camera stream and starts its preview.
     ///
-    /// 将返回的轨道绑定到预览视图；收到有效帧且视图已绑定后进入 `ready`。
+    /// Bind the returned track to a preview view. The state becomes `ready` after the bound view
+    /// receives a valid frame.
     ///
     /// - Parameters:
-    ///   - videoFormat: 相机采集的视频规格。
-    ///   - position: 首次启用的摄像头位置。
-    ///   - useMicrophone: 是否使用麦克风；创建时申请权限，连接时开始采集，断开时停止采集。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
+    ///   - videoFormat: The camera capture and encoding format.
+    ///   - position: The camera position to use initially.
+    ///   - useMicrophone: Whether to request microphone access during creation and capture audio
+    ///     while connected.
+    ///
+    /// - Returns: A media stream containing the local camera video track.
+    ///
+    /// - Throws: An error if configuration is invalid, a required permission is denied, an
+    ///   operation conflicts, or capture cannot start.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition,
         useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
 
-    /// 停止本地相机流并更新媒体就绪状态。
+    /// Stops the local camera stream.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopLocalCameraStream() async throws
 
-    /// 切换前后置摄像头。
+    /// Switches between the front and rear cameras.
     ///
-    /// 生成过程中调用时，SDK 会停止当前生成、切换摄像头，并使用缓存的生成
-    /// 条件恢复生成；RTC 连接保持不变。连接或生成正在启动时不可切换。
+    /// During generation, XmaxSDK stops the current task, switches cameras, and resumes with cached
+    /// conditions. The RTC connection remains open. Switching is unavailable while connection or
+    /// generation startup is in progress.
     ///
-    /// - Returns: 复用原视频轨道并更新摄像头位置后的本地媒体流。
-    /// - Throws: 当前没有摄像头流、实时流程正在启动，或摄像头切换及生成恢复
-    ///   失败时抛出错误。
+    /// - Returns: The local stream with its existing video track and updated camera position.
+    ///
+    /// - Throws: An error if no camera stream exists, realtime startup is in progress, or camera
+    ///   switching or generation restart fails.
     func switchCamera() async throws -> RealtimeMediaStream
 
-    /// 从编码后的图片数据创建持续输出帧的媒体流。
+    /// Creates a continuous video frame stream from encoded image data.
     ///
-    /// 保留媒体显示比例；生成时由模型规则选择生成画布。
+    /// The stream retains the media aspect ratio; the model selects the generation canvas
+    /// separately.
     ///
-    /// - Parameter imageData: JPEG、PNG 等受支持格式的编码图片数据。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
+    /// - Parameter imageData: Encoded image data in a supported format, such as JPEG or PNG.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or image processing
+    ///   fails.
     func createLocalImageStream(
         imageData: Data
     ) async throws -> RealtimeMediaStream
 
-#if canImport(UIKit)
+    #if canImport(UIKit)
 
-    /// 从 UIKit 图片创建持续输出帧的媒体流。
+    /// Creates a continuous video frame stream from a UIKit image.
     ///
-    /// 保留媒体显示比例；生成时由模型规则选择生成画布。
+    /// The stream retains the media aspect ratio; the model selects the generation canvas
+    /// separately.
     ///
-    /// - Parameter image: 用作本地输入的 UIKit 图片。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
+    /// - Parameter image: The UIKit image to use as local input.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or image processing
+    ///   fails.
     func createLocalImageStream(
         image: UIImage
     ) async throws -> RealtimeMediaStream
-#endif
+    #endif
 
-    /// 从本地图片文件创建持续输出帧的媒体流。
+    /// Creates a continuous video frame stream from a local image file.
     ///
-    /// 保留媒体显示比例；生成时由模型规则选择生成画布。
+    /// The stream retains the media aspect ratio; the model selects the generation canvas
+    /// separately.
     ///
-    /// - Parameter fileURL: 本地图片文件 URL。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
+    /// - Parameter fileURL: The local image file URL.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or image processing
+    ///   fails.
     func createLocalImageStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// 停止本地图片流并更新媒体就绪状态。
+    /// Stops the local image stream.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopLocalImageStream() async throws
 
-    /// 从本地视频文件创建循环播放的音视频流。
+    /// Creates a looping audio and video stream from a local video file.
     ///
-    /// 保留源视频显示比例，使用模型默认输出帧率；生成时单独计算生成画布。
+    /// The stream retains the video's display aspect ratio and uses the model's default frame rate.
+    /// The generation canvas is resolved separately.
     ///
-    /// - Parameter fileURL: 本地视频文件 URL。
-    /// - Returns: 包含本地文件视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或视频处理失败时抛出错误。
+    /// - Parameter fileURL: The local video file URL.
+    ///
+    /// - Returns: A media stream containing the local file video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or video processing
+    ///   fails.
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// 停止本地文件视频流并更新媒体就绪状态。
+    /// Stops the local file video stream.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopLocalVideoStream() async throws
 
-    /// 绑定接入方的视频源，创建可预览及生成的本地流，仅提供视频输入。
+    /// Binds a video-only external source for local preview and realtime generation.
     ///
-    /// 沿用源声明的帧率及编码配置，尺寸按模型面积上限及 4 对齐规则解析，
-    /// 不要求匹配摄像头分辨率桶；接入方按 `sink.videoFormat` 供帧。
-    /// 绑定完成后进入 `ready`，不等待首帧。断开连接保留供帧和预览，
-    /// `stopExternalVideoStream()` 或 `close()` 才解绑，不接管外部采集资源。
-    /// - Parameter source: 接入方实现并拥有的视频源。
-    /// - Returns: 可绑定 `XmaxVideoView` 或用于实时生成的本地媒体流。
-    /// - Throws: 规格无效、已有媒体流、操作冲突或源绑定失败时抛出错误。
+    /// The source frame rate and encoding settings are retained. Media dimensions are limited by
+    /// the model's maximum area and aligned to multiples of 4. Camera resolution buckets do not
+    /// apply. Submit frames at `source.videoFormat` dimensions; XmaxSDK resizes them automatically
+    /// and exposes the resolved format through `sink.videoFormat`.
+    ///
+    /// The state becomes `ready` when binding completes, without waiting for a frame. Disconnection
+    /// preserves frame delivery and preview. `stopExternalVideoStream()` and `close()` unbind the
+    /// source without taking ownership of its capture resources.
+    ///
+    /// - Parameter source: The video source implemented and owned by your app.
+    ///
+    /// - Returns: A local stream for an `XmaxVideoView` or realtime generation.
+    ///
+    /// - Throws: An error if the format is invalid, a stream already exists, an operation
+    ///   conflicts, or source binding fails.
     func createExternalVideoStream(
         source: any RealtimeExternalVideoSource
     ) async throws -> RealtimeMediaStream
 
-    /// 停止外部视频供帧并清除 SDK 预览，保留接入方的采集资源所有权。
+    /// Stops external frame delivery and clears the SDK preview without taking ownership of capture
+    /// resources.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或操作取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopExternalVideoStream() async throws
 
-    /// 使用当前 Manager 创建的本地流建立实时连接。
+    /// Establishes a realtime connection using a local stream created by this manager.
     ///
-    /// - Parameter localStream: 当前 Manager 创建并持有的本地媒体流。
-    /// - Returns: 当前连接的远端媒体流，可绑定到结果预览视图。
-    /// - Throws: 本地流无效、连接已存在、操作冲突、取消或连接建立失败时抛出错误。
+    /// - Parameter localStream: The active local media stream owned by this manager.
+    ///
+    /// - Returns: The connection's remote stream, which can be bound to a result view.
+    ///
+    /// - Throws: An error if the local stream is invalid, a connection exists, an operation
+    ///   conflicts or is cancelled, or connection setup fails.
     func connect(
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream
 
-    /// 断开实时连接并保留当前本地媒体预览。
+    /// Disconnects realtime while preserving the local media preview.
     func disconnect() async
 
-    /// 按指定业务原因断开实时连接，保留可用的本地媒体流。
+    /// Disconnects for the specified reason while preserving available local media.
     ///
-    /// - Parameter reason: 本次断开的原因，例如显示方向变化。
+    /// - Parameter reason: The reason for disconnection, such as an orientation change.
     func disconnect(
         reason: RealtimeReason
     ) async
 
-    /// 关闭当前实时生命周期并释放连接、本地媒体和 RTC Engine。
+    /// Closes the realtime lifecycle and releases the connection, local media, and RTC engine.
     ///
-    /// 关闭期间重复调用会等待同一个释放任务；关闭完成后仍可重新创建本地流。
+    /// Concurrent calls await the same cleanup task. Local streams can be created again after
+    /// closing completes.
     func close() async
 
-    /// 开始生成，生成中再次调用时更新当前条件。
+    /// Starts generation or updates conditions for the active task.
     ///
     /// - Parameters:
-    ///   - context: 本次生成条件；首次生成不能为空，后续传入 `nil` 时复用缓存条件。
-    ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
-    /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
+    ///   - context: The generation conditions. Required for the first request; `nil` reuses cached
+    ///     conditions thereafter.
+    ///   - faceRestoration: Whether to restore the original face. Sent with each request.
+    ///
+    /// - Throws: An error if conditions are invalid or generation startup or an update fails.
     func startGeneration(
         context: RealtimeContext?,
         faceRestoration: Bool
     ) async throws
 
-    /// 使用当前本地流按需建立连接并开始生成。
+    /// Connects the current local stream if needed and starts generation.
     ///
-    /// 文件视频在连接和生成期间保持本地播放器持续运行；已经连接时直接复用
-    /// 当前连接。返回的远端流可交给统一视频视图显示生成结果。
+    /// Local video file playback continues during connection and generation. An existing connection
+    /// is reused. Bind the returned remote stream to a realtime video view to display results.
     ///
     /// - Parameters:
-    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
-    ///   - context: 本次生成条件；首次生成不能为空。
-    ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
-    /// - Returns: 当前 RTC 连接对应的远端媒体流。
-    /// - Throws: 本地流无效、连接失败或生成启动失败时抛出错误。
+    ///   - localStream: The active local media stream owned by this manager.
+    ///   - context: The generation conditions. Required for the first request.
+    ///   - faceRestoration: Whether to restore the original face. Sent with each request.
+    ///
+    /// - Returns: The remote media stream for the current RTC connection.
+    ///
+    /// - Throws: An error if the local stream is invalid or connection or generation startup fails.
     func startGeneration(
         localStream: RealtimeMediaStream,
         context: RealtimeContext?,

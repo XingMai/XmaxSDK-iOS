@@ -10,41 +10,42 @@
 
 import Foundation
 
-/// 统一管理实时操作准入、状态提交和分级资源清理。
+/// Coordinates operation admission, state commits, and scoped resource cleanup.
 actor RealtimeCoordinator {
 
-    /// 区分媒体准备、连接、生成和配置操作。
+    /// The kinds of mutually coordinated media and realtime operations.
     enum OperationKind: Sendable {
 
-        /// 创建、停止或调整本地媒体。
+        /// Creates, stops, or reconfigures local media.
         case media
 
-        /// 建立实时连接。
+        /// Establishes a realtime connection.
         case connection
 
-        /// 启动生成。
+        /// Starts generation.
         case generation
 
-        /// 切换摄像头并按需恢复生成。
+        /// Switches cameras and resumes generation when needed.
         case cameraSwitch
 
-        /// 更新生成条件或回传尺寸，不改变生成生命周期。
+        /// Updates conditions or output dimensions without changing the generation lifecycle.
         case configuration
     }
 
-    /// 定义终止操作需要释放的资源范围。
+    /// The resources affected by a termination request.
     enum TerminationScope: Int, Sendable {
 
-        /// 释放连接和生成资源，保留本地媒体。
+        /// Releases connection and generation resources while retaining local media.
         case connection
 
-        /// 释放连接、生成和本地媒体资源。
+        /// Releases connection, generation, and local media resources.
         case all
 
-        /// 判断指定操作是否属于当前清理范围。
+        /// Determines whether this cleanup scope affects an operation.
         ///
-        /// - Parameter kind: 待判断的操作类型。
-        /// - Returns: 属于当前清理范围时返回 `true`。
+        /// - Parameter kind: The operation kind to check.
+        ///
+        /// - Returns: `true` if this scope includes the operation.
         func affects(
             _ kind: OperationKind
         ) -> Bool {
@@ -57,16 +58,16 @@ actor RealtimeCoordinator {
         }
     }
 
-    /// 记录资源清理后的会话标识与本地媒体保留状态。
+    /// The session identifier and local media availability after cleanup.
     struct CleanupResult: Sendable {
 
-        /// 此次清理涉及的会话标识；没有会话时传入 `nil`。
+        /// The session identifier involved in cleanup, if any.
         let sessionID: String?
 
-        /// 清理后是否仍有可用的本地媒体流。
+        /// Whether usable local media remains after cleanup.
         let hasLocalMedia: Bool
 
-        /// 创建资源清理结果。
+        /// Creates a cleanup result.
         init(
             sessionID: String? = nil,
             hasLocalMedia: Bool = false
@@ -76,67 +77,75 @@ actor RealtimeCoordinator {
         }
     }
 
-    /// 提供当前操作的有效性校验与失败清理范围设置。
+    /// A token that guards operation validity and defines failure cleanup.
     struct Token: Sendable {
 
-        /// 用于检查当前操作有效期的凭据。
+        /// The lease that tracks the operation's validity.
         fileprivate let lease: OperationLease
 
-        /// 设置当前操作失败或取消时的资源清理范围。
+        /// Sets the resources to release if the operation fails or is cancelled.
         ///
-        /// - Parameter scope: 需要释放的资源范围。
+        /// - Parameter scope: The resources to release.
         func setFailureScope(
             _ scope: TerminationScope
         ) {
             lease.setFailureScope(scope)
         }
 
-        /// 确认当前操作仍有效且未被取消。
+        /// Verifies that the operation remains current and has not been cancelled.
         ///
-        /// - Throws: 操作已失效或被取消时抛出错误。
+        /// - Throws: An error if the operation is no longer current or has been cancelled.
         func ensureCurrent() throws {
             try lease.ensureCurrent()
         }
 
-        /// 当前操作是否仍有效。
+        /// Whether the operation is still current.
         var isCurrent: Bool {
             lease.isCurrent
         }
     }
 
-    /// 释放指定范围内的资源并返回清理结果。
+    /// A handler that releases scoped resources and reports the cleanup result.
     ///
     /// - Parameters:
-    ///   - scope: 需要释放的资源范围。
-    ///   - taskID: 待结束的生成任务标识；没有任务时为空字符串。
-    /// - Returns: 清理涉及的会话标识与本地媒体保留状态。
-    typealias CleanupHandler = @Sendable (
-        _ scope: TerminationScope,
-        _ taskID: String
-    ) async -> CleanupResult
+    ///   - scope: The resource scope to release.
+    ///   - taskID: The generation task to end, or an empty string if no task exists.
+    ///
+    /// - Returns: The session identifier and local media availability after cleanup.
+    typealias CleanupHandler =
+        @Sendable (
+            _ scope: TerminationScope,
+            _ taskID: String
+        ) async -> CleanupResult
 
-    /// 负责记录错误并转交运行中故障的处理器。
+    /// Lifecycle dependencies.
+
+    /// The handler that logs errors and forwards runtime failures.
     private let errorHandler: RealtimeErrorHandler
 
-    /// 按终止范围释放资源并返回清理结果。
+    /// The handler that releases resources for a termination scope.
     private let cleanup: CleanupHandler
 
-    /// 向接入方发布的实时状态快照。
+    /// Published state.
+
+    /// The realtime state snapshot exposed to your app.
     private var state = RealtimeState(connectionState: .idle)
 
-    /// 接收实时连接与生成状态变化。
+    /// The listener for connection and generation state changes.
     private var stateListener: RealtimeStateListener?
 
-    /// 当前占用协调器的业务操作。
+    /// Operation admission and termination.
+
+    /// The operation currently admitted by the coordinator.
     private var activeOperation: Operation?
 
-    /// 正在执行的合并终止请求。
+    /// The merged termination request currently being processed.
     private var termination: Termination?
 
-    /// 等待或执行中的前台操作数量，用于让后台调档避让。
+    /// The number of pending or executing foreground requests, which take priority over adaptation.
     private var foregroundRequests = 0
 
-    /// 创建实时生命周期协调器。
+    /// Creates a realtime lifecycle coordinator.
     init(
         errorHandler: RealtimeErrorHandler,
         cleanup: @escaping CleanupHandler
@@ -145,14 +154,14 @@ actor RealtimeCoordinator {
         self.cleanup = cleanup
     }
 
-    /// 当前对外发布的实时状态。
+    /// The realtime state currently exposed to your app.
     var currentState: RealtimeState {
         state
     }
 
-    /// 更新状态监听器，并立即通知当前状态。
+    /// Replaces the state listener and immediately delivers the current state.
     ///
-    /// - Parameter listener: 接收状态变化的回调；传入 `nil` 移除监听。
+    /// - Parameter listener: The state change handler, or `nil` to remove it.
     func setStateListener(
         _ listener: RealtimeStateListener?
     ) async {
@@ -162,23 +171,29 @@ actor RealtimeCoordinator {
         }
     }
 
-    /// 串行接纳实时操作，并在失败或取消时完成对应范围的资源清理。
+    /// Admits an exclusive operation and performs scoped cleanup on failure or cancellation.
     ///
     /// - Parameters:
-    ///   - kind: 请求执行的操作类型。
-    ///   - failureScope: 操作失败或取消时的清理范围；传入 `nil` 不主动发起清理。
-    ///   - body: 实际执行的操作，使用传入的凭据检查异步执行期间的有效性。
-    /// - Returns: 操作成功执行后的结果。
-    /// - Throws: 已有操作或清理任务占用生命周期、操作失败或被取消时抛出错误。
+    ///   - kind: The requested operation kind.
+    ///   - failureScope: The failure or cancellation cleanup scope, or `nil` to omit automatic
+    ///     cleanup.
+    ///   - body: The operation body, which must check its token across asynchronous boundaries.
+    ///
+    /// - Returns: The result of the completed operation.
+    ///
+    /// - Throws: An error if an operation or termination is active, execution fails, or the
+    ///   operation is cancelled.
     func run<Value: Sendable>(
         kind: OperationKind,
         failureScope: TerminationScope? = nil,
         operation body: @escaping @Sendable (Token) async throws -> Value
     ) async throws -> Value {
         foregroundRequests += 1
-        defer { foregroundRequests -= 1 }
+        defer {
+            foregroundRequests -= 1
+        }
         if let background = activeOperation, background.background {
-            // 已发出的回传配置先完成本地提交，前台设置再基于最新配置执行。
+            // Finish committing the background configuration before applying a foreground request.
             await background.waitForCompletion()
             finish(background)
         }
@@ -186,17 +201,16 @@ actor RealtimeCoordinator {
         guard termination == nil, activeOperation == nil else {
             let error = XmaxError(
                 code: .invalidConfiguration,
-                message: "Another realtime operation is in progress; " +
-                    "wait for it to finish"
+                message: "Another realtime operation is in progress; " + "wait for it to finish"
             )
             await errorHandler.report(error)
             throw error
         }
 
-        // 已在生成时，startGeneration 只更新条件，与回传尺寸调整共用配置操作。
+        // An active generation request updates conditions using the shared configuration operation.
         let operationKind: OperationKind =
             kind == .generation && state.connectionState == .generating
-                ? .configuration : kind
+            ? .configuration : kind
         let operation = Operation(
             kind: operationKind,
             failureScope: failureScope
@@ -232,23 +246,41 @@ actor RealtimeCoordinator {
         }
     }
 
-    /// 空闲时执行一次低优先级调档；忙碌时跳过，不影响公开状态。
+    /// Runs a low-priority quality update when idle, skipping it while busy.
     ///
-    /// - Parameter body: 调整传输配置的操作，异步边界后须检查 token。
-    /// - Returns: 是否接纳并成功完成此次调档。
-    /// - Throws: 已接纳的配置操作失败或被终止时抛出错误。
+    /// - Parameter body: The transport update, which must check its token after asynchronous
+    ///   boundaries.
+    ///
+    /// - Returns: Whether the update was admitted and completed successfully.
+    ///
+    /// - Throws: An error if an admitted update fails or is terminated.
     func runAdaptiveConfiguration(
         _ body: @escaping @Sendable (Token) async throws -> Void
     ) async throws -> Bool {
         guard termination == nil, activeOperation == nil, foregroundRequests == 0,
-              state.connectionState == .generating else { return false }
-        let operation = Operation(kind: .configuration, failureScope: nil, background: true)
+            state.connectionState == .generating
+        else {
+            return false
+        }
+        let operation = Operation(
+            kind: .configuration,
+            failureScope: nil,
+            background: true
+        )
         let token = Token(lease: operation.lease)
-        let task = Task { try await body(token) }
-        operation.cancel = { task.cancel() }
-        operation.waitForCompletion = { _ = try? await task.value }
+        let task = Task {
+            try await body(token)
+        }
+        operation.cancel = {
+            task.cancel()
+        }
+        operation.waitForCompletion = {
+            _ = try? await task.value
+        }
         activeOperation = operation
-        defer { finish(operation) }
+        defer {
+            finish(operation)
+        }
         try await withTaskCancellationHandler {
             try await task.value
         } onCancel: {
@@ -259,12 +291,13 @@ actor RealtimeCoordinator {
         return true
     }
 
-    /// 提交当前有效操作产生的新状态。
+    /// Commits state produced by a current operation.
     ///
     /// - Parameters:
-    ///   - nextState: 需要发布的新状态。
-    ///   - token: 本次操作的有效性凭据。
-    /// - Throws: 操作已失效或被取消时抛出错误。
+    ///   - nextState: The state to publish.
+    ///   - token: The validity token for this operation.
+    ///
+    /// - Throws: An error if the operation is no longer current or has been cancelled.
     func commit(
         _ nextState: RealtimeState,
         token: Token
@@ -273,19 +306,22 @@ actor RealtimeCoordinator {
         await setState(nextState)
     }
 
-    /// 在当前本地预览就绪后，将媒体准备状态更新为就绪。
+    /// Marks preparing media as ready when its current preview becomes available.
     ///
-    /// - Parameter isCurrent: 判断预览通知是否仍属于当前本地媒体的回调。
+    /// - Parameter isCurrent: A closure verifying that the notification belongs to the current
+    ///   media.
     func localPreviewDidBecomeReady(
         isCurrent: @Sendable () -> Bool
     ) async {
-        guard state.connectionState == .preparing, isCurrent() else { return }
+        guard state.connectionState == .preparing, isCurrent() else {
+            return
+        }
         await setState(RealtimeState(connectionState: .ready))
     }
 
-    /// 断开实时连接，并等待连接相关操作和资源完成清理。
+    /// Disconnects realtime and waits for connection operations and resources to finish cleanup.
     ///
-    /// - Parameter reason: 本次断开的原因，随最终状态通知。
+    /// - Parameter reason: The disconnection reason delivered with the final state.
     func disconnect(
         reason: RealtimeReason = .normal
     ) async {
@@ -293,30 +329,37 @@ actor RealtimeCoordinator {
         await task?.value
     }
 
-    /// 发起连接清理并返回收尾任务，保留本地媒体。
+    /// Begins connection cleanup while preserving local media.
     ///
-    /// - Parameter reason: 本次断开的原因，随最终状态通知。
-    /// - Returns: 连接清理任务；没有连接或相关操作需要终止时返回 `nil`。
+    /// - Parameter reason: The disconnection reason delivered with the final state.
+    ///
+    /// - Returns: The cleanup task, or `nil` if no connection or related operation requires
+    ///   termination.
     func beginDisconnect(
         reason: RealtimeReason
     ) async -> Task<Void, Never>? {
-        let hasConnectionOperation = activeOperation.map {
-            TerminationScope.connection.affects($0.kind)
-        } ?? false
-        guard hasConnectionOperation || termination != nil ||
-                (state.connectionState != .idle &&
-                    state.connectionState != .preparing &&
-                    state.connectionState != .ready) else {
+        let hasConnectionOperation =
+            activeOperation.map {
+                TerminationScope.connection.affects($0.kind)
+            } ?? false
+        guard
+            hasConnectionOperation || termination != nil
+                || (state.connectionState != .idle && state.connectionState != .preparing
+                    && state.connectionState != .ready)
+        else {
             return nil
         }
-        return await requestTermination(.connection, reason: reason)
+        return await requestTermination(
+            .connection,
+            reason: reason
+        )
     }
 
-    /// 终止指定范围内的操作并等待清理完成；并发请求合并为最大清理范围。
+    /// Terminates scoped operations, merging concurrent requests into the broadest cleanup scope.
     ///
     /// - Parameters:
-    ///   - target: 需要终止的资源范围。
-    ///   - reason: 终止原因，随最终状态通知。
+    ///   - target: The resources to terminate.
+    ///   - reason: The termination reason delivered with the final state.
     func terminate(
         _ target: TerminationScope,
         reason: RealtimeReason = .normal
@@ -328,20 +371,26 @@ actor RealtimeCoordinator {
         await task.value
     }
 
-    /// 终止当前生命周期内发生故障的资源，并通过最终状态提供错误原因。
+    /// Terminates resources affected by a current failure and reports it in the final state.
     ///
     /// - Parameters:
-    ///   - error: 触发终止的运行中错误。
-    ///   - target: 需要终止的资源范围。
-    ///   - isCurrent: 判断错误是否仍属于当前生命周期的回调。
+    ///   - error: The runtime failure that triggered termination.
+    ///   - target: The resources to terminate.
+    ///   - isCurrent: A closure verifying that the failure belongs to the current lifecycle.
     func terminate(
         with error: XmaxError,
         target: TerminationScope,
-        isCurrent: @Sendable () -> Bool = { true }
+        isCurrent: @Sendable () -> Bool = {
+            true
+        }
     ) async {
-        guard isCurrent() else { return }
-        // 清理期间的远端迟到错误不覆盖主动结束；本地媒体终止仍需扩大释放范围。
-        if termination != nil, target != .all { return }
+        guard isCurrent() else {
+            return
+        }
+        // Ignore late remote failures during cleanup; media failures may still expand the cleanup scope.
+        if termination != nil, target != .all {
+            return
+        }
         let task = await requestTermination(
             target,
             error: error,
@@ -353,48 +402,57 @@ actor RealtimeCoordinator {
 
 private extension RealtimeCoordinator {
 
-    /// 通过线程安全的有效性凭据控制操作取消与失败清理。
+    /// A thread-safe lease for operation validity and failure cleanup.
     final class OperationLease: @unchecked Sendable {
 
-        /// 保护操作凭据的有效期与终止错误。
+        /// The lock protecting lease validity and the terminal error.
         private let lock = NSLock()
 
-        /// 当前操作是否仍可继续提交结果。
+        /// Lease validity and failure state.
+
+        /// Whether the operation can still commit results.
         private var valid = true
 
-        /// 操作失效后应向调用方返回的终止错误。
+        /// The terminal error returned after the operation is invalidated.
         private var terminalError: XmaxError?
 
-        /// 操作失败时需要清理的资源范围。
+        /// The resources to release if this operation fails.
         private var storedFailureScope: TerminationScope?
 
-        /// 创建操作凭据。
+        /// Creates an operation lease with the specified failure scope.
         ///
-        /// - Parameter failureScope: 操作失败或取消时的清理范围；`nil` 表示不主动清理。
+        /// - Parameter failureScope: The cleanup scope on failure or cancellation, or `nil` to omit
+        ///   automatic cleanup.
         init(
             failureScope: TerminationScope?
         ) {
             storedFailureScope = failureScope
         }
 
-        /// 操作凭据是否仍有效。
+        /// Whether the lease remains valid.
         var isCurrent: Bool {
-            lock.withLock { valid }
+            lock.withLock {
+                valid
+            }
         }
 
-        /// 使操作失效的首个错误；主动取消时可能为 `nil`。
+        /// The first terminal error, which may be `nil` for explicit cancellation.
         var failure: XmaxError? {
-            lock.withLock { terminalError }
+            lock.withLock {
+                terminalError
+            }
         }
 
-        /// 操作失败或取消时的资源清理范围。
+        /// The cleanup scope on failure or cancellation.
         var failureScope: TerminationScope? {
-            lock.withLock { storedFailureScope }
+            lock.withLock {
+                storedFailureScope
+            }
         }
 
-        /// 更新操作失败或取消时的资源清理范围。
+        /// Updates the cleanup scope on failure or cancellation.
         ///
-        /// - Parameter scope: 需要释放的资源范围。
+        /// - Parameter scope: The resources to release.
         func setFailureScope(
             _ scope: TerminationScope
         ) {
@@ -403,9 +461,9 @@ private extension RealtimeCoordinator {
             }
         }
 
-        /// 使操作失效，并保留首次收到的终止错误。
+        /// Invalidates the lease while retaining the first terminal error.
         ///
-        /// - Parameter error: 使操作失效的错误；主动取消时可传入 `nil`。
+        /// - Parameter error: The terminal error, or `nil` for explicit cancellation.
         func invalidate(
             error: XmaxError? = nil
         ) {
@@ -417,11 +475,14 @@ private extension RealtimeCoordinator {
             }
         }
 
-        /// 确认凭据有效且当前任务未被取消。
+        /// Verifies that the lease is valid and the current task has not been cancelled.
         ///
-        /// - Throws: 凭据失效时抛出终止错误或取消错误；任务取消时抛出取消错误。
+        /// - Throws: The terminal or cancellation error if the lease is invalid, or a task
+        ///   cancellation error.
         func ensureCurrent() throws {
-            let result = lock.withLock { (valid, terminalError) }
+            let result = lock.withLock {
+                (valid, terminalError)
+            }
             guard result.0 else {
                 if let error = result.1 {
                     throw error
@@ -431,9 +492,7 @@ private extension RealtimeCoordinator {
             try Task.checkCancellation()
         }
 
-        /// 创建实时操作取消错误。
-        ///
-        /// - Returns: 表示实时操作已取消的 SDK 错误。
+        /// Creates a realtime operation cancellation error.
         private static func cancelledError() -> XmaxError {
             XmaxError(
                 code: .cancelled,
@@ -442,36 +501,42 @@ private extension RealtimeCoordinator {
         }
     }
 
-    /// 保存单次实时操作的身份、取消能力与收尾任务。
+    /// A realtime operation and its cancellation and cleanup controls.
     final class Operation: @unchecked Sendable {
 
-        /// 区分并发请求的操作标识。
+        /// Operation identity and policy.
+
+        /// The identifier distinguishing this operation from concurrent requests.
         let id = UUID()
 
-        /// 决定操作互斥及终止策略的业务类型。
+        /// The operation kind used for admission and termination decisions.
         let kind: OperationKind
 
-        /// 是否为需要避让前台请求的后台操作。
+        /// Whether this is a background operation that yields to foreground requests.
         let background: Bool
 
-        /// 管理本次操作的有效期和失败清理范围。
+        /// The lease managing validity and failure cleanup for this operation.
         let lease: OperationLease
 
-        /// 取消底层执行任务。
-        var cancel: @Sendable () -> Void = {}
+        /// Task cancellation and cleanup.
 
-        /// 等待底层任务完成，以便安全释放其资源。
-        var waitForCompletion: @Sendable () async -> Void = {}
+        /// The closure that cancels the underlying task.
+        var cancel: @Sendable () -> Void = {
+        }
 
-        /// 本次操作触发的资源收尾任务。
+        /// The closure that awaits underlying task completion before releasing its resources.
+        var waitForCompletion: @Sendable () async -> Void = {
+        }
+
+        /// The resource cleanup task assigned to this operation.
         var terminationTask: Task<Void, Never>?
 
-        /// 创建实时操作记录。
+        /// Creates an operation record.
         ///
         /// - Parameters:
-        ///   - kind: 操作类型，用于确定取消和清理行为。
-        ///   - failureScope: 失败或取消时的资源清理范围。
-        ///   - background: 是否为低优先级后台配置操作。
+        ///   - kind: The operation kind governing cancellation and cleanup.
+        ///   - failureScope: The cleanup scope on failure or cancellation.
+        ///   - background: Whether this is a low-priority background configuration operation.
         init(
             kind: OperationKind,
             failureScope: TerminationScope?,
@@ -483,31 +548,35 @@ private extension RealtimeCoordinator {
         }
     }
 
-    /// 合并并发终止请求，并保存清理范围、结束原因与等待任务。
+    /// A termination request shared by concurrent cleanup callers.
     final class Termination: @unchecked Sendable {
 
-        /// 区分前后两次终止流程的标识。
+        /// Termination scope and outcome.
+
+        /// The identifier distinguishing successive termination lifecycles.
         let id = UUID()
 
-        /// 本次终止需要释放的资源范围。
+        /// The resources to release for this termination.
         var target: TerminationScope
 
-        /// 清理结束后向状态监听器报告的原因。
+        /// The reason delivered to the state listener after cleanup.
         var reason: RealtimeReason
 
-        /// 触发终止的错误；主动结束时为 nil。
+        /// The failure that triggered termination, or `nil` for an explicit request.
         var error: XmaxError?
 
-        /// 本次清理涉及的服务端会话标识。
+        /// The server session identifier involved in cleanup.
         var sessionID: String?
 
-        /// 清理资源前需要等待结束的业务操作。
+        /// Cleanup coordination.
+
+        /// The operations that must complete before resources are released.
         var waitForOperations: [@Sendable () async -> Void] = []
 
-        /// 执行资源清理的共享任务，供并发终止请求共同等待。
+        /// The shared cleanup task awaited by concurrent termination requests.
         var task: Task<Void, Never>!
 
-        /// 创建资源终止记录。
+        /// Creates a termination record.
         init(
             target: TerminationScope,
             reason: RealtimeReason,
@@ -519,25 +588,27 @@ private extension RealtimeCoordinator {
         }
     }
 
-    /// 完成失败操作的状态和资源收尾，并向调用方抛出对应错误。
+    /// Completes failed operation cleanup and throws the corresponding error.
     ///
     /// - Parameters:
-    ///   - error: 操作执行期间产生的错误。
-    ///   - operation: 产生错误的操作记录。
-    /// - Returns: 不返回结果；完成错误处理后始终抛出错误。
-    /// - Throws: 操作被取消时抛出终止错误或取消错误；其他情况抛出转换后的 SDK 错误。
+    ///   - error: The error raised during operation execution.
+    ///   - operation: The operation that failed.
+    ///
+    /// - Throws: The terminal or cancellation error for cancellation, or the converted SDK error
+    ///   for other failures.
     func handleFailure<Value: Sendable>(
         _ error: any Error,
         operation: Operation
     ) async throws -> Value {
-        let operationWasCancelled = Self.isCancellation(error) ||
-            !operation.lease.isCurrent || Task.isCancelled
+        let operationWasCancelled =
+            Self.isCancellation(error) || !operation.lease.isCurrent || Task.isCancelled
 
         if operationWasCancelled {
-            // 取消配置请求本身不停止生成；外部断开或关闭仍按已有终止流程等待收尾。
+            // Cancelling a configuration request does not stop generation; explicit termination still awaits cleanup.
             if (operation.kind == .configuration || operation.lease.failureScope == nil),
-               operation.terminationTask == nil,
-               termination == nil {
+                operation.terminationTask == nil,
+                termination == nil
+            {
                 finish(operation)
                 if operation.kind == .media, state.connectionState == .preparing {
                     await setState(RealtimeState(connectionState: .idle))
@@ -584,14 +655,16 @@ private extension RealtimeCoordinator {
         throw resolvedError
     }
 
-    /// 创建或合并资源终止请求，并取消清理范围内的操作。
+    /// Creates or merges a termination request and cancels operations within its scope.
     ///
     /// - Parameters:
-    ///   - target: 此次请求的资源清理范围。
-    ///   - error: 触发清理的错误；主动结束时传入 `nil`。
-    ///   - reason: 最终状态携带的结束原因。
-    ///   - origin: 主动发起清理的失败操作；外部终止请求传入 `nil`。
-    /// - Returns: 合并后的资源清理任务。
+    ///   - target: The cleanup scope requested by this call.
+    ///   - error: The triggering failure, or `nil` for an explicit termination request.
+    ///   - reason: The reason carried by the final state.
+    ///   - origin: The failed operation requesting cleanup, or `nil` for an external termination
+    ///     request.
+    ///
+    /// - Returns: The shared cleanup task for the merged request.
     func requestTermination(
         _ target: TerminationScope,
         error: XmaxError? = nil,
@@ -623,8 +696,9 @@ private extension RealtimeCoordinator {
         }
 
         if let activeOperation,
-           activeOperation !== origin,
-           pending.target.affects(activeOperation.kind) {
+            activeOperation !== origin,
+            pending.target.affects(activeOperation.kind)
+        {
             activeOperation.lease.invalidate(error: pending.error)
             activeOperation.terminationTask = pending.task
             activeOperation.cancel()
@@ -647,9 +721,9 @@ private extension RealtimeCoordinator {
         return pending.task
     }
 
-    /// 等待相关操作退出、释放资源，并发布清理完成后的状态。
+    /// Waits for affected operations, releases resources, and publishes the final state.
     ///
-    /// - Parameter id: 需要执行的终止记录标识；过期请求不执行清理。
+    /// - Parameter id: The termination record to execute. Stale requests do not perform cleanup.
     func performTermination(
         id: UUID
     ) async {
@@ -666,13 +740,17 @@ private extension RealtimeCoordinator {
 
             let requestedTarget = pending.target
             let taskID = state.taskID ?? ""
-            let result = await cleanup(requestedTarget, taskID)
+            let result = await cleanup(
+                requestedTarget,
+                taskID
+            )
             if let sessionID = result.sessionID {
                 pending.sessionID = sessionID
             }
 
             guard pending.target == requestedTarget,
-                  pending.waitForOperations.isEmpty else {
+                pending.waitForOperations.isEmpty
+            else {
                 continue
             }
 
@@ -687,9 +765,10 @@ private extension RealtimeCoordinator {
                 sessionID: pending.sessionID ?? state.sessionID,
                 reason: pending.reason
             )
-            // 先完成内部收尾，再通知监听器，避免旧任务覆盖重入的关闭请求。
+            // Finish internal cleanup before notifying listeners so reentrant termination cannot be overwritten.
             if let activeOperation,
-               requestedTarget.affects(activeOperation.kind) {
+                requestedTarget.affects(activeOperation.kind)
+            {
                 finish(activeOperation)
             }
             let listener = state != finalState ? stateListener : nil
@@ -706,9 +785,9 @@ private extension RealtimeCoordinator {
         }
     }
 
-    /// 移除与指定记录匹配的当前操作。
+    /// Clears the active operation only if it matches the completed record.
     ///
-    /// - Parameter operation: 已完成的操作记录。
+    /// - Parameter operation: The operation that has completed.
     func finish(
         _ operation: Operation
     ) {
@@ -717,9 +796,9 @@ private extension RealtimeCoordinator {
         }
     }
 
-    /// 更新实时状态，仅在状态变化时通知监听器。
+    /// Updates realtime state and notifies the listener only when the value changes.
     ///
-    /// - Parameter nextState: 需要发布的新状态。
+    /// - Parameter nextState: The state to publish.
     func setState(
         _ nextState: RealtimeState
     ) async {
@@ -732,20 +811,18 @@ private extension RealtimeCoordinator {
         }
     }
 
-    /// 判断错误是否表示操作取消。
+    /// Determines whether an error represents cancellation.
     ///
-    /// - Parameter error: 需要判断的错误。
-    /// - Returns: 任务取消错误或 SDK 取消错误返回 `true`。
+    /// - Parameter error: The error to check.
+    ///
+    /// - Returns: `true` for task cancellation or an SDK cancellation error.
     static func isCancellation(
         _ error: any Error
     ) -> Bool {
-        error is CancellationError ||
-            (error as? XmaxError)?.code == .cancelled
+        error is CancellationError || (error as? XmaxError)?.code == .cancelled
     }
 
-    /// 创建实时操作取消错误。
-    ///
-    /// - Returns: 表示实时操作已取消的 SDK 错误。
+    /// Creates a realtime operation cancellation error.
     static func cancelledError() -> XmaxError {
         XmaxError(
             code: .cancelled,

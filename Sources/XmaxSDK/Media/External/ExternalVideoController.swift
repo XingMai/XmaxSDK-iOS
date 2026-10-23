@@ -87,6 +87,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
         let presenter = DecodedVideoPreviewPresenter()
         let dispatcher = DecodedVideoPreviewDispatcher(presenter: presenter)
         let sink = ExternalVideoFrameSink(
+            sourceVideoFormat: requested,
             videoFormat: format,
             frameListener: { [videoFrameListener] frame in
                 dispatcher.enqueue(frame)

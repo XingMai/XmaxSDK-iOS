@@ -10,25 +10,21 @@
 
 import Foundation
 
-/// SDK 全局配置。
+/// The credentials, service environment, and logging options for an Xmax client.
 public struct XmaxConfiguration: Equatable, Sendable {
 
-    /// 调用 Xmax 服务使用的 API Key。
+    /// The API key used to access Xmax services.
     public let apiKey: String
 
-    /// SDK 连接的服务环境，同时决定日志细项语言：国内为中文，海外为英文。
-    /// 日志语言全局生效，以最后创建的 Client 为准。
+    /// The service environment and log detail language: Chinese for China, English for global.
+    ///
+    /// The most recently created client determines the log language for all clients.
     public let environment: XmaxEnvironment
 
-    /// SDK 输出的日志类型；默认为不输出日志。
+    /// The enabled log categories. An empty set disables logging.
     public let loggerOptions: XmaxLoggerOption
 
-    /// 创建 SDK 全局配置。
-    ///
-    /// - Parameters:
-    ///   - apiKey: 调用 Xmax 服务使用的 API Key。
-    ///   - environment: SDK 连接的服务环境；默认为国内环境。
-    ///   - loggerOptions: SDK 输出的日志类型；默认为空。
+    /// Creates a client configuration.
     public init(
         apiKey: String,
         environment: XmaxEnvironment = .china,
@@ -42,9 +38,9 @@ public struct XmaxConfiguration: Equatable, Sendable {
         self.loggerOptions = loggerOptions
     }
 
-    /// 确认 API Key 非空，供后续服务请求使用。
+    /// Verifies that the API key is not empty.
     ///
-    /// - Throws: API Key 为空时抛出 `XmaxError`。
+    /// - Throws: An `XmaxError` if the API key is empty.
     public func validate() throws {
         guard !apiKey.isEmpty else {
             throw XmaxError(

@@ -27,7 +27,7 @@ final class CameraFrameRotationTests: XCTestCase {
         // 重复切换使用同一个采集基准，不对上一帧的方向累加旋转。
         for _ in 0..<3 {
             for (orientation, luma, chroma) in cases {
-                let frame = try NV12VideoFrameConverter.convert(
+                let frame = try VideoFrameConverter.convert(
                     pixelBuffer: buffer,
                     outputWidth: orientation.isLandscape ? 4 : 2,
                     outputHeight: orientation.isLandscape ? 2 : 4,
@@ -50,7 +50,7 @@ final class CameraFrameRotationTests: XCTestCase {
         let buffer = try makePortraitBuffer()
 
         for orientation in [CameraOrientation.portrait, .landscapeLeft, .landscapeRight, .portraitUpsideDown] {
-            let frame = try NV12VideoFrameConverter.convert(
+            let frame = try VideoFrameConverter.convert(
                 pixelBuffer: buffer,
                 outputWidth: orientation.isLandscape ? 1920 : 1024,
                 outputHeight: orientation.isLandscape ? 1024 : 1920,
@@ -63,6 +63,46 @@ final class CameraFrameRotationTests: XCTestCase {
             XCTAssertEqual(frame.planes[0].byteLength, 1024 * 1920)
             XCTAssertEqual(frame.planes[1].byteLength, 1024 * 1920 / 2)
             XCTAssertEqual(frame.rotation, .rotation0)
+        }
+    }
+
+    func testBGRARotationPreservesPixelOrderAndChannels() throws {
+        var storage: CVPixelBuffer?
+        XCTAssertEqual(CVPixelBufferCreate(nil, 2, 4, kCVPixelFormatType_32BGRA, nil, &storage), kCVReturnSuccess)
+        let buffer = try XCTUnwrap(storage)
+        CVPixelBufferLockBaseAddress(buffer, [])
+        let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(buffer)).assumingMemoryBound(to: UInt8.self)
+        let stride = CVPixelBufferGetBytesPerRow(buffer)
+        for row in 0..<4 {
+            for column in 0..<2 {
+                let offset = row * stride + column * 4
+                base[offset] = UInt8(row * 2 + column + 1)
+                base[offset + 1] = 20
+                base[offset + 2] = 30
+                base[offset + 3] = 255
+            }
+        }
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+
+        let cases: [(VideoRotation, [UInt8])] = [
+            (.rotation0, [1, 2, 3, 4, 5, 6, 7, 8]),
+            (.rotation90, [7, 5, 3, 1, 8, 6, 4, 2]),
+            (.rotation180, [8, 7, 6, 5, 4, 3, 2, 1]),
+            (.rotation270, [2, 4, 6, 8, 1, 3, 5, 7])
+        ]
+        for (rotation, expected) in cases {
+            let landscape = rotation == .rotation90 || rotation == .rotation270
+            let frame = try VideoFrameConverter.convert(
+                pixelBuffer: buffer,
+                outputWidth: landscape ? 4 : 2,
+                outputHeight: landscape ? 2 : 4,
+                rotation: rotation,
+                timestampUs: 123
+            )
+            XCTAssertEqual(frame.rotation, .rotation0)
+            let data = try XCTUnwrap(frame.planes.first).data
+            XCTAssertEqual((0..<8).map { data[$0 * 4] }, expected)
+            XCTAssertEqual((0..<8).map { data[$0 * 4 + 3] }, Array(repeating: 255, count: 8))
         }
     }
 }

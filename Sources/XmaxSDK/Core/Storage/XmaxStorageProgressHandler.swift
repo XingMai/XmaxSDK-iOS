@@ -10,7 +10,7 @@
 
 import Foundation
 
-/// 接收文件上传或下载进度。
+/// A handler for file upload or download progress.
 ///
-/// - Parameter progress: 包含已完成字节数与总字节数的进度信息。
+/// - Parameter progress: The completed and total transfer byte counts.
 public typealias XmaxStorageProgressHandler = @Sendable (Progress) -> Void

@@ -13,47 +13,51 @@ import Foundation
 import UIKit
 #endif
 
-/// 实时生成业务公共入口，统一编排本地媒体、连接、生成和状态通知。
+/// Coordinates local media, connections, generation, and state notifications.
 actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
-    /// 创建管理器时确定的模型和插帧配置。
+    /// The model, interpolation, and adaptive quality configuration supplied at creation.
     nonisolated let options: RealtimeConfiguration
 
-    /// 管理远端轨道、首帧等待和视频渲染。
+    /// Media and transport components.
+
+    /// The controller that manages remote tracks, first-frame readiness, and rendering.
     private let renderController: any RenderControlling
 
-    /// 管理 RTC 连接、信令和传输质量。
+    /// The controller that manages RTC connections, signaling, and transport quality.
     private let streamController: any StreamControlling
 
-    /// 管理本地媒体输入、预览和交互。
+    /// The controller that manages local media, preview, and interactions.
     private let mediaController: any MediaControlling
 
-    /// 解析媒体尺寸及模型输入约束。
+    /// The service that resolves media dimensions and model input constraints.
     private let mediaService: any MediaServicing
 
-    /// 管理服务端会话与 RTC 连接。
+    /// Lifecycle coordination.
+
+    /// The manager that owns the server session and RTC connection.
     private let connectionManager: XmaxRealtimeConnectionManager
 
-    /// 管理生成请求及结果流确认。
+    /// The manager that sends generation requests and confirms result streams.
     private let generationManager: XmaxRealtimeGenerationManager
 
-    /// 记录并分发媒体和连接运行故障。
+    /// The handler that logs and forwards media and connection failures.
     private let errorHandler: RealtimeErrorHandler
 
-    /// 记录一次生成启动的各阶段耗时。
+    /// The recorder for generation startup stage durations.
     private let timing: RealtimeTiming
 
-    /// 串行业务操作并合并并发终止请求。
+    /// The coordinator that admits operations and merges termination requests.
     private let coordinator: RealtimeCoordinator
 
-    /// 是否有尚未处理的质量调档请求。
+    /// Whether an adaptive quality request is already pending.
     private var qualityPending = false
 
-    /// 创建实时生成组件，并连接媒体、传输、渲染和生命周期管理能力。
+    /// Creates a realtime manager using the default SDK components.
     ///
     /// - Parameters:
-    ///   - options: 模型与初始插帧配置。
-    ///   - apiService: 创建和关闭实时会话的 API 服务。
+    ///   - options: The model, initial interpolation, and adaptive quality settings.
+    ///   - apiService: The API service that creates and closes realtime sessions.
     @MainActor
     init(
         options: RealtimeConfiguration,
@@ -68,17 +72,26 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
         let renderController = RenderController(
             rtcManager: rtcManager,
-            frameInterpolationEnabled:
-                options.isFrameInterpolationEnabled,
+            frameInterpolationEnabled: options.isFrameInterpolationEnabled,
             frameInterpolationSupportChecker: {
                 mediaService.supportsFrameInterpolation(for: $0)
             },
-            errorListener: { errorHandler.forward($0, target: .connection) }
+            errorListener: {
+                errorHandler.forward(
+                    $0,
+                    target: .connection
+                )
+            }
         )
 
         let streamController = StreamController(
             rtcManager: rtcManager,
-            errorListener: { errorHandler.forward($0, target: .connection) },
+            errorListener: {
+                errorHandler.forward(
+                    $0,
+                    target: .connection
+                )
+            },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             },
@@ -94,7 +107,12 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             audioFrameListener: { frame in
                 try streamController.pushLocalAudioFrame(frame)
             },
-            errorListener: { errorHandler.forward($0, target: .all) },
+            errorListener: {
+                errorHandler.forward(
+                    $0,
+                    target: .all
+                )
+            },
             interactionListener: { taskID, points in
                 try await streamController.sendTracks(
                     taskID: taskID,
@@ -147,18 +165,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 使用指定业务组件创建实时生成管理器。
+    /// Creates a realtime manager with the specified components.
     ///
     /// - Parameters:
-    ///   - options: 模型与初始插帧配置。
-    ///   - streamController: 管理 RTC 传输、信令和网络质量的组件。
-    ///   - mediaController: 管理本地媒体和轨迹交互的组件。
-    ///   - renderController: 管理视频轨道显示和插帧的组件。
-    ///   - mediaService: 提供模型尺寸和插帧能力规则的服务。
-    ///   - connectionManager: 管理服务端会话和远端媒体资源的组件。
-    ///   - errorHandler: 记录错误并转交生命周期故障的组件。
-    ///   - generationManager: 管理生成任务与条件更新的组件。
-    ///   - timing: 记录本次实时启动各阶段耗时的组件。
+    ///   - options: The model, initial interpolation, and adaptive quality settings.
+    ///   - streamController: The controller for RTC transport, signaling, and network quality.
+    ///   - mediaController: The controller for local media and trajectory interactions.
+    ///   - renderController: The controller for video rendering and frame interpolation.
+    ///   - mediaService: The service defining model sizing and interpolation capabilities.
+    ///   - connectionManager: The manager for server sessions and remote media resources.
+    ///   - errorHandler: The handler for logging and lifecycle failures.
+    ///   - generationManager: The manager for generation tasks and condition updates.
+    ///   - timing: The recorder for generation startup stages.
     init(
         options: RealtimeConfiguration,
         streamController: any StreamControlling,
@@ -193,77 +211,103 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         )
         self.coordinator = coordinator
         errorHandler.setFailureHandler { [weak coordinator] error, target, isCurrent in
-            await coordinator?.terminate(with: error, target: target, isCurrent: isCurrent)
+            await coordinator?.terminate(
+                with: error,
+                target: target,
+                isCurrent: isCurrent
+            )
         }
     }
 
-    /// 当前实时连接与生成状态。
+    /// The current connection and generation state.
     var currentState: RealtimeState {
         get async {
             await coordinator.currentState
         }
     }
 
-    /// 当前已连接会话成功应用的上行档位。
+    /// The uplink level successfully applied to the current connection.
     var uplinkQualityLevel: RealtimeQualityLevel? {
         get async {
             let state = await coordinator.currentState.connectionState
-            guard state == .connected || state == .generating else { return nil }
+            guard state == .connected || state == .generating else {
+                return nil
+            }
             return streamController.qualityConfiguration?.uplinkLevel
         }
     }
 
-    /// 当前摄像头媒体规格；其他媒体来源返回空值。
+    /// The camera's resolved media format, or `nil` for other input sources.
     var currentCameraVideoFormat: RealtimeVideoFormat? {
         get async {
-            guard let track = await mediaController.currentTrack, track.position != nil else { return nil }
+            guard let track = await mediaController.currentTrack, track.position != nil else {
+                return nil
+            }
             return track.videoFormat
         }
     }
 
-    /// 按当前摄像头媒体宽高匹配的预设，不受帧率和编码档位影响。
+    /// The preset matching current camera dimensions, independent of frame rate or encoding level.
     var currentCameraPreset: RealtimeCameraPreset? {
         get async {
-            guard let format = await currentCameraVideoFormat else { return nil }
-            return RealtimeCameraPreset.allCases.first { $0.size == format.size }
+            guard let format = await currentCameraVideoFormat else {
+                return nil
+            }
+            return RealtimeCameraPreset.allCases.first {
+                $0.size == format.size
+            }
         }
     }
 
-    /// 当前已连接会话成功提交的下行档位。
+    /// The downlink level successfully submitted for the current connection.
     var downlinkQualityLevel: RealtimeQualityLevel? {
         get async {
             let state = await coordinator.currentState.connectionState
-            guard state == .connected || state == .generating else { return nil }
+            guard state == .connected || state == .generating else {
+                return nil
+            }
             return streamController.qualityConfiguration?.downlinkLevel
         }
     }
 
-    /// 在生成中调整上行编码档位，后续仍允许自动调档。
+    /// Changes the uplink encoding level while allowing subsequent automatic adaptation.
     ///
-    /// - Parameter level: 目标上行档位。
-    /// - Throws: 未在生成、操作冲突、取消或编码配置失败时抛出错误。
+    /// - Parameter level: The requested uplink quality level.
+    ///
+    /// - Throws: An error if generation is inactive, an operation conflicts or is cancelled, or
+    ///   encoder configuration fails.
     func setUplinkQualityLevel(
         _ level: RealtimeQualityLevel
     ) async throws {
-        try await setQualityLevel(level, downlink: false)
+        try await setQualityLevel(
+            level,
+            downlink: false
+        )
     }
 
-    /// 在生成中调整下行回传档位，后续仍允许自动调档。
+    /// Changes the downlink output level while allowing subsequent automatic adaptation.
     ///
-    /// - Parameter level: 目标下行档位。
-    /// - Throws: 未在生成、操作冲突、取消、信令发送或渲染配置失败时抛出错误。
+    /// - Parameter level: The requested downlink quality level.
+    ///
+    /// - Throws: An error if generation is inactive, an operation conflicts or is cancelled, or
+    ///   signaling or rendering configuration fails.
     func setDownlinkQualityLevel(
         _ level: RealtimeQualityLevel
     ) async throws {
-        try await setQualityLevel(level, downlink: true)
+        try await setQualityLevel(
+            level,
+            downlink: true
+        )
     }
 
-    /// 将手动调档纳入实时配置操作，避免与连接清理并发提交。
+    /// Changes the requested uplink or downlink quality level.
     ///
     /// - Parameters:
-    ///   - level: 目标传输档位。
-    ///   - downlink: 是否调整下行；`false` 表示上行。
-    /// - Throws: 状态无效、操作冲突、取消或档位应用失败时抛出错误。
+    ///   - level: The requested transport quality level.
+    ///   - downlink: Whether to change downlink output rather than uplink encoding.
+    ///
+    /// - Throws: An error if the state is invalid, an operation conflicts or is cancelled, or the
+    ///   level cannot be applied.
     private func setQualityLevel(
         _ level: RealtimeQualityLevel,
         downlink: Bool
@@ -272,98 +316,106 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             let state = await coordinator.currentState
             try token.ensureCurrent()
             guard state.connectionState == .generating, let taskID = state.taskID,
-                  streamController.qualityConfiguration != nil else {
+                streamController.qualityConfiguration != nil
+            else {
                 throw XmaxError(
                     code: .invalidConfiguration,
                     message: "Quality levels can only be changed while generating"
                 )
             }
 
-            try await applyQualityLevel(level, downlink: downlink, taskID: taskID, token: token)
+            try await applyQualityLevel(
+                level,
+                downlink: downlink,
+                taskID: taskID,
+                token: token
+            )
         }
     }
 
-    /// 当前实际生效的远端插帧状态。
+    /// Whether remote frame interpolation is currently enabled.
     var isFrameInterpolationEnabled: Bool {
         get async {
             await renderController.isFrameInterpolationEnabled
         }
     }
 
-    /// 当前本地预览音量，范围为 `0...1`。
+    /// The local preview volume, in the range `0...1`.
     var localAudioVolume: Float {
         get async {
             await mediaController.localAudioVolume
         }
     }
 
-    /// 当前远端生成音频的播放音量，范围为 `0...1`。
+    /// The remote generated audio volume, in the range `0...1`.
     var remoteAudioVolume: Float {
         streamController.remoteAudioVolume
     }
 
-    /// 设置实时状态监听器。
+    /// Sets the realtime state listener.
     ///
-    /// - Parameter listener: 实时状态回调；传入 `nil` 时清除监听器。
+    /// - Parameter listener: The state change handler, or `nil` to remove the listener.
     func setStateListener(
         _ listener: RealtimeStateListener?
     ) async {
         await coordinator.setStateListener(listener)
     }
 
-    /// 设置远端最终视频帧监听器。
+    /// Sets a listener for remote video frames after optional interpolation.
     ///
-    /// 监听器接收完成可选插帧处理、即将用于画面显示的视频帧。回调由 SDK
-    /// 内部串行队列触发，不会阻塞主线程；调用方应快速转交帧数据，避免在
-    /// 回调中执行耗时编码。传入 `nil` 时清除监听器。
+    /// Frames are delivered on an internal serial queue before display. Forward frames promptly and
+    /// avoid expensive encoding in the callback. Pass `nil` to remove the listener.
     ///
-    /// - Parameter listener: 远端最终视频帧回调。
+    /// - Parameter listener: The handler for remote output frames.
     func setRemoteVideoFrameListener(
         _ listener: RealtimeVideoFrameListener?
     ) async {
         await renderController.setRemoteVideoFrameListener(listener)
     }
 
-    /// 设置视频上行统计监听器。
+    /// Sets the uplink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: A main-actor handler that receives `nil` when unpublished or
+    ///   disconnected. Pass `nil` to remove it.
     func setUplinkVideoStatisticsListener(
         _ listener: UplinkVideoStatisticsListener?
     ) {
         streamController.setUplinkVideoStatisticsListener(listener)
     }
 
-    /// 设置视频下行统计监听器。
+    /// Sets the downlink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: A main-actor handler that receives `nil` when the result stream is
+    ///   cleared. Pass `nil` to remove it.
     func setDownlinkVideoStatisticsListener(
         _ listener: DownlinkVideoStatisticsListener?
     ) {
         streamController.setDownlinkVideoStatisticsListener(listener)
     }
 
-    /// 设置网络质量监听器。
+    /// Sets the network quality listener.
     ///
-    /// - Parameter listener: 上下行网络质量回调；传入 `nil` 时清除监听器。
+    /// - Parameter listener: The uplink and downlink quality handler, or `nil` to remove it.
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {
         streamController.setNetworkQualityListener(listener)
     }
 
-    /// 设置设备性能告警监听器。
+    /// Sets the device performance alarm listener.
     ///
-    /// - Parameter listener: 设备性能告警回调；传入 `nil` 时清除监听器。
+    /// - Parameter listener: The device performance alarm handler, or `nil` to remove it.
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     ) {
         streamController.setPerformanceAlarmListener(listener)
     }
 
-    /// 设置本地媒体预览音量。
+    /// Sets the local media preview volume.
     ///
-    /// - Parameter volume: 本地预览音量，取值范围为 `0...1`。
-    /// - Throws: 音量超出有效范围时抛出错误。
+    /// - Parameter volume: The preview volume, in the range `0...1`.
+    ///
+    /// - Throws: An error if the volume is outside the valid range.
     func setLocalAudioVolume(
         _ volume: Float
     ) async throws {
@@ -375,13 +427,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 设置远端生成音频播放音量。
+    /// Sets the remote audio playback volume.
     ///
-    /// 尚未连接或订阅远端流时保存配置，并在远端音频开始播放前应用。
-    /// 如需覆盖初始音量，请在创建本地流后调用。
+    /// The setting is retained before connection or subscription and applied before remote audio
+    /// playback. Call this method after creating the local stream to override its initial volume.
     ///
-    /// - Parameter volume: 远端播放音量，取值范围为 `0...1`。
-    /// - Throws: 音量超出有效范围或 RTC 音量配置失败时抛出错误。
+    /// - Parameter volume: The remote playback volume, in the range `0...1`.
+    ///
+    /// - Throws: An error if the volume is invalid or RTC volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Float
     ) async throws {
@@ -395,14 +448,17 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 开启或关闭远端生成画面的插帧。
+    /// Enables or disables frame interpolation for remote video.
     ///
-    /// 设置结果覆盖初始化配置。生成中开启时请求等比例缩小回传尺寸，关闭时
-    /// 请求恢复当前网络档位的回传尺寸；不会重新连接或重启生成。
-    /// 尺寸切换期间继续显示原始帧。
+    /// This setting overrides the initial configuration. Enabling interpolation requests reduced
+    /// output dimensions; disabling it restores the dimensions for the current quality level
+    /// without reconnecting or restarting generation. Original frames remain visible while output
+    /// dimensions change.
     ///
-    /// - Parameter enabled: 是否开启远端视频插帧。
-    /// - Throws: 其他实时操作正在执行、设备或目标尺寸不支持插帧，或信令发送失败时抛出错误。
+    /// - Parameter enabled: Whether to enable remote video frame interpolation.
+    ///
+    /// - Throws: An error if another operation is active, interpolation is unsupported, or
+    ///   signaling fails.
     func setFrameInterpolationEnabled(
         _ enabled: Bool
     ) async throws {
@@ -420,26 +476,33 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     ).size
                 }
                 if enabled, let targetSize,
-                   !mediaService.supportsFrameInterpolation(for: targetSize) {
+                    !mediaService.supportsFrameInterpolation(for: targetSize)
+                {
                     throw XmaxError(
                         code: .frameInterpolationUnsupported,
-                        message: "Frame interpolation is unavailable for " +
-                            "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
+                        message: "Frame interpolation is unavailable for "
+                            + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
                     )
                 }
                 try token.ensureCurrent()
                 if let taskID = current.taskID, let targetSize,
-                   await connectionManager.currentTargetSize != targetSize {
+                    await connectionManager.currentTargetSize != targetSize
+                {
                     try await streamController.changeTargetSize(
                         taskID: taskID,
                         targetSize: targetSize,
-                        ensureActive: { try token.ensureCurrent() }
+                        ensureActive: {
+                            try token.ensureCurrent()
+                        }
                     )
                 }
 
-                // 信令发出后完成本地配置提交；并发断开会等待当前操作完成再清理。
+                // Complete the local commit after signaling; concurrent disconnection waits before cleanup.
                 if let mediaFormat, let targetSize {
-                    await connectionManager.updateTargetSize(targetSize, videoFormat: mediaFormat)
+                    await connectionManager.updateTargetSize(
+                        targetSize,
+                        videoFormat: mediaFormat
+                    )
                 }
                 var returnFormat = mediaFormat
                 if let mediaFormat, let targetSize {
@@ -458,16 +521,21 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 创建本地相机流并开始预览。
+    /// Creates a local camera stream and starts its preview.
     ///
-    /// 将返回的轨道绑定到预览视图；收到有效帧且视图已绑定后进入 `ready`。
+    /// Bind the returned track to a preview view. The state becomes `ready` after the bound view
+    /// receives a valid frame.
     ///
     /// - Parameters:
-    ///   - videoFormat: 相机采集的视频规格。
-    ///   - position: 首次启用的摄像头位置。
-    ///   - useMicrophone: 是否使用麦克风；创建时申请权限，连接时开始采集，断开时停止采集。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
+    ///   - videoFormat: The camera capture and encoding format.
+    ///   - position: The camera position to use initially.
+    ///   - useMicrophone: Whether to request microphone access during creation and capture audio
+    ///     while connected.
+    ///
+    /// - Returns: A media stream containing the local camera video track.
+    ///
+    /// - Throws: An error if configuration is invalid, a required permission is denied, an
+    ///   operation conflicts, or capture cannot start.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition,
@@ -484,40 +552,57 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 更新未连接、已就绪的摄像头规格，保留流及视图绑定。
+    /// Updates a ready, disconnected camera format while preserving stream and view bindings.
     ///
-    /// - Parameter videoFormat: 模型支持的新尺寸、帧率与编码配置。
-    /// - Throws: 状态无效、操作冲突、规格不支持或设备配置失败时抛出错误。
+    /// - Parameter videoFormat: The supported camera dimensions, frame rate, and encoding settings.
+    ///
+    /// - Throws: An error if the state or format is invalid, an operation conflicts, or device
+    ///   configuration fails.
     func updateCameraFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async throws {
-        try await updateCameraFormat { _ in videoFormat }
+        try await updateCameraFormat { _ in
+            videoFormat
+        }
     }
 
-    /// 只更新摄像头分辨率，保留当前帧率与编码配置。
+    /// Updates camera dimensions while preserving frame rate and encoding settings.
     ///
-    /// - Parameter preset: 目标分辨率预设。
-    /// - Throws: 状态无效、操作冲突、预设不支持或采集配置失败时抛出错误。
+    /// - Parameter preset: The requested resolution preset.
+    ///
+    /// - Throws: An error if the state or preset is invalid, an operation conflicts, or capture
+    ///   configuration fails.
     func updateCameraFormat(
         _ preset: RealtimeCameraPreset
     ) async throws {
         try await updateCameraFormat { current in
-            current.resized(width: Int(preset.size.width), height: Int(preset.size.height))
+            current.resized(
+                width: Int(preset.size.width),
+                height: Int(preset.size.height)
+            )
         }
     }
 
-    /// 在媒体操作内读取当前规格并应用更新，避免覆盖并发配置。
+    /// Updates the camera format using its current settings.
     ///
-    /// - Parameter resolve: 根据当前摄像头规格生成目标规格。
-    /// - Throws: 摄像头未就绪、连接未断开或配置更新失败时抛出错误。
+    /// - Parameter resolve: A closure deriving the requested format from the current camera format.
+    ///
+    /// - Throws: An error if the camera is not ready, realtime is connected, or configuration
+    ///   fails.
     private func updateCameraFormat(
         resolve: @escaping @Sendable (RealtimeVideoFormat) -> RealtimeVideoFormat
     ) async throws {
         try await coordinator.run(kind: .media) { [self] token in
-            try await ensureLocalMediaCanChange(message: "Disconnect realtime before updating the camera format")
+            try await ensureLocalMediaCanChange(
+                message: "Disconnect realtime before updating the camera format"
+            )
             guard await coordinator.currentState.connectionState == .ready,
-                  let current = await currentCameraVideoFormat else {
-                throw XmaxError(code: .invalidConfiguration, message: "Camera preview must be ready before updating its format")
+                let current = await currentCameraVideoFormat
+            else {
+                throw XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Camera preview must be ready before updating its format"
+                )
             }
             try token.ensureCurrent()
             try await mediaController.updateCameraFormat(resolve(current))
@@ -525,16 +610,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 停止本地相机流并更新媒体就绪状态。
+    /// Stops the local camera stream.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopLocalCameraStream() async throws {
         try await coordinator.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local " +
-                    "camera stream"
+                message: "Disconnect realtime before stopping the local " + "camera stream"
             )
             token.setFailureScope(.all)
             await mediaController.stopLocalCameraStream()
@@ -542,38 +627,40 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await coordinator.commit(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
+                token: token
             )
         }
     }
 
-    /// 切换前后置摄像头。
+    /// Switches between the front and rear cameras.
     ///
-    /// 生成过程中调用时，SDK 会停止当前生成、切换摄像头，并使用缓存的生成
-    /// 条件恢复生成；RTC 连接保持不变。连接或生成正在启动时不可切换。
+    /// During generation, XmaxSDK stops the current task, switches cameras, and resumes with cached
+    /// conditions. The RTC connection remains open. Switching is unavailable while connection or
+    /// generation startup is in progress.
     ///
-    /// - Returns: 复用原视频轨道并更新摄像头位置后的本地媒体流。
-    /// - Throws: 当前没有摄像头流、实时流程正在启动，或摄像头切换及生成恢复
-    ///   失败时抛出错误。
+    /// - Returns: The local stream with its existing video track and updated camera position.
+    ///
+    /// - Throws: An error if no camera stream exists, realtime startup is in progress, or camera
+    ///   switching or generation restart fails.
     func switchCamera() async throws -> RealtimeMediaStream {
         let current = await coordinator.currentState
         guard current.connectionState != .connecting,
-              current.connectionState != .disconnecting else {
+            current.connectionState != .disconnecting
+        else {
             throw await reportError(
                 XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while realtime " +
-                        "is transitioning"
+                    message: "Camera switching is unavailable while realtime " + "is transitioning"
                 )
             )
         }
-        guard current.connectionState == .generating ||
-                !streamController.hasGenerationTask else {
+        guard current.connectionState == .generating || !streamController.hasGenerationTask else {
             throw await reportError(
                 XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while " +
-                        "realtime generation is starting"
+                    message: "Camera switching is unavailable while "
+                        + "realtime generation is starting"
                 )
             )
         }
@@ -583,11 +670,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         ) { [self] token in
             let current = await coordinator.currentState
             guard current.connectionState != .connecting,
-                  current.connectionState != .disconnecting else {
+                current.connectionState != .disconnecting
+            else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while realtime " +
-                        "is transitioning"
+                    message: "Camera switching is unavailable while realtime " + "is transitioning"
                 )
             }
 
@@ -595,8 +682,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             guard wasGenerating || !streamController.hasGenerationTask else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while " +
-                        "realtime generation is starting"
+                    message: "Camera switching is unavailable while "
+                        + "realtime generation is starting"
                 )
             }
 
@@ -630,13 +717,17 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 从编码后的图片数据创建持续输出帧的媒体流。
+    /// Creates a continuous video frame stream from encoded image data.
     ///
-    /// 保留媒体显示比例；生成时由模型规则选择生成画布。
+    /// The stream retains the media aspect ratio; the model selects the generation canvas
+    /// separately.
     ///
-    /// - Parameter imageData: JPEG、PNG 等受支持格式的编码图片数据。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
+    /// - Parameter imageData: Encoded image data in a supported format, such as JPEG or PNG.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or image processing
+    ///   fails.
     func createLocalImageStream(
         imageData: Data
     ) async throws -> RealtimeMediaStream {
@@ -649,15 +740,19 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-#if canImport(UIKit)
+    #if canImport(UIKit)
 
-    /// 从 UIKit 图片创建持续输出帧的媒体流。
+    /// Creates a continuous video frame stream from a UIKit image.
     ///
-    /// 保留媒体显示比例；生成时由模型规则选择生成画布。
+    /// The stream retains the media aspect ratio; the model selects the generation canvas
+    /// separately.
     ///
-    /// - Parameter image: 用作本地输入的 UIKit 图片。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
+    /// - Parameter image: The UIKit image to use as local input.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or image processing
+    ///   fails.
     func createLocalImageStream(
         image: UIImage
     ) async throws -> RealtimeMediaStream {
@@ -666,13 +761,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             decodedImage: decodedImage
         )
     }
-#endif
+    #endif
 
-    /// 从已解码图片创建持续输出帧的本地媒体流。
+    /// Creates a continuous local frame stream from a decoded image.
     ///
-    /// - Parameter decodedImage: 已完成解码和方向处理的图片。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 本地媒体不可切换、操作取消或图片流创建失败时抛出错误。
+    /// - Parameter decodedImage: The decoded, orientation-corrected image.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if local media cannot change, the operation is cancelled, or image stream
+    ///   creation fails.
     func createLocalImageStream(
         decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
@@ -685,13 +783,17 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 从本地图片文件创建持续输出帧的媒体流。
+    /// Creates a continuous video frame stream from a local image file.
     ///
-    /// 保留媒体显示比例；生成时由模型规则选择生成画布。
+    /// The stream retains the media aspect ratio; the model selects the generation canvas
+    /// separately.
     ///
-    /// - Parameter fileURL: 本地图片文件 URL。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或图片处理失败时抛出错误。
+    /// - Parameter fileURL: The local image file URL.
+    ///
+    /// - Returns: A media stream containing the local image video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or image processing
+    ///   fails.
     func createLocalImageStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
@@ -704,16 +806,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 停止本地图片流并更新媒体就绪状态。
+    /// Stops the local image stream.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopLocalImageStream() async throws {
         try await coordinator.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local " +
-                    "image stream"
+                message: "Disconnect realtime before stopping the local " + "image stream"
             )
             token.setFailureScope(.all)
             await mediaController.stopLocalImageStream()
@@ -721,18 +823,23 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await coordinator.commit(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
+                token: token
             )
         }
     }
 
-    /// 从本地视频文件创建循环播放的音视频流。
+    /// Creates a looping audio and video stream from a local video file.
     ///
-    /// 保留源视频显示比例，使用模型默认输出帧率；生成时单独计算生成画布。
+    /// The stream retains the video's display aspect ratio and uses the model's default frame rate.
+    /// The generation canvas is resolved separately.
     ///
-    /// - Parameter fileURL: 本地视频文件 URL。
-    /// - Returns: 包含本地文件视频轨道的媒体流。
-    /// - Throws: 配置无效、操作冲突或视频处理失败时抛出错误。
+    /// - Parameter fileURL: The local video file URL.
+    ///
+    /// - Returns: A media stream containing the local file video track.
+    ///
+    /// - Throws: An error if configuration is invalid, an operation conflicts, or video processing
+    ///   fails.
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
@@ -745,16 +852,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 停止本地文件视频流并更新媒体就绪状态。
+    /// Stops the local file video stream.
     ///
-    /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, another operation conflicts, or the
+    ///   operation is cancelled.
     func stopLocalVideoStream() async throws {
         try await coordinator.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local " +
-                    "video stream"
+                message: "Disconnect realtime before stopping the local " + "video stream"
             )
             token.setFailureScope(.all)
             await mediaController.stopLocalVideoStream()
@@ -762,16 +869,20 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await coordinator.commit(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
+                token: token
             )
         }
     }
 
-    /// 绑定接入方的外部视频源，沿用源帧率并解析媒体尺寸。
+    /// Binds an external video source, preserving its frame rate and resolving media dimensions.
     ///
-    /// - Parameter source: 接入方拥有的视频源。
-    /// - Returns: 可用于 SDK 预览和生成的本地媒体流。
-    /// - Throws: 规格无效、操作冲突或媒体绑定失败时抛出错误。
+    /// - Parameter source: The video source owned by your app.
+    ///
+    /// - Returns: A local stream for SDK preview and generation.
+    ///
+    /// - Throws: An error if the format is invalid, an operation conflicts, or source binding
+    ///   fails.
     func createExternalVideoStream(
         source: any RealtimeExternalVideoSource
     ) async throws -> RealtimeMediaStream {
@@ -782,9 +893,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 解绑外部视频输入并更新媒体就绪状态。
+    /// Unbinds the external video source.
     ///
-    /// - Throws: 尚未断开连接、存在操作冲突或操作取消时抛出错误。
+    /// - Throws: An error if realtime is still connected, an operation conflicts, or the operation
+    ///   is cancelled.
     func stopExternalVideoStream() async throws {
         try await coordinator.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
@@ -796,16 +908,20 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             errorHandler.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await coordinator.commit(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
+                token: token
             )
         }
     }
 
-    /// 使用当前 Manager 创建的本地流建立实时连接。
+    /// Establishes a realtime connection using a local stream created by this manager.
     ///
-    /// - Parameter localStream: 当前 Manager 创建并持有的本地媒体流。
-    /// - Returns: 当前连接的远端媒体流，可绑定到结果预览视图。
-    /// - Throws: 本地流无效、连接已存在、操作冲突、取消或连接建立失败时抛出错误。
+    /// - Parameter localStream: The active local media stream owned by this manager.
+    ///
+    /// - Returns: The connection's remote stream, which can be bound to a result view.
+    ///
+    /// - Throws: An error if the local stream is invalid, a connection exists, an operation
+    ///   conflicts or is cancelled, or connection setup fails.
     func connect(
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
@@ -819,35 +935,38 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 断开实时连接并保留当前本地媒体预览。
+    /// Disconnects realtime while preserving the local media preview.
     func disconnect() async {
         await coordinator.disconnect()
     }
 
-    /// 按指定业务原因断开实时连接，保留可用的本地媒体流。
+    /// Disconnects for the specified reason while preserving available local media.
     ///
-    /// - Parameter reason: 本次断开的原因，例如显示方向变化。
+    /// - Parameter reason: The reason for disconnection, such as an orientation change.
     func disconnect(
         reason: RealtimeReason
     ) async {
         await coordinator.disconnect(reason: reason)
     }
 
-    /// 关闭当前实时生命周期并释放连接、本地媒体和 RTC Engine。
+    /// Closes the realtime lifecycle and releases the connection, local media, and RTC engine.
     ///
-    /// 关闭期间重复调用会等待同一个释放任务；关闭完成后仍可重新创建本地流。
+    /// Concurrent calls await the same cleanup task. Local streams can be created again after
+    /// closing completes.
     func close() async {
         await coordinator.terminate(
             .all
         )
     }
 
-    /// 开始生成，生成中再次调用时更新当前条件。
+    /// Starts generation or updates conditions for the active task.
     ///
     /// - Parameters:
-    ///   - context: 本次生成条件；首次生成不能为空，后续传入 `nil` 时复用缓存条件。
-    ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
-    /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
+    ///   - context: The generation conditions. Required for the first request; `nil` reuses cached
+    ///     conditions thereafter.
+    ///   - faceRestoration: Whether to restore the original face. Sent with each request.
+    ///
+    /// - Throws: An error if conditions are invalid or generation startup or an update fails.
     func startGeneration(
         context: RealtimeContext?,
         faceRestoration: Bool = false
@@ -876,17 +995,19 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 使用当前本地流按需建立连接并开始生成。
+    /// Connects the current local stream if needed and starts generation.
     ///
-    /// 文件视频在连接和生成期间保持本地播放器持续运行；已经连接时直接复用
-    /// 当前连接。返回的远端流可交给统一视频视图显示生成结果。
+    /// Local video file playback continues during connection and generation. An existing connection
+    /// is reused. Bind the returned remote stream to a realtime video view to display results.
     ///
     /// - Parameters:
-    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
-    ///   - context: 本次生成条件；首次生成不能为空。
-    ///   - faceRestoration: 是否回贴原始人脸；每次调用均发送本次设置。
-    /// - Returns: 当前 RTC 连接对应的远端媒体流。
-    /// - Throws: 本地流无效、连接失败或生成启动失败时抛出错误。
+    ///   - localStream: The active local media stream owned by this manager.
+    ///   - context: The generation conditions. Required for the first request.
+    ///   - faceRestoration: Whether to restore the original face. Sent with each request.
+    ///
+    /// - Returns: The remote media stream for the current RTC connection.
+    ///
+    /// - Throws: An error if the local stream is invalid or connection or generation startup fails.
     func startGeneration(
         localStream: RealtimeMediaStream,
         context: RealtimeContext?,
@@ -898,8 +1019,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             let initialState = await coordinator.currentState
             let hasConnection = await connectionManager.currentSessionID != ""
             try token.ensureCurrent()
-            let measuresStartup = initialState.connectionState != .connecting &&
-                initialState.connectionState != .disconnecting
+            let measuresStartup =
+                initialState.connectionState != .connecting
+                && initialState.connectionState != .disconnecting
             if measuresStartup {
                 timing.begin()
             }
@@ -907,8 +1029,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 guard await mediaController.owns(localStream) else {
                     throw XmaxError(
                         code: .invalidConfiguration,
-                        message: "The local stream must be created and " +
-                            "started by this realtime manager"
+                        message: "The local stream must be created and "
+                            + "started by this realtime manager"
                     )
                 }
                 try token.ensureCurrent()
@@ -917,8 +1039,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 try token.ensureCurrent()
                 let remoteStream: RealtimeMediaStream
                 if hasConnection {
-                    guard let activeRemoteStream =
-                            await connectionManager.currentRemoteStream else {
+                    guard
+                        let activeRemoteStream =
+                            await connectionManager.currentRemoteStream
+                    else {
                         throw XmaxError(
                             code: .rtcError,
                             message: "Realtime connection has no remote stream"
@@ -948,13 +1072,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
-    /// 启动结果流并提交生成状态，或更新现有生成任务的条件。
+    /// Starts generation or updates the active task's conditions.
     ///
     /// - Parameters:
-    ///   - context: 本次生成条件；nil 时复用上次成功请求的条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - token: 当前操作凭证，用于校验生命周期仍然有效。
-    /// - Throws: 连接不可用、条件无效、操作取消或生成启动及更新失败时抛出错误。
+    ///   - context: The requested conditions, or `nil` to reuse the most recent successful
+    ///     conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - token: The token used to verify that the current operation remains valid.
+    ///
+    /// - Throws: An error if the connection or conditions are invalid, the operation is cancelled,
+    ///   or generation startup or an update fails.
     private func performStartGeneration(
         context: RealtimeContext?,
         faceRestoration: Bool,
@@ -964,9 +1091,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         let sessionID = await connectionManager.currentSessionID
         let current = await coordinator.currentState
         guard !sessionID.isEmpty,
-              current.connectionState == .connected ||
-                current.connectionState == .generating,
-              let videoFormat = await mediaController.currentVideoFormat else {
+            current.connectionState == .connected || current.connectionState == .generating,
+            let videoFormat = await mediaController.currentVideoFormat
+        else {
             throw XmaxError(
                 code: .rtcError,
                 message: "Realtime connection is not open"
@@ -974,12 +1101,18 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         let paddingContain = await mediaController.usesContainPadding
-        let generationSize = try paddingContain ? mediaService.resolveGenerationSize(videoFormat.size) : videoFormat.size
-        let generationFormat = videoFormat.resized(width: Int(generationSize.width), height: Int(generationSize.height))
+        let generationSize =
+            try paddingContain
+            ? mediaService.resolveGenerationSize(videoFormat.size) : videoFormat.size
+        let generationFormat = videoFormat.resized(
+            width: Int(generationSize.width),
+            height: Int(generationSize.height)
+        )
         try token.ensureCurrent()
 
         if current.connectionState == .generating,
-           let taskID = current.taskID {
+            let taskID = current.taskID
+        {
             try await generationManager.update(
                 taskID: taskID,
                 videoFormat: videoFormat,
@@ -988,7 +1121,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 faceRestoration: faceRestoration,
                 generationVideoFormat: generationFormat,
                 paddingContain: paddingContain,
-                ensureCurrent: { try token.ensureCurrent() }
+                ensureCurrent: {
+                    try token.ensureCurrent()
+                }
             )
             try token.ensureCurrent()
             return
@@ -1030,12 +1165,26 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
             try token.ensureCurrent()
             if let quality = streamController.qualityConfiguration {
-                streamController.completeQuality(downlink: false, level: quality.uplinkLevel, success: true)
-                streamController.completeQuality(downlink: true, level: quality.downlinkLevel, success: true)
+                streamController.completeQuality(
+                    downlink: false,
+                    level: quality.uplinkLevel,
+                    success: true
+                )
+                streamController.completeQuality(
+                    downlink: true,
+                    level: quality.downlinkLevel,
+                    success: true
+                )
             }
             if options.isAdaptiveQualityEnabled {
                 streamController.setAdaptiveQualityListener { [weak self] quality, time in
-                    Task { await self?.adaptQuality(quality, sampledAt: time, taskID: taskID) }
+                    Task {
+                        await self?.adaptQuality(
+                            quality,
+                            sampledAt: time,
+                            taskID: taskID
+                        )
+                    }
                 }
             }
             timing.finish(taskID: taskID)
@@ -1048,82 +1197,120 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
 private extension XmaxRealtimeManager {
 
-    /// 根据网络档位和插帧限制计算回传视频规格。
+    /// Resolves the returned video format using the quality level and interpolation limits.
     ///
     /// - Parameters:
-    ///   - baseline: 本地媒体的基准规格。
-    ///   - level: 下行目标档位，取值范围为 1...5。
-    ///   - interpolation: 是否应用插帧所需的像素面积限制。
-    /// - Returns: 优先保持媒体比例并满足档位、插帧限制和 4 对齐要求的回传规格。
-    /// - Throws: 基准规格无效或无法计算有效回传尺寸时抛出错误。
+    ///   - baseline: The resolved local media format.
+    ///   - level: The requested downlink quality level.
+    ///   - interpolation: Whether to apply the frame interpolation pixel limit.
+    ///
+    /// - Returns: A format that prioritizes the media aspect ratio within quality and interpolation
+    ///   limits, aligned to multiples of 4.
+    ///
+    /// - Throws: An error if the baseline is invalid or valid output dimensions cannot be resolved.
     nonisolated func resolveTargetVideoFormat(
         baseline: RealtimeVideoFormat,
         level: RealtimeQualityLevel,
         interpolation: Bool
     ) throws -> RealtimeVideoFormat {
         try baseline.validate()
-        let maximumSize = QualityVideoFormat.resolveDownlinkMaximumSize(baseline, level: level)
+        let maximumSize = QualityVideoFormat.resolveDownlinkMaximumSize(
+            baseline,
+            level: level
+        )
         let targetSize = try mediaService.resolveTargetSize(
             baseline.size,
             maximumSize: maximumSize,
             frameInterpolationEnabled: interpolation
         )
-        let format = QualityVideoFormat.resolve(baseline, level: level, downlink: true)
-        return format.resized(width: Int(targetSize.width), height: Int(targetSize.height))
+        let format = QualityVideoFormat.resolve(
+            baseline,
+            level: level,
+            downlink: true
+        )
+        return format.resized(
+            width: Int(targetSize.width),
+            height: Int(targetSize.height)
+        )
     }
 
-    /// 根据当前任务的网络采样尝试自动调档，忙碌时跳过本次采样。
+    /// Attempts automatic adaptation for the current task, skipping samples while busy.
     ///
     /// - Parameters:
-    ///   - sample: 上下行网络质量采样。
-    ///   - sampledAt: 采样时的系统单调时钟时间，单位为秒。
-    ///   - taskID: 采样所属的生成任务标识。
+    ///   - sample: The sampled uplink and downlink network quality.
+    ///   - sampledAt: The monotonic sample time, in seconds.
+    ///   - taskID: The identifier of the task associated with this sample.
     func adaptQuality(
         _ sample: RealtimeNetworkQuality,
         sampledAt: TimeInterval,
         taskID: String
     ) async {
-        guard !qualityPending else { return }
+        guard !qualityPending else {
+            return
+        }
         qualityPending = true
-        defer { qualityPending = false }
+        defer {
+            qualityPending = false
+        }
         do {
             let accepted = try await coordinator.runAdaptiveConfiguration { [self] token in
                 let state = await coordinator.currentState
                 try token.ensureCurrent()
-                guard state.taskID == taskID, state.connectionState == .generating else { return }
-                let change = streamController.proposeQuality(sample, sampledAt: sampledAt)
+                guard state.taskID == taskID, state.connectionState == .generating else {
+                    return
+                }
+                let change = streamController.proposeQuality(
+                    sample,
+                    sampledAt: sampledAt
+                )
                 if let level = change.uplink {
-                    try? await applyQualityLevel(level, downlink: false, taskID: taskID, token: token)
+                    try? await applyQualityLevel(
+                        level,
+                        downlink: false,
+                        taskID: taskID,
+                        token: token
+                    )
                 }
                 try token.ensureCurrent()
                 if let level = change.downlink {
-                    try? await applyQualityLevel(level, downlink: true, taskID: taskID, token: token)
+                    try? await applyQualityLevel(
+                        level,
+                        downlink: true,
+                        taskID: taskID,
+                        token: token
+                    )
                 }
             }
-            if !accepted { streamController.resetQualitySamples() }
+            if !accepted {
+                streamController.resetQualitySamples()
+            }
         } catch {
-            // 取消与断开不形成新连接的采样，也不覆盖其配置。
+            // Do not let cancellation or disconnection reset samples for a newer task.
             if !Task.isCancelled, await coordinator.currentState.taskID == taskID {
                 streamController.resetQualitySamples()
             }
         }
     }
 
-    /// 应用单个方向的传输配置，并在成功后保存当前档位。
+    /// Applies a quality level to uplink encoding or downlink output.
     ///
     /// - Parameters:
-    ///   - level: 目标档位，取值范围为 1...5。
-    ///   - downlink: true 更新回传尺寸，false 更新本地编码规格。
-    ///   - taskID: 需要更新传输配置的生成任务标识。
-    ///   - token: 当前配置操作的生命周期凭证。
-    /// - Throws: 操作取消、目标尺寸不支持插帧、信令发送或编码配置失败时抛出错误。
+    ///   - level: The requested quality level.
+    ///   - downlink: Whether to change returned dimensions rather than local encoding settings.
+    ///   - taskID: The generation task whose transport settings are being updated.
+    ///   - token: The validity token for this configuration operation.
+    ///
+    /// - Throws: An error if cancelled, interpolation is unsupported, or signaling or encoder
+    ///   configuration fails.
     func applyQualityLevel(
         _ level: RealtimeQualityLevel,
         downlink: Bool,
         taskID: String,
         token: RealtimeCoordinator.Token
     ) async throws {
-        guard let configuration = streamController.qualityConfiguration else { return }
+        guard let configuration = streamController.qualityConfiguration else {
+            return
+        }
         do {
             try token.ensureCurrent()
             let format: RealtimeVideoFormat
@@ -1135,7 +1322,8 @@ private extension XmaxRealtimeManager {
                     level: level,
                     interpolation: interpolation
                 )
-                guard !interpolation || mediaService.supportsFrameInterpolation(for: format.size) else {
+                guard !interpolation || mediaService.supportsFrameInterpolation(for: format.size)
+                else {
                     throw XmaxError(
                         code: .frameInterpolationUnsupported,
                         message: "Frame interpolation is unavailable for the target size"
@@ -1147,45 +1335,74 @@ private extension XmaxRealtimeManager {
                     try await streamController.changeTargetSize(
                         taskID: taskID,
                         targetSize: format.size,
-                        ensureActive: { try token.ensureCurrent() }
+                        ensureActive: {
+                            try token.ensureCurrent()
+                        }
                     )
-                    // 发送后同步预期尺寸；断开会等待本次提交完成再释放资源。
-                    await connectionManager.updateTargetSize(format.size, videoFormat: configuration.baseline)
-                    try await renderController.setFrameInterpolationEnabled(interpolation, videoFormat: format)
+                    // Commit expected dimensions after signaling; disconnection waits for this commit before cleanup.
+                    await connectionManager.updateTargetSize(
+                        format.size,
+                        videoFormat: configuration.baseline
+                    )
+                    try await renderController.setFrameInterpolationEnabled(
+                        interpolation,
+                        videoFormat: format
+                    )
                 }
             } else {
-                format = QualityVideoFormat.resolve(configuration.baseline, level: level, downlink: false)
+                format = QualityVideoFormat.resolve(
+                    configuration.baseline,
+                    level: level,
+                    downlink: false
+                )
                 try streamController.setVideoEncoderConfig(format)
             }
             try token.ensureCurrent()
-            streamController.completeQuality(downlink: downlink, level: level, success: true)
+            streamController.completeQuality(
+                downlink: downlink,
+                level: level,
+                success: true
+            )
             XmaxLogger.realtime.debug(
-                message: "传输调档 (Quality Adjustment)\n" +
-                    "└─ \(downlink ? "Downlink" : "Uplink"): L\(level.rawValue), \(format.width) × \(format.height)"
+                message: "传输调档 (Quality Adjustment)\n"
+                    + "└─ \(downlink ? "Downlink" : "Uplink"): L\(level.rawValue), \(format.width) × \(format.height)"
             )
         } catch {
-            guard token.isCurrent else { throw error }
-            streamController.completeQuality(downlink: downlink, level: level, success: false)
-            XmaxLogger.realtime.warn(message: "传输调档失败 (Quality Adjustment Failed)\n└─ \(ErrorMessageFormatter.format(error))")
+            guard token.isCurrent else {
+                throw error
+            }
+            streamController.completeQuality(
+                downlink: downlink,
+                level: level,
+                success: false
+            )
+            XmaxLogger.realtime.warn(
+                message:
+                    "传输调档失败 (Quality Adjustment Failed)\n└─ \(ErrorMessageFormatter.format(error))"
+            )
             throw error
         }
     }
 
-    /// 发布本地媒体并建立实时会话，成功后提交已连接状态。
+    /// Establishes a realtime connection for the local stream.
     ///
     /// - Parameters:
-    ///   - localStream: 当前管理器创建并持有的本地媒体流。
-    ///   - token: 当前连接操作的生命周期凭证。
-    /// - Returns: 当前会话对应的远端媒体流。
-    /// - Throws: 连接已存在、本地流无效、操作取消或会话及 RTC 连接失败时抛出错误。
+    ///   - localStream: The active local stream created by this manager.
+    ///   - token: The validity token for the connection operation.
+    ///
+    /// - Returns: The remote media stream for the session.
+    ///
+    /// - Throws: An error if a connection exists, the stream is invalid, the operation is
+    ///   cancelled, or session or RTC setup fails.
     func performConnect(
         localStream: RealtimeMediaStream,
         token: RealtimeCoordinator.Token
     ) async throws -> RealtimeMediaStream {
         let current = await coordinator.currentState
         guard await connectionManager.currentSessionID == "",
-              current.connectionState != .connecting,
-              current.connectionState != .disconnecting else {
+            current.connectionState != .connecting,
+            current.connectionState != .disconnecting
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: "Realtime connection is already open"
@@ -1194,15 +1411,18 @@ private extension XmaxRealtimeManager {
         guard await mediaController.owns(localStream) else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "The local stream must be created and started " +
-                    "by this realtime manager"
+                message: "The local stream must be created and started "
+                    + "by this realtime manager"
             )
         }
 
         try await mediaController.updateCameraOrientation()
         try token.ensureCurrent()
         guard let videoFormat = localStream.videoTrack?.videoFormat else {
-            throw XmaxError(code: .invalidConfiguration, message: "Local video format is unavailable")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Local video format is unavailable"
+            )
         }
 
         token.setFailureScope(.connection)
@@ -1227,7 +1447,9 @@ private extension XmaxRealtimeManager {
             videoFormat: videoFormat,
             targetSize: targetSize,
             includeLocalAudio: await mediaController.hasAudio,
-            isCurrent: { token.isCurrent },
+            isCurrent: {
+                token.isCurrent
+            },
             onHeartbeatFailure: { [weak self] sessionID, error in
                 await self?.handleHeartbeatFailure(
                     sessionID: sessionID,
@@ -1254,24 +1476,29 @@ private extension XmaxRealtimeManager {
         return remoteStream
     }
 
-    /// 创建本地媒体流，配置方向处理、初始音量和媒体就绪通知。
+    /// Prepares a local stream for preview and generation.
     ///
     /// - Parameters:
-    ///   - source: 本次创建的媒体来源。
-    ///   - prepare: 创建媒体流的异步操作，接收当前生命周期凭证。
-    /// - Returns: 完成媒体准备的本地流；摄像头就绪状态由首帧预览通知更新。
-    /// - Throws: 已有本地流、实时连接未断开、操作取消或媒体准备失败时抛出错误。
+    ///   - source: The kind of local media being created.
+    ///   - prepare: The asynchronous media creation operation receiving the current validity token.
+    ///
+    /// - Returns: The prepared local stream. Camera readiness is updated by the first preview frame
+    ///   notification.
+    ///
+    /// - Throws: An error if a local stream exists, realtime is connected, the operation is
+    ///   cancelled, or media preparation fails.
     func createLocalMediaStream(
         source: RealtimeMediaSource,
-        prepare: @escaping @Sendable (RealtimeCoordinator.Token) async throws
+        prepare:
+            @escaping @Sendable (RealtimeCoordinator.Token) async throws
             -> RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
         return try await coordinator.run(
             kind: .media
         ) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Local \(source.rawValue) stream is unavailable during " +
-                    "a realtime connection"
+                message: "Local \(source.rawValue) stream is unavailable during "
+                    + "a realtime connection"
             )
             guard await mediaController.currentTrack == nil else {
                 throw XmaxError(
@@ -1281,7 +1508,10 @@ private extension XmaxRealtimeManager {
             }
             try token.ensureCurrent()
             errorHandler.invalidatePendingFailures()
-            try await coordinator.commit(RealtimeState(connectionState: .preparing), token: token)
+            try await coordinator.commit(
+                RealtimeState(connectionState: .preparing),
+                token: token
+            )
             try token.ensureCurrent()
 
             let stream = try await prepare(token)
@@ -1290,8 +1520,15 @@ private extension XmaxRealtimeManager {
             if let track = stream.videoTrack {
                 await MainActor.run {
                     track.orientationChangeHandler = { [weak self, weak track] changedAxis in
-                        guard let track else { return }
-                        Task { await self?.handleOrientationChange(for: track, changedAxis: changedAxis) }
+                        guard let track else {
+                            return
+                        }
+                        Task {
+                            await self?.handleOrientationChange(
+                                for: track,
+                                changedAxis: changedAxis
+                            )
+                        }
                     }
                 }
                 try token.ensureCurrent()
@@ -1306,23 +1543,28 @@ private extension XmaxRealtimeManager {
                     }
                 }
             } else {
-                try await coordinator.commit(RealtimeState(connectionState: .ready), token: token)
+                try await coordinator.commit(
+                    RealtimeState(connectionState: .ready),
+                    token: token
+                )
             }
             return stream
         }
     }
 
-    /// 确认当前没有阻止本地媒体变更的实时连接。
+    /// Verifies that no realtime connection prevents local media changes.
     ///
-    /// - Parameter message: 不允许变更媒体时使用的错误信息。
-    /// - Throws: 存在会话，或连接正在建立、断开时抛出错误。
+    /// - Parameter message: The error message to use when media changes are unavailable.
+    ///
+    /// - Throws: An error if a session exists or connection setup or teardown is in progress.
     func ensureLocalMediaCanChange(
         message: String
     ) async throws {
         let current = await coordinator.currentState
         guard await connectionManager.currentSessionID == "",
-              current.connectionState != .connecting,
-              current.connectionState != .disconnecting else {
+            current.connectionState != .connecting,
+            current.connectionState != .disconnecting
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: message
@@ -1330,17 +1572,20 @@ private extension XmaxRealtimeManager {
         }
     }
 
-    /// 更新当前媒体方向，横竖屏轴变化时结束实时连接。
+    /// Updates media orientation and disconnects when switching between portrait and landscape.
     ///
     /// - Parameters:
-    ///   - track: 报告方向变化的本地视频轨道。
-    ///   - changedAxis: 是否在横屏和竖屏之间切换。
+    ///   - track: The local track reporting an orientation change.
+    ///   - changedAxis: Whether the change switches between portrait and landscape.
     func handleOrientationChange(
         for track: RealtimeVideoTrack,
         changedAxis: Bool
     ) async {
-        guard await mediaController.currentTrack === track else { return }
-        let disconnection = changedAxis
+        guard await mediaController.currentTrack === track else {
+            return
+        }
+        let disconnection =
+            changedAxis
             ? await coordinator.beginDisconnect(reason: .orientationChanged)
             : nil
 
@@ -1349,18 +1594,25 @@ private extension XmaxRealtimeManager {
                 try await mediaController.updateCameraOrientation()
             } catch {
                 if await mediaController.currentTrack === track {
-                    await coordinator.terminate(with: XmaxError.from(error), target: .all)
+                    await coordinator.terminate(
+                        with: XmaxError.from(error),
+                        target: .all
+                    )
                 }
             }
         }
         await disconnection?.value
     }
 
-    /// 为本地流配置有效的回传尺寸；不支持插帧时关闭插帧并保留媒体流程。
+    /// Configures output dimensions, disabling unsupported interpolation without stopping local
+    /// media.
     ///
-    /// - Parameter stream: 当前本地媒体流。
-    /// - Returns: 结合网络档位和插帧限制计算的回传尺寸；没有视频规格时返回 nil。
-    /// - Throws: 本地视频规格无法形成有效的 4 对齐回传尺寸时抛出错误。
+    /// - Parameter stream: The current local media stream.
+    ///
+    /// - Returns: Dimensions constrained by quality and interpolation limits, or `nil` without a
+    ///   video format.
+    ///
+    /// - Throws: An error if valid output dimensions aligned to multiples of 4 cannot be resolved.
     @discardableResult
     func reconcileFrameInterpolation(
         for stream: RealtimeMediaStream
@@ -1369,15 +1621,23 @@ private extension XmaxRealtimeManager {
             return nil
         }
         let level = streamController.qualityConfiguration?.downlinkLevel ?? .l2
-        let fallbackFormat = try resolveTargetVideoFormat(baseline: videoFormat, level: level, interpolation: false)
+        let fallbackFormat = try resolveTargetVideoFormat(
+            baseline: videoFormat,
+            level: level,
+            interpolation: false
+        )
         let interpolation = await renderController.isFrameInterpolationEnabled
         do {
-            let targetSize = try resolveTargetVideoFormat(baseline: videoFormat, level: level, interpolation: interpolation).size
+            let targetSize = try resolveTargetVideoFormat(
+                baseline: videoFormat,
+                level: level,
+                interpolation: interpolation
+            ).size
             guard !interpolation || mediaService.supportsFrameInterpolation(for: targetSize) else {
                 throw XmaxError(
                     code: .frameInterpolationUnsupported,
-                    message: "Frame interpolation is unavailable for " +
-                        "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
+                    message: "Frame interpolation is unavailable for "
+                        + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
                 )
             }
             try await renderController.setFrameInterpolationEnabled(
@@ -1398,11 +1658,12 @@ private extension XmaxRealtimeManager {
         }
     }
 
-    /// 结束心跳失败的当前会话，忽略已结束会话的迟到通知。
+    /// Terminates the current session after heartbeat failure, ignoring notifications from old
+    /// sessions.
     ///
     /// - Parameters:
-    ///   - sessionID: 发生心跳故障的会话标识。
-    ///   - error: 心跳请求返回的错误。
+    ///   - sessionID: The identifier of the session whose heartbeat failed.
+    ///   - error: The heartbeat request error.
     func handleHeartbeatFailure(
         sessionID: String,
         error: XmaxError
@@ -1416,10 +1677,11 @@ private extension XmaxRealtimeManager {
         )
     }
 
-    /// 记录错误并转换为统一的 SDK 错误类型。
+    /// Logs an error as an `XmaxError`.
     ///
-    /// - Parameter error: 需要记录和转换的原始错误。
-    /// - Returns: 供调用方抛出或处理的 XmaxError。
+    /// - Parameter error: The original error to log and convert.
+    ///
+    /// - Returns: The converted error.
     @discardableResult
     func reportError(
         _ error: any Error
@@ -1429,10 +1691,11 @@ private extension XmaxRealtimeManager {
         return xmaxError
     }
 
-    /// 确认音量是 0...1 范围内的有限数值。
+    /// Verifies that a volume is finite and within `0...1`.
     ///
-    /// - Parameter volume: 待应用的播放音量。
-    /// - Throws: 音量非有限数值或超出范围时抛出错误。
+    /// - Parameter volume: The playback volume to validate.
+    ///
+    /// - Throws: An error if the volume is nonfinite or out of range.
     static func validateAudioVolume(
         _ volume: Float
     ) throws {
@@ -1444,15 +1707,16 @@ private extension XmaxRealtimeManager {
         }
     }
 
-    /// 释放指定范围内的实时资源，并返回清理后的会话和本地媒体信息。
+    /// Releases the requested realtime resources and reports remaining session and media state.
     ///
     /// - Parameters:
-    ///   - scope: 需要释放的资源范围。
-    ///   - taskID: 需要停止的生成任务标识；空字符串表示没有指定任务。
-    ///   - mediaController: 负责停止采集或恢复本地预览的媒体组件。
-    ///   - connectionManager: 负责释放 RTC 房间和服务端会话的组件。
-    ///   - generationManager: 负责停止生成并清理缓存条件的组件。
-    /// - Returns: 已结束的会话标识和本地媒体是否仍然可用。
+    ///   - scope: The resource scope to release.
+    ///   - taskID: The task to stop, or an empty string if no task is specified.
+    ///   - mediaController: The controller that stops capture or restores local preview.
+    ///   - connectionManager: The manager that releases the RTC room and server session.
+    ///   - generationManager: The manager that stops generation and clears cached conditions.
+    ///
+    /// - Returns: The terminated session identifier and whether local media remains available.
     nonisolated static func cleanup(
         scope: RealtimeCoordinator.TerminationScope,
         taskID: String,
@@ -1469,9 +1733,9 @@ private extension XmaxRealtimeManager {
         } catch {
             XmaxLogger.realtime.error(
                 message: """
-                停止麦克风采集失败 (Failed to Stop Microphone Capture)
-                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                """
+                    停止麦克风采集失败 (Failed to Stop Microphone Capture)
+                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                    """
             )
         }
 
@@ -1480,9 +1744,9 @@ private extension XmaxRealtimeManager {
         } catch {
             XmaxLogger.realtime.error(
                 message: """
-                停止实时生成失败 (Failed to Stop Realtime Generation)
-                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                """
+                    停止实时生成失败 (Failed to Stop Realtime Generation)
+                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                    """
             )
         }
 
@@ -1493,9 +1757,9 @@ private extension XmaxRealtimeManager {
         } catch {
             XmaxLogger.realtime.error(
                 message: """
-                断开实时连接失败 (Failed to Disconnect Realtime)
-                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                """
+                    断开实时连接失败 (Failed to Disconnect Realtime)
+                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                    """
             )
         }
 
@@ -1508,9 +1772,9 @@ private extension XmaxRealtimeManager {
             } catch {
                 XmaxLogger.realtime.error(
                     message: """
-                    更新摄像头方向失败 (Failed to Update Camera Orientation)
-                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                    """
+                        更新摄像头方向失败 (Failed to Update Camera Orientation)
+                        └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                        """
                 )
             }
         }

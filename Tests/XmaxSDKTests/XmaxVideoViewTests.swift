@@ -284,7 +284,7 @@ final class XmaxVideoViewTests: XCTestCase {
 
         XCTAssertFalse(first === second)
         XCTAssertTrue(firstDescription === (try view.localPreviewDescription(for: second)))
-        let restored = try NV12VideoFrameConverter.convert(
+        let restored = try VideoFrameConverter.convert(
             pixelBuffer: first, outputWidth: 2, outputHeight: 2,
             rotation: .rotation0, timestampUs: 0
         )
@@ -318,7 +318,7 @@ final class XmaxVideoViewTests: XCTestCase {
             ]
         )
         let buffer = try XmaxVideoView.makeNV12PixelBuffer(frame)
-        let cropped = try NV12VideoFrameConverter.convert(
+        let cropped = try VideoFrameConverter.convert(
             pixelBuffer: buffer, outputWidth: 2, outputHeight: 2,
             rotation: .rotation0, timestampUs: 123
         )

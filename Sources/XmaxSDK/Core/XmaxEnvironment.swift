@@ -10,19 +10,19 @@
 
 import Foundation
 
-/// Xmax 服务环境。
+/// The Xmax service environment.
 public enum XmaxEnvironment: String, CaseIterable, Equatable, Sendable {
 
-    /// 国内环境。
+    /// The China service environment.
     case china
 
-    /// 海外环境。
+    /// The global service environment.
     case global
 }
 
 extension XmaxEnvironment {
 
-    /// 当前环境的通用 API 地址。
+    /// The base URL for general API requests in this environment.
     var apiBaseURL: URL {
         switch self {
         case .china:
@@ -32,7 +32,7 @@ extension XmaxEnvironment {
         }
     }
 
-    /// 当前环境的实时会话 API 地址。
+    /// The base URL for realtime session requests in this environment.
     var realtimeApiBaseURL: URL {
         switch self {
         case .china:

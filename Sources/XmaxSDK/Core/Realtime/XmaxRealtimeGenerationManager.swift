@@ -10,33 +10,40 @@
 
 import Foundation
 
-/// 确认当前生成操作仍有效。
+/// A closure that verifies whether a generation operation is still current.
 ///
-/// - Throws: 操作已失效或被取消时抛出错误。
+/// - Throws: An error if the operation is no longer current or has been cancelled.
 typealias RealtimeGenerationValidity = @Sendable () throws -> Void
 
-/// 协调生成信令、远端结果确认、条件更新和轨迹交互。
+/// Coordinates generation signaling, remote stream confirmation, condition updates, and
+/// interactions.
 actor XmaxRealtimeGenerationManager {
 
-    /// 管理生成期间轨迹交互的组件。
+    /// Generation dependencies.
+
+    /// The controller that manages trajectory interactions during generation.
     private let interactionController: any InteractionControlling
 
-    /// 发布本地流并发送生成控制信令。
+    /// The controller that publishes local media and sends generation signaling.
     private let streamController: any StreamControlling
 
-    /// 生成新任务标识的回调。
+    /// The closure that generates identifiers for new tasks.
     private let taskIDGenerator: @Sendable () -> String
 
-    /// 当前生成任务的提示词和参考图条件。
+    /// Cached generation conditions.
+
+    /// The prompt and reference image from the most recent successful request.
     private var currentContext: RealtimeContext?
 
-    /// 当前生成任务是否启用人脸修复。
+    /// The face restoration setting from the most recent successful request.
     private var currentFaceRestoration = false
 
-    /// 自动重启生成时复用上次成功请求的人脸还原设置。
-    var cachedFaceRestoration: Bool { currentFaceRestoration }
+    /// The face restoration setting to reuse when restarting generation.
+    var cachedFaceRestoration: Bool {
+        currentFaceRestoration
+    }
 
-    /// 创建实时生成管理器。
+    /// Creates a manager for generation requests and interactions.
     init(
         interactionController: any InteractionControlling,
         streamController: any StreamControlling,
@@ -48,10 +55,11 @@ actor XmaxRealtimeGenerationManager {
         self.taskIDGenerator = taskIDGenerator
     }
 
-    /// 确认首次生成具有可用上下文，后续请求允许复用已缓存的上下文。
+    /// Verifies that the request supplies a context or can reuse a cached context.
     ///
-    /// - Parameter context: 本次生成上下文；传入 `nil` 时检查已有上下文。
-    /// - Throws: 本次未提供上下文且没有可复用上下文时抛出错误。
+    /// - Parameter context: The requested context, or `nil` to use the cached context.
+    ///
+    /// - Throws: An error if neither a supplied nor a cached context is available.
     func validateContext(
         _ context: RealtimeContext?
     ) throws {
@@ -63,18 +71,22 @@ actor XmaxRealtimeGenerationManager {
         }
     }
 
-    /// 发送生成请求并等待结果流确认，成功后启用交互并缓存生成条件。
+    /// Starts generation and waits for remote stream confirmation.
     ///
     /// - Parameters:
-    ///   - videoFormat: 本地媒体规格，用于配置交互坐标。
-    ///   - targetSize: 回传视频尺寸；传入 `nil` 时使用服务端默认回传尺寸。
-    ///   - context: 本次生成上下文；传入 `nil` 时复用上次成功请求的上下文。
-    ///   - faceRestoration: 是否启用人脸还原。
-    ///   - generationVideoFormat: 服务端生成规格；传入 `nil` 时使用本地媒体规格。
-    ///   - paddingContain: 是否使用保留完整内容的填充方式。
-    ///   - ensureCurrent: 确认本次操作仍有效的回调。
-    /// - Returns: 完成结果流确认的生成任务标识。
-    /// - Throws: 上下文缺失、信令发送或结果流确认失败，以及操作失效时抛出错误。
+    ///   - videoFormat: The resolved local media format used for interaction coordinates.
+    ///   - targetSize: The returned video dimensions, or `nil` to use the server default.
+    ///   - context: The requested context, or `nil` to reuse the most recent successful context.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - generationVideoFormat: The server generation format, or `nil` to use the local media
+    ///     format.
+    ///   - paddingContain: Whether to preserve the entire input within the generation canvas.
+    ///   - ensureCurrent: A closure that verifies the operation is still current.
+    ///
+    /// - Returns: The task identifier whose remote stream has been confirmed.
+    ///
+    /// - Throws: An error if the context is missing, signaling or stream confirmation fails, or the
+    ///   operation is invalidated.
     func start(
         videoFormat: RealtimeVideoFormat,
         targetSize: CGSize? = nil,
@@ -122,18 +134,22 @@ actor XmaxRealtimeGenerationManager {
         }
     }
 
-    /// 更新当前任务的生成条件与交互配置，不等待新的结果流确认。
+    /// Updates generation conditions and interactions without waiting for a new stream
+    /// confirmation.
     ///
     /// - Parameters:
-    ///   - taskID: 需要更新的生成任务标识。
-    ///   - videoFormat: 本地媒体规格，用于配置交互坐标。
-    ///   - targetSize: 回传视频尺寸；传入 `nil` 时不附加回传尺寸。
-    ///   - context: 本次生成上下文；传入 `nil` 时复用上次成功请求的上下文。
-    ///   - faceRestoration: 是否启用人脸还原。
-    ///   - generationVideoFormat: 服务端生成规格；传入 `nil` 时使用本地媒体规格。
-    ///   - paddingContain: 是否使用保留完整内容的填充方式。
-    ///   - ensureCurrent: 确认本次操作仍有效的回调。
-    /// - Throws: 上下文缺失、条件更新失败或操作失效时抛出错误。
+    ///   - taskID: The identifier of the generation task to update.
+    ///   - videoFormat: The resolved local media format used for interaction coordinates.
+    ///   - targetSize: The returned video dimensions, or `nil` to omit this setting.
+    ///   - context: The requested context, or `nil` to reuse the most recent successful context.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - generationVideoFormat: The server generation format, or `nil` to use the local media
+    ///     format.
+    ///   - paddingContain: Whether to preserve the entire input within the generation canvas.
+    ///   - ensureCurrent: A closure that verifies the operation is still current.
+    ///
+    /// - Throws: An error if the context is missing, the update fails, or the operation is
+    ///   invalidated.
     func update(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -142,7 +158,8 @@ actor XmaxRealtimeGenerationManager {
         faceRestoration: Bool = false,
         generationVideoFormat: RealtimeVideoFormat? = nil,
         paddingContain: Bool = false,
-        ensureCurrent: RealtimeGenerationValidity = {}
+        ensureCurrent: RealtimeGenerationValidity = {
+        }
     ) async throws {
         guard let resolvedContext = context ?? currentContext else {
             throw XmaxError(
@@ -169,10 +186,11 @@ actor XmaxRealtimeGenerationManager {
         currentFaceRestoration = faceRestoration
     }
 
-    /// 停止当前交互并发送停止生成信令。
+    /// Stops interactions and sends a stop-generation signal.
     ///
-    /// - Parameter taskID: 需要停止的生成任务标识。
-    /// - Throws: 停止生成信令发送失败时抛出错误。
+    /// - Parameter taskID: The identifier of the generation task to stop.
+    ///
+    /// - Throws: An error if the stop-generation signal cannot be sent.
     func stop(
         taskID: String
     ) async throws {
@@ -180,10 +198,11 @@ actor XmaxRealtimeGenerationManager {
         try await streamController.stopGeneration(taskID: taskID)
     }
 
-    /// 清除已缓存的生成条件，并停止当前生成与交互。
+    /// Stops generation and clears cached conditions.
     ///
-    /// - Parameter taskID: 需要停止的生成任务标识；没有任务时为空字符串。
-    /// - Throws: 停止生成信令发送失败时抛出错误。
+    /// - Parameter taskID: The task identifier, or an empty string if no task is specified.
+    ///
+    /// - Throws: An error if the stop-generation signal cannot be sent.
     func reset(
         taskID: String = ""
     ) async throws {
@@ -192,16 +211,27 @@ actor XmaxRealtimeGenerationManager {
         try await stop(taskID: taskID)
     }
 
-    /// 生成带有 iOS 平台标记的随机任务标识。
+    /// Creates a random task identifier with an iOS platform marker.
     ///
-    /// - Returns: 格式为 `task-<22 位 URL 安全随机串>?os=ios` 的任务标识。
+    /// - Returns: An identifier in the form `task-<22 URL-safe characters>?os=ios`.
     nonisolated static func createTaskID() -> String {
         var uuid = UUID().uuid
-        let data = withUnsafeBytes(of: &uuid) { Data($0) }
+        let data = withUnsafeBytes(of: &uuid) {
+            Data($0)
+        }
         let encoded = data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+            .replacingOccurrences(
+                of: "+",
+                with: "-"
+            )
+            .replacingOccurrences(
+                of: "/",
+                with: "_"
+            )
+            .replacingOccurrences(
+                of: "=",
+                with: ""
+            )
         return "task-\(encoded)?os=ios"
     }
 }

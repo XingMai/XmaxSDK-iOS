@@ -10,6 +10,12 @@
 
 import Foundation
 
+/// 接收媒体层产生的中性视频帧。
+typealias MediaVideoFrameListener = @Sendable (VideoFrame) throws -> Void
+
+/// 接收媒体层产生的中性音频帧。
+typealias MediaAudioFrameListener = @Sendable (AudioFrame) throws -> Void
+
 /// 定义媒体层向 Core 暴露的统一能力。
 protocol MediaControlling: Actor, InteractionControlling {
 

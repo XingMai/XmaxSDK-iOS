@@ -8,21 +8,23 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 实时传输档位；L1 质量最高，L5 最节省带宽，与网络质量评级无关。
+/// A transport quality level, from highest quality at L1 to lowest bandwidth at L5.
+///
+/// Quality levels are independent of network quality ratings.
 public enum RealtimeQualityLevel: Int, CaseIterable, Sendable {
 
-    /// 一级：保留媒体基准尺寸。
+    /// Level 1, retaining the media baseline dimensions.
     case l1 = 1
 
-    /// 二级：目标宽高为媒体基准的 80%。
+    /// Level 2, targeting 80% of the media baseline width and height.
     case l2 = 2
 
-    /// 三级：目标宽高为媒体基准的 65%。
+    /// Level 3, targeting 65% of the media baseline width and height.
     case l3 = 3
 
-    /// 四级：目标宽高为媒体基准的 50%。
+    /// Level 4, targeting 50% of the media baseline width and height.
     case l4 = 4
 
-    /// 五级：与四级使用相同尺寸，并进一步降低上行帧率。
+    /// Level 5, using Level 4 dimensions with a further reduction in uplink frame rate.
     case l5 = 5
 }

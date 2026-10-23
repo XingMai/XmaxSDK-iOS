@@ -15,8 +15,11 @@ import Foundation
 /// 串行接收外部帧，并在解绑时等待正在提交的帧结束。
 final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendable {
 
-    /// 本次绑定要求的媒体规格。
+    /// SDK 处理后的媒体规格，用作本地预览和调档基准。
     let videoFormat: RealtimeVideoFormat
+
+    /// 接入方声明的原始供帧规格。
+    private let sourceVideoFormat: RealtimeVideoFormat
 
     /// 将有效帧交付给预览及 RTC。
     private let frameListener: MediaVideoFrameListener
@@ -35,10 +38,12 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
 
     /// 创建绑定固定规格和帧处理回调的接收器。
     init(
+        sourceVideoFormat: RealtimeVideoFormat,
         videoFormat: RealtimeVideoFormat,
         frameListener: @escaping MediaVideoFrameListener,
         errorListener: @escaping XmaxErrorListener
     ) {
+        self.sourceVideoFormat = sourceVideoFormat
         self.videoFormat = videoFormat
         self.frameListener = frameListener
         self.errorListener = errorListener
@@ -52,7 +57,7 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
     /// 同步复制并交付有效帧；忽略无效或倒退的时间戳。
     ///
     /// - Parameters:
-    ///   - pixelBuffer: 与供帧规格一致的像素缓冲区。
+    ///   - pixelBuffer: 与源声明尺寸一致、方向已正确应用的像素缓冲区。
     ///   - timestamp: 持续递增的单调时间戳。
     func pushVideo(
         _ pixelBuffer: CVPixelBuffer,
@@ -65,9 +70,20 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
         lock.withLock {
             guard active, converted.value > lastTimestampUs else { return }
             do {
-                let frame = try ExternalVideoFrameConverter.convert(
-                    pixelBuffer,
-                    videoFormat: videoFormat,
+                guard CVPixelBufferGetWidth(pixelBuffer) == sourceVideoFormat.width,
+                      CVPixelBufferGetHeight(pixelBuffer) == sourceVideoFormat.height else {
+                    throw XmaxError(code: .mediaError, message: "External frame dimensions must match source.videoFormat")
+                }
+                let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+                guard pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
+                      pixelFormat == kCVPixelFormatType_32BGRA else {
+                    throw XmaxError(code: .mediaError, message: "External video requires NV12 video-range (420v) or BGRA pixels")
+                }
+                let frame = try VideoFrameConverter.convert(
+                    pixelBuffer: pixelBuffer,
+                    outputWidth: videoFormat.width,
+                    outputHeight: videoFormat.height,
+                    rotation: .rotation0,
                     timestampUs: converted.value
                 )
                 lastTimestampUs = converted.value

@@ -11,56 +11,91 @@
 import Foundation
 import CoreGraphics
 
-/// SDK 当前支持的实时生成模型。
+/// A realtime generation model supported by XmaxSDK.
 public enum RealtimeModel: String, CaseIterable, Sendable {
 
-    /// X2.1 实时生成模型。
+    /// The X2.1 realtime generation model.
     case x2_1 = "x2.1"
 
-    /// 模型展示名称。
+    /// The model's display name.
     public var displayName: String {
         switch self {
-        case .x2_1: "X2.1"
+        case .x2_1:
+            "X2.1"
         }
     }
 
-    /// 模型支持的视频规格；摄像头宽高须精确匹配，帧率为推荐默认值。
-    /// 图片和视频保留媒体比例，生成时选择比例最接近的画布。
-    /// 空数组表示不限制固定尺寸，生成画布按像素面积上下限和对齐规则计算。
+    /// The supported frame dimensions and recommended frame rates.
+    ///
+    /// Camera dimensions must match an entry exactly. Images and videos retain their media aspect
+    /// ratio and use the closest generation canvas. An empty array allows variable canvas
+    /// dimensions, resolved using pixel limits and alignment.
     public var supportedVideoFormats: [RealtimeVideoFormat] {
         switch self {
         case .x2_1:
             [
-                RealtimeVideoFormat(width: 1920, height: 1080, fps: defaultFrameRate),
-                RealtimeVideoFormat(width: 1080, height: 1920, fps: defaultFrameRate),
-                RealtimeVideoFormat(width: 1408, height: 1408, fps: defaultFrameRate),
-                RealtimeVideoFormat(width: 1152, height: 1536, fps: defaultFrameRate),
-                RealtimeVideoFormat(width: 1536, height: 1152, fps: defaultFrameRate)
+                RealtimeVideoFormat(
+                    width: 1920,
+                    height: 1080,
+                    fps: defaultFrameRate
+                ),
+                RealtimeVideoFormat(
+                    width: 1080,
+                    height: 1920,
+                    fps: defaultFrameRate
+                ),
+                RealtimeVideoFormat(
+                    width: 1408,
+                    height: 1408,
+                    fps: defaultFrameRate
+                ),
+                RealtimeVideoFormat(
+                    width: 1152,
+                    height: 1536,
+                    fps: defaultFrameRate
+                ),
+                RealtimeVideoFormat(
+                    width: 1536,
+                    height: 1152,
+                    fps: defaultFrameRate
+                )
             ]
         }
     }
 
-    /// 生成画布的最小总像素面积；仅在分辨率桶为空时参与计算，不放大小尺寸媒体帧。
-    public var minimumInputPixels: Int { 600000 }
+    /// The minimum generation canvas area when no fixed formats are specified; does not upscale
+    /// local media.
+    public var minimumInputPixels: Int {
+        600000
+    }
 
-    /// 本地媒体帧的最大总像素面积；分辨率桶为空时也用于限制生成画布。
+    /// The maximum local media area, in pixels; also limits variable generation canvases.
     public var maximumInputPixels: Int {
         switch self {
-        case .x2_1: 2100000
+        case .x2_1:
+            2100000
         }
     }
 
-    /// 输入宽高需要对齐的像素倍数；仅在分辨率桶为空时参与尺寸计算。
-    public var inputSizeAlignment: Int { 32 }
+    /// The dimension alignment, in pixels, used to resolve variable generation canvases.
+    public var inputSizeAlignment: Int {
+        32
+    }
 
-    /// 图片和视频输出以及默认摄像头配置使用的帧率。
-    public var defaultFrameRate: Int { 30 }
+    /// The frame rate used for image and video output and the default camera format.
+    public var defaultFrameRate: Int {
+        30
+    }
 
-    /// 摄像头采集使用的默认视频规格。
+    /// The default camera capture format.
     public var defaultCameraVideoFormat: RealtimeVideoFormat {
         switch self {
         case .x2_1:
-            RealtimeVideoFormat(width: 1080, height: 1920, fps: defaultFrameRate)
+            RealtimeVideoFormat(
+                width: 1080,
+                height: 1920,
+                fps: defaultFrameRate
+            )
         }
     }
 }

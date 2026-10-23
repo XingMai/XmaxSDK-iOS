@@ -8,6 +8,7 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
+import CoreGraphics
 import Foundation
 
 /// 协调本地视频播放器、RTC 外部音视频源和预览资源。
@@ -19,14 +20,23 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     /// RTC 外部媒体源适配组件。
     private let rtcManager: any RtcManaging
 
-    /// 负责文件准备与播放的媒体源组件。
-    private let mediaSourceController: any MediaSourceControlling
+    /// 读取视频尺寸、方向、时长和音频轨道信息。
+    private let metadataManager: any MediaFileMetadataManaging
+
+    /// 解析媒体尺寸和模型默认帧率。
+    private let mediaService: any MediaServicing
+
+    /// 负责文件解码、播放时间轴和本地预览。
+    private let playerController: any VideoPlayerControlling
 
     /// 保护文件视频轨道的创建与停止。
     private let stateLock = NSLock()
 
     /// 当前文件视频对应的本地轨道。
     private var activeTrack: RealtimeVideoTrack?
+
+    /// 当前文件流是否已启用外部音频输入。
+    private var storedHasAudio = false
 
     /// 创建文件解码、音视频输出和本地预览控制器。
     ///
@@ -49,24 +59,24 @@ final class VideoController: VideoControlling, @unchecked Sendable {
             audioFrameListener: audioFrameListener,
             errorListener: errorListener
         )
-        let mediaSourceController = MediaSourceController(
-            metadataManager: MediaFileMetadataManager(),
+        self.init(
+            rtcManager: rtcManager,
             mediaService: mediaService,
             playerController: playerController
         )
-        self.init(
-            rtcManager: rtcManager,
-            mediaSourceController: mediaSourceController
-        )
     }
 
-    /// 使用指定媒体源创建视频控制器。
+    /// 使用文件元数据、模型规则及播放器组件创建视频控制器。
     init(
         rtcManager: any RtcManaging,
-        mediaSourceController: any MediaSourceControlling
+        metadataManager: any MediaFileMetadataManaging = MediaFileMetadataManager(),
+        mediaService: any MediaServicing = MediaService(),
+        playerController: any VideoPlayerControlling
     ) {
         self.rtcManager = rtcManager
-        self.mediaSourceController = mediaSourceController
+        self.metadataManager = metadataManager
+        self.mediaService = mediaService
+        self.playerController = playerController
     }
 
     /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
@@ -76,13 +86,13 @@ final class VideoController: VideoControlling, @unchecked Sendable {
 
     /// 当前文件视频是否包含由 SDK 管理的音频轨道。
     var hasAudio: Bool {
-        currentTrack != nil && mediaSourceController.hasAudio
+        stateLock.withLock { storedHasAudio }
     }
 
     /// 当前本地文件视频的音频预览音量。
     var localAudioVolume: Float {
         get async {
-            await mediaSourceController.localAudioVolume
+            await playerController.localAudioVolume
         }
     }
 
@@ -113,10 +123,10 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     func setLocalAudioPreviewMuted(
         _ muted: Bool
     ) async {
-        guard currentTrack != nil else {
+        guard hasAudio else {
             return
         }
-        await mediaSourceController.setLocalAudioPreviewMuted(muted)
+        await playerController.setLocalAudioPreviewMuted(muted)
     }
 
     /// 设置本地文件视频的音频预览音量。
@@ -125,7 +135,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     func setLocalAudioVolume(
         _ volume: Float
     ) async {
-        await mediaSourceController.setLocalAudioVolume(volume)
+        await playerController.setLocalAudioVolume(volume)
     }
 
     /// 停止文件音视频输出，并释放当前轨道、RTC 外部音频和预览资源。
@@ -135,11 +145,12 @@ final class VideoController: VideoControlling, @unchecked Sendable {
             Bool
         ) in
             let track = activeTrack
-            let hasAudio = track != nil && mediaSourceController.hasAudio
+            let hasAudio = storedHasAudio
             activeTrack = nil
+            storedHasAudio = false
             return (track, hasAudio)
         }
-        await mediaSourceController.stop()
+        await playerController.stop()
 
         if state.1 {
             do {
@@ -175,24 +186,37 @@ private extension VideoController {
         var externalAudioStarted = false
 
         do {
-            let configuration = try await mediaSourceController.prepare(
+            let metadata = try await metadataManager.readMetadata(
                 fileURL: fileURL
+            )
+            let videoFormat = try resolveVideoFormat(metadata: metadata)
+            try Task.checkCancellation()
+            try await playerController.configure(
+                fileURL: fileURL,
+                outputWidth: videoFormat.width,
+                outputHeight: videoFormat.height,
+                rotation: metadata.rotation,
+                frameRate: videoFormat.fps,
+                hasAudio: metadata.hasAudio,
+                durationSeconds: metadata.durationSeconds
             )
             let localTrack = RealtimeVideoTrack(
                 id: Self.localVideoTrackID,
-                videoFormat: configuration.videoFormat
+                videoFormat: videoFormat
             )
             track = localTrack
 
             try rtcManager.useExternalVideoSource()
-            if configuration.hasAudio {
+            if metadata.hasAudio {
                 try rtcManager.startExternalAudioSource()
                 externalAudioStarted = true
             }
             await registerPreview(for: localTrack)
-            try await mediaSourceController.start()
+            try await playerController.start()
+            try Task.checkCancellation()
             stateLock.withLock {
                 activeTrack = localTrack
+                storedHasAudio = metadata.hasAudio
             }
 
             return RealtimeMediaStream(
@@ -200,7 +224,7 @@ private extension VideoController {
                 videoTrack: localTrack
             )
         } catch {
-            await mediaSourceController.stop()
+            await playerController.stop()
             if externalAudioStarted {
                 do {
                     try rtcManager.stopExternalAudioSource()
@@ -233,15 +257,40 @@ private extension VideoController {
             track,
             binding: VideoRenderBinding(
                 attachHandler: { view, contentMode in
-                    try self.mediaSourceController.attachPreview(
+                    try self.playerController.attachPreview(
                         to: view,
                         contentMode: contentMode
                     )
                 },
                 detachHandler: { view in
-                    self.mediaSourceController.detachPreview(from: view)
+                    self.playerController.detachPreview(from: view)
                 }
             )
         )
+    }
+
+    /// 根据视频显示方向和模型面积上限计算媒体规格。
+    ///
+    /// - Parameter metadata: 源文件的编码尺寸、方向及音频信息。
+    /// - Returns: 保留显示比例并采用模型默认帧率的媒体规格。
+    /// - Throws: 原始尺寸或解析结果无效时抛出错误。
+    func resolveVideoFormat(
+        metadata: MediaFileMetadata
+    ) throws -> RealtimeVideoFormat {
+        let swapsDimensions = metadata.rotation == .rotation90 || metadata.rotation == .rotation270
+        let size = try mediaService.resolveMediaSize(
+            CGSize(
+                width: swapsDimensions ? metadata.height : metadata.width,
+                height: swapsDimensions ? metadata.width : metadata.height
+            ),
+            source: .video
+        )
+        let format = RealtimeVideoFormat(
+            width: Int(size.width),
+            height: Int(size.height),
+            fps: mediaService.model.defaultFrameRate
+        )
+        try format.validate()
+        return format
     }
 }

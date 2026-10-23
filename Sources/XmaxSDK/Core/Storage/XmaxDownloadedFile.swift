@@ -10,16 +10,16 @@
 
 import Foundation
 
-/// 表示下载到本地的文件。
+/// A file downloaded to local storage.
 public struct XmaxDownloadedFile: Equatable, Sendable {
 
-    /// 下载后的本地文件地址。
+    /// The local URL of the downloaded file.
     public let fileURL: URL
 
-    /// 下载文件的字节数。
+    /// The size of the downloaded file, in bytes.
     public let byteCount: Int64
 
-    /// 创建下载结果。
+    /// Creates a download result.
     init(
         fileURL: URL,
         byteCount: Int64

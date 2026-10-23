@@ -13,24 +13,34 @@ import Foundation
 import UIKit
 #endif
 
-/// 提供常用默认参数，简化实时媒体流创建与生成调用。
+/// Convenience methods for media creation and realtime generation.
 public extension XmaxRealtimeManaging {
 
-    /// 使用指定分辨率和当前模型的默认帧率创建摄像头流。
+    /// Creates a camera stream using a preset and the model's recommended frame rate.
     ///
     /// - Parameters:
-    ///   - preset: 摄像头输出分辨率，须在模型支持范围内。
-    ///   - position: 首次启用的镜头位置。
-    ///   - useMicrophone: 是否使用麦克风，连接时开始采集。
-    /// - Returns: 包含本地摄像头轨道的媒体流。
-    /// - Throws: 预设不支持、权限不足、操作冲突或采集启动失败时抛出错误。
+    ///   - preset: The camera resolution, which must be supported by the model.
+    ///   - position: The camera position to use initially.
+    ///   - useMicrophone: Whether to capture microphone audio while connected.
+    ///
+    /// - Returns: A media stream containing the local camera track.
+    ///
+    /// - Throws: An error if the preset is unsupported, permission is denied, an operation
+    ///   conflicts, or capture cannot start.
     func createLocalCameraStream(
         preset: RealtimeCameraPreset,
         position: CameraPosition = .front,
         useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
-        guard let format = options.model.supportedVideoFormats.first(where: { $0.size == preset.size }) else {
-            throw XmaxError(code: .invalidConfiguration, message: "Model does not support the requested camera preset")
+        guard
+            let format = options.model.supportedVideoFormats.first(where: {
+                $0.size == preset.size
+            })
+        else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Model does not support the requested camera preset"
+            )
         }
         return try await createLocalCameraStream(
             videoFormat: format,
@@ -39,13 +49,17 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 使用当前模型的默认视频规格创建本地相机流。
+    /// Creates a camera stream using the model's default video format.
     ///
     /// - Parameters:
-    ///   - position: 采集使用的摄像头位置，默认为前置摄像头。
-    ///   - useMicrophone: 是否使用麦克风，默认关闭；连接时开始采集，断开时停止。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
+    ///   - position: The camera position. The default is the front camera.
+    ///   - useMicrophone: Whether to capture microphone audio while connected. The default is
+    ///     `false`.
+    ///
+    /// - Returns: A media stream containing the local camera video track.
+    ///
+    /// - Throws: An error if configuration is invalid, a required permission is denied, an
+    ///   operation conflicts, or capture cannot start.
     func createLocalCameraStream(
         position: CameraPosition = .front,
         useMicrophone: Bool = false
@@ -57,13 +71,17 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 使用前置摄像头创建本地相机流并开始预览。
+    /// Creates a front camera stream and starts its preview.
     ///
     /// - Parameters:
-    ///   - videoFormat: 相机采集的视频规格。
-    ///   - useMicrophone: 是否使用麦克风，默认关闭；连接时开始采集，断开时停止。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
+    ///   - videoFormat: The camera capture and encoding format.
+    ///   - useMicrophone: Whether to capture microphone audio while connected. The default is
+    ///     `false`.
+    ///
+    /// - Returns: A media stream containing the local camera video track.
+    ///
+    /// - Throws: An error if configuration is invalid, a required permission is denied, an
+    ///   operation conflicts, or capture cannot start.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         useMicrophone: Bool = false
@@ -75,13 +93,16 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 创建不使用麦克风的本地相机流。
+    /// Creates a local camera stream without microphone input.
     ///
     /// - Parameters:
-    ///   - videoFormat: 相机采集的视频规格。
-    ///   - position: 首次启用的摄像头位置。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 配置无效、所需权限被拒绝、操作冲突或采集启动失败时抛出错误。
+    ///   - videoFormat: The camera capture and encoding format.
+    ///   - position: The camera position to use initially.
+    ///
+    /// - Returns: A media stream containing the local camera video track.
+    ///
+    /// - Throws: An error if configuration is invalid, a required permission is denied, an
+    ///   operation conflicts, or capture cannot start.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition
@@ -93,35 +114,45 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 使用已缓存的生成条件开始或更新生成。
+    /// Starts or updates generation using cached conditions.
     ///
-    /// 首次开始生成时没有缓存条件，因此仍需调用带 `context` 参数的重载。
+    /// For the first request, use an overload that accepts a context.
     ///
-    /// - Parameter faceRestoration: 是否回贴原始人脸，默认关闭。
-    /// - Throws: 没有可复用条件，或生成启动及更新失败时抛出错误。
+    /// - Parameter faceRestoration: Whether to restore the original face. The default is `false`.
+    ///
+    /// - Throws: An error if no cached conditions exist or generation startup or an update fails.
     func startGeneration(
         faceRestoration: Bool = false
     ) async throws {
-        try await startGeneration(context: nil, faceRestoration: faceRestoration)
+        try await startGeneration(
+            context: nil,
+            faceRestoration: faceRestoration
+        )
     }
 
-    /// 开始或更新生成，默认关闭人脸还原。
+    /// Starts or updates generation without face restoration.
     ///
-    /// - Parameter context: 本次生成条件；传入 `nil` 时复用缓存条件。
-    /// - Throws: 条件无效或生成启动、更新失败时抛出错误。
+    /// - Parameter context: The requested conditions, or `nil` to reuse cached conditions.
+    ///
+    /// - Throws: An error if conditions are invalid or generation startup or an update fails.
     func startGeneration(
         context: RealtimeContext?
     ) async throws {
-        try await startGeneration(context: context, faceRestoration: false)
+        try await startGeneration(
+            context: context,
+            faceRestoration: false
+        )
     }
 
-    /// 使用当前本地流按需连接并开始生成，默认关闭人脸还原。
+    /// Connects a local stream if needed and starts generation without face restoration.
     ///
     /// - Parameters:
-    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
-    ///   - context: 本次生成条件；首次生成不能为空。
-    /// - Returns: 当前连接对应的远端媒体流。
-    /// - Throws: 本地流无效、连接失败或生成启动失败时抛出错误。
+    ///   - localStream: The active local media stream owned by this manager.
+    ///   - context: The generation conditions. Required for the first request.
+    ///
+    /// - Returns: The remote stream for the current connection.
+    ///
+    /// - Throws: An error if the local stream is invalid or connection or generation startup fails.
     func startGeneration(
         localStream: RealtimeMediaStream,
         context: RealtimeContext?
@@ -133,15 +164,18 @@ public extension XmaxRealtimeManaging {
         )
     }
 
-    /// 使用当前本地流和已缓存条件按需连接并开始生成。
+    /// Connects a local stream if needed and starts generation using cached conditions.
     ///
-    /// 首次开始生成时没有缓存条件，因此仍需调用带 `context` 参数的重载。
+    /// For the first request, use an overload that accepts a context.
     ///
     /// - Parameters:
-    ///   - localStream: 当前 Manager 创建并持有的本地媒体流。
-    ///   - faceRestoration: 是否回贴原始人脸，默认关闭。
-    /// - Returns: 当前 RTC 连接对应的远端媒体流。
-    /// - Throws: 没有可复用条件、本地流无效，或连接及生成启动失败时抛出错误。
+    ///   - localStream: The active local media stream owned by this manager.
+    ///   - faceRestoration: Whether to restore the original face. The default is `false`.
+    ///
+    /// - Returns: The remote media stream for the current RTC connection.
+    ///
+    /// - Throws: An error if no cached conditions exist, the stream is invalid, or connection or
+    ///   generation startup fails.
     func startGeneration(
         localStream: RealtimeMediaStream,
         faceRestoration: Bool = false

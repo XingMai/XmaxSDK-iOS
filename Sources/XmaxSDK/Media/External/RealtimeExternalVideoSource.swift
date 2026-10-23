@@ -11,56 +11,88 @@
 import CoreMedia
 import CoreVideo
 
-/// 接入方自行采集、解码或处理的视频源，仅提供视频。
+/// A video source that supplies frames captured, decoded, or processed by your app.
 ///
-/// 采集权限、设备启停及最终释放由接入方负责。SDK 绑定供帧并提供本地预览，
-/// 不采集麦克风。生命周期方法在主线程执行，视频帧可以从后台队列同步提交。
+/// XmaxSDK uses the frames for local preview and realtime generation. Your app
+/// manages permissions, capture devices, playback, and resource cleanup.
+/// This protocol supports video only and doesn't capture microphone audio.
+///
+/// Lifecycle methods run on the main actor. You can submit frames from a capture
+/// or processing queue.
 @MainActor
 public protocol RealtimeExternalVideoSource: AnyObject, Sendable {
 
-    /// 接入方提供的视频尺寸、帧率及编码配置；单次绑定期间保持不变。
+    /// The source frame dimensions, frame rate, and encoding options.
+    ///
+    /// Keep this value unchanged until frame delivery stops.
     var videoFormat: RealtimeVideoFormat { get }
 
-    /// 绑定帧接收器并开始供帧，不等待生成完成。
+    /// Starts delivering video frames to the specified sink.
     ///
-    /// 按 `sink.videoFormat` 完成尺寸调整和供帧节奏控制，方向及镜像需应用到像素。
-    /// 返回后表示绑定完成，不要求已提交首帧；即使尚未连接也应供帧以显示预览。
-    /// - Parameter sink: 本次绑定的视频帧接收器。
-    /// - Throws: 无法启动供帧时抛出错误；失败或取消后 SDK 会调用 `stop()`。
+    /// Install your frame callback and return when the source is ready to deliver
+    /// frames. You don't need to submit the first frame before returning or wait
+    /// for generation to begin. Continue delivering frames while disconnected
+    /// to keep the local preview running.
+    ///
+    /// Pace frames according to the source's `videoFormat`, with orientation and
+    /// mirroring applied to the pixels. If startup fails or is cancelled,
+    /// XmaxSDK calls `stop()` to end frame delivery.
+    ///
+    /// - Parameter sink: The receiver for frames from this source.
+    /// - Throws: An error if the source can't start delivering frames.
     func start(
         sink: any RealtimeExternalFrameSink
     ) async throws
 
-    /// 解绑并停止向 SDK 供帧，清除保存的接收器；重复调用必须安全。
-    /// 不代表 SDK 接管或释放接入方的摄像头、播放器。
+    /// Stops delivering frames and releases the source's reference to the sink.
+    ///
+    /// This method must be safe to call more than once. Your app retains ownership
+    /// of its capture devices and players and decides when to release them.
     func stop() async
 }
 
-/// 接收单次外部源绑定的视频帧，解绑后自动丢弃迟到帧。
+/// A receiver for video frames from a single source attachment.
 ///
-/// 提交时同步复制像素，返回后接入方可以复用缓冲区；提交过程中不得修改像素。
+/// The sink processes frames synchronously and discards further input after
+/// delivery stops or the source fails. You can submit frames from any queue.
 public protocol RealtimeExternalFrameSink: AnyObject, Sendable {
 
-    /// 经过模型面积上限和 4 对齐处理的供帧规格，保留源声明的帧率和编码配置。
+    /// The processed media format used for local preview and adaptive quality.
+    ///
+    /// XmaxSDK limits the pixel area to the model's maximum and aligns each
+    /// dimension to a multiple of four. The source frame rate and encoding options
+    /// are preserved. Submit frames at the source's dimensions; XmaxSDK resizes
+    /// them to this format.
     var videoFormat: RealtimeVideoFormat { get }
 
-    /// 当前绑定是否接收预览和生成用帧；断开实时连接后仍为 true，解绑或失败后为 false。
+    /// A Boolean value that indicates whether the sink accepts video frames.
+    ///
+    /// This value remains `true` while disconnected so frames can drive the local
+    /// preview. It becomes `false` when the source is detached or fails.
     var isRequestingFrames: Bool { get }
 
-    /// 提交方向正确、尺寸符合 `videoFormat` 的视频帧，不额外旋转、镜像或缩放。
+    /// Submits a video frame for local preview and realtime generation.
+    ///
+    /// XmaxSDK copies or resizes the pixels before this method returns. You can
+    /// reuse the buffer afterward, but must not modify it during submission.
+    /// Invalid, duplicate, or decreasing timestamps are ignored.
     ///
     /// - Parameters:
-    ///   - pixelBuffer: NV12 video-range（420v）或 BGRA 像素缓冲区。
-    ///   - timestamp: 非负、持续递增的单调时间戳；循环或跳转后不能回退。
-    ///     无效、重复或倒退的时间戳会被忽略。
+    ///   - pixelBuffer: An upright NV12 video-range (`420v`) or BGRA buffer whose
+    ///     dimensions match the source's `videoFormat`, with any required mirroring
+    ///     already applied.
+    ///   - timestamp: A nonnegative, strictly increasing timestamp from a monotonic
+    ///     clock. Keep timestamps increasing across seeks and playback loops.
     func pushVideo(
         _ pixelBuffer: CVPixelBuffer,
         timestamp: CMTime
     )
 
-    /// 报告不可恢复的媒体源错误，SDK 将结束连接并释放本地流。
+    /// Reports a source failure that prevents further frame delivery.
     ///
-    /// - Parameter error: 采集、解码或处理过程中无法恢复的错误。
+    /// XmaxSDK ends the realtime connection and releases the local stream.
+    ///
+    /// - Parameter error: The unrecoverable capture, decoding, or processing error.
     func reportError(
         _ error: any Error
     )

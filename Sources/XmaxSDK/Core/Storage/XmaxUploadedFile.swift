@@ -10,19 +10,19 @@
 
 import Foundation
 
-/// 表示上传成功后的远端文件。
+/// A remote file produced by a successful upload.
 public struct XmaxUploadedFile: Equatable, Sendable {
 
-    /// 文件的远端访问地址。
+    /// The URL used to access the remote file.
     public let url: URL
 
-    /// 文件在对象存储中的标识。
+    /// The file's object storage key.
     public let objectKey: String
 
-    /// 对象存储返回的可选实体标识。
+    /// The entity tag returned by object storage, if available.
     public let etag: String?
 
-    /// 创建上传结果。
+    /// Creates an upload result.
     init(
         url: URL,
         objectKey: String,

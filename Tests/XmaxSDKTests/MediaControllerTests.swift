@@ -13,6 +13,7 @@ import CoreGraphics
 import XCTest
 @testable import XmaxSDK
 
+@MainActor
 final class MediaControllerTests: XCTestCase {
     func testCreateInitializesRTCAndTakesLocalMediaOwnership() async throws {
         let rtcManager = RtcManagingStub()
@@ -247,20 +248,11 @@ final class MediaControllerTests: XCTestCase {
         let permissions = PermissionManagingStub(
             microphoneError: XmaxError(code: .microphonePermissionDenied, message: "Microphone access denied")
         )
-        let source = MediaSourceControllingStub(
-            configuration: MediaSourceConfiguration(
-                videoFormat: RealtimeVideoFormat(
-                    width: 832,
-                    height: 1_472,
-                    fps: 24
-                ),
-                hasAudio: true
-            )
-        )
+        let player = VideoPlayerControllingStub()
         let manager = makeManager(
             rtcManager: rtcManager,
             permissionManager: permissions,
-            mediaSourceController: source
+            playerController: player
         )
 
         let stream = try await manager.createLocalVideoStream(
@@ -290,7 +282,7 @@ private extension MediaControllerTests {
         ),
         captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         imageController: ImageControllingStub? = nil,
-        mediaSourceController: MediaSourceControllingStub? = nil
+        playerController: VideoPlayerControllingStub? = nil
     ) -> MediaController {
         let cameraController = CameraController(
             rtcManager: rtcManager,
@@ -298,10 +290,12 @@ private extension MediaControllerTests {
             mediaService: mediaService,
             captureManager: captureManager
         )
-        let videoController = mediaSourceController.map {
+        let videoController = playerController.map {
             VideoController(
                 rtcManager: rtcManager,
-                mediaSourceController: $0
+                metadataManager: MediaFileMetadataManagingStub(),
+                mediaService: mediaService,
+                playerController: $0
             )
         }
         return MediaController(

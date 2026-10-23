@@ -10,52 +10,61 @@
 
 import Foundation
 
-/// 记录实时错误，并将后台故障交给 Coordinator 统一结束生命周期。
+/// Logs realtime errors and forwards runtime failures for coordinated lifecycle termination.
 final class RealtimeErrorHandler: @unchecked Sendable {
 
-    /// 接收运行中错误、清理范围及有效性检查回调，完成相应生命周期的终止。
+    /// A handler that terminates resources affected by a current runtime failure.
     typealias FailureHandler = @Sendable (
-        XmaxError, RealtimeCoordinator.TerminationScope, @escaping @Sendable () -> Bool
+        XmaxError,
+        RealtimeCoordinator.TerminationScope,
+        @escaping @Sendable () -> Bool
     ) async -> Void
 
-    /// 保护故障有效期及处理回调。
+    /// The lock protecting failure revisions and the failure handler.
     private let lock = NSLock()
 
-    /// 当前媒体流的有效期，用于过滤旧媒体回调。
+    /// Failure validity.
+
+    /// The revision used to reject failures from previous media bindings.
     private var mediaRevision = UUID()
 
-    /// 当前连接的有效期标识，用于过滤旧连接的迟到错误。
+    /// The revision used to reject failures from previous connections.
     private var connectionRevision = UUID()
 
-    /// 将运行中故障转交协调器终止对应流程。
+    /// The handler that forwards current failures to lifecycle termination.
     private var failureHandler: FailureHandler?
 
-    /// 设置运行中故障的终止处理回调。
+    /// Sets the runtime failure handler.
     ///
-    /// - Parameter handler: 接收错误、清理范围和生命周期有效性检查的回调。
+    /// - Parameter handler: The handler receiving an error, cleanup scope, and validity check.
     func setFailureHandler(
         _ handler: @escaping FailureHandler
     ) {
-        lock.withLock { failureHandler = handler }
+        lock.withLock {
+            failureHandler = handler
+        }
     }
 
-    /// 使已结束生命周期内尚未处理的故障失效。
+    /// Invalidates pending failures from a completed lifecycle.
     ///
-    /// - Parameter target: 已清理的资源范围；连接清理仅使连接故障失效，完整清理同时使媒体故障失效。
+    /// - Parameter target: The released resource scope. Full cleanup invalidates both connection
+    ///   and media failures.
     func invalidatePendingFailures(
         target: RealtimeCoordinator.TerminationScope = .all
     ) {
         lock.withLock {
             connectionRevision = UUID()
-            if target == .all { mediaRevision = UUID() }
+            if target == .all {
+                mediaRevision = UUID()
+            }
         }
     }
 
-    /// 异步转交运行中故障；未指定清理范围或处理器时仅记录错误日志。
+    /// Forwards a runtime failure asynchronously, or logs it if no scope or handler is supplied.
     ///
     /// - Parameters:
-    ///   - error: 需要处理的运行中错误。
-    ///   - target: 错误影响的资源范围；传入 `nil` 时不终止生命周期。
+    ///   - error: The runtime failure to handle.
+    ///   - target: The affected resources, or `nil` to log without terminating the lifecycle.
     func forward(
         _ error: XmaxError,
         target: RealtimeCoordinator.TerminationScope? = nil
@@ -68,25 +77,31 @@ final class RealtimeErrorHandler: @unchecked Sendable {
                 await report(error)
                 return
             }
-            await handler(error, target, { [weak self] in
-                guard let self else { return false }
-                return lock.withLock {
-                    (target == .all ? mediaRevision : connectionRevision) == revision
+            await handler(
+                error,
+                target,
+                { [weak self] in
+                    guard let self else {
+                        return false
+                    }
+                    return lock.withLock {
+                        (target == .all ? mediaRevision : connectionRevision) == revision
+                    }
                 }
-            })
+            )
         }
     }
 
-    /// 输出实时错误的错误码和错误信息日志。
+    /// Logs a realtime error code and message.
     ///
-    /// - Parameter error: 需要记录的 SDK 错误。
+    /// - Parameter error: The SDK error to log.
     func report(
         _ error: XmaxError
     ) async {
         XmaxLogger.realtime.error(
-            message: "实时服务错误 (Realtime Service Error)\n" +
-                "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(error.code.rawValue)\n" +
-                "└─ \(XmaxLogger.localized("信息：", "Message: "))\(error.message)"
+            message: "实时服务错误 (Realtime Service Error)\n"
+                + "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(error.code.rawValue)\n"
+                + "└─ \(XmaxLogger.localized("信息：", "Message: "))\(error.message)"
         )
     }
 }

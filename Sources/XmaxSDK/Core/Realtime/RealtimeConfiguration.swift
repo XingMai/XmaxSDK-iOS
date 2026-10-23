@@ -8,21 +8,21 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 创建实时 Manager 所需的业务配置。
+/// The model, frame interpolation, and adaptive quality settings for a realtime manager.
 public struct RealtimeConfiguration: Equatable, Sendable {
 
-    /// 实时生成业务使用的模型。
+    /// The model used for realtime generation.
     public let model: RealtimeModel
 
-    /// 是否默认开启远端生成画面的插帧。
+    /// Whether remote frame interpolation is initially enabled.
     public let isFrameInterpolationEnabled: Bool
 
-    /// 是否自动调整上下行档位，默认开启。
+    /// Whether uplink and downlink quality levels adapt automatically.
     ///
-    /// 关闭时每次连接从 L1 开始，不读写历史档位，仍可手动调档。
+    /// When disabled, each connection starts at L1. Manual changes remain available.
     public let isAdaptiveQualityEnabled: Bool
 
-    /// 创建实时业务配置。
+    /// Creates a realtime configuration.
     public init(
         model: RealtimeModel,
         isFrameInterpolationEnabled: Bool = true,

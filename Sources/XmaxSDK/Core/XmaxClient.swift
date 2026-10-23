@@ -8,80 +8,61 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// SDK 的统一入口，负责创建实时、存储和媒体服务组件。
+/// A client that provides access to Xmax realtime generation, storage, and media services.
 public final class XmaxClient: Sendable {
 
-    /// 客户端使用的全局配置。
+    /// The configuration used by this client.
     public let configuration: XmaxConfiguration
 
-    /// 执行存储凭证和媒体安全检查等 API 请求。
+    /// The service used to request storage credentials and perform media safety checks.
     private let apiService: any ApiServicing
 
-    /// 注入的实时 API 实现；未提供时按环境创建。
-    private let realtimeApiOverride: (any ApiServicing)?
-
-    /// 创建 SDK 客户端。
+    /// Creates a client with the specified configuration.
     ///
-    /// - Parameter configuration: SDK 全局配置。
+    /// - Parameter configuration: The API credentials, service environment, and logging options.
     public init(
         configuration: XmaxConfiguration
     ) {
         self.configuration = configuration
-        realtimeApiOverride = nil
-        XmaxLogger.configure(options: configuration.loggerOptions, environment: configuration.environment)
+        XmaxLogger.configure(
+            options: configuration.loggerOptions,
+            environment: configuration.environment
+        )
         apiService = ApiService(
             apiKey: configuration.apiKey,
             baseURL: configuration.environment.apiBaseURL
         )
     }
 
-    /// 使用指定 API 服务创建 SDK 客户端。
+    /// Creates a manager for local media inputs and realtime generation.
     ///
-    /// - Parameters:
-    ///   - configuration: 客户端配置，同时决定全局日志选项和语言。
-    ///   - apiService: 存储与实时会话共用的 API 服务。
-    init(
-        configuration: XmaxConfiguration,
-        apiService: any ApiServicing
-    ) {
-        self.configuration = configuration
-        XmaxLogger.configure(options: configuration.loggerOptions, environment: configuration.environment)
-        self.apiService = apiService
-        realtimeApiOverride = apiService
-    }
-
-    /// 创建管理本地媒体、实时连接和生成任务的组件。
+    /// API credentials are validated when connecting, not during manager creation or local preview.
     ///
-    /// 创建组件和本地预览不校验 API Key；访问服务端时校验凭证。
-    ///
-    /// - Parameter options: 实时生成模型等业务配置。
-    /// - Returns: 可用于管理摄像头、图片和视频输入及实时生成的组件。
+    /// - Parameter options: The model, frame interpolation, and adaptive quality settings.
     @MainActor
     public func createRealtimeManager(
         options: RealtimeConfiguration
     ) -> any XmaxRealtimeManaging {
         XmaxRealtimeManager(
             options: options,
-            apiService: realtimeApiOverride ?? ApiService(
+            apiService: ApiService(
                 apiKey: configuration.apiKey,
                 baseURL: configuration.environment.realtimeApiBaseURL
             )
         )
     }
 
-    /// 创建文件存储 Manager。
+    /// Creates a manager for uploading and downloading media files.
     ///
-    /// - Returns: 可用于上传和下载媒体文件的存储 Manager。
-    /// - Throws: SDK 全局配置无效时抛出 `XmaxError`。
+    /// - Throws: An `XmaxError` if the client configuration is invalid.
     public func createStorageManager() throws -> any XmaxStorageManaging {
         try configuration.validate()
         return XmaxStorageManager(apiService: apiService)
     }
 
-    /// 创建媒体处理与能力查询 Service。
+    /// Creates a service for media sizing and capability queries.
     ///
-    /// - Parameter model: 媒体输入规则使用的模型，默认为 `x2.1`。
-    /// - Returns: 可用于计算模型输入尺寸和查询平台媒体能力的 Service。
+    /// - Parameter model: The model whose sizing rules the service uses.
     public func createMediaService(
         model: RealtimeModel = .x2_1
     ) -> any MediaServicing {

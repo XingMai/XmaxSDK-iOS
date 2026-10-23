@@ -1,5 +1,5 @@
 //
-//  NV12VideoFrameConverter.swift
+//  VideoFrameConverter.swift
 //  XmaxSDK
 //
 //  Author: 翁跃庭 (Yueting Weng)
@@ -12,18 +12,18 @@ import Accelerate
 import CoreVideo
 import Foundation
 
-/// 将系统 NV12 像素缓冲区裁剪、缩放并旋转为目标显示尺寸的连续帧数据。
-enum NV12VideoFrameConverter {
+/// 将摄像头、解码器及外部源的像素缓冲区处理为统一媒体尺寸的视频帧。
+enum VideoFrameConverter {
 
-    /// 将 NV12 缓冲区居中裁剪、缩放并旋转为指定显示尺寸。
+    /// 将像素缓冲区居中裁剪、缩放并旋转为指定显示尺寸，尺寸匹配时直接复制。
     ///
     /// - Parameters:
-    ///   - pixelBuffer: 源 NV12 像素缓冲区。
+    ///   - pixelBuffer: 源 NV12 或 BGRA 像素缓冲区。
     ///   - outputWidth: 输出宽度，单位为像素且须为正偶数。
     ///   - outputHeight: 输出高度，单位为像素且须为正偶数。
     ///   - rotation: 缩放后应用的显示旋转。
     ///   - timestampUs: 输出帧时间戳，单位为微秒。
-    /// - Returns: 旋转已应用到像素数据、旋转标记为零的 NV12 视频帧。
+    /// - Returns: 像素格式与输入一致、旋转已应用到像素数据且独立持有像素的视频帧。
     /// - Throws: 像素格式、平面布局或尺寸无效，以及缓冲区转换失败时抛出错误。
     static func convert(
         pixelBuffer: CVPixelBuffer,
@@ -33,6 +33,15 @@ enum NV12VideoFrameConverter {
         timestampUs: Int64
     ) throws -> VideoFrame {
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        if pixelFormat == kCVPixelFormatType_32BGRA {
+            return try convertBGRA(
+                pixelBuffer,
+                outputWidth: outputWidth,
+                outputHeight: outputHeight,
+                rotation: rotation,
+                timestampUs: timestampUs
+            )
+        }
         let isNV12 = pixelFormat
             == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
             || pixelFormat
@@ -131,6 +140,119 @@ enum NV12VideoFrameConverter {
                 )
             ],
             rotation: .rotation0
+        )
+    }
+
+    /// 直接读取 BGRA 源像素，在一次目标缓冲区写入中完成裁剪、缩放或复制。
+    ///
+    /// - Parameters:
+    ///   - pixelBuffer: BGRA 像素缓冲区。
+    ///   - outputWidth: 最终显示宽度。
+    ///   - outputHeight: 最终显示高度。
+    ///   - rotation: 缩放后应用的旋转方向。
+    ///   - timestampUs: 单调时间戳，单位为微秒。
+    /// - Returns: 持有处理后 BGRA 像素的视频帧。
+    /// - Throws: 尺寸、缓冲区布局无效或像素处理失败时抛出错误。
+    private static func convertBGRA(
+        _ pixelBuffer: CVPixelBuffer,
+        outputWidth: Int,
+        outputHeight: Int,
+        rotation: VideoRotation,
+        timestampUs: Int64
+    ) throws -> VideoFrame {
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let (sourceRowBytes, sourceOverflow) = width.multipliedReportingOverflow(by: 4)
+        let (outputPixels, pixelOverflow) = outputWidth.multipliedReportingOverflow(by: outputHeight)
+        let (byteCount, byteOverflow) = outputPixels.multipliedReportingOverflow(by: 4)
+        guard width > 0, height > 0, outputWidth > 0, outputHeight > 0,
+              outputWidth.isMultiple(of: 2), outputHeight.isMultiple(of: 2),
+              !sourceOverflow, !pixelOverflow, !byteOverflow,
+              CVPixelBufferGetBytesPerRow(pixelBuffer) >= sourceRowBytes,
+              CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly) == kCVReturnSuccess else {
+            throw mediaError("Invalid BGRA video dimensions or buffer layout")
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        guard let source = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw mediaError("BGRA video pixels are unavailable")
+        }
+
+        let dimensions = scaledDimensions(
+            outputWidth: outputWidth,
+            outputHeight: outputHeight,
+            rotation: rotation
+        )
+        let crop = centerCrop(
+            sourceWidth: width,
+            sourceHeight: height,
+            targetWidth: dimensions.width,
+            targetHeight: dimensions.height
+        )
+        let stride = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let start = source.advanced(by: crop.y * stride + crop.x * 4)
+        var data = Data(count: byteCount)
+        try data.withUnsafeMutableBytes { bytes in
+            guard let destination = bytes.baseAddress else {
+                throw mediaError("Failed to allocate BGRA video data")
+            }
+            let rowBytes = dimensions.width * 4
+            if crop.width == dimensions.width, crop.height == dimensions.height {
+                for row in 0..<dimensions.height {
+                    memcpy(destination.advanced(by: row * rowBytes), start.advanced(by: row * stride), rowBytes)
+                }
+                return
+            }
+
+            var input = vImage_Buffer(
+                data: start,
+                height: vImagePixelCount(crop.height),
+                width: vImagePixelCount(crop.width),
+                rowBytes: stride
+            )
+            var output = vImage_Buffer(
+                data: destination,
+                height: vImagePixelCount(dimensions.height),
+                width: vImagePixelCount(dimensions.width),
+                rowBytes: rowBytes
+            )
+            guard vImageScale_ARGB8888(&input, &output, nil, vImage_Flags(kvImageHighQualityResampling)) == kvImageNoError else {
+                throw mediaError("Failed to scale BGRA video pixels")
+            }
+        }
+
+        if rotation != .rotation0 {
+            var rotated = Data(count: byteCount)
+            try data.withUnsafeBytes { sourceBytes in
+                try rotated.withUnsafeMutableBytes { destinationBytes in
+                    guard let source = sourceBytes.baseAddress,
+                          let destination = destinationBytes.baseAddress else {
+                        throw mediaError("Failed to allocate rotated BGRA video data")
+                    }
+                    var input = vImage_Buffer(
+                        data: UnsafeMutableRawPointer(mutating: source),
+                        height: vImagePixelCount(dimensions.height),
+                        width: vImagePixelCount(dimensions.width),
+                        rowBytes: dimensions.width * 4
+                    )
+                    var output = vImage_Buffer(
+                        data: destination,
+                        height: vImagePixelCount(outputHeight),
+                        width: vImagePixelCount(outputWidth),
+                        rowBytes: outputWidth * 4
+                    )
+                    var background: Pixel_8888 = (0, 0, 0, 0)
+                    guard vImageRotate90_ARGB8888(&input, &output, rotationConstant(for: rotation), &background, vImage_Flags(kvImageNoFlags)) == kvImageNoError else {
+                        throw mediaError("Failed to rotate BGRA video pixels")
+                    }
+                }
+            }
+            data = rotated
+        }
+
+        return try VideoFrame(
+            format: VideoFormat(width: outputWidth, height: outputHeight, pixelFormat: .bgra),
+            timestampUs: timestampUs,
+            planes: [VideoFramePlane(data: data, stride: outputWidth * 4)]
         )
     }
 

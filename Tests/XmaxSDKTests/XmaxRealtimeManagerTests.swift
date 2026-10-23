@@ -1986,7 +1986,7 @@ private extension XmaxRealtimeManagerTests {
         let captureManager: CameraCaptureManagingStub
         let sessionService: RealtimeSessionServicingStub
         let imageController: ImageControllingStub
-        let videoSource: MediaSourceControllingStub
+        let videoSource: VideoPlayerControllingStub
     }
 
     var videoFormat: RealtimeVideoFormat {
@@ -2051,15 +2051,12 @@ private extension XmaxRealtimeManagerTests {
         let imageController = ImageControllingStub(
             resolvedFormat: imageFormat
         )
-        let videoSource = MediaSourceControllingStub(
-            configuration: MediaSourceConfiguration(
-                videoFormat: imageFormat,
-                hasAudio: true
-            )
-        )
+        let videoSource = VideoPlayerControllingStub()
         let videoController = VideoController(
             rtcManager: rtcManager,
-            mediaSourceController: videoSource
+            metadataManager: MediaFileMetadataManagingStub(),
+            mediaService: mediaService,
+            playerController: videoSource
         )
         let mediaController = MediaController(
             rtcManager: rtcManager,

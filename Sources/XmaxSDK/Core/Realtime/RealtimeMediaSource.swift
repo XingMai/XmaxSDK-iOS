@@ -8,18 +8,18 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 实时生成模型支持的本地媒体来源。
+/// A local media source for realtime generation.
 public enum RealtimeMediaSource: String, CaseIterable, Sendable {
 
-    /// 摄像头
+    /// Camera input.
     case camera
 
-    /// 视频
+    /// Video file input.
     case video
 
-    /// 图片
+    /// Image input.
     case image
 
-    /// 接入方自行供帧的视频。
+    /// Video frames supplied by your app.
     case external
 }
