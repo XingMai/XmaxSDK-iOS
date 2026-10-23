@@ -52,53 +52,6 @@ final class RtcRoomEventBridge: NSObject, AgoraRtcEngineDelegate {
         self.handler = handler
     }
 
-    #if DEBUG
-    /// The diagnostic channel mapping, assigned before joining and never changed during callbacks.
-    var debugRoomID: String?
-
-    /// Records whether native audio reaches the receiving, decoding, frozen, or failed state.
-    func rtcEngine(
-        _ engine: AgoraRtcEngineKit,
-        remoteAudioStateChangedOfUid uid: UInt,
-        state: AgoraAudioRemoteState,
-        reason: AgoraAudioRemoteReason,
-        elapsed: Int
-    ) {
-        guard let debugRoomID else { return }
-        RealtimeDebugCaptureBridge.shared.event(
-            "native_audio_state",
-            roomID: debugRoomID,
-            fields: [
-                "uid": String(uid),
-                "state": String(state.rawValue),
-                "reason": String(reason.rawValue),
-                "elapsed_ms": String(elapsed)
-            ]
-        )
-    }
-
-    /// Records native audio subscription transitions without changing room behavior.
-    func rtcEngine(
-        _ engine: AgoraRtcEngineKit,
-        didAudioSubscribeStateChange channelId: String,
-        uid: UInt32,
-        oldState: AgoraStreamSubscribeState,
-        newState: AgoraStreamSubscribeState,
-        elapseSinceLastState: Int32
-    ) {
-        RealtimeDebugCaptureBridge.shared.event(
-            "native_audio_subscription",
-            roomID: channelId,
-            fields: [
-                "uid": String(uid),
-                "old_state": String(oldState.rawValue),
-                "new_state": String(newState.rawValue),
-                "elapsed_ms": String(elapseSinceLastState)
-            ]
-        )
-    }
-    #endif
-
     /// Forwards a successful local room join.
     ///
     /// - Parameters:

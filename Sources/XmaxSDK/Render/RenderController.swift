@@ -533,11 +533,6 @@ private extension RenderController {
         guard outputToken == renderingToken else {
             return
         }
-        #if DEBUG
-        if let remoteStream {
-            RealtimeDebugCaptureBridge.shared.finalVideo(frame, stream: remoteStream)
-        }
-        #endif
         latestRemoteFrame = frame
         finishAllRemoteFrameReadyWaiters()
         remoteVideoFrameDispatcher.dispatch(frame)

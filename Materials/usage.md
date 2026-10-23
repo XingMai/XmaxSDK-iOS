@@ -443,8 +443,8 @@ PCM bytes are copied signed 16-bit little-endian samples, interleaved for multip
 channels. The SDK requests 48 kHz mono packets of 480 samples (10 ms); use each
 packet's actual format and sample count. Audio belongs to the result user before
 remote-user mixing. The API does not export local microphone/input audio or the
-aggregate playback comparison used by the debug probe. It does not change remote
-audio subscription or playback volume; audio is available only while subscribed.
+aggregate playback mix. It does not change remote audio subscription or playback
+volume; audio is available only while subscribed.
 
 Audio and video use the same receiver rendering time basis. Keep their original
 offset: choose **one origin for both tracks**, not a separate zero for each. Audio
@@ -506,9 +506,6 @@ Clear the listener when frame delivery is no longer needed:
 ```swift
 await realtime.setRemoteVideoFrameListener(nil)
 ```
-
-For Debug-only PCM, video timing, and media capture in XLab, see the
-[remote media debug capture guide](./debug-capture.md).
 
 <br>
 

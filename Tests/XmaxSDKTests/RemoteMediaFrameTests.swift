@@ -23,7 +23,7 @@ final class RemoteMediaFrameTests: XCTestCase {
         let videoReceived = DispatchSemaphore(value: 0)
         listeners.setAudioListener({ received.append($0) }, for: 7)
         listeners.setVideoListener({ _ in videoReceived.signal() }, for: 7)
-        let sink = RtcRemoteAudioSink(roomID: "room") { uid, channel in
+        let sink = RtcRemoteAudioSink { uid, channel in
             listeners.audioListener(for: uid, channelID: channel)
         }
         let frame = try videoPacket(1_000)
@@ -227,7 +227,7 @@ final class RemoteMediaFrameTests: XCTestCase {
         let recorder = MediaOutputRecorder()
         output.setListener { recorder.append($0) }
         let id = try XCTUnwrap(output.setStream(active: true))
-        let sink = RtcRemoteAudioSink(roomID: "room") { _, _ in
+        let sink = RtcRemoteAudioSink { _, _ in
             { output.dispatchAudio($0, streamID: id) }
         }
         output.dispatchAudio(audioPacket(1_000), streamID: id)
@@ -281,7 +281,7 @@ final class RemoteMediaFrameTests: XCTestCase {
 
     func testNativeAudioBytesAreOwnedAndOnlyMatchingRemoteUserIsDelivered() throws {
         let storage = NativeAudioRecorder()
-        let sink = RtcRemoteAudioSink(roomID: "room") { uid, channel in
+        let sink = RtcRemoteAudioSink { uid, channel in
             guard uid == 7, channel == "room" else { return nil }
             return { storage.append($0) }
         }
@@ -297,11 +297,8 @@ final class RemoteMediaFrameTests: XCTestCase {
         XCTAssertEqual(packet.data, Data(repeating: 0x35, count: 960))
         XCTAssertEqual(packet.renderTimeMs, 1_000)
         XCTAssertTrue(sink.responds(to: NSSelectorFromString("onPlaybackAudioFrameBeforeMixing:channelId:uid:")))
-        #if DEBUG
-        XCTAssertEqual(sink.getObservedAudioFramePosition().rawValue, 9)
-        #else
         XCTAssertEqual(sink.getObservedAudioFramePosition(), .beforeMixing)
-        #endif
+        XCTAssertFalse(sink.responds(to: NSSelectorFromString("onPlaybackAudioFrame:channelId:")))
     }
 }
 

@@ -186,9 +186,6 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                 version == revision && streamID == frame.streamID ? listener : nil
             }
             if let callback {
-                #if DEBUG
-                RealtimeDebugCaptureBridge.shared.mediaOutput(frame)
-                #endif
                 callback(frame)
             }
         }

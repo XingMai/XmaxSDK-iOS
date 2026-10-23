@@ -17,29 +17,16 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
     /// Resolves the listener only for a current room and subscribed result user.
     private let listenerProvider: @Sendable (UInt, String) -> RtcRemoteAudioFrameListener?
 
-    #if DEBUG
-    /// The optional diagnostic taps, forwarded through the engine's single audio delegate.
-    private let diagnosticSink: RtcDebugAudioSink
-    #endif
-
     /// Creates an observer whose provider filters packets before bytes are copied.
     init(
-        roomID: String,
         listenerProvider: @escaping @Sendable (UInt, String) -> RtcRemoteAudioFrameListener?
     ) {
         self.listenerProvider = listenerProvider
-        #if DEBUG
-        diagnosticSink = RtcDebugAudioSink(roomID: roomID)
-        #endif
     }
 
-    /// Observes individual remote audio; Debug builds also retain the diagnostic playback tap.
+    /// Observes individual remote audio before mixing.
     func getObservedAudioFramePosition() -> AgoraAudioFramePosition {
-        #if DEBUG
-        [.beforeMixing, .playback]
-        #else
         .beforeMixing
-        #endif
     }
 
     /// Copies a remote user's audio without changing RTC playback or mixing local input.
@@ -48,13 +35,6 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
         channelId: String,
         uid: UInt
     ) -> Bool {
-        #if DEBUG
-        _ = diagnosticSink.onPlaybackAudioFrame(
-            beforeMixing: frame,
-            channelId: channelId,
-            uid: uid
-        )
-        #endif
         capturePCM(
             frame.buffer,
             channelID: channelId,
@@ -67,19 +47,6 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
         )
         return true
     }
-
-    #if DEBUG
-    /// Keeps aggregate remote playback exclusively in the opt-in debug recorder.
-    func onPlaybackAudioFrame(
-        _ frame: AgoraAudioFrame,
-        channelId: String
-    ) -> Bool {
-        diagnosticSink.onPlaybackAudioFrame(
-            frame,
-            channelId: channelId
-        )
-    }
-    #endif
 
     /// Validates and owns callback-borrowed bytes before asynchronous delivery.
     func capturePCM(

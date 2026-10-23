@@ -773,9 +773,6 @@ private extension RealtimeCoordinator {
             }
             let listener = state != finalState ? stateListener : nil
             state = finalState
-            #if DEBUG
-            RealtimeDebugCaptureBridge.shared.state(finalState)
-            #endif
             termination = nil
             errorHandler.invalidatePendingFailures(target: requestedTarget)
             if let listener {
@@ -809,9 +806,6 @@ private extension RealtimeCoordinator {
             return
         }
         state = nextState
-        #if DEBUG
-        RealtimeDebugCaptureBridge.shared.state(nextState)
-        #endif
         if let stateListener {
             await stateListener(nextState)
         }
