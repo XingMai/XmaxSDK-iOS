@@ -17,8 +17,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     /// The local camera track identifier.
     private static let localVideoTrackID = "video0"
 
-    /// Capture dependencies.
-
     /// The RTC media adapter.
     private let rtcManager: any RtcManaging
 
@@ -31,8 +29,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
     /// The model media sizing service.
     private let mediaService: any MediaServicing
 
-    /// Event handlers.
-
     /// The camera video frame handler.
     private let videoFrameListener: MediaVideoFrameListener
 
@@ -41,8 +37,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
 
     /// The internal preview readiness handler.
     private var previewReadyHandler: CameraPreviewReadyHandler?
-
-    /// Capture and preview state.
 
     /// The lock protecting camera, capture, and preview state.
     private let stateLock = NSLock()
@@ -64,8 +58,6 @@ final class CameraController: CameraControlling, @unchecked Sendable {
 
     /// Whether RTC microphone capture is active.
     private var isMicrophoneCapturing = false
-
-    /// Format updates.
 
     /// The queue serializing format and orientation updates.
     @MainActor private var formatUpdateTask: Task<Void, any Error>?

@@ -123,8 +123,6 @@ final class VideoPlayerController: VideoPlayerControlling {
         let durationSeconds: Double
     }
 
-    /// Output handlers.
-
     /// The video frame handler.
     private let videoFrameListener: MediaVideoFrameListener
 
@@ -133,8 +131,6 @@ final class VideoPlayerController: VideoPlayerControlling {
 
     /// The video decoding and playback failure handler.
     private let errorListener: XmaxErrorListener
-
-    /// Preview resources.
 
     /// The PCM audio preview on the shared timeline.
     private let audioPreviewPlayer = LocalAudioPreviewPlayer()
@@ -146,8 +142,6 @@ final class VideoPlayerController: VideoPlayerControlling {
     private lazy var previewDispatcher = DecodedVideoPreviewDispatcher(
         presenter: previewPresenter
     )
-
-    /// Playback state.
 
     /// The file decoding and output configuration.
     private var configuration: PlaybackConfiguration?

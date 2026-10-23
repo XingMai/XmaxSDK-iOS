@@ -13,15 +13,11 @@ import Foundation
 /// The sampling and adaptation policy for one transport direction.
 struct QualityDirection: Sendable {
 
-    /// Quality configuration.
-
     /// The resolved media baseline, unchanged by quality levels.
     let baseline: RealtimeVideoFormat
 
     /// Whether this policy governs downlink rather than uplink.
     let downlink: Bool
-
-    /// Adaptation state.
 
     /// The current quality level.
     private(set) var level: RealtimeQualityLevel

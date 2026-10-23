@@ -18,8 +18,6 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// The lock protecting quality listeners and statistics validity.
     private let listenerLock = NSLock()
 
-    /// Event listeners.
-
     /// The uplink and downlink quality listener.
     private var networkQualityListener: RealtimeNetworkQualityListener?
 
@@ -32,8 +30,6 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// The downlink video statistics listener.
     private var downlinkStatisticsListener: DownlinkVideoStatisticsListener?
 
-    /// Statistics delivery.
-
     /// Whether uplink statistics are delivered.
     private var uplinkStatisticsEnabled = false
 
@@ -45,8 +41,6 @@ final class QualityController: QualityControlling, RtcQualityListener,
 
     /// The revision rejecting stale downlink callbacks.
     private var downlinkStatisticsVersion = 0
-
-    /// Adaptive quality.
 
     /// The uplink sampling and adaptation policy.
     private var uplinkQuality: QualityDirection?

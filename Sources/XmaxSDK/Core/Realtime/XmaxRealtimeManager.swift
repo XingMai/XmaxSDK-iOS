@@ -19,7 +19,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// The model, interpolation, and adaptive quality configuration supplied at creation.
     nonisolated let options: RealtimeConfiguration
 
-    /// Media and transport components.
+    // MARK: - Dependencies
 
     /// The controller that manages remote tracks, first-frame readiness, and rendering.
     private let renderController: any RenderControlling
@@ -32,8 +32,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     /// The service that resolves media dimensions and model input constraints.
     private let mediaService: any MediaServicing
-
-    /// Lifecycle coordination.
 
     /// The manager that owns the server session and RTC connection.
     private let connectionManager: XmaxRealtimeConnectionManager

@@ -13,7 +13,7 @@ import Foundation
 /// Coordinates local media ownership and the RTC engine lifecycle.
 actor MediaController: MediaControlling {
 
-    /// Media components.
+    // MARK: - Dependencies
 
     /// The adapter for local input and media frame delivery.
     private let rtcManager: any RtcManaging
@@ -33,7 +33,7 @@ actor MediaController: MediaControlling {
     /// The external video and preview controller.
     private let externalController: (any ExternalVideoControlling)?
 
-    /// Media ownership and operations.
+    // MARK: - State
 
     /// The active media source and its validity.
     private var activeSource: ActiveLocalMediaSource?

@@ -16,7 +16,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     /// The default room join timeout, in nanoseconds.
     static let joinTimeoutNanoseconds: UInt64 = 15000000000
 
-    /// Connection dependencies.
+    // MARK: - Dependencies
 
     /// The exclusive engine lease provider.
     private let engineManager: RtcEngineManager
@@ -24,15 +24,13 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     /// The room join timeout, in nanoseconds.
     private let joinTimeout: UInt64
 
-    /// Synchronization.
+    // MARK: - State
 
     /// The lock protecting room, lease, and initialization state.
     private let stateLock = NSLock()
 
     /// The lock serializing compound RTC operations.
     private let operationLock = NSRecursiveLock()
-
-    /// Connection resources.
 
     /// The engine lease held by this manager.
     private var engineLease: RtcEngineLease?
@@ -42,8 +40,6 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
 
     /// The pending room join request.
     private var pendingJoin: PendingJoin?
-
-    /// Event listeners.
 
     /// The listener for room and remote stream events.
     private weak var eventListener: (any RtcEventListener)?

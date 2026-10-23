@@ -49,7 +49,7 @@ struct XmaxLogger: Sendable {
         case english
     }
 
-    /// Domain loggers.
+    // MARK: - Loggers
 
     /// Realtime lifecycle logs.
     static let realtime = Self(category: "Realtime")
@@ -81,7 +81,7 @@ struct XmaxLogger: Sendable {
     /// System permission logs.
     static let permission = Self(category: "Permission")
 
-    /// Logging configuration.
+    // MARK: - Configuration
 
     /// The domain name in the log prefix.
     private let category: String

@@ -58,8 +58,6 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         self
     }
 
-    /// Trajectory drawing.
-
     /// The active touches and animation origins keyed by trajectory identifier.
     private var activeTrajectories: [TrajectoryID: ActiveTrajectory] = [:]
 
@@ -74,8 +72,6 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
 
     /// Whether the trail bitmap contains visible content.
     private var hasTrailPixels = false
-
-    /// Animation state.
 
     /// The elapsed fade frames since interaction ended.
     private var idleFadeFrameCount = 0

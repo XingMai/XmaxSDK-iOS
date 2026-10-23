@@ -19,8 +19,6 @@ typealias RealtimeGenerationValidity = @Sendable () throws -> Void
 /// interactions.
 actor XmaxRealtimeGenerationManager {
 
-    /// Generation dependencies.
-
     /// The controller that manages trajectory interactions during generation.
     private let interactionController: any InteractionControlling
 
@@ -29,8 +27,6 @@ actor XmaxRealtimeGenerationManager {
 
     /// The closure that generates identifiers for new tasks.
     private let taskIDGenerator: @Sendable () -> String
-
-    /// Cached generation conditions.
 
     /// The prompt and reference image from the most recent successful request.
     private var currentContext: RealtimeContext?

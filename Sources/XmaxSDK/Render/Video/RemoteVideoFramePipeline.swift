@@ -35,8 +35,6 @@ actor RemoteVideoFramePipeline {
             _ frame: RealtimeVideoFrame
         ) throws -> (any FrameInterpolationManaging)?
 
-    /// Processing dependencies.
-
     /// The dimension-based interpolation capability check.
     private let frameInterpolationSupportChecker: FrameInterpolationSupportChecker
 
@@ -49,8 +47,6 @@ actor RemoteVideoFramePipeline {
     /// The interpolation failure and fallback handler.
     private let errorListener: XmaxErrorListener
 
-    /// Processing resources.
-
     /// The active remote interpolation processor.
     private var interpolationManager: (any FrameInterpolationManaging)?
 
@@ -62,8 +58,6 @@ actor RemoteVideoFramePipeline {
 
     /// The task releasing previous interpolation resources.
     private var cleanupTask: Task<Void, Never>?
-
-    /// Output state.
 
     /// The requested interpolation setting.
     private var interpolationEnabled: Bool

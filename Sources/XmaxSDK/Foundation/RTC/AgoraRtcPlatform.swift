@@ -14,8 +14,6 @@ import Foundation
 /// An Agora adapter for RTC engine operations.
 final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
 
-    /// Engine resources.
-
     /// The initialized Agora engine.
     let engine: AgoraRtcEngineKit
 
@@ -24,8 +22,6 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
 
     /// The room owned by this platform instance.
     private weak var room: AgoraRtcRoom?
-
-    /// Video encoding.
 
     /// The cached Agora external video frame.
     private let videoFrameCache = RtcVideoFrameCache()

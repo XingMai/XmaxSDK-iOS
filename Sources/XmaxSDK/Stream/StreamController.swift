@@ -21,7 +21,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     @unchecked Sendable
 {
 
-    /// Transport components.
+    // MARK: - Dependencies
 
     /// The RTC media publication, subscription, and frame adapter.
     private let rtcManager: any RtcManaging
@@ -35,8 +35,6 @@ final class StreamController: StreamControlling, RtcEventListener,
     /// The quality statistics and adaptation controller.
     private let qualityController: any QualityControlling
 
-    /// Events and timing.
-
     /// The transport failure handler.
     private let errorListener: XmaxErrorListener
 
@@ -49,7 +47,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     /// The connection and generation startup timing recorder.
     private let timing: RealtimeTiming
 
-    /// Connection and media state.
+    // MARK: - State
 
     /// The remote volume percentage, from 0 to 100.
     private var remoteAudioVolumePercentage = 100

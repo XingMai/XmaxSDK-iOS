@@ -15,15 +15,11 @@ import ImageIO
 /// Coordinates media transfers, temporary credentials, and image safety checks.
 final class StorageService: StorageServicing, Sendable {
 
-    /// Storage dependencies.
-
     /// The credentials and safety-check API service.
     private let apiService: any ApiServicing
 
     /// The file transfer manager.
     private let storageManager: any StorageManaging
-
-    /// Object naming.
 
     /// The clock for object path generation.
     private let dateGenerator: @Sendable () -> Date

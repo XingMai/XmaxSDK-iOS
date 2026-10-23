@@ -31,8 +31,6 @@ final class TrajectoryOverlayView: UIView {
         var location: CGPoint
     }
 
-    /// Interaction mapping.
-
     /// The active touches keyed by system touch identity.
     private var activeTouches: [ObjectIdentifier: ActiveTouch] = [:]
 
@@ -44,8 +42,6 @@ final class TrajectoryOverlayView: UIView {
 
     /// The resolved dimensions used to map the complete media area.
     private var resolvedMediaSize: CGSize?
-
-    /// Rendering and sampling.
 
     /// The trajectory effect renderer.
     private var renderer: any TrajectoryEffectRendering

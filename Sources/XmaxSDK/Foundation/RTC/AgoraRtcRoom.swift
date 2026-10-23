@@ -14,7 +14,7 @@ import Foundation
 /// An Agora connection adapter for users, media, and data-stream signaling.
 final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
 
-    /// Connection resources.
+    // MARK: - Dependencies
 
     /// The owning Agora platform and shared engine.
     private let platform: AgoraRtcPlatform
@@ -25,7 +25,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// The room's Agora connection.
     let connection = AgoraRtcConnection()
 
-    /// Event delivery.
+    // MARK: - State
 
     /// The bridge from Agora callbacks to room events.
     private var bridge: RtcRoomEventBridge?
@@ -39,8 +39,6 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// The listener for connection, publication, and quality events.
     private var listener: (@Sendable (RtcRoomEvent) -> Void)?
 
-    /// Remote users and media.
-
     /// The mapping from Agora numeric UIDs to application user accounts.
     private var accounts: [UInt: String] = [:]
 
@@ -50,15 +48,11 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// Independent callback snapshots; native media threads never acquire the engine lock.
     private let mediaListeners: RtcRemoteFrameListeners
 
-    /// Room signaling.
-
     /// The signaling data stream identifier.
     private var dataStreamID = 0
 
     /// The room's signaling queue.
     private var sender: RtcMessageQueue?
-
-    /// Connection state.
 
     /// The local account, protected by `platform.lock`.
     private var account: String?

@@ -118,7 +118,7 @@ actor RealtimeCoordinator {
             _ taskID: String
         ) async -> CleanupResult
 
-    /// Lifecycle dependencies.
+    // MARK: - Dependencies
 
     /// The handler that logs errors and forwards runtime failures.
     private let errorHandler: RealtimeErrorHandler
@@ -126,15 +126,13 @@ actor RealtimeCoordinator {
     /// The handler that releases resources for a termination scope.
     private let cleanup: CleanupHandler
 
-    /// Published state.
+    // MARK: - State
 
     /// The realtime state snapshot exposed to your app.
     private var state = RealtimeState(connectionState: .idle)
 
     /// The listener for connection and generation state changes.
     private var stateListener: RealtimeStateListener?
-
-    /// Operation admission and termination.
 
     /// The operation currently admitted by the coordinator.
     private var activeOperation: Operation?
@@ -408,8 +406,6 @@ private extension RealtimeCoordinator {
         /// The lock protecting lease validity and the terminal error.
         private let lock = NSLock()
 
-        /// Lease validity and failure state.
-
         /// Whether the operation can still commit results.
         private var valid = true
 
@@ -504,8 +500,6 @@ private extension RealtimeCoordinator {
     /// A realtime operation and its cancellation and cleanup controls.
     final class Operation: @unchecked Sendable {
 
-        /// Operation identity and policy.
-
         /// The identifier distinguishing this operation from concurrent requests.
         let id = UUID()
 
@@ -517,8 +511,6 @@ private extension RealtimeCoordinator {
 
         /// The lease managing validity and failure cleanup for this operation.
         let lease: OperationLease
-
-        /// Task cancellation and cleanup.
 
         /// The closure that cancels the underlying task.
         var cancel: @Sendable () -> Void = {
@@ -551,8 +543,6 @@ private extension RealtimeCoordinator {
     /// A termination request shared by concurrent cleanup callers.
     final class Termination: @unchecked Sendable {
 
-        /// Termination scope and outcome.
-
         /// The identifier distinguishing successive termination lifecycles.
         let id = UUID()
 
@@ -567,8 +557,6 @@ private extension RealtimeCoordinator {
 
         /// The server session identifier involved in cleanup.
         var sessionID: String?
-
-        /// Cleanup coordination.
 
         /// The operations that must complete before resources are released.
         var waitForOperations: [@Sendable () async -> Void] = []

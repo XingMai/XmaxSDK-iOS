@@ -17,8 +17,6 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     /// The local video file track identifier.
     private static let localVideoTrackID = "video0"
 
-    /// Playback dependencies.
-
     /// The external RTC media adapter.
     private let rtcManager: any RtcManaging
 
@@ -30,8 +28,6 @@ final class VideoController: VideoControlling, @unchecked Sendable {
 
     /// The file decoder, playback timeline, and preview controller.
     private let playerController: any VideoPlayerControlling
-
-    /// Stream state.
 
     /// The lock protecting video track creation and stopping.
     private let stateLock = NSLock()

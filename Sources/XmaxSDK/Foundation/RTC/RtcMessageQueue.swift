@@ -97,8 +97,6 @@ enum RtcMessageCodec {
 /// An ordered signaling queue respecting data-stream packet and byte limits.
 final class RtcMessageQueue: @unchecked Sendable {
 
-    /// Send dependencies.
-
     /// The operation submitting one packet.
     private let send: @Sendable (Data) throws -> Void
 
@@ -107,8 +105,6 @@ final class RtcMessageQueue: @unchecked Sendable {
 
     /// The packet and byte rate limiter.
     private let limiter = RateLimiter()
-
-    /// Queue state.
 
     /// The lock protecting tasks, coalescing, and closure state.
     private let lock = NSLock()

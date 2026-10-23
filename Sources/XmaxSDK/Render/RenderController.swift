@@ -32,7 +32,7 @@ final class RenderController: RenderControlling {
         }
     }
 
-    /// Rendering dependencies.
+    // MARK: - Dependencies
 
     /// The RTC remote frame provider.
     private let rtcManager: any RtcManaging
@@ -50,7 +50,7 @@ final class RenderController: RenderControlling {
     /// The remote first-frame timeout, in nanoseconds.
     private let remoteFrameReadyTimeoutNanoseconds: UInt64
 
-    /// Frame processing.
+    // MARK: - State
 
     /// The final remote frame dispatcher.
     private let remoteVideoFrameDispatcher = RealtimeVideoFrameDispatcher()
@@ -86,8 +86,6 @@ final class RenderController: RenderControlling {
             )
         }
     )
-
-    /// Remote display state.
 
     /// The remote stream bound for rendering.
     private var remoteStream: RemoteStream?

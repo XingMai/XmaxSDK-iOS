@@ -29,8 +29,6 @@ typealias RealtimeConnectionHeartbeatFailureHandler =
 /// Manages server sessions, RTC connections, and remote media resources.
 actor XmaxRealtimeConnectionManager {
 
-    /// Connection dependencies.
-
     /// The service that creates, maintains, and closes server sessions.
     private let sessionService: any RealtimeSessionServicing
 
@@ -45,8 +43,6 @@ actor XmaxRealtimeConnectionManager {
 
     /// The recorder for connection startup timings.
     private let timing: RealtimeTiming
-
-    /// Active connection resources.
 
     /// The remote video track for the current connection.
     private var activeRemoteTrack: RealtimeVideoTrack?

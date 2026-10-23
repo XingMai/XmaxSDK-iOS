@@ -26,8 +26,6 @@ struct PCMFramePacketizer {
         var consumedSamples = 0
     }
 
-    /// Packet format.
-
     /// The bytes per PCM16 sample.
     private static let bytesPerSample = MemoryLayout<Int16>.size
 
@@ -36,8 +34,6 @@ struct PCMFramePacketizer {
 
     /// The optional sample limit for a finite playback cycle.
     private let totalSamples: Int?
-
-    /// Playback cycle state.
 
     /// The pending audio and silence segments.
     private var segments: [Segment] = []

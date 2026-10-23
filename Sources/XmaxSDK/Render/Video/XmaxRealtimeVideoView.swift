@@ -14,8 +14,6 @@ import UIKit
 @MainActor
 public final class XmaxRealtimeVideoView: UIView {
 
-    /// Presentation configuration.
-
     /// The local preview track.
     public var localTrack: RealtimeVideoTrack? {
         didSet {
@@ -69,8 +67,6 @@ public final class XmaxRealtimeVideoView: UIView {
             remoteVideoView.trajectoryRenderer = newValue
         }
     }
-
-    /// Video views.
 
     /// The persistent local preview view.
     private lazy var localVideoView = XmaxVideoView(

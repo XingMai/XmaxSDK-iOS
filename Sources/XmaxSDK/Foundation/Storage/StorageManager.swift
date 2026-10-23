@@ -492,8 +492,6 @@ final class StorageManager: StorageManaging, Sendable {
 /// An asynchronous COS upload completing its waiter exactly once.
 private final class StorageUploadOperation: @unchecked Sendable {
 
-    /// Upload request.
-
     /// The COS service performing the request.
     private let service: QCloudCOSXMLService
 
@@ -506,15 +504,11 @@ private final class StorageUploadOperation: @unchecked Sendable {
     /// The destination and authentication configuration.
     private let configuration: StorageConfiguration
 
-    /// Progress reporting.
-
     /// The upload byte progress handler.
     private let progress: StorageProgressListener?
 
     /// The upload start time.
     private let startedAt = Date()
-
-    /// Completion state.
 
     /// The lock protecting completion and its waiter.
     private let lock = NSLock()

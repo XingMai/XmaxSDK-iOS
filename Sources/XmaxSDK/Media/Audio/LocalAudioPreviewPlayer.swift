@@ -17,8 +17,6 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
     /// The default local preview volume, from 0 to 1.
     static let defaultVolume: Float = 0.45
 
-    /// Playback resources.
-
     /// The local preview audio session.
     private let audioSession = AVAudioSession.sharedInstance()
 
@@ -36,8 +34,6 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
         label: "ai.xmax.sdk.local-audio-preview",
         qos: .userInteractive
     )
-
-    /// Playback state.
 
     /// Whether local audio frames are accepted.
     private var isPlaybackEnabled = false

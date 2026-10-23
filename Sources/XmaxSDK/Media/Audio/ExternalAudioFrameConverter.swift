@@ -15,8 +15,6 @@ import Foundation
 /// Converts a serialized external PCM stream into timestamped RTC audio packets.
 final class ExternalAudioFrameConverter {
 
-    /// Audio conversion resources.
-
     /// The RTC input format.
     private let outputFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
@@ -30,8 +28,6 @@ final class ExternalAudioFrameConverter {
 
     /// The reusable sample-rate and channel converter, omitted for matching PCM.
     private var converter: AVAudioConverter?
-
-    /// Audio timeline and packetization.
 
     /// The first sample's timestamp in the current contiguous segment.
     private var anchor: CMTime?

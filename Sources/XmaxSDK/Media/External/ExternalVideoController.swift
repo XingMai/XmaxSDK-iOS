@@ -13,8 +13,6 @@ import Foundation
 /// Binds an external video source to local preview and RTC.
 final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendable {
 
-    /// Source dependencies.
-
     /// The RTC external video adapter.
     private let rtcManager: any RtcManaging
 
@@ -30,8 +28,6 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
     /// The handler delivering failures to lifecycle coordination.
     private let errorListener: XmaxErrorListener
 
-    /// Track state.
-
     /// The lock protecting cross-thread track access.
     private let lock = NSLock()
 
@@ -40,8 +36,6 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
 
     /// Whether the current binding owns an external RTC audio track.
     private var storedHasAudio = false
-
-    /// Source binding and preview.
 
     /// The bound source, with its lifecycle managed on the main actor.
     @MainActor private var source: (any RealtimeExternalVideoSource)?

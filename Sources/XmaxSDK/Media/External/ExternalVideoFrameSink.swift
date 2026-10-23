@@ -15,15 +15,11 @@ import Foundation
 /// A serialized external frame sink that waits for in-flight submission on invalidation.
 final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendable {
 
-    /// Frame formats.
-
     /// The resolved media format used for preview and quality baselines.
     let videoFormat: RealtimeVideoFormat
 
     /// The source's declared input format.
     private let sourceVideoFormat: RealtimeVideoFormat
-
-    /// Frame delivery.
 
     /// The handler delivering frames to preview and RTC.
     private let frameListener: MediaVideoFrameListener
@@ -33,8 +29,6 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
 
     /// The unrecoverable failure handler for this binding.
     private let errorListener: XmaxErrorListener
-
-    /// Binding state.
 
     /// The lock serializing binding state, timestamps, and frame submission.
     private let lock = NSLock()

@@ -14,8 +14,6 @@ import Foundation
 /// An AVFoundation video capturer with serialized device and frame operations.
 final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Sendable {
 
-    /// Capture resources.
-
     /// The capture session.
     private let session = AVCaptureSession()
 
@@ -27,8 +25,6 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
         label: "ai.xmax.sdk.camera",
         qos: .userInitiated
     )
-
-    /// Capture configuration.
 
     /// The active camera input, accessed only on `captureQueue`.
     private var input: AVCaptureDeviceInput?
@@ -42,8 +38,6 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
     /// The display orientation applied to captured frames.
     private var orientation: CameraOrientation = .portrait
 
-    /// Frame and session events.
-
     /// The handler for oriented and scaled frames.
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
 
@@ -52,8 +46,6 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 
     /// The capture session notification observers.
     private var observers: [NSObjectProtocol] = []
-
-    /// Frame delivery state.
 
     /// The most recent output timestamp, in microseconds.
     private var lastTimestampUs: Int64?

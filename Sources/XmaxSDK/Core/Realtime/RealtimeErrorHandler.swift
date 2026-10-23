@@ -24,8 +24,6 @@ final class RealtimeErrorHandler: @unchecked Sendable {
     /// The lock protecting failure revisions and the failure handler.
     private let lock = NSLock()
 
-    /// Failure validity.
-
     /// The revision used to reject failures from previous media bindings.
     private var mediaRevision = UUID()
 

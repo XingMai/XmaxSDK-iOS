@@ -19,8 +19,6 @@ import VideoToolbox
 @available(iOS 26.0, *)
 actor FrameInterpolationManager: FrameInterpolationManaging {
 
-    /// Input format.
-
     /// The interpolation input width, in pixels.
     private let sourceWidth: Int
 
@@ -29,8 +27,6 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
 
     /// The interpolation input pixel format.
     private let sourcePixelFormat: OSType
-
-    /// Processing resources.
 
     /// The system frame interpolation processor.
     private let processor = VTFrameProcessor()
@@ -43,8 +39,6 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
 
     /// The reusable interpolation output buffers.
     private let destinationPool: CVPixelBufferPool
-
-    /// Processing state.
 
     /// The preceding frame used for interpolation.
     private var previousSourceFrame: VTFrameProcessorFrame?

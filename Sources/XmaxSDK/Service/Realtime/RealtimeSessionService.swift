@@ -13,15 +13,11 @@ import Foundation
 /// Manages session creation, heartbeat, and closure.
 final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendable {
 
-    /// Session dependencies.
-
     /// The session API service.
     private let apiService: any ApiServicing
 
     /// The heartbeat interval provider.
     private let heartbeatSleeper: RealtimeHeartbeatSleeper
-
-    /// Heartbeat lifecycle.
 
     /// The lock protecting heartbeat startup and cancellation.
     private let heartbeatLock = NSLock()

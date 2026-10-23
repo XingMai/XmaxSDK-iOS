@@ -33,8 +33,6 @@ actor InteractionController: InteractionControlling {
     /// The asynchronous task and normalized coordinate handler.
     private let listener: InteractionListener
 
-    /// Interaction delivery state.
-
     /// The active interaction configuration.
     private var activeInteraction: ActiveInteraction?
 

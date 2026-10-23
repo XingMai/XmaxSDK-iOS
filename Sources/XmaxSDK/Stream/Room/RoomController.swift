@@ -13,8 +13,6 @@ import Foundation
 /// Manages RTC room lifecycle, heartbeat, and generation signaling.
 actor RoomController: RoomControlling {
 
-    /// Room dependencies.
-
     /// The RTC manager.
     private let rtcManager: any RtcManaging
 
@@ -23,8 +21,6 @@ actor RoomController: RoomControlling {
 
     /// The shared startup timing recorder.
     private let timing: RealtimeTiming
-
-    /// Room lifecycle.
 
     /// The room connection phase.
     private var state = State.idle

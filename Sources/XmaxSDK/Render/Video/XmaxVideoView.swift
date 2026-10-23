@@ -24,8 +24,6 @@ public final class XmaxVideoView: UIView {
     /// The shared context converting image frames for display.
     private static let imageContext = CIContext()
 
-    /// Video presentation.
-
     /// The displayed video track.
     public var track: RealtimeVideoTrack? {
         didSet {
@@ -79,8 +77,6 @@ public final class XmaxVideoView: UIView {
         }
     }
 
-    /// Rendering bindings.
-
     /// The track attached for rendering.
     private weak var attachedTrack: RealtimeVideoTrack?
 
@@ -96,15 +92,11 @@ public final class XmaxVideoView: UIView {
     /// The internal handler after a valid frame is submitted.
     var frameDisplayHandler: (() -> Void)?
 
-    /// Window orientation.
-
     /// The window's current interface orientation.
     private(set) var displayOrientation: UIInterfaceOrientation?
 
     /// The window orientation observer.
     private var orientationObserver: VideoOrientationObserver?
-
-    /// Decoded video preview.
 
     /// The decoded frame display layer.
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
@@ -123,8 +115,6 @@ public final class XmaxVideoView: UIView {
 
     /// The reusable preview media format description.
     private var localPreviewFormatDescription: CMVideoFormatDescription?
-
-    /// Image and interaction views.
 
     /// The local image preview.
     private lazy var imageView: UIImageView = {

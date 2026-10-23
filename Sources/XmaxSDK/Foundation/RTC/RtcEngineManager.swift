@@ -36,15 +36,11 @@ actor RtcEngineManager {
     /// The closure destroying the process-wide platform engine.
     typealias EngineDestructor = @Sendable () -> Void
 
-    /// Shared engine defaults.
-
     /// The shared engine lease manager.
     static let shared = RtcEngineManager()
 
     /// The default RTC application identifier.
     static let defaultAppID = "5588dfe2e7874bd08ea28f4968ec2d40"
-
-    /// Engine configuration.
 
     /// The RTC application identifier.
     private let appID: String
@@ -54,8 +50,6 @@ actor RtcEngineManager {
 
     /// The destructor invoked when a lease is released.
     private let destroyEngine: EngineDestructor
-
-    /// Lease ownership.
 
     /// The active exclusive lease.
     private var activeLease: RtcEngineLease?

@@ -17,8 +17,6 @@ final class ImageController: ImageControlling, @unchecked Sendable {
     /// The local image track identifier.
     private static let localVideoTrackID = "video0"
 
-    /// Image stream dependencies.
-
     /// The RTC external video adapter.
     private let rtcManager: any RtcManaging
 
@@ -30,8 +28,6 @@ final class ImageController: ImageControlling, @unchecked Sendable {
 
     /// The image video frame handler.
     private let frameListener: MediaVideoFrameListener
-
-    /// Stream state.
 
     /// The lock protecting the track and frame task.
     private let stateLock = NSLock()

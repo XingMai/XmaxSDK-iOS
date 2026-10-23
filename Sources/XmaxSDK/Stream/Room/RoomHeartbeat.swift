@@ -13,15 +13,11 @@ import Foundation
 /// Sends RTC room heartbeats while rejecting stopped cycles.
 final class RoomHeartbeat: @unchecked Sendable {
 
-    /// Heartbeat dependencies.
-
     /// The room signaling RTC manager.
     private let rtcManager: any RtcManaging
 
     /// The room heartbeat interval provider.
     private let sleeper: RoomHeartbeatSleeper
-
-    /// Heartbeat lifecycle.
 
     /// The revision separating heartbeat cycles.
     private let cycle = RoomHeartbeatCycle()

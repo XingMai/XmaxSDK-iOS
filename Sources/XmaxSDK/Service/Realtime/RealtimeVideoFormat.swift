@@ -24,8 +24,6 @@ public enum RealtimeVideoEncoderPreference: Equatable, Sendable {
 /// The dimensions, frame rate, and uplink encoding settings for realtime video.
 public struct RealtimeVideoFormat: Equatable, Sendable {
 
-    /// Video dimensions and timing.
-
     /// The positive, even video width, in pixels.
     public let width: Int
 
@@ -34,8 +32,6 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
 
     /// The positive frame rate, in frames per second.
     public let fps: Int
-
-    /// Encoding configuration.
 
     /// The minimum uplink bitrate, in kbps. `nil` uses 500, capped by the maximum; zero disables
     /// the minimum.
