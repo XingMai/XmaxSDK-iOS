@@ -28,6 +28,9 @@ actor MediaController: MediaControlling {
     /// 管理文件视频输入和播放。
     private let videoController: (any VideoControlling)?
 
+    /// 管理接入方提供的外部视频及预览。
+    private let externalController: (any ExternalVideoControlling)?
+
     /// 当前本地媒体来源及其有效期。
     private var activeSource: ActiveLocalMediaSource?
 
@@ -77,6 +80,12 @@ actor MediaController: MediaControlling {
             audioFrameListener: audioFrameListener,
             errorListener: errorListener
         )
+        externalController = ExternalVideoController(
+            rtcManager: rtcManager,
+            mediaService: mediaService,
+            videoFrameListener: videoFrameListener,
+            errorListener: errorListener
+        )
     }
 
     /// 使用指定组件创建统一媒体控制器。
@@ -87,12 +96,14 @@ actor MediaController: MediaControlling {
     ///   - imageController: 图片媒体控制器；`nil` 时不提供图片来源。
     ///   - interactionListener: 接收视频像素交互坐标的回调。
     ///   - videoController: 视频媒体控制器；`nil` 时不提供文件视频来源。
+    ///   - externalController: 外部视频控制器；`nil` 时不提供外部视频来源。
     init(
         rtcManager: any RtcManaging,
         cameraController: any CameraControlling,
         imageController: (any ImageControlling)? = nil,
         interactionListener: @escaping InteractionListener = { _, _ in },
-        videoController: (any VideoControlling)? = nil
+        videoController: (any VideoControlling)? = nil,
+        externalController: (any ExternalVideoControlling)? = nil
     ) {
         self.rtcManager = rtcManager
         self.cameraController = cameraController
@@ -101,6 +112,7 @@ actor MediaController: MediaControlling {
             listener: interactionListener
         )
         self.videoController = videoController
+        self.externalController = externalController
     }
 
     /// 当前活动的本地视频轨道；没有媒体来源时返回空值。
@@ -116,9 +128,12 @@ actor MediaController: MediaControlling {
         currentTrack?.videoFormat
     }
 
-    /// 图片和文件视频使用完整内容适配生成画布。
+    /// 图片、文件视频和外部视频使用完整内容适配生成画布。
     var usesContainPadding: Bool {
-        activeSource?.kind == .image || activeSource?.kind == .video
+        switch activeSource?.kind {
+        case .image, .video, .external: true
+        default: false
+        }
     }
 
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
@@ -277,7 +292,7 @@ actor MediaController: MediaControlling {
     ///
     /// - Parameter fileURL: 可读取的本地视频文件地址。
     /// - Returns: 包含循环输出文件视频帧的本地媒体流。
-    /// - Throws: 文件读取、音视频准备、权限或外部媒体源启动失败时
+    /// - Throws: 文件读取、音视频准备或外部媒体源启动失败时
     ///   抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalVideoStream(
@@ -307,6 +322,27 @@ actor MediaController: MediaControlling {
     /// 当前来源不是文件视频时忽略。
     func stopLocalVideoStream() async {
         await stopSource(ifKindIs: .video)
+    }
+
+    /// 创建外部视频流并绑定接入方的供帧入口。
+    ///
+    /// - Parameter source: 接入方拥有的视频源。
+    /// - Returns: 包含外部视频轨道的本地媒体流。
+    /// - Throws: 已有媒体源、组件未配置或媒体绑定失败时抛出错误。
+    func createExternalVideoStream(
+        source: any RealtimeExternalVideoSource
+    ) async throws -> RealtimeMediaStream {
+        guard let externalController else {
+            throw XmaxError(code: .internalError, message: "External video media is unavailable")
+        }
+        return try await createSource(kind: .external) {
+            try await externalController.createExternalVideoStream(source: source)
+        }
+    }
+
+    /// 解绑外部供帧并清除预览；不释放接入方的采集器或播放器。
+    func stopExternalVideoStream() async {
+        await stopSource(ifKindIs: .external)
     }
 
     /// 停止并释放当前本地媒体流、预览绑定和 RTC Engine；
@@ -406,6 +442,9 @@ private extension MediaController {
 
         /// 文件视频播放。
         case video
+
+        /// 接入方提供的视频帧。
+        case external
     }
 
     /// 标识当前活动媒体来源及其类型。
@@ -583,6 +622,8 @@ private extension MediaController {
             await imageController?.stopLocalImageStream()
         case .video:
             await videoController?.stopLocalVideoStream()
+        case .external:
+            await externalController?.stopExternalVideoStream()
         }
     }
 
@@ -600,6 +641,8 @@ private extension MediaController {
             imageController?.currentTrack
         case .video:
             videoController?.currentTrack
+        case .external:
+            externalController?.currentTrack
         }
     }
 

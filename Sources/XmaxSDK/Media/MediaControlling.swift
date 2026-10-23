@@ -19,7 +19,7 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 当前本地视频格式。
     var currentVideoFormat: RealtimeVideoFormat? { get }
 
-    /// 图片或文件视频使用独立生成画布，媒体本身保持源比例。
+    /// 图片、文件视频和外部视频使用独立生成画布，媒体本身保持源比例。
     var usesContainPadding: Bool { get }
 
     /// 当前媒体来源是否包含由 SDK 管理的本地音频。
@@ -126,7 +126,7 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// - Parameters:
     ///   - fileURL: 可读取的本地视频文件地址。
     /// - Returns: 包含循环输出文件视频帧的本地媒体流。
-    /// - Throws: 文件读取、音视频准备、权限或外部媒体源启动失败时
+    /// - Throws: 文件读取、音视频准备或外部媒体源启动失败时
     ///   抛出错误；
     ///   已有活动媒体来源时也会失败。
     func createLocalVideoStream(
@@ -136,6 +136,18 @@ protocol MediaControlling: Actor, InteractionControlling {
     /// 停止并释放当前本地视频媒体流、音视频输出、预览绑定和 RTC 资源；
     /// 当前来源不是文件视频时忽略。
     func stopLocalVideoStream() async
+
+    /// 绑定接入方的外部视频源并建立预览。
+    ///
+    /// - Parameter source: 接入方拥有的视频源。
+    /// - Returns: 可用于本地预览及生成的媒体流。
+    /// - Throws: 已有媒体来源、规格无效或绑定失败时抛出错误。
+    func createExternalVideoStream(
+        source: any RealtimeExternalVideoSource
+    ) async throws -> RealtimeMediaStream
+
+    /// 解绑外部供帧并清除预览，不释放接入方的采集资源。
+    func stopExternalVideoStream() async
 
     /// 停止并释放当前本地媒体流、预览绑定和 RTC Engine；
     /// 没有活动来源时忽略。

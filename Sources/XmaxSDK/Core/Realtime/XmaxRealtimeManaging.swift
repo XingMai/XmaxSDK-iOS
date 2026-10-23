@@ -244,6 +244,24 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// - Throws: 尚未断开实时连接、存在冲突操作或当前操作被取消时抛出错误。
     func stopLocalVideoStream() async throws
 
+    /// 绑定接入方的视频源，创建可预览及生成的本地流，仅提供视频输入。
+    ///
+    /// 沿用源声明的帧率及编码配置，尺寸按模型面积上限及 4 对齐规则解析，
+    /// 不要求匹配摄像头分辨率桶；接入方按 `sink.videoFormat` 供帧。
+    /// 绑定完成后进入 `ready`，不等待首帧。断开连接保留供帧和预览，
+    /// `stopExternalVideoStream()` 或 `close()` 才解绑，不接管外部采集资源。
+    /// - Parameter source: 接入方实现并拥有的视频源。
+    /// - Returns: 可绑定 `XmaxVideoView` 或用于实时生成的本地媒体流。
+    /// - Throws: 规格无效、已有媒体流、操作冲突或源绑定失败时抛出错误。
+    func createExternalVideoStream(
+        source: any RealtimeExternalVideoSource
+    ) async throws -> RealtimeMediaStream
+
+    /// 停止外部视频供帧并清除 SDK 预览，保留接入方的采集资源所有权。
+    ///
+    /// - Throws: 尚未断开实时连接、存在冲突操作或操作取消时抛出错误。
+    func stopExternalVideoStream() async throws
+
     /// 使用当前 Manager 创建的本地流建立实时连接。
     ///
     /// - Parameter localStream: 当前 Manager 创建并持有的本地媒体流。

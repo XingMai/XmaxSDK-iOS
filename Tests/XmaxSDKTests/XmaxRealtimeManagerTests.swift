@@ -639,6 +639,72 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await manager.close()
     }
 
+    func testExternalStreamDisconnectPreservesSourceAndCloseUnbinds() async throws {
+        let components = makeComponents()
+        let source = RealtimeExternalVideoSourceStub()
+        let stream = try await components.manager.createExternalVideoStream(source: source)
+        let state = await components.manager.currentState
+        XCTAssertEqual(state.connectionState, .ready)
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, 24)
+        let usesContainPadding = await components.mediaController.usesContainPadding
+        XCTAssertTrue(usesContainPadding)
+        let sink = try XCTUnwrap(source.sink)
+        _ = try await components.manager.connect(localStream: stream)
+        await components.manager.disconnect()
+        XCTAssertEqual(source.stopCount, 0)
+        XCTAssertTrue(sink.isRequestingFrames)
+        XCTAssertFalse(components.rtcManager.calls.contains(.startAudioCapture))
+        XCTAssertFalse(components.rtcManager.calls.contains(.startExternalAudioSource))
+        await components.manager.close()
+        XCTAssertEqual(source.stopCount, 1)
+        XCTAssertFalse(sink.isRequestingFrames)
+    }
+
+    func testExternalStreamStopReturnsToIdleAndRuntimeFailureReleasesSource() async throws {
+        let components = makeComponents()
+        let source = RealtimeExternalVideoSourceStub()
+        _ = try await components.manager.createExternalVideoStream(source: source)
+        try await components.manager.stopExternalVideoStream()
+        let state = await components.manager.currentState
+        XCTAssertEqual(state.connectionState, .idle)
+        XCTAssertEqual(source.stopCount, 1)
+
+        let stream = try await components.manager.createExternalVideoStream(source: source)
+        _ = try await components.manager.connect(localStream: stream)
+        let sink = try XCTUnwrap(source.sink)
+        sink.reportError(XmaxError(code: .mediaError, message: "capture failed"))
+        for _ in 0..<1000 {
+            if source.stopCount == 2 { break }
+            try await Task.sleep(nanoseconds: 1000000)
+        }
+        XCTAssertEqual(source.stopCount, 2)
+        XCTAssertFalse(sink.isRequestingFrames)
+        await components.manager.close()
+    }
+
+    func testCloseCancelsExternalBindingAndInvalidatesSink() async throws {
+        let components = makeComponents()
+        let source = RealtimeExternalVideoSourceStub()
+        source.startHandler = { try await Task.sleep(nanoseconds: 60000000000) }
+        let creating = Task { try await components.manager.createExternalVideoStream(source: source) }
+        for _ in 0..<1000 {
+            if source.sink != nil { break }
+            try await Task.sleep(nanoseconds: 1000000)
+        }
+        let sink = try XCTUnwrap(source.sink)
+        await components.manager.close()
+        do {
+            _ = try await creating.value
+            XCTFail("Expected cancellation")
+        } catch {
+            XCTAssertEqual((error as? XmaxError)?.code, .cancelled)
+        }
+        XCTAssertFalse(sink.isRequestingFrames)
+        XCTAssertEqual(source.stopCount, 1)
+        let track = await components.mediaController.currentTrack
+        XCTAssertNil(track)
+    }
+
     func testNewMediaStreamsResetRemoteVolumeBySource() async throws {
         let components = makeComponents()
         for source: RealtimeMediaSource in [.camera, .image, .video, .camera] {
@@ -654,6 +720,8 @@ final class XmaxRealtimeManagerTests: XCTestCase {
                 _ = try await components.manager.createLocalVideoStream(
                     fileURL: URL(fileURLWithPath: "/tmp/source.mp4")
                 )
+            case .external:
+                XCTFail("External input is tested separately")
             }
             let volume = await components.manager.remoteAudioVolume
             XCTAssertEqual(volume, source == .video ? 1 : 0)
@@ -662,6 +730,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             case .camera: try await components.manager.stopLocalCameraStream()
             case .image: try await components.manager.stopLocalImageStream()
             case .video: try await components.manager.stopLocalVideoStream()
+            case .external: try await components.manager.stopExternalVideoStream()
             }
         }
         await components.manager.close()
@@ -1990,7 +2059,6 @@ private extension XmaxRealtimeManagerTests {
         )
         let videoController = VideoController(
             rtcManager: rtcManager,
-            permissionManager: PermissionManagingStub(),
             mediaSourceController: videoSource
         )
         let mediaController = MediaController(
@@ -2000,7 +2068,13 @@ private extension XmaxRealtimeManagerTests {
             interactionListener: { taskID, points in
                 try await streamController.sendTracks(taskID: taskID, points: points)
             },
-            videoController: videoController
+            videoController: videoController,
+            externalController: ExternalVideoController(
+                rtcManager: rtcManager,
+                mediaService: MediaService(model: model),
+                videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
+                errorListener: { errorHandler.forward($0, target: .all) }
+            )
         )
         let sessionService = RealtimeSessionServicingStub(
             session: RealtimeSession(

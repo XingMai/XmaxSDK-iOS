@@ -242,8 +242,11 @@ final class MediaControllerTests: XCTestCase {
         )
     }
 
-    func testVideoSourceOwnsAudioLifecycle() async throws {
+    func testVideoSourceOwnsAudioLifecycleWithoutMicrophonePermission() async throws {
         let rtcManager = RtcManagingStub()
+        let permissions = PermissionManagingStub(
+            microphoneError: XmaxError(code: .microphonePermissionDenied, message: "Microphone access denied")
+        )
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: RealtimeVideoFormat(
@@ -256,6 +259,7 @@ final class MediaControllerTests: XCTestCase {
         )
         let manager = makeManager(
             rtcManager: rtcManager,
+            permissionManager: permissions,
             mediaSourceController: source
         )
 
@@ -266,6 +270,9 @@ final class MediaControllerTests: XCTestCase {
         let ownsStream = await manager.owns(stream)
         XCTAssertTrue(hasAudio)
         XCTAssertTrue(ownsStream)
+        XCTAssertEqual(permissions.microphoneRequestCount, 0)
+        XCTAssertTrue(rtcManager.calls.contains(.startExternalAudioSource))
+        XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
 
         await manager.stopLocalVideoStream()
         let hasAudioAfterStop = await manager.hasAudio
@@ -294,7 +301,6 @@ private extension MediaControllerTests {
         let videoController = mediaSourceController.map {
             VideoController(
                 rtcManager: rtcManager,
-                permissionManager: permissionManager,
                 mediaSourceController: $0
             )
         }

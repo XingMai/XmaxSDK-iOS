@@ -19,9 +19,6 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     /// RTC 外部媒体源适配组件。
     private let rtcManager: any RtcManaging
 
-    /// 处理本地视频播放所需的权限检查。
-    private let permissionManager: any PermissionManaging
-
     /// 负责文件准备与播放的媒体源组件。
     private let mediaSourceController: any MediaSourceControlling
 
@@ -59,19 +56,16 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         )
         self.init(
             rtcManager: rtcManager,
-            permissionManager: PermissionManager(),
             mediaSourceController: mediaSourceController
         )
     }
 
-    /// 使用指定媒体源和权限组件创建视频控制器。
+    /// 使用指定媒体源创建视频控制器。
     init(
         rtcManager: any RtcManaging,
-        permissionManager: any PermissionManaging,
         mediaSourceController: any MediaSourceControlling
     ) {
         self.rtcManager = rtcManager
-        self.permissionManager = permissionManager
         self.mediaSourceController = mediaSourceController
     }
 
@@ -96,7 +90,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
     ///
     /// - Parameter fileURL: 可读取的本地视频文件地址。
     /// - Returns: 包含本地文件视频轨道的媒体流。
-    /// - Throws: 已有活动视频流、文件或格式无效、权限不足或播放启动失败时抛出错误。
+    /// - Throws: 已有活动视频流、文件或格式无效、播放启动失败时抛出错误。
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
@@ -173,7 +167,7 @@ private extension VideoController {
     ///
     /// - Parameter fileURL: 待播放的本地视频文件地址。
     /// - Returns: 持有文件视频轨道的本地媒体流。
-    /// - Throws: 文件准备、权限检查、外部源配置或播放启动失败时抛出错误。
+    /// - Throws: 文件准备、外部源配置或播放启动失败时抛出错误。
     func createStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
@@ -190,9 +184,6 @@ private extension VideoController {
             )
             track = localTrack
 
-            if configuration.hasAudio {
-                try await permissionManager.ensureMicrophonePermission()
-            }
             try rtcManager.useExternalVideoSource()
             if configuration.hasAudio {
                 try rtcManager.startExternalAudioSource()

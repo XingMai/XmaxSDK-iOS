@@ -19,4 +19,7 @@ public enum RealtimeMediaSource: String, CaseIterable, Sendable {
 
     /// 图片
     case image
+
+    /// 接入方自行供帧的视频。
+    case external
 }

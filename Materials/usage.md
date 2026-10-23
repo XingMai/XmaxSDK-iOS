@@ -9,6 +9,7 @@ actor.
 - [Camera microphone](#camera-microphone)
 - [Remote audio volume](#remote-audio-volume)
 - [Image and video inputs](#image-and-video-inputs)
+- [External video input](#external-video-input)
 - [Upload encoding](#upload-encoding)
 - [Reference images](#reference-images)
 - [Update generation conditions](#update-generation-conditions)
@@ -49,7 +50,7 @@ the local capture resources. Switching cameras does not restart the microphone.
 
 ## Remote audio volume
 
-Creating a camera or image stream sets the remote playback volume to `0` (muted).
+Creating a camera, image, or external video stream sets the remote playback volume to `0` (muted).
 Creating a file video stream sets it to `1`. To override the initial volume, call
 the existing setter after creating the local stream:
 
@@ -86,17 +87,64 @@ let localStream = try await realtime.createLocalVideoStream(
 )
 ```
 
-Use the resulting stream with the same preview and generation calls. If the video
-contains audio, also add a microphone usage description to `Info.plist`:
+Use the resulting stream with the same preview and generation calls. Local video
+audio comes from the file and does not require microphone permission.
 
-```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>This app uses the microphone for real-time audio input.</string>
+<br>
+
+## External video input
+
+Implement `RealtimeExternalVideoSource` to supply frames from your own camera,
+decoder, or image-processing pipeline:
+
+```swift
+@MainActor
+final class MyVideoSource: RealtimeExternalVideoSource {
+    let videoFormat = RealtimeVideoFormat(width: 1280, height: 720, fps: 30)
+    private(set) var sink: (any RealtimeExternalFrameSink)?
+
+    func start(sink: any RealtimeExternalFrameSink) async throws {
+        // Configure your producer to output sink.videoFormat, then start delivery.
+        self.sink = sink
+    }
+
+    func stop() async {
+        // Remove your producer's frame callback before returning.
+        sink = nil
+    }
+}
+
+let source = MyVideoSource()
+let localStream = try await realtime.createExternalVideoStream(source: source)
+videoView.track = localStream.videoTrack
 ```
 
-Use wording appropriate for your app. XmaxSDK checks and requests the required
-runtime permissions when creating a local stream and reports an `XmaxError` if
-permission is unavailable.
+From your producer's frame callback, submit video through the bound sink:
+
+```swift
+if sink.isRequestingFrames {
+    sink.pushVideo(pixelBuffer, timestamp: presentationTimeStamp)
+}
+```
+
+Store or capture the sink safely for your callback queue. Frames must be upright
+NV12 video-range (`420v`) or BGRA buffers matching `sink.videoFormat`. XmaxSDK
+limits input dimensions to the model's maximum pixel area and aligns them to 4;
+the source frame rate and encoding options are preserved. The producer handles
+resizing and frame pacing. Timestamps must be nonnegative and monotonically
+increasing, including across loops and seeks. Pixels are copied synchronously;
+the buffer may be reused after `pushVideo` returns.
+
+This input is video-only and does not request camera or microphone permission.
+Frames also drive the SDK preview, so continue supplying them before generation
+and after `disconnect()`. Creating the stream marks it ready once binding succeeds;
+it does not wait for the first frame or start a session. Use the same generation
+calls as other local streams. Call `sink.reportError(error)` for unrecoverable source
+failures; XmaxSDK ends the connection and releases the local stream.
+
+After disconnecting, call `stopExternalVideoStream()` to unbind the source, or use
+`close()` to release the manager. Both invalidate the sink and call `source.stop()`;
+the app remains responsible for releasing its capture or playback resources.
 
 ### Media, generation, and return sizes
 

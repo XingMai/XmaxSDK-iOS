@@ -349,7 +349,7 @@ extension XmaxVideoView {
         decodedVideoLayer?.setAffineTransform(CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1))
     }
 
-    /// 将本地 NV12 帧转换为样本并立即提交预览。
+    /// 将本地 NV12 或 BGRA 帧转换为样本并立即提交预览。
     ///
     /// - Parameters:
     ///   - frame: 待显示的本地视频帧。
@@ -660,17 +660,23 @@ extension XmaxVideoView {
 
     /// 复用符合当前帧规格的缓冲池创建预览缓冲区。
     ///
-    /// - Parameter frame: 待复制的本地 NV12 视频帧。
+    /// - Parameter frame: 待复制的本地 NV12 或 BGRA 视频帧。
     /// - Returns: 已填充当前帧数据的像素缓冲区。
     /// - Throws: 缓冲池创建或帧数据复制失败时抛出错误。
     func makeLocalPreviewPixelBuffer(
         _ frame: VideoFrame
     ) throws -> CVPixelBuffer {
+        let pixelFormat: OSType
+        switch frame.format.pixelFormat {
+        case .nv12: pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        case .bgra: pixelFormat = kCVPixelFormatType_32BGRA
+        default: throw Self.invalidImageFrameError
+        }
         if localPreviewFormat != frame.format || localPreviewPixelBufferPool == nil {
             let attributes: [String: Any] = [
                 kCVPixelBufferWidthKey as String: frame.format.width,
                 kCVPixelBufferHeightKey as String: frame.format.height,
-                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
                 kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
             ]
             var pool: CVPixelBufferPool?
@@ -683,7 +689,54 @@ extension XmaxVideoView {
             localPreviewFormatDescription = nil
         }
 
+        if frame.format.pixelFormat == .bgra {
+            return try Self.makeBGRAPixelBuffer(frame, pool: localPreviewPixelBufferPool)
+        }
         return try Self.makeNV12PixelBuffer(frame, pool: localPreviewPixelBufferPool)
+    }
+
+    /// 将 BGRA 帧复制到可由视频图层显示的像素缓冲区。
+    ///
+    /// - Parameters:
+    ///   - frame: 单平面 BGRA 视频帧。
+    ///   - pool: 符合当前帧规格的缓冲池；为空时单独分配。
+    /// - Returns: 拥有当前像素数据的 IOSurface 缓冲区。
+    /// - Throws: 帧布局无效、分配或复制失败时抛出错误。
+    static func makeBGRAPixelBuffer(
+        _ frame: VideoFrame,
+        pool: CVPixelBufferPool? = nil
+    ) throws -> CVPixelBuffer {
+        let width = frame.format.width
+        let height = frame.format.height
+        let (rowBytes, overflow) = width.multipliedReportingOverflow(by: 4)
+        guard frame.format.pixelFormat == .bgra, width > 0, height > 0,
+              !overflow, frame.planes.count == 1 else {
+            throw invalidImageFrameError
+        }
+        var buffer: CVPixelBuffer?
+        let status: CVReturn
+        if let pool {
+            status = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer)
+        } else {
+            status = CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA,
+                [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &buffer)
+        }
+        guard status == kCVReturnSuccess, let buffer,
+              CVPixelBufferGetWidth(buffer) == width,
+              CVPixelBufferGetHeight(buffer) == height,
+              CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
+              CVPixelBufferLockBaseAddress(buffer, []) == kCVReturnSuccess else {
+            throw invalidImageFrameError
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        try copyPlane(
+            frame.planes[0],
+            rowByteCount: rowBytes,
+            rowCount: height,
+            destination: CVPixelBufferGetBaseAddress(buffer),
+            destinationStride: CVPixelBufferGetBytesPerRow(buffer)
+        )
+        return buffer
     }
 
     /// 复用或创建与像素缓冲区匹配的视频格式描述。

@@ -767,6 +767,40 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
     }
 
+    /// 绑定接入方的外部视频源，沿用源帧率并解析媒体尺寸。
+    ///
+    /// - Parameter source: 接入方拥有的视频源。
+    /// - Returns: 可用于 SDK 预览和生成的本地媒体流。
+    /// - Throws: 规格无效、操作冲突或媒体绑定失败时抛出错误。
+    func createExternalVideoStream(
+        source: any RealtimeExternalVideoSource
+    ) async throws -> RealtimeMediaStream {
+        try await createLocalMediaStream(source: .external) { [self] token in
+            let stream = try await mediaController.createExternalVideoStream(source: source)
+            try token.ensureCurrent()
+            return stream
+        }
+    }
+
+    /// 解绑外部视频输入并更新媒体就绪状态。
+    ///
+    /// - Throws: 尚未断开连接、存在操作冲突或操作取消时抛出错误。
+    func stopExternalVideoStream() async throws {
+        try await coordinator.run(kind: .media) { [self] token in
+            try await ensureLocalMediaCanChange(
+                message: "Disconnect realtime before stopping the external video stream"
+            )
+            token.setFailureScope(.all)
+            await mediaController.stopExternalVideoStream()
+            try token.ensureCurrent()
+            errorHandler.invalidatePendingFailures()
+            let hasLocalMedia = await mediaController.currentTrack != nil
+            try await coordinator.commit(
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle), token: token
+            )
+        }
+    }
+
     /// 使用当前 Manager 创建的本地流建立实时连接。
     ///
     /// - Parameter localStream: 当前 Manager 创建并持有的本地媒体流。

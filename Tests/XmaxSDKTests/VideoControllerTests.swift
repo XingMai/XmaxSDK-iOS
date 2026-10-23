@@ -17,7 +17,6 @@ import XCTest
 final class VideoControllerTests: XCTestCase {
     func testCreateWithAudioStartsExternalAudioAndPreview() async throws {
         let rtcManager = RtcManagingStub()
-        let permissionManager = PermissionManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: videoFormat,
@@ -26,7 +25,6 @@ final class VideoControllerTests: XCTestCase {
         )
         let manager = makeManager(
             rtcManager: rtcManager,
-            permissionManager: permissionManager,
             mediaSourceController: source
         )
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
@@ -37,18 +35,18 @@ final class VideoControllerTests: XCTestCase {
 
         XCTAssertEqual(stream.videoTrack?.videoFormat, videoFormat)
         XCTAssertTrue(manager.hasAudio)
-        XCTAssertEqual(permissionManager.microphoneRequestCount, 1)
         XCTAssertEqual(
             source.calls,
             [.prepare(fileURL), .start]
         )
         XCTAssertTrue(rtcManager.calls.contains(.useExternalVideoSource))
         XCTAssertTrue(rtcManager.calls.contains(.startExternalAudioSource))
+        XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
+        await manager.stopLocalVideoStream()
     }
 
     func testCreateWithoutAudioDoesNotStartExternalAudio() async throws {
         let rtcManager = RtcManagingStub()
-        let permissionManager = PermissionManagingStub()
         let source = MediaSourceControllingStub(
             configuration: MediaSourceConfiguration(
                 videoFormat: videoFormat,
@@ -57,7 +55,6 @@ final class VideoControllerTests: XCTestCase {
         )
         let manager = makeManager(
             rtcManager: rtcManager,
-            permissionManager: permissionManager,
             mediaSourceController: source
         )
 
@@ -66,8 +63,9 @@ final class VideoControllerTests: XCTestCase {
         )
 
         XCTAssertFalse(manager.hasAudio)
-        XCTAssertEqual(permissionManager.microphoneRequestCount, 0)
         XCTAssertFalse(rtcManager.calls.contains(.startExternalAudioSource))
+        XCTAssertFalse(rtcManager.calls.contains(.startAudioCapture))
+        await manager.stopLocalVideoStream()
     }
 
     func testStopForwardsLifecycleAndReleasesAudio() async throws {
@@ -102,13 +100,10 @@ private extension VideoControllerTests {
 
     func makeManager(
         rtcManager: RtcManagingStub,
-        permissionManager: PermissionManagingStub =
-            PermissionManagingStub(),
         mediaSourceController: MediaSourceControllingStub
     ) -> VideoController {
         VideoController(
             rtcManager: rtcManager,
-            permissionManager: permissionManager,
             mediaSourceController: mediaSourceController
         )
     }

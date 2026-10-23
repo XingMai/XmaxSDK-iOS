@@ -327,6 +327,30 @@ final class XmaxVideoViewTests: XCTestCase {
         XCTAssertEqual(cropped.timestampUs, 123)
     }
 
+    func testExternalBGRAPreviewCopiesPixelsAndReconfiguresPool() throws {
+        let view = XmaxVideoView()
+        let frame = try VideoFrame(
+            format: VideoFormat(width: 2, height: 2, pixelFormat: .bgra),
+            timestampUs: 0,
+            planes: [VideoFramePlane(data: Data(repeating: 42, count: 16), stride: 8)]
+        )
+        let first = try view.makeLocalPreviewPixelBuffer(frame)
+        let description = try view.localPreviewDescription(for: first)
+        XCTAssertEqual(CVPixelBufferGetPixelFormatType(first), kCVPixelFormatType_32BGRA)
+        CVPixelBufferLockBaseAddress(first, .readOnly)
+        XCTAssertEqual(CVPixelBufferGetBaseAddress(first)?.load(as: UInt8.self), 42)
+        CVPixelBufferUnlockBaseAddress(first, .readOnly)
+        let second = try view.makeLocalPreviewPixelBuffer(frame)
+        XCTAssertFalse(first === second)
+        XCTAssertTrue(description === (try view.localPreviewDescription(for: second)))
+
+        let nv12 = try view.makeLocalPreviewPixelBuffer(makeNV12Frame(timestampUs: 1))
+        XCTAssertEqual(CVPixelBufferGetPixelFormatType(nv12), kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)
+        XCTAssertFalse(description === (try view.localPreviewDescription(for: nv12)))
+        let bgra = try view.makeLocalPreviewPixelBuffer(frame)
+        XCTAssertEqual(CVPixelBufferGetPixelFormatType(bgra), kCVPixelFormatType_32BGRA)
+    }
+
     func testChangingPreviewDimensionsAndGravityKeepsLayerWithoutAnimations() throws {
         let view = XmaxVideoView(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
         view.prepareDecodedVideoPreview(contentMode: .fill)
