@@ -26,7 +26,7 @@ public final class XmaxClient: Sendable {
         self.configuration = configuration
         XmaxLogger.configure(
             options: configuration.loggerOptions,
-            environment: configuration.environment
+            language: configuration.environment == .china ? .chinese : .english
         )
         apiService = ApiService(
             apiKey: configuration.apiKey,

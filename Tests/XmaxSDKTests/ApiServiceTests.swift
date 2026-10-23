@@ -259,7 +259,7 @@ final class ApiServiceTests: XCTestCase {
     }
 
     func testResponseLogOmitsResponseBodyWhenNotProvided() {
-        XmaxLogger.configure(options: [], environment: .china)
+        XmaxLogger.configure(options: [], language: .chinese)
         defer { XmaxLogger.configure(options: []) }
 
         let message = ApiLogger.responseMessage(
@@ -281,7 +281,7 @@ final class ApiServiceTests: XCTestCase {
     }
 
     func testResponseLogContainsFailureResponseBody() {
-        XmaxLogger.configure(options: [], environment: .global)
+        XmaxLogger.configure(options: [], language: .english)
         defer { XmaxLogger.configure(options: []) }
 
         let body = Data(
@@ -358,7 +358,29 @@ private final class ApiURLProtocolStub: URLProtocol {
     }
 
     override func startLoading() {
-        let response = Self.state.start(request: request)
+        // URLSession can expose the encoded body as a stream at the protocol boundary.
+        var capturedRequest = request
+        if capturedRequest.httpBody == nil, let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var body = Data()
+            var buffer = [UInt8](repeating: 0, count: 1_024)
+            while true {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count >= 0 else {
+                    client?.urlProtocol(
+                        self,
+                        didFailWithError: stream.streamError ?? URLError(.cannotDecodeRawData)
+                    )
+                    return
+                }
+                if count == 0 { break }
+                body.append(contentsOf: buffer.prefix(count))
+            }
+            capturedRequest.httpBodyStream = nil
+            capturedRequest.httpBody = body
+        }
+        let response = Self.state.start(request: capturedRequest)
         if let error = response.error {
             client?.urlProtocol(self, didFailWithError: error)
             return

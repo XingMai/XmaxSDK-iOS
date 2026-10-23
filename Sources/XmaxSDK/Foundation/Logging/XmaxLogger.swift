@@ -39,6 +39,16 @@ public struct XmaxLoggerOption: OptionSet, Sendable {
 /// Do not log API keys, tokens, secrets, authorization headers, or sensitive responses.
 struct XmaxLogger: Sendable {
 
+    /// The language used for log details, independent of service environments.
+    enum Language: Equatable, Sendable {
+
+        /// Chinese log details.
+        case chinese
+
+        /// English log details.
+        case english
+    }
+
     /// Domain loggers.
 
     /// Realtime lifecycle logs.
@@ -96,29 +106,29 @@ struct XmaxLogger: Sendable {
     ///
     /// - Parameters:
     ///   - options: The enabled log categories.
-    ///   - environment: The service environment determining the log detail language.
+    ///   - language: The language used for log details.
     static func configure(
         options: XmaxLoggerOption,
-        environment: XmaxEnvironment = .china
+        language: Language = .chinese
     ) {
         state.update(
             options,
-            environment: environment
+            language: language
         )
     }
 
-    /// Selects log detail text for the current environment.
+    /// Selects log detail text for the configured language.
     ///
     /// - Parameters:
-    ///   - chinese: The Chinese text for the China environment.
-    ///   - english: The English text for the global environment.
+    ///   - chinese: The Chinese text.
+    ///   - english: The English text.
     ///
-    /// - Returns: The text for the current environment.
+    /// - Returns: The text for the configured language.
     static func localized(
         _ chinese: String,
         _ english: String
     ) -> String {
-        state.environment == .china ? chinese : english
+        state.language == .chinese ? chinese : english
     }
 
     /// Checks whether all specified log options are enabled.
@@ -273,13 +283,13 @@ final class XmaxLoggerState: @unchecked Sendable {
     /// The enabled log option bitmask.
     private var options: XmaxLoggerOption = []
 
-    /// The environment determining the log detail language.
-    private var storedEnvironment: XmaxEnvironment = .china
+    /// The configured language for log details.
+    private var storedLanguage: XmaxLogger.Language = .chinese
 
-    /// The synchronized log language environment.
-    var environment: XmaxEnvironment {
+    /// The synchronized language for log details.
+    var language: XmaxLogger.Language {
         lock.withLock {
-            storedEnvironment
+            storedLanguage
         }
     }
 
@@ -287,14 +297,14 @@ final class XmaxLoggerState: @unchecked Sendable {
     ///
     /// - Parameters:
     ///   - options: The enabled log categories.
-    ///   - environment: The environment determining the detail language.
+    ///   - language: The language used for log details.
     func update(
         _ options: XmaxLoggerOption,
-        environment: XmaxEnvironment = .china
+        language: XmaxLogger.Language = .chinese
     ) {
         lock.lock()
         self.options = options
-        storedEnvironment = environment
+        storedLanguage = language
         lock.unlock()
     }
 

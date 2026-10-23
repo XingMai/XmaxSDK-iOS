@@ -49,7 +49,7 @@ final class RtcStatsLoggerTests: XCTestCase {
     }
 
     func testUplinkFieldOrderAndUnitsMatchAndroid() {
-        XmaxLogger.configure(options: [], environment: .china)
+        XmaxLogger.configure(options: [], language: .chinese)
         defer { XmaxLogger.configure(options: []) }
         let statistics = UplinkVideoStatistics(
             width: 1024, height: 1920, captureFrameRate: 30,
@@ -67,7 +67,7 @@ final class RtcStatsLoggerTests: XCTestCase {
     }
 
     func testEnglishDownlinkDistinguishesZeroAndUnavailableLikeAndroid() {
-        XmaxLogger.configure(options: [], environment: .global)
+        XmaxLogger.configure(options: [], language: .english)
         defer { XmaxLogger.configure(options: []) }
         let statistics = DownlinkVideoStatistics(
             userID: "bot", width: 1920, decodeFrameRate: 26,

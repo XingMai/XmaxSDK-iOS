@@ -19,7 +19,7 @@ final class RealtimeTimingTests: XCTestCase {
     }
 
     func testStartupHasFourSiblingStagesUnderTotalDuration() {
-        XmaxLogger.configure(options: [], environment: .china)
+        XmaxLogger.configure(options: [], language: .chinese)
         let state = RealtimeTiming.State(
             startedAt: 0,
             sessionStartedAt: 1000000,
@@ -44,7 +44,7 @@ final class RealtimeTimingTests: XCTestCase {
     }
 
     func testReusedConnectionDoesNotInventConnectionDurations() {
-        XmaxLogger.configure(options: [], environment: .global)
+        XmaxLogger.configure(options: [], language: .english)
         let state = RealtimeTiming.State(
             startedAt: 0,
             signalStartedAt: 1000000,
@@ -63,7 +63,7 @@ final class RealtimeTimingTests: XCTestCase {
     }
 
     func testFailureKeepsCompletedStagesAndMeasuresPendingStage() {
-        XmaxLogger.configure(options: [], environment: .china)
+        XmaxLogger.configure(options: [], language: .chinese)
         let state = RealtimeTiming.State(
             startedAt: 0,
             sessionStartedAt: 0,
