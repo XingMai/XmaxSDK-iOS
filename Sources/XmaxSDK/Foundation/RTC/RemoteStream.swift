@@ -8,16 +8,16 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 标识 RTC 房间中的一条远端主流。
+/// A remote main stream in an RTC room.
 struct RemoteStream: Equatable, Hashable, Sendable {
 
-    /// 远端流所属的 RTC 房间标识。
+    /// The stream's RTC room identifier.
     let roomID: String
 
-    /// 远端流所属的 RTC 用户标识。
+    /// The stream owner's RTC user identifier.
     let userID: String
 
-    /// 生成跨房间唯一的远端流键。
+    /// The remote stream key, unique across rooms.
     var key: String {
         "\(roomID):\(userID)"
     }

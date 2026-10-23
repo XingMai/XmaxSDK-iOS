@@ -8,31 +8,31 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// RTC 视频上行统计；不可用的指标为 nil。
+/// Uplink video statistics. Unavailable metrics are `nil`.
 public struct UplinkVideoStatistics: Equatable, Sendable {
 
-    /// 实际编码宽度，单位为像素。
+    /// The encoded width, in pixels.
     public let width: Int?
 
-    /// 实际编码高度，单位为像素。
+    /// The encoded height, in pixels.
     public let height: Int?
 
-    /// 实际采集帧率，单位为 fps。
+    /// The measured capture frame rate, in frames per second.
     public let captureFrameRate: Int?
 
-    /// 实际编码帧率，单位为 fps。
+    /// The measured encoding frame rate, in frames per second.
     public let encodeFrameRate: Int?
 
-    /// 实际发送帧率，单位为 fps。
+    /// The measured sending frame rate, in frames per second.
     public let sendFrameRate: Int?
 
-    /// 发送码率，单位为 kbps。
+    /// The sending bitrate, in kbps.
     public let bitrateKbps: Int?
 
-    /// 本地到 RTC 服务的丢包率，范围为 0...100。
+    /// Packet loss between the local device and RTC service, from 0 to 100 percent.
     public let packetLossPercent: Int?
 
-    /// 创建视频统计信息。
+    /// Creates video statistics.
     public init(
         width: Int? = nil,
         height: Int? = nil,
@@ -52,34 +52,34 @@ public struct UplinkVideoStatistics: Equatable, Sendable {
     }
 }
 
-/// RTC 视频下行统计；不可用的指标为 nil。
+/// Downlink video statistics. Unavailable metrics are `nil`.
 public struct DownlinkVideoStatistics: Equatable, Sendable {
 
-    /// 远端用户标识。
+    /// The remote user identifier.
     public let userID: String
 
-    /// 接收视频宽度，单位为像素。
+    /// The received width, in pixels.
     public let width: Int?
 
-    /// 接收视频高度，单位为像素。
+    /// The received height, in pixels.
     public let height: Int?
 
-    /// 解码帧率，单位为 fps。
+    /// The decoding frame rate, in frames per second.
     public let decodeFrameRate: Int?
 
-    /// RTC 渲染帧率，单位为 fps；不包含 SDK 插帧后的帧率。
+    /// The RTC rendering frame rate, excluding SDK interpolation.
     public let renderFrameRate: Int?
 
-    /// 接收码率，单位为 kbps。
+    /// The receiving bitrate, in kbps.
     public let bitrateKbps: Int?
 
-    /// 下行视频丢包率，范围为 0...100。
+    /// The downlink packet loss, from 0 to 100 percent.
     public let packetLossPercent: Int?
 
-    /// RTC 媒体端到端时延，单位为毫秒；不代表完整 AI 生成耗时。
+    /// The RTC media end-to-end latency, in milliseconds, excluding complete AI generation time.
     public let endToEndDelayMs: Int?
 
-    /// 创建视频统计信息。
+    /// Creates video statistics.
     public init(
         userID: String,
         width: Int? = nil,
@@ -101,8 +101,10 @@ public struct DownlinkVideoStatistics: Equatable, Sendable {
     }
 }
 
-/// 主线程视频上行统计回调；停止发布或断开连接时收到 nil。
-public typealias UplinkVideoStatisticsListener = @MainActor @Sendable (UplinkVideoStatistics?) -> Void
+/// A main-actor uplink statistics handler receiving `nil` when unpublished or disconnected.
+public typealias UplinkVideoStatisticsListener =
+    @MainActor @Sendable (UplinkVideoStatistics?) -> Void
 
-/// 主线程视频下行统计回调；结果流清理或断开连接时收到 nil。
-public typealias DownlinkVideoStatisticsListener = @MainActor @Sendable (DownlinkVideoStatistics?) -> Void
+/// A main-actor downlink statistics handler receiving `nil` when cleared or disconnected.
+public typealias DownlinkVideoStatisticsListener =
+    @MainActor @Sendable (DownlinkVideoStatistics?) -> Void

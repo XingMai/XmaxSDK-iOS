@@ -10,25 +10,25 @@
 
 import Foundation
 
-/// 管理生成任务期间的轨迹交互输入。
+/// An interface for generation trajectory input.
 protocol InteractionControlling: Sendable {
 
-    /// 开始接收当前生成任务的触控轨迹。
+    /// Starts accepting interactions for a generation task.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 固定的本地媒体规格，作为发送轨迹的归一化坐标基准。
+    ///   - taskID: The generation task identifier.
+    ///   - videoFormat: The resolved media format used as the fixed coordinate baseline.
     func startInteraction(
         taskID: String,
         videoFormat: RealtimeVideoFormat
     ) async
 
-    /// 停止接收轨迹并清理当前任务。
+    /// Stops accepting interactions and clears the task.
     func stopInteraction() async
 
-    /// 提交触控轨迹。
+    /// Submits a touch trajectory.
     ///
-    /// - Parameter frame: 当前视图中采集的轨迹及显示尺寸。
+    /// - Parameter frame: The view trajectory and viewport dimensions.
     func submitInteraction(
         _ frame: InteractionFrame
     ) async

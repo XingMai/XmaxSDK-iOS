@@ -10,22 +10,29 @@
 
 import Foundation
 
-/// 将房间 JSON 信令拆成与服务端一致的声网 DataStream 分片。
+/// Encodes signaling into Agora data-stream packets for server reassembly.
 enum RtcMessageCodec {
 
-    /// 将 UTF-8 信令编码为单包或可重组的 JSON 分片。
+    /// Encodes UTF-8 signaling as one packet or reassemblable JSON fragments.
     ///
-    /// - Parameter message: 完整房间信令。
-    /// - Returns: 按发送顺序排列的数据包。
-    /// - Throws: 信令为空、超过大小或分片数限制，以及 JSON 编码失败时抛出错误。
+    /// - Parameter message: The complete room message.
+    ///
+    /// - Returns: The packets in send order.
+    ///
+    /// - Throws: An error if the message is empty, exceeds limits, or cannot be encoded.
     static func encode(
         _ message: String
     ) throws -> [Data] {
         let bytes = Data(message.utf8)
         guard !bytes.isEmpty, bytes.count <= 256 * 1024 else {
-            throw XmaxError(code: .invalidConfiguration, message: "RTC room message must contain between 1 and 262144 bytes")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "RTC room message must contain between 1 and 262144 bytes"
+            )
         }
-        if bytes.count <= 800 { return [bytes] }
+        if bytes.count <= 800 {
+            return [bytes]
+        }
 
         var chunks: [String] = []
         var chunk = ""
@@ -41,68 +48,87 @@ enum RtcMessageCodec {
             chunk += value
             length += encoded
         }
-        if !chunk.isEmpty { chunks.append(chunk) }
+        if !chunk.isEmpty {
+            chunks.append(chunk)
+        }
         guard chunks.count <= 512 else {
-            throw XmaxError(code: .invalidConfiguration, message: "RTC room message contains too many fragments")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "RTC room message contains too many fragments"
+            )
         }
 
-        let eventID = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let eventID = UUID().uuidString.replacingOccurrences(
+            of: "-",
+            with: ""
+        )
         return try chunks.enumerated().map { index, chunk in
-            try JSONEncoder().encode(Fragment(eventId: eventID, index: index, count: chunks.count, data: chunk))
+            try JSONEncoder().encode(
+                Fragment(
+                    eventId: eventID,
+                    index: index,
+                    count: chunks.count,
+                    data: chunk
+                )
+            )
         }
     }
 
-    /// 封装一条大信令的分片内容及重组信息。
+    /// A signaling fragment with reassembly metadata.
     private struct Fragment: Encodable {
 
-        /// 标识声网消息分片封装的事件名称。
+        /// The signaling fragmentation event name.
         let event = "__agora_chunk__"
 
-        /// 将同一条消息的多个分片关联起来的事件标识。
+        /// The identifier associating fragments of one message.
         let eventId: String
 
-        /// 当前分片在整条消息中的序号。
+        /// The fragment index within the message.
         let index: Int
 
-        /// 当前消息的总分片数。
+        /// The total fragment count.
         let count: Int
 
-        /// 当前分片编码后的消息内容。
+        /// The encoded fragment contents.
         let data: String
     }
 }
 
-/// 串行发送整组信令，并限制 DataStream 每秒的包数和字节数。
+/// An ordered signaling queue respecting data-stream packet and byte limits.
 final class RtcMessageQueue: @unchecked Sendable {
 
-    /// 实际提交单个数据包的同步操作。
+    /// Send dependencies.
+
+    /// The operation submitting one packet.
     private let send: @Sendable (Data) throws -> Void
 
-    /// 接收需要上报的异步发送失败。
+    /// The handler for reportable asynchronous send failures.
     private let onFailure: @Sendable (XmaxError) -> Void
 
-    /// 限制每秒发送包数和字节数。
+    /// The packet and byte rate limiter.
     private let limiter = RateLimiter()
 
-    /// 保护发送任务、消息合并和关闭状态。
+    /// Queue state.
+
+    /// The lock protecting tasks, coalescing, and closure state.
     private let lock = NSLock()
 
-    /// 队列是否已关闭。
+    /// Whether the queue is closed.
     private var closed = false
 
-    /// 尚未完成的发送任务，按消息标识保存。
+    /// The incomplete send tasks keyed by message identifier.
     private var tasks: [UUID: Task<Void, any Error>] = [:]
 
-    /// 前一条发送任务，用于维持消息发送顺序。
+    /// The preceding task preserving message order.
     private var lastTask: Task<Void, any Error>?
 
-    /// 最后一条入队消息失败时，是否阻止后续消息继续发送。
+    /// Whether failure of the last queued message blocks later messages.
     private var lastFailureIsFatal = true
 
-    /// 按合并键保存尚未开始发送的最新消息。
+    /// The latest unsent message for each coalescing key.
     private var pendingMessages: [String: PendingMessage] = [:]
 
-    /// 创建串行且限速的房间信令队列。
+    /// Creates an ordered, rate-limited signaling queue.
     init(
         send: @escaping @Sendable (Data) throws -> Void,
         onFailure: @escaping @Sendable (XmaxError) -> Void
@@ -111,14 +137,16 @@ final class RtcMessageQueue: @unchecked Sendable {
         self.onFailure = onFailure
     }
 
-    /// 将一条完整信令加入串行发送队列。
+    /// Enqueues a complete signaling message.
     ///
     /// - Parameters:
-    ///   - message: 待发送的完整信令。
-    ///   - reportFailure: 异步发送失败时是否通知故障回调。
-    ///   - key: 合并键；同键且尚未开始发送的信令仅保留最新内容。
-    /// - Returns: 发送结果任务；被合并的调用共享任务，并发送最终保留的内容。
-    /// - Throws: 信令编码失败、队列已关闭或队列已满时抛出错误。
+    ///   - message: The complete message to send.
+    ///   - reportFailure: Whether asynchronous send failure triggers the failure handler.
+    ///   - key: The key replacing older messages that have not started sending.
+    ///
+    /// - Returns: The send task. Coalesced calls share a task sending the latest retained message.
+    ///
+    /// - Throws: An error if encoding fails or the queue is closed or full.
     @discardableResult
     func enqueue(
         _ message: String,
@@ -127,20 +155,31 @@ final class RtcMessageQueue: @unchecked Sendable {
     ) throws -> Task<Void, any Error> {
         let packets = try RtcMessageCodec.encode(message)
         return try lock.withLock {
-            guard !closed else { throw CancellationError() }
+            guard !closed else {
+                throw CancellationError()
+            }
             if let key, let pending = pendingMessages[key], let task = tasks[pending.id] {
-                pendingMessages[key] = PendingMessage(id: pending.id, packets: packets)
+                pendingMessages[key] = PendingMessage(
+                    id: pending.id,
+                    packets: packets
+                )
                 return task
             }
             guard tasks.count < 64 else {
-                throw XmaxError(code: .rtcError, message: "RTC room message queue is full")
+                throw XmaxError(
+                    code: .rtcError,
+                    message: "RTC room message queue is full"
+                )
             }
 
             let previous = lastTask
             let previousFailureIsFatal = lastFailureIsFatal
             let id = UUID()
             if let key {
-                pendingMessages[key] = PendingMessage(id: id, packets: packets)
+                pendingMessages[key] = PendingMessage(
+                    id: id,
+                    packets: packets
+                )
             }
             let task = Task { [self] in
                 defer {
@@ -160,7 +199,10 @@ final class RtcMessageQueue: @unchecked Sendable {
                     try Task.checkCancellation()
                     let currentPackets: [Data]
                     if let key {
-                        currentPackets = try await takePendingPackets(key: key, id: id)
+                        currentPackets = try await takePendingPackets(
+                            key: key,
+                            id: id
+                        )
                     } else {
                         currentPackets = packets
                     }
@@ -171,13 +213,26 @@ final class RtcMessageQueue: @unchecked Sendable {
                         await limiter.record(byteCount: packet.count)
                     }
                 } catch {
-                    // 丢弃尚未发送的信令不会中断后续控制信令。
-                    if Task.isCancelled, key != nil, !lock.withLock({ closed }) { return }
-                    if !Task.isCancelled, !lock.withLock({ closed }) {
+                    // Discarding an unsent message must not block subsequent control messages.
+                    if Task.isCancelled, key != nil,
+                        !lock.withLock({
+                            closed
+                        })
+                    {
+                        return
+                    }
+                    if !Task.isCancelled,
+                        !lock.withLock({
+                            closed
+                        })
+                    {
                         if reportFailure {
                             onFailure(XmaxError.from(error))
                         } else {
-                            XmaxLogger.rtc.warn(message: "发送配置失败 (Failed to Send Configuration)\n└─ \(ErrorMessageFormatter.format(error))")
+                            XmaxLogger.rtc.warn(
+                                message:
+                                    "发送配置失败 (Failed to Send Configuration)\n└─ \(ErrorMessageFormatter.format(error))"
+                            )
                         }
                     }
                     throw error
@@ -190,14 +245,17 @@ final class RtcMessageQueue: @unchecked Sendable {
         }
     }
 
-    /// 丢弃尚未开始发送的可合并信令，不影响已开始的分片及普通信令。
+    /// Drops unsent coalescible messages without affecting active fragments or control messages.
     ///
-    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    /// - Parameter key: The coalescing key, or `nil` for all coalescible messages.
     func discardPendingMessages(
         key: String? = nil
     ) {
         lock.withLock {
-            let keys = key.map { [$0] } ?? Array(pendingMessages.keys)
+            let keys =
+                key.map {
+                    [$0]
+                } ?? Array(pendingMessages.keys)
             for key in keys {
                 if let pending = pendingMessages.removeValue(forKey: key) {
                     tasks[pending.id]?.cancel()
@@ -206,18 +264,21 @@ final class RtcMessageQueue: @unchecked Sendable {
         }
     }
 
-    /// 等待调用时已入队的信令发送完成。
+    /// Waits for messages already queued at the time of the call.
     ///
-    /// - Throws: 发送失败或等待被取消时抛出错误。
+    /// - Throws: An error if sending fails or waiting is cancelled.
     func flush() async throws {
-        let pending = lock.withLock { lastTask }
+        let pending = lock.withLock {
+            lastTask
+        }
         try await Self.waitForCompletion(of: pending)
     }
 
-    /// 等待指定信令完成，不受后续入队消息影响。
+    /// Waits for a specific message independently of subsequently queued messages.
     ///
-    /// - Parameter pending: 需要等待的发送任务；`nil` 表示无需等待。
-    /// - Throws: 指定任务失败或当前等待取消时抛出错误。
+    /// - Parameter pending: The send task to await, or `nil` if nothing is pending.
+    ///
+    /// - Throws: An error if the task fails or waiting is cancelled.
     static func waitForCompletion(
         of pending: Task<Void, any Error>?
     ) async throws {
@@ -231,17 +292,22 @@ final class RtcMessageQueue: @unchecked Sendable {
                     continuation.finish(throwing: error)
                 }
             }
-            continuation.onTermination = { _ in observer.cancel() }
+            continuation.onTermination = { _ in
+                observer.cancel()
+            }
         }
-        for try await _ in completion {}
+        for try await _ in completion {
+        }
         try Task.checkCancellation()
     }
 
-    /// 关闭发送队列并取消尚未完成的信令。
+    /// Closes the queue and cancels incomplete messages.
     func close() {
         lock.withLock {
             closed = true
-            tasks.values.forEach { $0.cancel() }
+            tasks.values.forEach {
+                $0.cancel()
+            }
             tasks.removeAll()
             lastTask = nil
             pendingMessages.removeAll()
@@ -251,23 +317,25 @@ final class RtcMessageQueue: @unchecked Sendable {
 
 private extension RtcMessageQueue {
 
-    /// 保存尚未开始发送的最新信令内容。
+    /// The latest contents of an unsent message.
     struct PendingMessage {
 
-        /// 待发送消息对应的任务标识。
+        /// The pending message task identifier.
         let id: UUID
 
-        /// 整条消息按发送大小限制拆分后的数据包。
+        /// The message fragments within packet size limits.
         let packets: [Data]
     }
 
-    /// 在发送额度可用时取出最新内容，并固定整条信令的分片。
+    /// Claims the latest message contents when send quota becomes available.
     ///
     /// - Parameters:
-    ///   - key: 信令合并键。
-    ///   - id: 当前发送任务标识。
-    /// - Returns: 即将开始发送的完整分片。
-    /// - Throws: 队列关闭或信令已被丢弃时抛出取消错误。
+    ///   - key: The message coalescing key.
+    ///   - id: The send task identifier.
+    ///
+    /// - Returns: The complete fragments to begin sending.
+    ///
+    /// - Throws: A cancellation error if the queue is closed or the message was discarded.
     func takePendingPackets(
         key: String,
         id: UUID
@@ -285,33 +353,47 @@ private extension RtcMessageQueue {
                 guard !closed, let pending = pendingMessages[key], pending.id == id else {
                     throw CancellationError()
                 }
-                guard pending.packets[0].count <= byteCount else { return nil }
+                guard pending.packets[0].count <= byteCount else {
+                    return nil
+                }
                 pendingMessages.removeValue(forKey: key)
                 return pending.packets
             }
-            if let packets { return packets }
+            if let packets {
+                return packets
+            }
         }
     }
 
-    /// 按滑动时间窗口限制信令包数与总字节数。
-    /// 声网单通道上限为 60 包/秒，客户端总上限为 30 KB/秒；保留少量余量。
+    /// A sliding-window limiter for signaling packets and bytes. Allows headroom below the
+    /// per-channel 60 packets/s and client-wide 30 KB/s limits.
     actor RateLimiter {
 
-        /// 滑动窗口内已发送数据包的时间与字节数。
+        /// The send timestamps and byte counts in the current window.
         var sent: [(time: UInt64, bytes: Int)] = []
 
-        /// 等待发送窗口有足够的包数和字节预算。
+        /// Waits for sufficient packet and byte quota.
         ///
-        /// - Parameter byteCount: 本次待发送的数据包字节数。
-        /// - Throws: 等待被取消时抛出取消错误。
+        /// - Parameter byteCount: The packet size, in bytes.
+        ///
+        /// - Throws: A cancellation error if waiting is cancelled.
         func wait(
             byteCount: Int
         ) async throws {
             while true {
                 try Task.checkCancellation()
                 let now = DispatchTime.now().uptimeNanoseconds
-                sent.removeAll { now - $0.time >= 1000000000 }
-                if sent.count < 58, sent.reduce(0, { $0 + $1.bytes }) + byteCount <= 29000 {
+                sent.removeAll {
+                    now - $0.time >= 1000000000
+                }
+                if sent.count < 58,
+                    sent.reduce(
+                        0,
+                        {
+                            $0 + $1.bytes
+                        }
+                    ) + byteCount <= 29000
+                {
                     return
                 }
                 let elapsed = now - sent[0].time
@@ -319,9 +401,9 @@ private extension RtcMessageQueue {
             }
         }
 
-        /// 记录已提交的数据包，占用当前窗口的发送额度。
+        /// Accounts for a submitted packet in the current send window.
         ///
-        /// - Parameter byteCount: 已发送的数据包字节数。
+        /// - Parameter byteCount: The submitted packet size, in bytes.
         func record(
             byteCount: Int
         ) {

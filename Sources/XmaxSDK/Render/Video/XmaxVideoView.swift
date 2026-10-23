@@ -14,16 +14,19 @@ import CoreMedia
 import CoreVideo
 import UIKit
 
-/// 显示本地或远端实时视频轨道的 UIKit 容器。
+/// A UIKit view displaying a local or remote video track.
 ///
-/// 显示本地轨道时，所属窗口横竖屏切换会断开该轨道的实时连接，保留本地预览。
+/// Portrait-landscape window changes disconnect a local track's realtime session while retaining
+/// preview.
 @MainActor
 public final class XmaxVideoView: UIView {
 
-    /// 将图片帧转换为可显示图像的共享上下文。
+    /// The shared context converting image frames for display.
     private static let imageContext = CIContext()
 
-    /// 当前显示的视频轨道。
+    /// Video presentation.
+
+    /// The displayed video track.
     public var track: RealtimeVideoTrack? {
         didSet {
             guard oldValue !== track else {
@@ -37,7 +40,7 @@ public final class XmaxVideoView: UIView {
         }
     }
 
-    /// 视频内容在容器中的显示模式。
+    /// The video content mode.
     public var videoContentMode: VideoContentMode = .fill {
         didSet {
             guard oldValue != videoContentMode else {
@@ -47,24 +50,27 @@ public final class XmaxVideoView: UIView {
         }
     }
 
-    /// 是否允许在远端视频上绘制并发送轨迹交互。
+    /// Whether remote trajectory interaction is enabled.
     ///
-    /// 交互默认开启，但只有生成任务启动后才会向服务端发送轨迹。
+    /// Interaction defaults to enabled; trajectories are sent only during generation.
     public var isInteractionEnabled = true {
         didSet {
-            guard oldValue != isInteractionEnabled else { return }
+            guard oldValue != isInteractionEnabled else {
+                return
+            }
             trajectoryOverlayView.setRequestedInteractionEnabled(
                 isInteractionEnabled
             )
         }
     }
 
-    /// 自定义轨迹视觉效果；设置为 `nil` 时恢复 SDK 内置效果。
+    /// The custom trajectory effect, or `nil` for the built-in effect.
     ///
-    /// 自定义渲染器只负责视觉表现，不会改变轨迹采样、坐标映射或发送。
-    public var trajectoryRenderer:
-        (any TrajectoryEffectRendering)? {
-        get { customTrajectoryRenderer }
+    /// Custom rendering changes appearance only, not sampling, coordinate mapping, or signaling.
+    public var trajectoryRenderer: (any TrajectoryEffectRendering)? {
+        get {
+            customTrajectoryRenderer
+        }
         set {
             customTrajectoryRenderer = newValue
             trajectoryOverlayView.setRenderer(
@@ -73,47 +79,54 @@ public final class XmaxVideoView: UIView {
         }
     }
 
-    /// 当前已绑定渲染资源的视频轨道。
+    /// Rendering bindings.
+
+    /// The track attached for rendering.
     private weak var attachedTrack: RealtimeVideoTrack?
 
-    /// 当前绑定轨迹交互的媒体轨道。
+    /// The track attached for trajectory interaction.
     private weak var attachedTrajectoryTrack: RealtimeVideoTrack?
 
-    /// 当前视图的轨迹交互绑定。
+    /// The view's trajectory interaction binding.
     private var attachedTrajectoryBinding: TrajectoryBinding?
 
-    /// 接入方提供的轨迹效果渲染器。
-    private var customTrajectoryRenderer:
-        (any TrajectoryEffectRendering)?
+    /// The custom trajectory renderer.
+    private var customTrajectoryRenderer: (any TrajectoryEffectRendering)?
 
-    /// 视图提交有效视频帧后触发的内部回调。
+    /// The internal handler after a valid frame is submitted.
     var frameDisplayHandler: (() -> Void)?
 
-    /// 视图所在窗口当前的界面方向。
+    /// Window orientation.
+
+    /// The window's current interface orientation.
     private(set) var displayOrientation: UIInterfaceOrientation?
 
-    /// 监听视图所在窗口的方向变化。
+    /// The window orientation observer.
     private var orientationObserver: VideoOrientationObserver?
 
-    /// 显示本地或远端解码帧的视频图层。
+    /// Decoded video preview.
+
+    /// The decoded frame display layer.
     private var decodedVideoLayer: AVSampleBufferDisplayLayer?
 
-    /// 解码帧显示使用的播放时间基准。
+    /// The decoded preview playback timebase.
     private var decodedVideoTimebase: CMTimebase?
 
-    /// 下一解码帧的展示时间。
+    /// The next decoded frame's presentation time.
     private var nextDecodedVideoPresentationTime = CMTime.invalid
 
-    /// 复用本地预览像素缓冲区。
+    /// The reusable local preview pixel pool.
     private var localPreviewPixelBufferPool: CVPixelBufferPool?
 
-    /// 当前本地预览帧格式。
+    /// The current local preview frame format.
     private var localPreviewFormat: VideoFormat?
 
-    /// 复用本地预览的媒体格式描述。
+    /// The reusable preview media format description.
     private var localPreviewFormatDescription: CMVideoFormatDescription?
 
-    /// 显示图片输入的本地预览。
+    /// Image and interaction views.
+
+    /// The local image preview.
     private lazy var imageView: UIImageView = {
         let imageView = UIImageView()
         imageView.frame = bounds
@@ -122,7 +135,7 @@ public final class XmaxVideoView: UIView {
         return imageView
     }()
 
-    /// 采集触摸并绘制轨迹的覆盖层。
+    /// The touch capture and trajectory overlay.
     private lazy var trajectoryOverlayView: TrajectoryOverlayView = {
         let overlayView = TrajectoryOverlayView(
             renderer: DefaultTrajectoryEffectRenderer()
@@ -136,12 +149,12 @@ public final class XmaxVideoView: UIView {
         return overlayView
     }()
 
-    /// 创建视频渲染容器。
+    /// Creates a video rendering container.
     ///
     /// - Parameters:
-    ///   - track: 需要显示的视频轨道；可以稍后设置。
-    ///   - videoContentMode: 视频内容显示模式。
-    ///   - isInteractionEnabled: 是否允许在远端视频上进行轨迹交互。
+    ///   - track: The video track to display, which may be set later.
+    ///   - videoContentMode: The video content mode.
+    ///   - isInteractionEnabled: Whether remote trajectory interaction is enabled.
     public init(
         track: RealtimeVideoTrack? = nil,
         videoContentMode: VideoContentMode = .fill,
@@ -154,9 +167,9 @@ public final class XmaxVideoView: UIView {
         configureView()
     }
 
-    /// 使用指定布局区域创建视频渲染容器。
+    /// Creates a video rendering container with a frame.
     ///
-    /// - Parameter frame: 视图初始布局区域。
+    /// - Parameter frame: The initial view frame.
     public override init(
         frame: CGRect
     ) {
@@ -165,9 +178,9 @@ public final class XmaxVideoView: UIView {
         configureView()
     }
 
-    /// 从 Interface Builder 归档恢复视频渲染容器。
+    /// Creates a video rendering container from an archive.
     ///
-    /// - Parameter coder: 视图归档解码器。
+    /// - Parameter coder: The archive decoder.
     public required init?(
         coder: NSCoder
     ) {
@@ -176,7 +189,7 @@ public final class XmaxVideoView: UIView {
         configureView()
     }
 
-    /// 随窗口挂载状态更新轨道绑定及方向观察。
+    /// Updates track bindings and orientation observation on window attachment.
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         displayOrientation = nil
@@ -189,7 +202,7 @@ public final class XmaxVideoView: UIView {
         updateWindowOrientation()
     }
 
-    /// 同步视频图层和交互覆盖层布局，并更新窗口方向。
+    /// Updates video and interaction layout for the window.
     public override func layoutSubviews() {
         super.layoutSubviews()
         CATransaction.begin()
@@ -204,15 +217,18 @@ public final class XmaxVideoView: UIView {
 
 extension XmaxVideoView {
 
-    /// 按当前轨道和所属控制器更新窗口旋转观察器。
+    /// Updates orientation observation for the track and owning controller.
     private func updateOrientationObservation() {
         var responder: UIResponder? = next
         while responder != nil && !(responder is UIViewController) {
             responder = responder?.next
         }
-        let parent = window != nil && track?.orientationChangeHandler != nil
+        let parent =
+            window != nil && track?.orientationChangeHandler != nil
             ? responder as? UIViewController : nil
-        guard orientationObserver?.parent !== parent else { return }
+        guard orientationObserver?.parent !== parent else {
+            return
+        }
 
         if let observer = orientationObserver {
             observer.willMove(toParent: nil)
@@ -220,7 +236,9 @@ extension XmaxVideoView {
             observer.removeFromParent()
             orientationObserver = nil
         }
-        guard let parent else { return }
+        guard let parent else {
+            return
+        }
 
         let observer = VideoOrientationObserver(videoView: self)
         orientationObserver = observer
@@ -231,10 +249,13 @@ extension XmaxVideoView {
         observer.didMove(toParent: parent)
     }
 
-    /// 在非旋转过渡期间同步窗口的实际显示方向。
+    /// Synchronizes window orientation outside rotation transitions.
     func updateWindowOrientation() {
         guard orientationObserver?.isTransitioning != true,
-              let scene = window?.windowScene else { return }
+            let scene = window?.windowScene
+        else {
+            return
+        }
         if #available(iOS 26.0, *) {
             updateInterfaceOrientation(scene.effectiveGeometry.interfaceOrientation)
         } else {
@@ -242,28 +263,38 @@ extension XmaxVideoView {
         }
     }
 
-    /// 更新轨道显示方向，并通知横竖轴是否发生变化。
+    /// Updates track orientation and reports portrait-landscape changes.
     ///
-    /// - Parameter orientation: 目标界面方向；未知方向不处理。
+    /// - Parameter orientation: The target interface orientation. Unknown orientations are ignored.
     func updateInterfaceOrientation(
         _ orientation: UIInterfaceOrientation
     ) {
         let next: CameraOrientation
         switch orientation {
-        case .portrait: next = .portrait
-        case .portraitUpsideDown: next = .portraitUpsideDown
-        case .landscapeLeft: next = .landscapeLeft
-        case .landscapeRight: next = .landscapeRight
-        default: return
+        case .portrait:
+            next = .portrait
+        case .portraitUpsideDown:
+            next = .portraitUpsideDown
+        case .landscapeLeft:
+            next = .landscapeLeft
+        case .landscapeRight:
+            next = .landscapeRight
+        default:
+            return
         }
-        guard orientation != displayOrientation else { return }
-        let changedAxis = displayOrientation.map { $0.isLandscape != next.isLandscape } ?? false
+        guard orientation != displayOrientation else {
+            return
+        }
+        let changedAxis =
+            displayOrientation.map {
+                $0.isLandscape != next.isLandscape
+            } ?? false
         displayOrientation = orientation
         track?.displayOrientation = next
         track?.orientationChangeHandler?(changedAxis)
     }
 
-    /// 配置黑色背景、裁剪及图片和轨迹子视图。
+    /// Configures the video and trajectory container.
     func configureView() {
         backgroundColor = .black
         clipsToBounds = true
@@ -271,48 +302,50 @@ extension XmaxVideoView {
         addSubview(trajectoryOverlayView)
     }
 
-    /// 将图片帧转换为图像并显示到静态预览。
+    /// Displays an image frame in static preview.
     ///
     /// - Parameters:
-    ///   - frame: BGRA 或 NV12 图片帧。
-    ///   - contentMode: 图像的缩放与裁剪方式。
-    /// - Throws: 帧布局无效或图像创建失败时抛出错误。
+    ///   - frame: The BGRA or NV12 image frame.
+    ///   - contentMode: The image content mode.
+    ///
+    /// - Throws: An error if frame layout is invalid or image creation fails.
     func displayImageFrame(
         _ frame: VideoFrame,
         contentMode: VideoContentMode
     ) throws {
         imageView.image = try Self.makeImage(frame)
-        imageView.contentMode = contentMode == .fit ?
-            .scaleAspectFit : .scaleAspectFill
+        imageView.contentMode = contentMode == .fit ? .scaleAspectFit : .scaleAspectFill
         imageView.isHidden = false
         bringSubviewToFront(imageView)
         bringSubviewToFront(trajectoryOverlayView)
         frameDisplayHandler?()
     }
 
-    /// 清空并隐藏静态图片预览。
+    /// Clears and hides image preview.
     func clearImageFrame() {
         imageView.image = nil
         imageView.isHidden = true
     }
 
-    /// 创建或更新解码视频图层及其显示时钟。
+    /// Prepares the decoded video layer and display clock.
     ///
-    /// - Parameter contentMode: 视频画面的缩放与裁剪方式。
+    /// - Parameter contentMode: The video content mode.
     func prepareDecodedVideoPreview(
         contentMode: VideoContentMode
     ) {
-        // 同时关闭视频图层及其内部内容布局的隐式过渡。
+        // Disables implicit transitions for the video layer and its content.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
+        defer {
+            CATransaction.commit()
+        }
 
         let decodedVideoLayer: AVSampleBufferDisplayLayer
         if let currentLayer = self.decodedVideoLayer {
             decodedVideoLayer = currentLayer
         } else {
             decodedVideoLayer = AVSampleBufferDisplayLayer()
-            // 视频内容跟随旋转布局立即更新，不叠加子图层的隐式缩放和翻转动画。
+            // Apply rotation layout directly without additional layer scaling or flipping animations.
             decodedVideoLayer.actions = [
                 "bounds": NSNull(),
                 "position": NSNull(),
@@ -320,7 +353,10 @@ extension XmaxVideoView {
                 "videoGravity": NSNull()
             ]
             decodedVideoLayer.frame = bounds
-            layer.insertSublayer(decodedVideoLayer, at: 0)
+            layer.insertSublayer(
+                decodedVideoLayer,
+                at: 0
+            )
             self.decodedVideoLayer = decodedVideoLayer
 
             var timebase: CMTimebase?
@@ -330,48 +366,60 @@ extension XmaxVideoView {
                 timebaseOut: &timebase
             )
             if status == noErr, let timebase {
-                CMTimebaseSetTime(timebase, time: .zero)
-                CMTimebaseSetRate(timebase, rate: 1)
+                CMTimebaseSetTime(
+                    timebase,
+                    time: .zero
+                )
+                CMTimebaseSetRate(
+                    timebase,
+                    rate: 1
+                )
                 decodedVideoLayer.controlTimebase = timebase
                 decodedVideoTimebase = timebase
             }
         }
-        decodedVideoLayer.videoGravity = contentMode == .fit ?
-            .resizeAspect : .resizeAspectFill
+        decodedVideoLayer.videoGravity = contentMode == .fit ? .resizeAspect : .resizeAspectFill
     }
 
-    /// 设置解码视频预览的水平镜像。
+    /// Sets decoded preview mirroring.
     ///
-    /// - Parameter mirrored: 是否水平镜像画面。
+    /// - Parameter mirrored: Whether to mirror video horizontally.
     func setDecodedVideoPreviewMirrored(
         _ mirrored: Bool
     ) {
-        decodedVideoLayer?.setAffineTransform(CGAffineTransform(scaleX: mirrored ? -1 : 1, y: 1))
+        decodedVideoLayer?.setAffineTransform(
+            CGAffineTransform(
+                scaleX: mirrored ? -1 : 1,
+                y: 1
+            )
+        )
     }
 
-    /// 将本地 NV12 或 BGRA 帧转换为样本并立即提交预览。
+    /// Submits a local NV12 or BGRA frame for immediate preview.
     ///
     /// - Parameters:
-    ///   - frame: 待显示的本地视频帧。
-    ///   - contentMode: 视频画面的缩放与裁剪方式。
+    ///   - frame: The local video frame to display.
+    ///   - contentMode: The video content mode.
     func displayDecodedVideoFrame(
         _ frame: VideoFrame,
         contentMode: VideoContentMode
     ) {
-        // 新尺寸帧和缩放模式直接生效，不插入画面位置或大小的过渡。
+        // Apply new dimensions and content mode without animating frame position or size.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
+        defer {
+            CATransaction.commit()
+        }
 
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }
         guard let decodedVideoLayer,
-              let decodedVideoTimebase else {
+            let decodedVideoTimebase
+        else {
             return
         }
-        decodedVideoLayer.videoGravity = contentMode == .fit ?
-            .resizeAspect : .resizeAspectFill
+        decodedVideoLayer.videoGravity = contentMode == .fit ? .resizeAspect : .resizeAspectFill
         if decodedVideoLayer.requiresFlushToResumeDecoding {
             decodedVideoLayer.flush()
         }
@@ -386,14 +434,16 @@ extension XmaxVideoView {
                 decodeTimeStamp: .invalid
             )
             var sampleBuffer: CMSampleBuffer?
-            guard CMSampleBufferCreateReadyWithImageBuffer(
-                allocator: kCFAllocatorDefault,
-                imageBuffer: pixelBuffer,
-                formatDescription: formatDescription,
-                sampleTiming: &timing,
-                sampleBufferOut: &sampleBuffer
-            ) == noErr,
-                  let sampleBuffer else {
+            guard
+                CMSampleBufferCreateReadyWithImageBuffer(
+                    allocator: kCFAllocatorDefault,
+                    imageBuffer: pixelBuffer,
+                    formatDescription: formatDescription,
+                    sampleTiming: &timing,
+                    sampleBufferOut: &sampleBuffer
+                ) == noErr,
+                let sampleBuffer
+            else {
                 throw Self.invalidImageFrameError
             }
             CMSetAttachment(
@@ -412,11 +462,11 @@ extension XmaxVideoView {
         }
     }
 
-    /// 按帧时长提交远端画面。
+    /// Schedules a remote frame using its duration.
     ///
     /// - Parameters:
-    ///   - frame: 已完成插帧等处理的远端视频帧。
-    ///   - contentMode: 视频画面的缩放与裁剪方式。
+    ///   - frame: The processed remote video frame.
+    ///   - contentMode: The video content mode.
     func displayRemoteVideoFrame(
         _ frame: RealtimeVideoFrame,
         contentMode: VideoContentMode
@@ -425,50 +475,60 @@ extension XmaxVideoView {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }
         guard let decodedVideoLayer,
-              let decodedVideoTimebase else {
+            let decodedVideoTimebase
+        else {
             return
         }
-        decodedVideoLayer.videoGravity = contentMode == .fit ?
-            .resizeAspect : .resizeAspectFill
+        decodedVideoLayer.videoGravity = contentMode == .fit ? .resizeAspect : .resizeAspectFill
         if decodedVideoLayer.requiresFlushToResumeDecoding {
             decodedVideoLayer.flush()
             nextDecodedVideoPresentationTime = .invalid
         }
 
         var formatDescription: CMVideoFormatDescription?
-        guard CMVideoFormatDescriptionCreateForImageBuffer(
-            allocator: kCFAllocatorDefault,
-            imageBuffer: frame.pixelBuffer,
-            formatDescriptionOut: &formatDescription
-        ) == noErr,
-              let formatDescription else {
+        guard
+            CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: frame.pixelBuffer,
+                formatDescriptionOut: &formatDescription
+            ) == noErr,
+            let formatDescription
+        else {
             return
         }
 
         let currentTime = CMTimebaseGetTime(decodedVideoTimebase)
         let presentationTime: CMTime
         if nextDecodedVideoPresentationTime.isValid,
-           nextDecodedVideoPresentationTime >= currentTime {
+            nextDecodedVideoPresentationTime >= currentTime
+        {
             presentationTime = nextDecodedVideoPresentationTime
         } else {
             presentationTime = currentTime
         }
-        let duration = frame.duration.isValid && frame.duration > .zero ?
-            frame.duration : CMTime(value: 1, timescale: 24)
+        let duration =
+            frame.duration.isValid && frame.duration > .zero
+            ? frame.duration
+            : CMTime(
+                value: 1,
+                timescale: 24
+            )
         var timing = CMSampleTimingInfo(
             duration: duration,
             presentationTimeStamp: presentationTime,
             decodeTimeStamp: .invalid
         )
         var sampleBuffer: CMSampleBuffer?
-        guard CMSampleBufferCreateReadyWithImageBuffer(
-            allocator: kCFAllocatorDefault,
-            imageBuffer: frame.pixelBuffer,
-            formatDescription: formatDescription,
-            sampleTiming: &timing,
-            sampleBufferOut: &sampleBuffer
-        ) == noErr,
-              let sampleBuffer else {
+        guard
+            CMSampleBufferCreateReadyWithImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: frame.pixelBuffer,
+                formatDescription: formatDescription,
+                sampleTiming: &timing,
+                sampleBufferOut: &sampleBuffer
+            ) == noErr,
+            let sampleBuffer
+        else {
             return
         }
         decodedVideoLayer.enqueue(sampleBuffer)
@@ -476,7 +536,7 @@ extension XmaxVideoView {
         frameDisplayHandler?()
     }
 
-    /// 移除视频图层并释放显示时钟和预览缓冲资源。
+    /// Releases the video layer, display clock, and preview buffers.
     func clearDecodedVideoPreview() {
         decodedVideoLayer?.flushAndRemoveImage()
         decodedVideoLayer?.controlTimebase = nil
@@ -489,7 +549,7 @@ extension XmaxVideoView {
         localPreviewFormatDescription = nil
     }
 
-    /// 在视图已挂载窗口时绑定当前轨道的画面和交互。
+    /// Attaches rendering and interaction when the view has a window.
     func attachCurrentTrackIfNeeded() {
         guard window != nil, let track else {
             return
@@ -522,13 +582,15 @@ extension XmaxVideoView {
         bringSubviewToFront(trajectoryOverlayView)
     }
 
-    /// 解除指定轨道在当前视图中的画面和交互绑定。
+    /// Detaches a track's rendering and interaction from this view.
     ///
-    /// - Parameter track: 需要解除的轨道；`nil` 时不执行操作。
+    /// - Parameter track: The track to detach, or `nil` for no operation.
     func detach(
         track: RealtimeVideoTrack?
     ) {
-        guard let track else { return }
+        guard let track else {
+            return
+        }
 
         if attachedTrack === track {
             do {
@@ -551,7 +613,7 @@ extension XmaxVideoView {
         }
     }
 
-    /// 解除当前持有的全部视频和交互轨道绑定。
+    /// Detaches all video and interaction bindings.
     func detachCurrentTrack() {
         let renderTrack = attachedTrack
         let trajectoryTrack = attachedTrajectoryTrack
@@ -561,26 +623,28 @@ extension XmaxVideoView {
         }
     }
 
-    /// 输出带统一错误描述的渲染日志。
+    /// Logs a rendering failure.
     ///
     /// - Parameters:
-    ///   - title: 中英文日志标题。
-    ///   - error: 需要记录的渲染错误。
+    ///   - title: The bilingual log title.
+    ///   - error: The rendering error to log.
     static func logRenderingFailure(
         title: String,
         error: any Error
     ) {
         XmaxLogger.render.error(
-            message: "\(title)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))" +
-                (error as NSError).localizedDescription
+            message: "\(title)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))"
+                + (error as NSError).localizedDescription
         )
     }
 
-    /// 将 BGRA 或 NV12 视频帧转换为 UIKit 图像。
+    /// Converts a BGRA or NV12 frame to a UIKit image.
     ///
-    /// - Parameter frame: 待转换的图片视频帧。
-    /// - Returns: 包含原始像素内容的图像。
-    /// - Throws: 像素格式、平面布局无效或图像创建失败时抛出错误。
+    /// - Parameter frame: The image frame to convert.
+    ///
+    /// - Returns: The image containing the frame's pixels.
+    ///
+    /// - Throws: An error if pixel format or layout is invalid or image creation fails.
     static func makeImage(
         _ frame: VideoFrame
     ) throws -> UIImage {
@@ -590,7 +654,8 @@ extension XmaxVideoView {
 
         let width = frame.format.width
         let height = frame.format.height
-        let (minimumBytesPerRow, rowByteCountOverflow) = width
+        let (minimumBytesPerRow, rowByteCountOverflow) =
+            width
             .multipliedReportingOverflow(by: 4)
         guard frame.planes.count == 1 else {
             throw Self.invalidImageFrameError
@@ -599,35 +664,38 @@ extension XmaxVideoView {
         let (requiredByteCount, byteCountOverflow) = plane.stride
             .multipliedReportingOverflow(by: height)
         guard frame.format.pixelFormat == .bgra,
-              width > 0,
-              height > 0,
-              !rowByteCountOverflow,
-              plane.stride >= minimumBytesPerRow,
-              plane.byteOffset == 0,
-              !byteCountOverflow,
-              plane.byteLength >= requiredByteCount,
-              plane.data.count >= requiredByteCount,
-              let provider = CGDataProvider(
-                  data: plane.data as CFData
-              ) else {
+            width > 0,
+            height > 0,
+            !rowByteCountOverflow,
+            plane.stride >= minimumBytesPerRow,
+            plane.byteOffset == 0,
+            !byteCountOverflow,
+            plane.byteLength >= requiredByteCount,
+            plane.data.count >= requiredByteCount,
+            let provider = CGDataProvider(
+                data: plane.data as CFData
+            )
+        else {
             throw Self.invalidImageFrameError
         }
 
-        let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue |
-            CGImageAlphaInfo.premultipliedFirst.rawValue
-        guard let image = CGImage(
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bitsPerPixel: 32,
-            bytesPerRow: plane.stride,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGBitmapInfo(rawValue: bitmapInfo),
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: true,
-            intent: .defaultIntent
-        ) else {
+        let bitmapInfo =
+            CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
+        guard
+            let image = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: plane.stride,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: bitmapInfo),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: true,
+                intent: .defaultIntent
+            )
+        else {
             throw XmaxError(
                 code: .mediaError,
                 message: "Failed to create the image preview"
@@ -636,11 +704,13 @@ extension XmaxVideoView {
         return UIImage(cgImage: image)
     }
 
-    /// 将 NV12 帧转换为可显示的 UIKit 图像。
+    /// Converts an NV12 frame to a UIKit image.
     ///
-    /// - Parameter frame: 双平面 NV12 视频帧。
-    /// - Returns: 转换后的图像。
-    /// - Throws: 缓冲区转换或图像创建失败时抛出错误。
+    /// - Parameter frame: The biplanar NV12 frame.
+    ///
+    /// - Returns: The converted image.
+    ///
+    /// - Throws: An error if buffer conversion or image creation fails.
     static func makeNV12Image(
         _ frame: VideoFrame
     ) throws -> UIImage {
@@ -649,28 +719,40 @@ extension XmaxVideoView {
         let pixelBuffer = try makeNV12PixelBuffer(frame)
 
         let image = CIImage(cvPixelBuffer: pixelBuffer)
-        guard let cgImage = imageContext.createCGImage(
-            image,
-            from: CGRect(x: 0, y: 0, width: width, height: height)
-        ) else {
+        guard
+            let cgImage = imageContext.createCGImage(
+                image,
+                from: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: width,
+                    height: height
+                )
+            )
+        else {
             throw invalidImageFrameError
         }
         return UIImage(cgImage: cgImage)
     }
 
-    /// 复用符合当前帧规格的缓冲池创建预览缓冲区。
+    /// Creates a preview buffer matching the frame format.
     ///
-    /// - Parameter frame: 待复制的本地 NV12 或 BGRA 视频帧。
-    /// - Returns: 已填充当前帧数据的像素缓冲区。
-    /// - Throws: 缓冲池创建或帧数据复制失败时抛出错误。
+    /// - Parameter frame: The local NV12 or BGRA frame to copy.
+    ///
+    /// - Returns: The buffer containing the frame's pixels.
+    ///
+    /// - Throws: An error if pool creation or pixel copying fails.
     func makeLocalPreviewPixelBuffer(
         _ frame: VideoFrame
     ) throws -> CVPixelBuffer {
         let pixelFormat: OSType
         switch frame.format.pixelFormat {
-        case .nv12: pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-        case .bgra: pixelFormat = kCVPixelFormatType_32BGRA
-        default: throw Self.invalidImageFrameError
+        case .nv12:
+            pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        case .bgra:
+            pixelFormat = kCVPixelFormatType_32BGRA
+        default:
+            throw Self.invalidImageFrameError
         }
         if localPreviewFormat != frame.format || localPreviewPixelBufferPool == nil {
             let attributes: [String: Any] = [
@@ -680,8 +762,15 @@ extension XmaxVideoView {
                 kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
             ]
             var pool: CVPixelBufferPool?
-            guard CVPixelBufferPoolCreate(kCFAllocatorDefault, nil, attributes as CFDictionary, &pool) == kCVReturnSuccess,
-                  let pool else {
+            guard
+                CVPixelBufferPoolCreate(
+                    kCFAllocatorDefault,
+                    nil,
+                    attributes as CFDictionary,
+                    &pool
+                ) == kCVReturnSuccess,
+                let pool
+            else {
                 throw Self.invalidImageFrameError
             }
             localPreviewPixelBufferPool = pool
@@ -690,18 +779,26 @@ extension XmaxVideoView {
         }
 
         if frame.format.pixelFormat == .bgra {
-            return try Self.makeBGRAPixelBuffer(frame, pool: localPreviewPixelBufferPool)
+            return try Self.makeBGRAPixelBuffer(
+                frame,
+                pool: localPreviewPixelBufferPool
+            )
         }
-        return try Self.makeNV12PixelBuffer(frame, pool: localPreviewPixelBufferPool)
+        return try Self.makeNV12PixelBuffer(
+            frame,
+            pool: localPreviewPixelBufferPool
+        )
     }
 
-    /// 将 BGRA 帧复制到可由视频图层显示的像素缓冲区。
+    /// Copies BGRA pixels into a displayable buffer.
     ///
     /// - Parameters:
-    ///   - frame: 单平面 BGRA 视频帧。
-    ///   - pool: 符合当前帧规格的缓冲池；为空时单独分配。
-    /// - Returns: 拥有当前像素数据的 IOSurface 缓冲区。
-    /// - Throws: 帧布局无效、分配或复制失败时抛出错误。
+    ///   - frame: The single-plane BGRA frame.
+    ///   - pool: A matching buffer pool, or `nil` for standalone allocation.
+    ///
+    /// - Returns: An IOSurface buffer owning the frame's pixels.
+    ///
+    /// - Throws: An error if frame layout is invalid or allocation or copying fails.
     static func makeBGRAPixelBuffer(
         _ frame: VideoFrame,
         pool: CVPixelBufferPool? = nil
@@ -710,25 +807,45 @@ extension XmaxVideoView {
         let height = frame.format.height
         let (rowBytes, overflow) = width.multipliedReportingOverflow(by: 4)
         guard frame.format.pixelFormat == .bgra, width > 0, height > 0,
-              !overflow, frame.planes.count == 1 else {
+            !overflow, frame.planes.count == 1
+        else {
             throw invalidImageFrameError
         }
         var buffer: CVPixelBuffer?
         let status: CVReturn
         if let pool {
-            status = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer)
+            status = CVPixelBufferPoolCreatePixelBuffer(
+                nil,
+                pool,
+                &buffer
+            )
         } else {
-            status = CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA,
-                [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &buffer)
+            status = CVPixelBufferCreate(
+                nil,
+                width,
+                height,
+                kCVPixelFormatType_32BGRA,
+                [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary,
+                &buffer
+            )
         }
         guard status == kCVReturnSuccess, let buffer,
-              CVPixelBufferGetWidth(buffer) == width,
-              CVPixelBufferGetHeight(buffer) == height,
-              CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
-              CVPixelBufferLockBaseAddress(buffer, []) == kCVReturnSuccess else {
+            CVPixelBufferGetWidth(buffer) == width,
+            CVPixelBufferGetHeight(buffer) == height,
+            CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
+            CVPixelBufferLockBaseAddress(
+                buffer,
+                []
+            ) == kCVReturnSuccess
+        else {
             throw invalidImageFrameError
         }
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        defer {
+            CVPixelBufferUnlockBaseAddress(
+                buffer,
+                []
+            )
+        }
         try copyPlane(
             frame.planes[0],
             rowByteCount: rowBytes,
@@ -739,38 +856,48 @@ extension XmaxVideoView {
         return buffer
     }
 
-    /// 复用或创建与像素缓冲区匹配的视频格式描述。
+    /// Returns a media format description matching the pixel buffer.
     ///
-    /// - Parameter pixelBuffer: 当前预览像素缓冲区。
-    /// - Returns: 与缓冲区尺寸和格式匹配的描述。
-    /// - Throws: 视频格式描述创建失败时抛出错误。
+    /// - Parameter pixelBuffer: The preview pixel buffer.
+    ///
+    /// - Returns: The matching dimension and pixel format description.
+    ///
+    /// - Throws: An error if the format description cannot be created.
     func localPreviewDescription(
         for pixelBuffer: CVPixelBuffer
     ) throws -> CMVideoFormatDescription {
         if let description = localPreviewFormatDescription,
-           CMVideoFormatDescriptionMatchesImageBuffer(description, imageBuffer: pixelBuffer) {
+            CMVideoFormatDescriptionMatchesImageBuffer(
+                description,
+                imageBuffer: pixelBuffer
+            )
+        {
             return description
         }
 
         var description: CMVideoFormatDescription?
-        guard CMVideoFormatDescriptionCreateForImageBuffer(
-            allocator: kCFAllocatorDefault,
-            imageBuffer: pixelBuffer,
-            formatDescriptionOut: &description
-        ) == noErr, let description else {
+        guard
+            CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescriptionOut: &description
+            ) == noErr, let description
+        else {
             throw Self.invalidImageFrameError
         }
         localPreviewFormatDescription = description
         return description
     }
 
-    /// 校验并复制 NV12 帧到 IOSurface 像素缓冲区。
+    /// Copies a validated NV12 frame into an IOSurface buffer.
     ///
     /// - Parameters:
-    ///   - frame: 待复制的 NV12 视频帧。
-    ///   - pool: 可复用的像素缓冲池；`nil` 时单独分配。
-    /// - Returns: 包含亮度及色度平面的像素缓冲区。
-    /// - Throws: 帧布局无效、缓冲区分配、锁定或复制失败时抛出错误。
+    ///   - frame: The NV12 frame to copy.
+    ///   - pool: The reusable buffer pool, or `nil` for standalone allocation.
+    ///
+    /// - Returns: The pixel buffer containing luma and chroma planes.
+    ///
+    /// - Throws: An error if layout is invalid or allocation, locking, or copying fails.
     static func makeNV12PixelBuffer(
         _ frame: VideoFrame,
         pool: CVPixelBufferPool? = nil
@@ -778,21 +905,27 @@ extension XmaxVideoView {
         let width = frame.format.width
         let height = frame.format.height
         guard frame.format.pixelFormat == .nv12,
-              width > 0,
-              height > 0,
-              width.isMultiple(of: 2),
-              height.isMultiple(of: 2),
-              frame.planes.count == 2 else {
+            width > 0,
+            height > 0,
+            width.isMultiple(of: 2),
+            height.isMultiple(of: 2),
+            frame.planes.count == 2
+        else {
             throw invalidImageFrameError
         }
 
         var pixelBuffer: CVPixelBuffer?
-        let attributes = [
-            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary
-        ] as CFDictionary
+        let attributes =
+            [
+                kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary
+            ] as CFDictionary
         let status: CVReturn
         if let pool {
-            status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBuffer)
+            status = CVPixelBufferPoolCreatePixelBuffer(
+                kCFAllocatorDefault,
+                pool,
+                &pixelBuffer
+            )
         } else {
             status = CVPixelBufferCreate(
                 kCFAllocatorDefault,
@@ -804,25 +937,37 @@ extension XmaxVideoView {
             )
         }
         guard status == kCVReturnSuccess, let pixelBuffer,
-              CVPixelBufferGetWidth(pixelBuffer) == width,
-              CVPixelBufferGetHeight(pixelBuffer) == height,
-              CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
+            CVPixelBufferGetWidth(pixelBuffer) == width,
+            CVPixelBufferGetHeight(pixelBuffer) == height,
+            CVPixelBufferGetPixelFormatType(pixelBuffer)
+                == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        else {
             throw invalidImageFrameError
         }
 
-        guard CVPixelBufferLockBaseAddress(pixelBuffer, []) ==
-                kCVReturnSuccess else {
+        guard
+            CVPixelBufferLockBaseAddress(
+                pixelBuffer,
+                []
+            ) == kCVReturnSuccess
+        else {
             throw invalidImageFrameError
         }
         defer {
-            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+            CVPixelBufferUnlockBaseAddress(
+                pixelBuffer,
+                []
+            )
         }
 
         try copyPlane(
             frame.planes[0],
             rowByteCount: width,
             rowCount: height,
-            destination: CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0),
+            destination: CVPixelBufferGetBaseAddressOfPlane(
+                pixelBuffer,
+                0
+            ),
             destinationStride: CVPixelBufferGetBytesPerRowOfPlane(
                 pixelBuffer,
                 0
@@ -832,7 +977,10 @@ extension XmaxVideoView {
             frame.planes[1],
             rowByteCount: width,
             rowCount: height / 2,
-            destination: CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1),
+            destination: CVPixelBufferGetBaseAddressOfPlane(
+                pixelBuffer,
+                1
+            ),
             destinationStride: CVPixelBufferGetBytesPerRowOfPlane(
                 pixelBuffer,
                 1
@@ -841,15 +989,16 @@ extension XmaxVideoView {
         return pixelBuffer
     }
 
-    /// 按行复制一个像素平面的有效数据。
+    /// Copies the valid rows of a pixel plane.
     ///
     /// - Parameters:
-    ///   - plane: 提供源数据和行步长的平面。
-    ///   - rowByteCount: 每行需要复制的字节数。
-    ///   - rowCount: 需要复制的行数。
-    ///   - destination: 目标平面起始地址。
-    ///   - destinationStride: 目标平面每行字节数。
-    /// - Throws: 源数据或目标布局不能容纳指定区域时抛出错误。
+    ///   - plane: The source pixels and row stride.
+    ///   - rowByteCount: The bytes to copy per row.
+    ///   - rowCount: The row count.
+    ///   - destination: The destination plane address.
+    ///   - destinationStride: The destination row stride.
+    ///
+    /// - Throws: An error if source or destination cannot contain the requested region.
     static func copyPlane(
         _ plane: VideoFramePlane,
         rowByteCount: Int,
@@ -860,21 +1009,28 @@ extension XmaxVideoView {
         let (sourceLength, sourceLengthOverflow) = plane.stride
             .multipliedReportingOverflow(by: rowCount)
         guard let destination,
-              rowByteCount > 0,
-              rowCount > 0,
-              plane.stride >= rowByteCount,
-              destinationStride >= rowByteCount,
-              !sourceLengthOverflow,
-              plane.byteLength >= sourceLength,
-              plane.byteOffset <= plane.data.count - sourceLength else {
+            rowByteCount > 0,
+            rowCount > 0,
+            plane.stride >= rowByteCount,
+            destinationStride >= rowByteCount,
+            !sourceLengthOverflow,
+            plane.byteLength >= sourceLength,
+            plane.byteOffset <= plane.data.count - sourceLength
+        else {
             throw invalidImageFrameError
         }
 
         plane.data.withUnsafeBytes { bytes in
-            guard let source = bytes.baseAddress else { return }
+            guard let source = bytes.baseAddress else {
+                return
+            }
             let sourceStart = source.advanced(by: plane.byteOffset)
             if plane.stride == rowByteCount, destinationStride == rowByteCount {
-                memcpy(destination, sourceStart, sourceLength)
+                memcpy(
+                    destination,
+                    sourceStart,
+                    sourceLength
+                )
                 return
             }
             for row in 0..<rowCount {
@@ -887,7 +1043,7 @@ extension XmaxVideoView {
         }
     }
 
-    /// 图片帧数据不满足显示要求时返回的错误。
+    /// The error for an undisplayable image frame.
     static var invalidImageFrameError: XmaxError {
         XmaxError(
             code: .mediaError,

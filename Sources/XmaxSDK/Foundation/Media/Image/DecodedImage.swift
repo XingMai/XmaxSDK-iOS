@@ -11,51 +11,62 @@
 import Foundation
 @preconcurrency import CoreGraphics
 
-/// 表示 SDK 内部已经完成方向处理和像素解码的图片。
+/// An orientation-corrected, decoded image.
 protocol DecodedImage: Sendable {
 
-    /// 图片解码后的实际像素尺寸。
-    var size: CGSize { get }
+    /// The decoded pixel dimensions.
+    var size: CGSize {
+        get
+    }
 
-    /// 按目标比例居中裁剪并缩放图片，生成可复用的视频帧。
+    /// Creates a reusable frame by center-cropping and scaling to the requested dimensions.
     ///
     /// - Parameters:
-    ///   - width: 目标帧宽度，单位为像素。
-    ///   - height: 目标帧高度，单位为像素。
-    /// - Returns: 包含 BGRA 像素和缓冲区复用标识、初始时间戳为零的视频帧。
-    /// - Throws: 尺寸无效、内存大小溢出或裁剪及像素绘制失败时抛出错误。
+    ///   - width: The target width, in pixels.
+    ///   - height: The target height, in pixels.
+    ///
+    /// - Returns: A BGRA frame with a reuse identifier and a zero timestamp.
+    ///
+    /// - Throws: An error if dimensions are invalid, allocation overflows, or pixel rendering
+    ///   fails.
     func makeVideoFrame(
         width: Int,
         height: Int
     ) throws -> VideoFrame
 }
 
-/// 持有已经应用方向信息的 Core Graphics 图片并生成视频帧。
+/// A decoded Core Graphics image that produces video frames.
 final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 
-    /// 持有已解码的图片像素。
+    /// The decoded image pixels.
     private let image: CGImage
 
-    /// 已解码图片的宽高，单位为像素。
+    /// The decoded dimensions, in pixels.
     let size: CGSize
 
-    /// 持有已应用方向信息的 Core Graphics 图片。
+    /// Creates a decoded image with its orientation already applied.
     ///
-    /// - Parameter image: 作为后续裁剪和缩放源的像素图片。
+    /// - Parameter image: The source image for cropping and scaling.
     init(
         image: CGImage
     ) {
         self.image = image
-        size = CGSize(width: image.width, height: image.height)
+        size = CGSize(
+            width: image.width,
+            height: image.height
+        )
     }
 
-    /// 按目标比例居中裁剪并缩放图片，生成可复用的视频帧。
+    /// Creates a reusable frame by center-cropping and scaling to the requested dimensions.
     ///
     /// - Parameters:
-    ///   - width: 目标帧宽度，单位为像素。
-    ///   - height: 目标帧高度，单位为像素。
-    /// - Returns: 包含 BGRA 像素和缓冲区复用标识、初始时间戳为零的视频帧。
-    /// - Throws: 尺寸无效、内存大小溢出或裁剪及像素绘制失败时抛出错误。
+    ///   - width: The target width, in pixels.
+    ///   - height: The target height, in pixels.
+    ///
+    /// - Returns: A BGRA frame with a reuse identifier and a zero timestamp.
+    ///
+    /// - Throws: An error if dimensions are invalid, allocation overflows, or pixel rendering
+    ///   fails.
     func makeVideoFrame(
         width: Int,
         height: Int
@@ -63,8 +74,7 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         guard width > 0, height > 0 else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Image width and height must be finite numbers " +
-                    "greater than zero"
+                message: "Image width and height must be finite numbers " + "greater than zero"
             )
         }
 
@@ -76,7 +86,8 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         )
         let sourceImage: CGImage
         if cropRect.width == CGFloat(image.width),
-           cropRect.height == CGFloat(image.height) {
+            cropRect.height == CGFloat(image.height)
+        {
             sourceImage = image
         } else {
             guard let croppedImage = image.cropping(to: cropRect) else {
@@ -85,12 +96,14 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
             sourceImage = croppedImage
         }
 
-        let (pixelCount, pixelOverflow) = width
+        let (pixelCount, pixelOverflow) =
+            width
             .multipliedReportingOverflow(by: height)
         guard !pixelOverflow else {
             throw Self.processingError("Image dimensions are too large")
         }
-        let (byteCount, byteOverflow) = pixelCount
+        let (byteCount, byteOverflow) =
+            pixelCount
             .multipliedReportingOverflow(by: 4)
         guard !byteOverflow else {
             throw Self.processingError("Image dimensions are too large")
@@ -98,26 +111,32 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 
         let bytesPerRow = try Self.bytesPerRow(width: width)
         var data = Data(count: byteCount)
-        let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue |
-            CGImageAlphaInfo.premultipliedFirst.rawValue
+        let bitmapInfo =
+            CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
         let didRender = data.withUnsafeMutableBytes { bytes -> Bool in
             guard let address = bytes.baseAddress,
-                  let context = CGContext(
-                      data: address,
-                      width: width,
-                      height: height,
-                      bitsPerComponent: 8,
-                      bytesPerRow: bytesPerRow,
-                      space: CGColorSpaceCreateDeviceRGB(),
-                      bitmapInfo: bitmapInfo
-                  ) else {
+                let context = CGContext(
+                    data: address,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: bitmapInfo
+                )
+            else {
                 return false
             }
 
             context.interpolationQuality = .high
             context.draw(
                 sourceImage,
-                in: CGRect(x: 0, y: 0, width: width, height: height)
+                in: CGRect(
+                    x: 0,
+                    y: 0,
+                    width: width,
+                    height: height
+                )
             )
             return true
         }
@@ -142,14 +161,15 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         )
     }
 
-    /// 计算保留目标宽高比的居中裁剪区域。
+    /// Resolves a centered crop preserving the target aspect ratio.
     ///
     /// - Parameters:
-    ///   - sourceWidth: 源图片宽度，单位为像素。
-    ///   - sourceHeight: 源图片高度，单位为像素。
-    ///   - targetWidth: 目标输出宽度，单位为像素。
-    ///   - targetHeight: 目标输出高度，单位为像素。
-    /// - Returns: 位于源图坐标系内的整数像素裁剪区域。
+    ///   - sourceWidth: The source width, in pixels.
+    ///   - sourceHeight: The source height, in pixels.
+    ///   - targetWidth: The output width, in pixels.
+    ///   - targetHeight: The output height, in pixels.
+    ///
+    /// - Returns: An integer crop rectangle in source image coordinates.
     static func centerCropRect(
         sourceWidth: Int,
         sourceHeight: Int,
@@ -184,11 +204,13 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
 
 private extension CoreGraphicsDecodedImage {
 
-    /// 计算 BGRA 图像的每行字节数。
+    /// Calculates the row stride for a BGRA image.
     ///
-    /// - Parameter width: 图像宽度，单位为像素。
-    /// - Returns: 每行四字节像素占用的总字节数。
-    /// - Throws: 宽度计算产生整数溢出时抛出媒体错误。
+    /// - Parameter width: The image width, in pixels.
+    ///
+    /// - Returns: The row size for four-byte pixels.
+    ///
+    /// - Throws: A media error if the row size overflows.
     static func bytesPerRow(
         width: Int
     ) throws -> Int {
@@ -199,13 +221,17 @@ private extension CoreGraphicsDecodedImage {
         return value
     }
 
-    /// 创建图片处理错误。
+    /// Creates an image processing error.
     ///
-    /// - Parameter message: 图片处理失败的可读说明。
-    /// - Returns: 具有媒体错误码的 SDK 错误。
+    /// - Parameter message: The image processing failure description.
+    ///
+    /// - Returns: An SDK media error.
     static func processingError(
         _ message: String
     ) -> XmaxError {
-        XmaxError(code: .mediaError, message: message)
+        XmaxError(
+            code: .mediaError,
+            message: message
+        )
     }
 }

@@ -11,22 +11,22 @@
 import Darwin
 import Foundation
 
-/// 描述 SDK 当前运行环境。
+/// The SDK runtime environment.
 struct RuntimeInfo: Encodable, Sendable {
 
-    /// SDK 运行的平台名称。
+    /// The platform name.
     let platform: String
 
-    /// 操作系统版本。
+    /// The operating system version.
     let osVersion: String
 
-    /// XmaxSDK 版本。
+    /// The XmaxSDK version.
     let sdkVersion: String
 
-    /// 设备型号标识。
+    /// The device model identifier.
     let deviceModel: String
 
-    /// 当前平台、系统、SDK 和设备信息快照。
+    /// A snapshot of platform, operating system, SDK, and device information.
     static let current = RuntimeInfo(
         platform: "ios",
         osVersion: currentOSVersion(),
@@ -34,28 +34,28 @@ struct RuntimeInfo: Encodable, Sendable {
         deviceModel: currentDeviceModel()
     )
 
-    /// 定义运行环境字段在请求中的编码名称。
+    /// The encoded runtime field names.
     enum CodingKeys: String, CodingKey {
 
-        /// 客户端平台字段。
+        /// The platform field.
         case platform
 
-        /// 操作系统版本字段。
+        /// The operating system version field.
         case osVersion = "os_version"
 
-        /// SDK 版本字段。
+        /// The SDK version field.
         case sdkVersion = "sdk_version"
 
-        /// 设备型号字段。
+        /// The device model field.
         case deviceModel = "device_model"
     }
 }
 
 private extension RuntimeInfo {
 
-    /// 读取当前操作系统版本并省略零补丁号。
+    /// Returns the operating system version without a zero patch component.
     ///
-    /// - Returns: 以点分隔的系统主版本、次版本和可选补丁版本。
+    /// - Returns: The dotted major, minor, and optional patch version.
     static func currentOSVersion() -> String {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         var components = [
@@ -68,9 +68,9 @@ private extension RuntimeInfo {
         return components.joined(separator: ".")
     }
 
-    /// 读取设备机型标识，模拟器优先使用其目标机型。
+    /// Returns the hardware identifier, using the simulated device model when available.
     ///
-    /// - Returns: 设备硬件标识；无法读取时返回 `unknown`。
+    /// - Returns: The hardware identifier, or `unknown` if unavailable.
     static func currentDeviceModel() -> String {
         if let simulatorModel = ProcessInfo.processInfo.environment[
             "SIMULATOR_MODEL_IDENTIFIER"
@@ -87,7 +87,9 @@ private extension RuntimeInfo {
             pointer.withMemoryRebound(
                 to: CChar.self,
                 capacity: capacity
-            ) { String(cString: $0) }
+            ) {
+                String(cString: $0)
+            }
         }
     }
 }

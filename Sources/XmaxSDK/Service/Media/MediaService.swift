@@ -10,89 +10,128 @@
 
 import CoreGraphics
 
-/// 提供本地媒体、回传尺寸和平台媒体能力相关的业务规则。
+/// The sizing and capability rules for local and returned media.
 final class MediaService: MediaServicing, Sendable {
 
-    /// 用于解析输入尺寸的生成模型。
+    /// The generation model defining sizing rules.
     let model: RealtimeModel
 
-    /// 插帧支持的最大总像素面积。
+    /// The maximum interpolation pixel area.
     private static let maximumFrameInterpolationPixels = 900000
 
-    /// 创建采用指定模型尺寸规则的媒体服务。
+    /// Creates a media service for a model.
     init(
         model: RealtimeModel = .x2_1
     ) {
         self.model = model
     }
 
-    /// 计算本地媒体帧尺寸，并校验摄像头的模型分辨率桶。
+    /// Resolves local media dimensions and validates camera resolution buckets.
     ///
     /// - Parameters:
-    ///   - sourceMediaSize: 摄像头请求尺寸或图片、视频按显示方向解析后的原始整数像素尺寸。
-    ///   - source: 媒体来源；摄像头须精确匹配模型已配置的分辨率桶。
-    /// - Returns: 不放大、不超过模型最大像素面积的 4 对齐尺寸，优先保持精确比例。
-    /// - Throws: 尺寸无效、摄像头不匹配分辨率桶或无法形成有效输出尺寸时抛出错误。
+    ///   - sourceMediaSize: The requested camera dimensions or the source image or video's oriented
+    ///     integer dimensions.
+    ///   - source: The media source. Camera dimensions must match a configured model bucket.
+    ///
+    /// - Returns: Dimensions aligned to 4 within the model limit, without upscaling and preserving
+    ///   exact aspect ratio when possible.
+    ///
+    /// - Throws: An error if dimensions are invalid, a camera bucket does not match, or output
+    ///   cannot be resolved.
     func resolveMediaSize(
         _ sourceMediaSize: CGSize,
         source: RealtimeMediaSource
     ) throws -> CGSize {
         guard let width = Self.integralDimension(sourceMediaSize.width),
-              let height = Self.integralDimension(sourceMediaSize.height) else {
-            throw XmaxError(code: .invalidConfiguration, message: "Media dimensions must be positive integers")
+            let height = Self.integralDimension(sourceMediaSize.height)
+        else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Media dimensions must be positive integers"
+            )
         }
 
         let buckets = model.supportedVideoFormats.map(\.size)
         if source == .camera, !buckets.isEmpty, !buckets.contains(sourceMediaSize) {
-            let supportedSizes = buckets.map { "\(Int($0.width))×\(Int($0.height))" }.joined(separator: ", ")
+            let supportedSizes = buckets.map {
+                "\(Int($0.width))×\(Int($0.height))"
+            }.joined(separator: ", ")
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Model \(model.rawValue) does not support camera resolution " +
-                    "\(width)×\(height). Supported resolutions: \(supportedSizes)"
+                message: "Model \(model.rawValue) does not support camera resolution "
+                    + "\(width)×\(height). Supported resolutions: \(supportedSizes)"
             )
         }
 
         let pixels = Double(width) * Double(height)
-        let scale = min(1, sqrt(Double(model.maximumInputPixels) / pixels))
-        return try alignedSize(width: width, height: height, scale: scale, alignment: 4)
+        let scale = min(
+            1,
+            sqrt(Double(model.maximumInputPixels) / pixels)
+        )
+        return try alignedSize(
+            width: width,
+            height: height,
+            scale: scale,
+            alignment: 4
+        )
     }
 
-    /// 综合档位尺寸上限和可选插帧限制，计算最终回传尺寸。
+    /// Resolves returned dimensions within quality and optional interpolation limits.
     ///
     /// - Parameters:
-    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于确定比例和不放大的边界。
-    ///   - maximumSize: 下行档位允许的宽高上限，可包含小数像素。
-    ///   - frameInterpolationEnabled: 是否额外限制总像素不超过 900000；不检查设备能力。
-    /// - Returns: 不超过上限、宽高均为 4 的倍数的尺寸；优先精确等比，无法等比时分别向下对齐。
-    /// - Throws: 尺寸无效，或约束内无法容纳至少 4 × 4 像素时抛出 `XmaxError`。
+    ///   - resolvedMediaSize: The resolved local dimensions defining aspect ratio and the
+    ///     no-upscaling boundary.
+    ///   - maximumSize: The maximum downlink dimensions, allowing fractional pixels.
+    ///   - frameInterpolationEnabled: Whether to cap the area at 900000 pixels, without checking
+    ///     device capabilities.
+    ///
+    /// - Returns: Dimensions aligned to 4 within the limit, preserving exact aspect ratio when
+    ///   possible and rounding down otherwise.
+    ///
+    /// - Throws: An `XmaxError` if dimensions are invalid or the limits cannot fit at least 4 × 4
+    ///   pixels.
     func resolveTargetSize(
         _ resolvedMediaSize: CGSize,
         maximumSize: CGSize,
         frameInterpolationEnabled: Bool
     ) throws -> CGSize {
         guard let width = Self.integralDimension(resolvedMediaSize.width),
-              let height = Self.integralDimension(resolvedMediaSize.height),
-              maximumSize.width.isFinite, maximumSize.width > 0,
-              maximumSize.height.isFinite, maximumSize.height > 0 else {
+            let height = Self.integralDimension(resolvedMediaSize.height),
+            maximumSize.width.isFinite, maximumSize.width > 0,
+            maximumSize.height.isFinite, maximumSize.height > 0
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Source dimensions must be positive integers and target bounds must be positive and finite"
+                message:
+                    "Source dimensions must be positive integers and target bounds must be positive and finite"
             )
         }
 
-        var scale = min(1, min(Double(maximumSize.width) / Double(width), Double(maximumSize.height) / Double(height)))
+        var scale = min(
+            1,
+            min(
+                Double(maximumSize.width) / Double(width),
+                Double(maximumSize.height) / Double(height)
+            )
+        )
         let targetPixels = (Double(width) * scale) * (Double(height) * scale)
         if frameInterpolationEnabled, targetPixels > Double(Self.maximumFrameInterpolationPixels) {
             scale *= sqrt(Double(Self.maximumFrameInterpolationPixels) / targetPixels)
         }
 
-        return try alignedSize(width: width, height: height, scale: scale, alignment: 4)
+        return try alignedSize(
+            width: width,
+            height: height,
+            scale: scale,
+            alignment: 4
+        )
     }
 
-    /// 判断当前设备是否支持对指定分辨率的视频进行插帧。
+    /// Checks device interpolation support for video dimensions.
     ///
-    /// - Parameter size: 客户端收到的、用于插帧处理的视频分辨率。
-    /// - Returns: 当前系统、设备和视频规格均支持插帧时返回 `true`。
+    /// - Parameter size: The received video dimensions used for interpolation.
+    ///
+    /// - Returns: `true` if the system, device, and video format support interpolation.
     func supportsFrameInterpolation(
         for size: CGSize
     ) -> Bool {
@@ -102,15 +141,17 @@ final class MediaService: MediaServicing, Sendable {
         return FrameInterpolationSupport.supports(size: size)
     }
 
-    /// 检查尺寸是否为正整数且满足插帧像素面积限制。
+    /// Checks integer dimensions against the interpolation pixel limit.
     ///
-    /// - Parameter size: 待检查的视频尺寸，单位为像素。
-    /// - Returns: 尺寸合法且总像素不超过插帧上限时返回 `true`；不检查设备能力。
+    /// - Parameter size: The video dimensions, in pixels.
+    ///
+    /// - Returns: `true` if dimensions meet the pixel limit, independent of device capability.
     static func supportsFrameInterpolationSize(
         _ size: CGSize
     ) -> Bool {
         guard let width = integralDimension(size.width),
-              let height = integralDimension(size.height) else {
+            let height = integralDimension(size.height)
+        else {
             return false
         }
         let (pixelCount, overflow) = width.multipliedReportingOverflow(
@@ -122,22 +163,25 @@ final class MediaService: MediaServicing, Sendable {
 
 private extension MediaService {
 
-    /// 在指定缩放范围内计算对齐尺寸，优先使用最简宽高比的整数倍。
+    /// Resolves aligned dimensions within a scale limit, preferring exact aspect ratio.
     ///
     /// - Parameters:
-    ///   - width: 原始整数像素宽度。
-    ///   - height: 原始整数像素高度。
-    ///   - scale: 不超过 1 的等比缩放比例。
-    ///   - alignment: 宽高需要对齐的像素倍数。
-    /// - Returns: 不超过缩放边界的对齐尺寸，无法精确等比时分别向下对齐。
-    /// - Throws: 缩放边界内无法容纳一个对齐单位时抛出错误。
+    ///   - width: The original integer pixel width.
+    ///   - height: The original integer pixel height.
+    ///   - scale: The uniform scale, no greater than 1.
+    ///   - alignment: The required dimension alignment, in pixels.
+    ///
+    /// - Returns: Aligned dimensions within the scale limit, rounded down independently if exact
+    ///   aspect ratio is impossible.
+    ///
+    /// - Throws: An error if the scale limit cannot fit one alignment unit.
     func alignedSize(
         width: Int,
         height: Int,
         scale: Double,
         alignment: Int
     ) throws -> CGSize {
-        // 使用最简宽高比的整数倍，避免分别取整导致比例发生变化。
+        // Use integer multiples of the reduced aspect ratio to avoid independent rounding.
         var divisor = width
         var remainder = height
         while remainder != 0 {
@@ -161,23 +205,30 @@ private extension MediaService {
                 message: "No aligned video size is available within the size limits"
             )
         }
-        return CGSize(width: alignedWidth, height: alignedHeight)
+        return CGSize(
+            width: alignedWidth,
+            height: alignedHeight
+        )
     }
 
-    /// 将有效的正整数像素边长转换为整数。
+    /// Converts a valid pixel dimension to a positive integer.
     ///
-    /// - Parameter value: 待校验的像素边长。
-    /// - Returns: 可安全转换的正整数；非有限值、非整数或越界时返回 `nil`。
+    /// - Parameter value: The pixel dimension to validate.
+    ///
+    /// - Returns: The positive integer, or `nil` if nonfinite, nonintegral, or out of range.
     static func integralDimension(
         _ value: CGFloat
     ) -> Int? {
         guard value.isFinite,
-              value > 0,
-              value < CGFloat(Int.max) else {
+            value > 0,
+            value < CGFloat(Int.max)
+        else {
             return nil
         }
         let roundedValue = value.rounded()
-        guard roundedValue == value else { return nil }
+        guard roundedValue == value else {
+            return nil
+        }
         return Int(roundedValue)
     }
 }

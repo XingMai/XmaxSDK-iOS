@@ -12,23 +12,33 @@ import Foundation
 
 public extension MediaServicing {
 
-    /// 选择最接近媒体比例的生成画布，不改变本地媒体规格。
+    /// Selects the closest generation canvas without changing local media dimensions.
     ///
-    /// - Parameter resolvedMediaSize: 处理后的本地媒体尺寸。
-    /// - Returns: 比例最接近的模型分辨率桶，或满足模型面积与对齐约束的尺寸。
-    /// - Throws: 媒体尺寸无效时抛出错误。
+    /// - Parameter resolvedMediaSize: The resolved local media dimensions.
+    ///
+    /// - Returns: The closest model bucket, or dimensions satisfying model area and alignment
+    ///   rules.
+    ///
+    /// - Throws: An error if media dimensions are invalid.
     func resolveGenerationSize(
         _ resolvedMediaSize: CGSize
     ) throws -> CGSize {
         guard resolvedMediaSize.width.isFinite, resolvedMediaSize.height.isFinite,
-              resolvedMediaSize.width > 0, resolvedMediaSize.height > 0 else {
-            throw XmaxError(code: .invalidConfiguration, message: "Media dimensions must be positive")
+            resolvedMediaSize.width > 0, resolvedMediaSize.height > 0
+        else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Media dimensions must be positive"
+            )
         }
 
         let aspect = resolvedMediaSize.width / resolvedMediaSize.height
-        if let bucket = model.supportedVideoFormats.map(\.size).min(by: {
-            abs(log(aspect / ($0.width / $0.height))) < abs(log(aspect / ($1.width / $1.height)))
-        }) {
+        if let bucket = model.supportedVideoFormats.map(\.size).min(
+            by: {
+                abs(log(aspect / ($0.width / $0.height)))
+                    < abs(log(aspect / ($1.width / $1.height)))
+            }
+        ) {
             return bucket
         }
 
@@ -50,21 +60,22 @@ public extension MediaServicing {
 
         let alignment = Double(model.inputSizeAlignment)
         let width = max(
-            Int(rounding(Double(size.width) * scale / alignment)) *
-                model.inputSizeAlignment,
+            Int(rounding(Double(size.width) * scale / alignment)) * model.inputSizeAlignment,
             model.inputSizeAlignment
         )
         let height = max(
-            Int(rounding(Double(size.height) * scale / alignment)) *
-                model.inputSizeAlignment,
+            Int(rounding(Double(size.height) * scale / alignment)) * model.inputSizeAlignment,
             model.inputSizeAlignment
         )
         let alignedPixels = width * height
         if (model.minimumInputPixels...model.maximumInputPixels).contains(alignedPixels) {
-            return CGSize(width: width, height: height)
+            return CGSize(
+                width: width,
+                height: height
+            )
         }
 
-        // 对齐可能使边界附近的尺寸越界，选择满足面积限制且最接近目标的尺寸。
+        // Alignment may cross the area boundary; select the closest valid candidate.
         return boundedAlignedSize(
             width: Double(size.width) * scale,
             height: Double(size.height) * scale
@@ -74,12 +85,13 @@ public extension MediaServicing {
 
 private extension MediaServicing {
 
-    /// 选择满足模型面积与对齐约束、最接近目标宽高的尺寸。
+    /// Selects the closest dimensions satisfying model area and alignment.
     ///
     /// - Parameters:
-    ///   - width: 缩放后的目标宽度，单位为像素。
-    ///   - height: 缩放后的目标高度，单位为像素。
-    /// - Returns: 在合法尺寸中相对宽高偏差最小的候选尺寸。
+    ///   - width: The scaled target width, in pixels.
+    ///   - height: The scaled target height, in pixels.
+    ///
+    /// - Returns: The valid dimensions with the smallest relative width and height error.
     func boundedAlignedSize(
         width: Double,
         height: Double
@@ -94,46 +106,69 @@ private extension MediaServicing {
         for widthUnits in 1...maximumUnits {
             let minimumHeight = (minimumUnits + widthUnits - 1) / widthUnits
             let maximumHeight = maximumUnits / widthUnits
-            guard minimumHeight <= maximumHeight else { continue }
+            guard minimumHeight <= maximumHeight else {
+                continue
+            }
             let heightUnits = min(
-                max(Int((height / Double(alignment)).rounded()), minimumHeight),
+                max(
+                    Int((height / Double(alignment)).rounded()),
+                    minimumHeight
+                ),
                 maximumHeight
             )
             let candidateWidth = Double(widthUnits * alignment)
             let candidateHeight = Double(heightUnits * alignment)
-            let distance = pow((candidateWidth - width) / width, 2)
-                + pow((candidateHeight - height) / height, 2)
+            let distance =
+                pow(
+                    (candidateWidth - width) / width,
+                    2
+                )
+                + pow(
+                    (candidateHeight - height) / height,
+                    2
+                )
             if distance < bestDistance {
                 bestDistance = distance
-                bestSize = CGSize(width: candidateWidth, height: candidateHeight)
+                bestSize = CGSize(
+                    width: candidateWidth,
+                    height: candidateHeight
+                )
             }
         }
         return bestSize
     }
 
-    /// 校验媒体宽高并将其取整为至少一个像素。
+    /// Validates media dimensions and rounds to at least one pixel.
     ///
-    /// - Parameter size: 待校验的媒体尺寸。
-    /// - Returns: 宽高均为正整数的媒体尺寸。
-    /// - Throws: 宽高非有限、非正数或超出整数范围时抛出配置错误。
+    /// - Parameter size: The media dimensions to validate.
+    ///
+    /// - Returns: The positive integer media dimensions.
+    ///
+    /// - Throws: A configuration error if dimensions are nonfinite, nonpositive, or out of range.
     func validatedSize(
         _ size: CGSize
     ) throws -> CGSize {
         guard size.width.isFinite,
-              size.height.isFinite,
-              size.width > 0,
-              size.height > 0,
-              size.width < CGFloat(Int.max),
-              size.height < CGFloat(Int.max) else {
+            size.height.isFinite,
+            size.width > 0,
+            size.height > 0,
+            size.width < CGFloat(Int.max),
+            size.height < CGFloat(Int.max)
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Image width and height must be finite numbers " +
-                    "greater than zero"
+                message: "Image width and height must be finite numbers " + "greater than zero"
             )
         }
         return CGSize(
-            width: max(size.width.rounded(), 1),
-            height: max(size.height.rounded(), 1)
+            width: max(
+                size.width.rounded(),
+                1
+            ),
+            height: max(
+                size.height.rounded(),
+                1
+            )
         )
     }
 }

@@ -10,78 +10,78 @@
 
 import Foundation
 
-/// SDK 内部组件上报统一错误时使用的监听器。
+/// A handler for SDK component errors.
 typealias XmaxErrorListener = @Sendable (XmaxError) -> Void
 
-/// SDK 向接入方暴露的统一错误码。
+/// An error code reported by XmaxSDK.
 public enum XmaxErrorCode: String, CaseIterable, Sendable {
 
-    /// API Key 未配置或为空。
+    /// The API key is missing or empty.
     case invalidAPIKey = "INVALID_API_KEY"
 
-    /// 调用参数、配置或当前生命周期状态不符合操作要求。
+    /// The arguments, configuration, or lifecycle state do not permit the operation.
     case invalidConfiguration = "INVALID_CONFIGURATION"
 
-    /// SDK 内部发生无法归类的非预期错误。
+    /// An unexpected internal error.
     case internalError = "INTERNAL_ERROR"
 
-    /// 网络不可用、连接失败或 HTTP 请求无法完成。
+    /// A network connection or HTTP request failed.
     case networkError = "NETWORK_ERROR"
 
-    /// Xmax API 返回业务失败，或者响应数据无法正确解析。
+    /// The API rejected the request or returned an invalid response.
     case apiError = "API_ERROR"
 
-    /// 实时生成会话数据缺失、会话关闭或心跳状态异常。
+    /// Session data is missing, the session closed, or its heartbeat failed.
     case sessionError = "SESSION_ERROR"
 
-    /// RTC Engine、房间、媒体传输或渲染绑定发生错误。
+    /// An RTC engine, room, transport, or rendering error.
     case rtcError = "RTC_ERROR"
 
-    /// 本地媒体读取、解码、同步或帧处理发生错误。
+    /// A media reading, decoding, synchronization, or frame processing error.
     case mediaError = "MEDIA_ERROR"
 
-    /// 当前系统、设备或视频规格不支持远端视频插帧。
+    /// Frame interpolation is unsupported by the system, device, or video format.
     case frameInterpolationUnsupported =
         "FRAME_INTERPOLATION_UNSUPPORTED"
 
-    /// 接入方未授予相机权限。
+    /// Camera access was denied.
     case cameraPermissionDenied = "CAMERA_PERMISSION_DENIED"
 
-    /// 接入方未授予麦克风权限。
+    /// Microphone access was denied.
     case microphonePermissionDenied = "MICROPHONE_PERMISSION_DENIED"
 
-    /// 文件或二进制数据上传失败。
+    /// A file or data upload failed.
     case uploadError = "UPLOAD_ERROR"
 
-    /// 远端文件下载失败。
+    /// A remote file download failed.
     case downloadError = "DOWNLOAD_ERROR"
 
-    /// 图片未通过内容安全检查。
+    /// The image failed its content safety check.
     case unsafeImage = "UNSAFE_IMAGE"
 
-    /// 操作因生命周期切换或接入方主动终止而正常取消。
+    /// The operation was cancelled.
     case cancelled = "CANCELLED"
 
-    /// 等待连接、房间事件或生成结果超过规定时间。
+    /// A connection, room event, or generation result timed out.
     case timeout = "TIMEOUT"
 }
 
-/// 表示 SDK 抛出或回调给接入方的统一错误。
+/// An error thrown or reported by XmaxSDK.
 public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
 
-    /// SDK 统一错误码。
+    /// The SDK error code.
     public let code: XmaxErrorCode
 
-    /// 面向接入方的可读错误说明。
+    /// A readable error description.
     public let message: String
 
-    /// Xmax API 返回的业务错误码；非 API 业务错误时为空。
+    /// The API business error code, if returned.
     public let apiCode: Int?
 
-    /// HTTP 响应状态码；请求未获得响应时为空。
+    /// The HTTP status code, if a response was received.
     public let httpStatus: Int?
 
-    /// 创建 SDK 错误。
+    /// Creates an SDK error.
     public init(
         code: XmaxErrorCode,
         message: String,
@@ -94,15 +94,16 @@ public struct XmaxError: Error, LocalizedError, Equatable, Sendable {
         self.httpStatus = httpStatus
     }
 
-    /// `LocalizedError` 使用的错误说明。
+    /// The localized error description.
     public var errorDescription: String? {
         message
     }
 
-    /// 将未知错误转换为 SDK 内部错误，已有 `XmaxError` 原样返回。
+    /// Converts an error to an SDK error, preserving existing `XmaxError` values.
     ///
-    /// - Parameter error: 待转换的错误。
-    /// - Returns: 可向接入方抛出或回调的统一错误。
+    /// - Parameter error: The error to convert.
+    ///
+    /// - Returns: The SDK error.
     public static func from(
         _ error: any Error
     ) -> XmaxError {

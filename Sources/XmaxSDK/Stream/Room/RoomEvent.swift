@@ -10,21 +10,23 @@
 
 import Foundation
 
-/// 生成 SDK 与 RTC 房间之间传输的结构化事件消息。
+/// The structured signaling exchanged through RTC rooms.
 enum RoomEvent {
 
-    /// 编码开始生成信令并附加运行环境。
+    /// Encodes a generation start signal with runtime information.
     ///
     /// - Parameters:
-    ///   - userID: 本地 RTC 用户账号。
-    ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 服务端生成使用的视频规格。
-    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
-    ///   - context: 当前生成条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - paddingContain: 是否保留源比例并填充生成画布。
-    /// - Returns: 可发送的 JSON 开始信令。
-    /// - Throws: 生成参数、码率计算或 JSON 编码失败时抛出错误。
+    ///   - userID: The local RTC account.
+    ///   - taskID: The generation task identifier.
+    ///   - videoFormat: The server generation format.
+    ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+    ///   - context: The generation conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - paddingContain: Whether to preserve input aspect ratio within the canvas.
+    ///
+    /// - Returns: The JSON generation start message.
+    ///
+    /// - Throws: An error if generation parameters, bitrate resolution, or JSON encoding fails.
     static func start(
         userID: String,
         taskID: String,
@@ -50,18 +52,20 @@ enum RoomEvent {
         )
     }
 
-    /// 编码生成条件更新信令并附加运行环境。
+    /// Encodes a condition update with runtime information.
     ///
     /// - Parameters:
-    ///   - userID: 本地 RTC 用户账号。
-    ///   - taskID: 当前生成任务标识。
-    ///   - videoFormat: 服务端生成使用的视频规格。
-    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
-    ///   - context: 当前生成条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - paddingContain: 是否保留源比例并填充生成画布。
-    /// - Returns: 可发送的 JSON 条件变更信令。
-    /// - Throws: 生成参数或 JSON 编码失败时抛出错误。
+    ///   - userID: The local RTC account.
+    ///   - taskID: The generation task identifier.
+    ///   - videoFormat: The server generation format.
+    ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+    ///   - context: The generation conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - paddingContain: Whether to preserve input aspect ratio within the canvas.
+    ///
+    /// - Returns: The JSON condition update.
+    ///
+    /// - Throws: An error if parameters are invalid or JSON encoding fails.
     static func changeCondition(
         userID: String,
         taskID: String,
@@ -86,14 +90,16 @@ enum RoomEvent {
         )
     }
 
-    /// 编码回传尺寸和下行码率更新信令。
+    /// Encodes a target-size and downlink bitrate update.
     ///
     /// - Parameters:
-    ///   - userID: 本地 RTC 用户账号。
-    ///   - taskID: 需要更新的生成任务标识。
-    ///   - targetSize: 生成后返回的整数像素尺寸。
-    /// - Returns: 可发送的 JSON 回传尺寸变更信令。
-    /// - Throws: 目标尺寸无效、码率计算或 JSON 编码失败时抛出错误。
+    ///   - userID: The local RTC account.
+    ///   - taskID: The generation task to update.
+    ///   - targetSize: The integer returned pixel dimensions.
+    ///
+    /// - Returns: The JSON target-size update.
+    ///
+    /// - Throws: An error if dimensions are invalid or bitrate resolution or JSON encoding fails.
     static func changeTargetSize(
         userID: String,
         taskID: String,
@@ -108,13 +114,15 @@ enum RoomEvent {
         )
     }
 
-    /// 编码停止生成信令。
+    /// Encodes a generation stop signal.
     ///
     /// - Parameters:
-    ///   - userID: 本地 RTC 用户账号。
-    ///   - taskID: 需要停止的生成任务标识。
-    /// - Returns: 可发送的 JSON 停止信令。
-    /// - Throws: JSON 编码失败时抛出错误。
+    ///   - userID: The local RTC account.
+    ///   - taskID: The generation task to stop.
+    ///
+    /// - Returns: The JSON stop message.
+    ///
+    /// - Throws: An error if JSON encoding fails.
     static func stop(
         userID: String,
         taskID: String
@@ -127,14 +135,16 @@ enum RoomEvent {
         )
     }
 
-    /// 编码生成任务的媒体归一化坐标轨迹。
+    /// Encodes a normalized media trajectory.
     ///
     /// - Parameters:
-    ///   - userID: 本地 RTC 用户账号。
-    ///   - taskID: 接收轨迹的生成任务标识。
-    ///   - points: 按采样顺序排列、相对于处理后媒体尺寸的 `[0, 1]` 坐标点。
-    /// - Returns: 可发送的 JSON 轨迹信令。
-    /// - Throws: 坐标或 JSON 编码失败时抛出错误。
+    ///   - userID: The local RTC account.
+    ///   - taskID: The generation task receiving the trajectory.
+    ///   - points: The ordered points in `[0, 1]`, relative to resolved media dimensions.
+    ///
+    /// - Returns: The JSON trajectory message.
+    ///
+    /// - Throws: An error if coordinates are invalid or JSON encoding fails.
     static func tracks(
         userID: String,
         taskID: String,
@@ -142,18 +152,22 @@ enum RoomEvent {
     ) throws -> String {
         try encode(
             TracksPayload(
-                tracks: points.map { [$0.x, $0.y] },
+                tracks: points.map {
+                    [$0.x, $0.y]
+                },
                 userID: userID,
                 taskID: taskID
             )
         )
     }
 
-    /// 编码房间心跳信令。
+    /// Encodes a room heartbeat.
     ///
-    /// - Parameter userID: 本地 RTC 用户账号。
-    /// - Returns: 可发送的 JSON 心跳信令。
-    /// - Throws: JSON 编码失败时抛出错误。
+    /// - Parameter userID: The local RTC account.
+    ///
+    /// - Returns: The JSON heartbeat message.
+    ///
+    /// - Throws: An error if JSON encoding fails.
     static func heartbeat(
         userID: String
     ) throws -> String {
@@ -163,46 +177,79 @@ enum RoomEvent {
 
 private extension RoomEvent {
 
-    /// 校验回传尺寸并计算下行码率预算。
+    /// Validates returned dimensions and resolves the downlink bitrate budget.
     ///
-    /// - Parameter size: 回传视频的整数像素尺寸。
-    /// - Returns: 以 kbps 表示的下行最小和最大码率。
-    /// - Throws: 尺寸无效或码率计算失败时抛出错误。
+    /// - Parameter size: The integer returned video dimensions.
+    ///
+    /// - Returns: The minimum and maximum downlink bitrate, in kbps.
+    ///
+    /// - Throws: An error if dimensions are invalid or bitrate resolution fails.
     static func downlinkBitrates(
         _ size: CGSize
     ) throws -> (minimum: Int, maximum: Int) {
         guard size.width.isFinite, size.height.isFinite,
-              size.width >= 2, size.height >= 2,
-              size.width < CGFloat(Int.max), size.height < CGFloat(Int.max),
-              size.width.rounded(.down) == size.width,
-              size.height.rounded(.down) == size.height else {
-            throw XmaxError(code: .invalidConfiguration, message: "Invalid return video dimensions")
+            size.width >= 2, size.height >= 2,
+            size.width < CGFloat(Int.max), size.height < CGFloat(Int.max),
+            size.width.rounded(.down) == size.width,
+            size.height.rounded(.down) == size.height
+        else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Invalid return video dimensions"
+            )
         }
-        let budget = try EncodingBitratePolicy.resolve(RealtimeVideoFormat(
-            width: Int(size.width), height: Int(size.height), fps: 24
-        ))
-        return (100, min(10000, budget.maximum))
+        let budget = try EncodingBitratePolicy.resolve(
+            RealtimeVideoFormat(
+                width: Int(size.width),
+                height: Int(size.height),
+                fps: 24
+            )
+        )
+        return (
+            100,
+            min(
+                10000,
+                budget.maximum
+            )
+        )
     }
 
-    /// 统一附加运行环境和会话任务字段后编码信令。
+    /// Encodes signaling with shared runtime and task fields.
     ///
-    /// - Parameter payload: 具体业务事件的可编码载荷。
-    /// - Returns: 键顺序稳定的 UTF-8 JSON 文本。
-    /// - Throws: 载荷编码、JSON 转换或文本转换失败时抛出错误。
+    /// - Parameter payload: The encodable event payload.
+    ///
+    /// - Returns: UTF-8 JSON with stable key ordering.
+    ///
+    /// - Throws: An error if payload encoding, JSON conversion, or text conversion fails.
     static func encode(
         _ payload: some Encodable
     ) throws -> String {
         let payloadData = try JSONEncoder().encode(
-            Envelope(payload: payload, runtime: .current)
+            Envelope(
+                payload: payload,
+                runtime: .current
+            )
         )
-        guard var object = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
-            throw XmaxError(code: .internalError, message: "Failed to encode RTC room event")
+        guard var object = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any]
+        else {
+            throw XmaxError(
+                code: .internalError,
+                message: "Failed to encode RTC room event"
+            )
         }
         if let taskID = object["uid"] {
             object["session_uid"] = taskID
         }
-        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
-        guard let message = String(data: data, encoding: .utf8) else {
+        let data = try JSONSerialization.data(
+            withJSONObject: object,
+            options: [.sortedKeys]
+        )
+        guard
+            let message = String(
+                data: data,
+                encoding: .utf8
+            )
+        else {
             throw XmaxError(
                 code: .internalError,
                 message: "Failed to encode RTC room event"
@@ -211,78 +258,85 @@ private extension RoomEvent {
         return message
     }
 
-    /// 在业务信令中附加运行环境信息。
+    /// A signaling payload with runtime information.
     struct Envelope<Payload: Encodable>: Encodable {
 
-        /// 需要封装运行信息的业务信令内容。
+        /// The business event payload.
         let payload: Payload
 
-        /// 发送信令时携带的客户端运行环境。
+        /// The client runtime information sent with signaling.
         let runtime: RuntimeInfo
 
-        /// 将业务载荷及运行环境写入同一个编码容器。
+        /// Encodes the event and runtime in one container.
         ///
-        /// - Parameter encoder: 输出信令使用的编码器。
-        /// - Throws: 业务载荷或运行环境编码失败时抛出错误。
+        /// - Parameter encoder: The signaling encoder.
+        ///
+        /// - Throws: An error if payload or runtime encoding fails.
         func encode(
             to encoder: Encoder
         ) throws {
             try payload.encode(to: encoder)
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(runtime, forKey: .runtime)
+            try container.encode(
+                runtime,
+                forKey: .runtime
+            )
         }
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 客户端运行环境字段。
+            /// The client runtime field.
             case runtime
         }
     }
 
-    /// 编码生成尺寸、参考条件和输出选项。
+    /// The generation canvas, reference conditions, and output options.
     struct GenerationParameters: Encodable {
 
-        /// 生成信令中的模型占位值；具体模型由会话确定。
+        /// The signaling model placeholder; the session determines the actual model.
         let model = "default"
 
-        /// 生成画布的宽高，单位为像素。
+        /// The generation canvas dimensions, in pixels.
         let size: [Int]
 
-        /// 生成结果回传的宽高，单位为像素。
+        /// The returned output dimensions, in pixels.
         let targetSize: [Int]?
 
-        /// 描述生成效果的提示词。
+        /// The generation prompt.
         let prompt: String
 
-        /// 服务端可访问的参考图片地址。
+        /// The server-accessible reference image URL.
         let referencePath: String?
 
-        /// 是否镜像处理输入画面。
+        /// Whether to mirror the input.
         let mirror: Bool?
 
-        /// 是否启用人脸修复。
+        /// Whether face restoration is enabled.
         let faceRestoration: Bool
 
-        /// 输入内容适配生成画布的填充策略。
+        /// The input-to-canvas padding policy.
         let padding: String?
 
-        /// 服务端视频编码码率下限，单位为 kbps。
+        /// The server encoder minimum bitrate, in kbps.
         let minimumBitrate: Int?
 
-        /// 服务端视频编码码率上限，单位为 kbps。
+        /// The server encoder maximum bitrate, in kbps.
         let maximumBitrate: Int?
 
-        /// 创建生成参数，并按需要附加下行码率配置。
+        /// Creates generation parameters with optional downlink bitrate settings.
         ///
         /// - Parameters:
-        ///   - videoFormat: 服务端生成使用的视频规格。
-        ///   - targetSize: 生成后回传尺寸；`nil` 表示保持生成尺寸。
-        ///   - context: 参考图和提示词等生成条件。
-        ///   - faceRestoration: 是否回贴原始人脸。
-        ///   - paddingContain: 是否按包含模式填充画布。
-        ///   - mirror: 可选镜像设置；非空时同时生成下行码率字段。
-        /// - Throws: 需要计算下行码率时，尺寸或码率无效会抛出错误。
+        ///   - videoFormat: The server generation format.
+        ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+        ///   - context: The reference image and prompt conditions.
+        ///   - faceRestoration: Whether to restore the original face.
+        ///   - paddingContain: Whether to contain input within the canvas.
+        ///   - mirror: The optional mirror setting. When provided, downlink bitrate fields are
+        ///     included.
+        ///
+        /// - Throws: An error if dimensions or bitrate are invalid when a downlink budget is
+        ///   required.
         init(
             videoFormat: RealtimeVideoFormat,
             targetSize: CGSize?,
@@ -292,7 +346,9 @@ private extension RoomEvent {
             mirror: Bool? = nil
         ) throws {
             size = [videoFormat.width, videoFormat.height]
-            self.targetSize = targetSize.map { [Int($0.width), Int($0.height)] }
+            self.targetSize = targetSize.map {
+                [Int($0.width), Int($0.height)]
+            }
             prompt = context.prompt
             referencePath = context.referencePath
             self.mirror = mirror
@@ -308,121 +364,122 @@ private extension RoomEvent {
             }
         }
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 生成模型字段。
+            /// The generation model field.
             case model
 
-            /// 生成画布尺寸字段。
+            /// The generation canvas field.
             case size
 
-            /// 结果回传尺寸字段。
+            /// The returned dimensions field.
             case targetSize = "target_size"
 
-            /// 生成提示词字段。
+            /// The generation prompt field.
             case prompt
 
-            /// 参考图片地址字段。
+            /// The reference image field.
             case referencePath = "ref_image_path"
 
-            /// 输入镜像标记字段。
+            /// The input mirroring field.
             case mirror
 
-            /// 人脸修复开关字段。
+            /// The face restoration field.
             case faceRestoration = "face_replace"
 
-            /// 画布填充策略字段。
+            /// The canvas padding field.
             case padding
 
-            /// 编码码率下限字段。
+            /// The minimum bitrate field.
             case minimumBitrate = "min_bitrate"
 
-            /// 编码码率上限字段。
+            /// The maximum bitrate field.
             case maximumBitrate = "max_bitrate"
         }
     }
 
-    /// 表示开始生成的房间信令。
+    /// A generation start room message.
     struct StartPayload: Encodable {
 
-        /// 启动生成的事件名称。
+        /// The start event name.
         let event = "start"
 
-        /// 本次生成使用的尺寸、条件与画面配置。
+        /// The generation dimensions, conditions, and display settings.
         let params: GenerationParameters
 
-        /// 发起生成的业务用户标识。
+        /// The business user starting generation.
         let userID: String
 
-        /// 本次生成任务标识。
+        /// The generation task identifier.
         let taskID: String
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 信令事件名称字段。
+            /// The event name field.
             case event
 
-            /// 信令业务参数字段。
+            /// The event parameters field.
             case params
 
-            /// 业务用户标识字段。
+            /// The business user field.
             case userID = "user_id"
 
-            /// 生成任务标识字段。
+            /// The generation task field.
             case taskID = "uid"
         }
     }
 
-    /// 表示更新生成条件的房间信令。
+    /// A generation condition update room message.
     struct ChangeConditionPayload: Encodable {
 
-        /// 更新生成条件的事件名称。
+        /// The condition update event name.
         let event = "change_condition"
 
-        /// 需要更新的生成条件与画面配置。
+        /// The updated generation and display conditions.
         let params: GenerationParameters
 
-        /// 当前生成任务的业务用户标识。
+        /// The task's business user identifier.
         let userID: String
 
-        /// 本次生成任务标识。
+        /// The generation task identifier.
         let taskID: String
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 信令事件名称字段。
+            /// The event name field.
             case event
 
-            /// 信令业务参数字段。
+            /// The event parameters field.
             case params
 
-            /// 业务用户标识字段。
+            /// The business user field.
             case userID = "user_id"
 
-            /// 生成任务标识字段。
+            /// The generation task field.
             case taskID = "uid"
         }
     }
 
-    /// 编码回传尺寸及对应的下行码率预算。
+    /// The returned dimensions and downlink bitrate budget.
     struct TargetSizeParameters: Encodable {
 
-        /// 生成结果回传的宽高，单位为像素。
+        /// The returned output dimensions, in pixels.
         let targetSize: [Int]
 
-        /// 服务端视频编码码率下限，单位为 kbps。
+        /// The server encoder minimum bitrate, in kbps.
         let minimumBitrate: Int
 
-        /// 服务端视频编码码率上限，单位为 kbps。
+        /// The server encoder maximum bitrate, in kbps.
         let maximumBitrate: Int
 
-        /// 校验并创建回传尺寸及码率参数。
+        /// Creates validated target-size and bitrate parameters.
         ///
-        /// - Parameter size: 目标回传整数像素尺寸。
-        /// - Throws: 尺寸校验或下行码率计算失败时抛出错误。
+        /// - Parameter size: The integer target output dimensions.
+        ///
+        /// - Throws: An error if dimensions or downlink bitrate resolution fails.
         init(
             size: CGSize
         ) throws {
@@ -432,126 +489,126 @@ private extension RoomEvent {
             maximumBitrate = budget.maximum
         }
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 结果回传尺寸字段。
+            /// The returned dimensions field.
             case targetSize = "target_size"
 
-            /// 编码码率下限字段。
+            /// The minimum bitrate field.
             case minimumBitrate = "min_bitrate"
 
-            /// 编码码率上限字段。
+            /// The maximum bitrate field.
             case maximumBitrate = "max_bitrate"
         }
     }
 
-    /// 表示动态调整回传尺寸的房间信令。
+    /// A dynamic target-size room message.
     struct ChangeTargetSizePayload: Encodable {
 
-        /// 更新回传尺寸的事件名称。
+        /// The target-size event name.
         let event = "change_target_size"
 
-        /// 新的回传尺寸及编码码率范围。
+        /// The new output dimensions and bitrate bounds.
         let params: TargetSizeParameters
 
-        /// 当前生成任务的业务用户标识。
+        /// The task's business user identifier.
         let userID: String
 
-        /// 本次生成任务标识。
+        /// The generation task identifier.
         let taskID: String
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 信令事件名称字段。
+            /// The event name field.
             case event
 
-            /// 信令业务参数字段。
+            /// The event parameters field.
             case params
 
-            /// 业务用户标识字段。
+            /// The business user field.
             case userID = "user_id"
 
-            /// 生成任务标识字段。
+            /// The generation task field.
             case taskID = "uid"
         }
     }
 
-    /// 表示停止生成任务的房间信令。
+    /// A generation stop room message.
     struct StopPayload: Encodable {
 
-        /// 停止生成的事件名称。
+        /// The stop event name.
         let event = "stop"
 
-        /// 当前生成任务的业务用户标识。
+        /// The task's business user identifier.
         let userID: String
 
-        /// 本次生成任务标识。
+        /// The generation task identifier.
         let taskID: String
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 信令事件名称字段。
+            /// The event name field.
             case event
 
-            /// 业务用户标识字段。
+            /// The business user field.
             case userID = "user_id"
 
-            /// 生成任务标识字段。
+            /// The generation task field.
             case taskID = "uid"
         }
     }
 
-    /// 表示生成任务的媒体归一化坐标轨迹信令。
+    /// A normalized media trajectory room message.
     struct TracksPayload: Encodable {
 
-        /// 发送轨迹的事件名称。
+        /// The trajectory event name.
         let event = "tracks"
 
-        /// 相对于处理后完整媒体尺寸的归一化坐标，每项为 [x, y]。
+        /// The normalized points relative to complete resolved media dimensions, each as `[x, y]`.
         let tracks: [[Double]]
 
-        /// 发送轨迹的业务用户标识。
+        /// The business user sending the trajectory.
         let userID: String
 
-        /// 轨迹所属的生成任务标识。
+        /// The trajectory's generation task identifier.
         let taskID: String
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 信令事件名称字段。
+            /// The event name field.
             case event
 
-            /// 归一化轨迹坐标字段。
+            /// The normalized trajectory field.
             case tracks
 
-            /// 业务用户标识字段。
+            /// The business user field.
             case userID = "user_id"
 
-            /// 生成任务标识字段。
+            /// The generation task field.
             case taskID = "uid"
         }
     }
 
-    /// 表示保持房间活动的心跳信令。
+    /// A room keepalive message.
     struct HeartbeatPayload: Encodable {
 
-        /// 房间心跳的事件名称。
+        /// The room heartbeat event name.
         let event = "heartbeat"
 
-        /// 本次房间心跳的业务用户标识。
+        /// The business user sending the heartbeat.
         let userID: String
 
-        /// 映射服务端约定的信令字段名。
+        /// The server signaling field names.
         enum CodingKeys: String, CodingKey {
 
-            /// 信令事件名称字段。
+            /// The event name field.
             case event
 
-            /// 业务用户标识字段。
+            /// The business user field.
             case userID = "user_id"
         }
     }

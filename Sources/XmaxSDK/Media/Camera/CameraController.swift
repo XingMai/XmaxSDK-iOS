@@ -11,67 +11,75 @@
 import CoreGraphics
 import Foundation
 
-/// 协调系统摄像头采集、外部视频上传和 SDK 本地预览。
+/// Coordinates camera capture, external uplink frames, and local preview.
 final class CameraController: CameraControlling, @unchecked Sendable {
 
-    /// 摄像头本地视频轨道标识。
+    /// The local camera track identifier.
     private static let localVideoTrackID = "video0"
 
-    /// RTC 媒体适配组件。
+    /// Capture dependencies.
+
+    /// The RTC media adapter.
     private let rtcManager: any RtcManaging
 
-    /// 处理摄像头与麦克风权限。
+    /// The camera and microphone permission manager.
     private let permissionManager: any PermissionManaging
 
-    /// 执行摄像头采集并输出转换后的帧。
+    /// The camera capture manager.
     private let captureManager: any CameraCaptureManaging
 
-    /// 模型尺寸规则服务。
+    /// The model media sizing service.
     private let mediaService: any MediaServicing
 
-    /// 接收相机视频帧的回调。
+    /// Event handlers.
+
+    /// The camera video frame handler.
     private let videoFrameListener: MediaVideoFrameListener
 
-    /// 接收摄像头媒体链路错误。
+    /// The camera media failure handler.
     private let errorListener: XmaxErrorListener
 
-    /// 本地预览首帧准备完成时的内部回调。
+    /// The internal preview readiness handler.
     private var previewReadyHandler: CameraPreviewReadyHandler?
 
-    /// 保护摄像头轨道、预览与采集状态。
+    /// Capture and preview state.
+
+    /// The lock protecting camera, capture, and preview state.
     private let stateLock = NSLock()
 
-    /// 当前可用的摄像头视频轨道。
+    /// The active camera track.
     private var activeTrack: RealtimeVideoTrack?
 
-    /// 当前摄像头预览资源。
+    /// The camera preview resources.
     private var preview: Preview?
 
-    /// 当前摄像头是否已输出有效帧。
+    /// Whether the camera has produced a valid frame.
     private var hasCapturedFrame = false
 
-    /// 预览是否已绑定视图。
+    /// Whether a preview view is attached.
     private var isPreviewAttached = false
 
-    /// 本次摄像头输入是否请求使用麦克风。
+    /// Whether this camera input requests microphone access.
     private var storedUseMicrophone = false
 
-    /// RTC 是否正在采集麦克风音频。
+    /// Whether RTC microphone capture is active.
     private var isMicrophoneCapturing = false
 
-    /// 串行提交尺寸及方向更新，避免窗口旋转覆盖手动规格。
+    /// Format updates.
+
+    /// The queue serializing format and orientation updates.
     @MainActor private var formatUpdateTask: Task<Void, any Error>?
 
-    /// 已应用到采集帧的窗口方向，用于判断是否需要交换输出宽高。
+    /// The applied orientation used to resolve output dimensions.
     @MainActor private var appliedOrientation: CameraOrientation?
 
-    /// 使用系统权限和采集组件创建摄像头控制器。
+    /// Creates a camera controller with system capture and permissions.
     ///
     /// - Parameters:
-    ///   - rtcManager: 配置 RTC 外部视频和麦克风的组件。
-    ///   - mediaService: 提供模型尺寸规则的服务。
-    ///   - videoFrameListener: 接收相机视频帧的回调。
-    ///   - errorListener: 接收采集运行错误的回调。
+    ///   - rtcManager: The RTC video and microphone adapter.
+    ///   - mediaService: The model sizing service.
+    ///   - videoFrameListener: The camera video frame handler.
+    ///   - errorListener: The capture failure handler.
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
@@ -89,14 +97,16 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         )
     }
 
-    /// 使用指定依赖创建摄像头控制器。
+    /// Creates a camera controller with the specified dependencies.
     init(
         rtcManager: any RtcManaging,
         permissionManager: any PermissionManaging,
         mediaService: any MediaServicing,
         captureManager: any CameraCaptureManaging,
-        videoFrameListener: @escaping MediaVideoFrameListener = { _ in },
-        errorListener: @escaping XmaxErrorListener = { _ in }
+        videoFrameListener: @escaping MediaVideoFrameListener = { _ in
+        },
+        errorListener: @escaping XmaxErrorListener = { _ in
+        }
     ) {
         self.rtcManager = rtcManager
         self.permissionManager = permissionManager
@@ -106,19 +116,23 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         self.errorListener = errorListener
     }
 
-    /// 当前活动的本地相机视频轨道；尚未创建时返回空值。
+    /// The active camera track, if created.
     var currentTrack: RealtimeVideoTrack? {
-        stateLock.withLock { activeTrack }
+        stateLock.withLock {
+            activeTrack
+        }
     }
 
-    /// 当前相机流是否配置为使用麦克风。
+    /// Whether the camera stream uses microphone input.
     var useMicrophone: Bool {
-        stateLock.withLock { activeTrack != nil && storedUseMicrophone }
+        stateLock.withLock {
+            activeTrack != nil && storedUseMicrophone
+        }
     }
 
-    /// 设置当前相机流的一次性内部就绪处理；条件为已收到有效帧且预览已绑定。
+    /// Sets a one-shot readiness handler requiring a valid frame and an attached preview.
     ///
-    /// - Parameter handler: 就绪时调用的处理闭包；传入空值时清除。
+    /// - Parameter handler: The readiness handler, or `nil` to remove it.
     func setPreviewReadyHandler(
         _ handler: CameraPreviewReadyHandler?
     ) {
@@ -126,17 +140,23 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             previewReadyHandler = handler
             return activeTrack
         }
-        if let track { notifyPreviewReady(for: track) }
+        if let track {
+            notifyPreviewReady(for: track)
+        }
     }
 
-    /// 创建并启动本地相机流。
+    /// Creates and starts a local camera stream.
     ///
     /// - Parameters:
-    ///   - videoFormat: 期望的输出尺寸、帧率和编码配置；尺寸按模型规则调整。
-    ///   - position: 首次启动时使用的摄像头位置。
-    ///   - useMicrophone: 是否申请麦克风权限并允许实时连接时启动音频采集。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 已有活动相机流、格式无效、权限不足或采集启动失败时抛出错误。
+    ///   - videoFormat: The requested dimensions, frame rate, and encoding settings, subject to
+    ///     model rules.
+    ///   - position: The initial camera position.
+    ///   - useMicrophone: Whether to request microphone access and capture audio while connected.
+    ///
+    /// - Returns: The local camera media stream.
+    ///
+    /// - Throws: An error if a camera stream exists, the format is invalid, permission is denied,
+    ///   or capture fails.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition,
@@ -162,7 +182,10 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             try Task.checkCancellation()
             try rtcManager.useExternalVideoSource()
             try rtcManager.configureLocalVideoMirror(for: position)
-            let preview = await makePreview(for: track, position: position)
+            let preview = await makePreview(
+                for: track,
+                position: position
+            )
             stateLock.withLock {
                 activeTrack = track
                 self.preview = preview
@@ -179,54 +202,67 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                 frameRate: resolvedFormat.fps,
                 position: position,
                 frameListener: { [weak self] frame in
-                    try self?.handleFrame(frame, track: track, preview: preview)
+                    try self?.handleFrame(
+                        frame,
+                        track: track,
+                        preview: preview
+                    )
                 },
                 errorListener: { [weak self] error in
-                    guard let self, currentTrack === track else { return }
+                    guard let self, currentTrack === track else {
+                        return
+                    }
                     errorListener(error)
                 }
             )
             try Task.checkCancellation()
-            return RealtimeMediaStream(id: StreamID.local.rawValue, videoTrack: track)
+            return RealtimeMediaStream(
+                id: StreamID.local.rawValue,
+                videoTrack: track
+            )
         } catch {
             await stopLocalCameraStream()
             throw XmaxError.from(error)
         }
     }
 
-    /// 为已启用麦克风的相机流启动音频采集，不开启本地回放。
+    /// Starts configured microphone capture without local audio playback.
     ///
-    /// - Throws: RTC 音频源配置或麦克风采集启动失败时抛出错误。
+    /// - Throws: An error if RTC audio configuration or microphone capture fails.
     func startMicrophoneCapture() throws {
         try stateLock.withLock {
-            guard activeTrack != nil, storedUseMicrophone, !isMicrophoneCapturing else { return }
-            // 启动失败时也保留待停止状态，由连接清理回收可能已启动的设备。
+            guard activeTrack != nil, storedUseMicrophone, !isMicrophoneCapturing else {
+                return
+            }
+            // Retain stop eligibility on startup failure so cleanup can release a partially started device.
             isMicrophoneCapturing = true
             try rtcManager.startAudioCapture()
         }
     }
 
-    /// 停止麦克风采集，保留下一次连接所需的配置。
+    /// Stops microphone capture while retaining its configuration.
     ///
-    /// - Throws: RTC 麦克风采集停止失败时抛出错误。
+    /// - Throws: An error if RTC microphone capture cannot stop.
     func stopMicrophoneCapture() throws {
         try stateLock.withLock {
-            guard isMicrophoneCapturing else { return }
+            guard isMicrophoneCapturing else {
+                return
+            }
             try rtcManager.stopAudioCapture()
             isMicrophoneCapturing = false
         }
     }
 
-    /// 停止相机和麦克风采集，并释放当前轨道及本地预览资源。
+    /// Stops camera and microphone capture and releases preview resources.
     func stopLocalCameraStream() async {
         do {
             try stopMicrophoneCapture()
         } catch {
             XmaxLogger.realtime.error(
                 message: """
-                停止麦克风采集失败 (Failed to Stop Microphone Capture)
-                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                """
+                    停止麦克风采集失败 (Failed to Stop Microphone Capture)
+                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                    """
             )
         }
         let resources = stateLock.withLock {
@@ -245,18 +281,24 @@ final class CameraController: CameraControlling, @unchecked Sendable {
         await MainActor.run {
             appliedOrientation = nil
             formatUpdateTask = nil
-            if let track = resources.0 { VideoRenderRegistry.unregister(track) }
+            if let track = resources.0 {
+                VideoRenderRegistry.unregister(track)
+            }
             resources.1?.presenter.clear()
         }
     }
 
-    /// 在前置和后置摄像头之间切换，保留当前视频轨道。
+    /// Switches cameras while retaining the video track.
     ///
-    /// - Returns: 包含更新后相机轨道的媒体流。
-    /// - Throws: 相机流尚未启动、设备切换或镜像配置失败时抛出错误。
+    /// - Returns: The media stream with the updated camera track.
+    ///
+    /// - Throws: An error if capture is inactive or camera switching or mirroring fails.
     func switchCamera() async throws -> RealtimeMediaStream {
         guard let track = currentTrack, let position = track.position else {
-            throw XmaxError(code: .rtcError, message: "Local camera preview is not started")
+            throw XmaxError(
+                code: .rtcError,
+                message: "Local camera preview is not started"
+            )
         }
         let nextPosition: CameraPosition = position == .front ? .back : .front
         try await captureManager.switchCamera(to: nextPosition)
@@ -268,79 +310,122 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             throw error
         }
         track.updatePosition(nextPosition)
-        let preview = stateLock.withLock { self.preview }
+        let preview = stateLock.withLock {
+            self.preview
+        }
         await preview?.presenter.setMirrored(nextPosition == .front)
-        return RealtimeMediaStream(id: StreamID.local.rawValue, videoTrack: track)
+        return RealtimeMediaStream(
+            id: StreamID.local.rawValue,
+            videoTrack: track
+        )
     }
 
-    /// 按窗口方向更新摄像头采集及当前轨道尺寸。
+    /// Updates capture orientation and track dimensions for the window.
     ///
-    /// - Parameter orientation: 目标窗口方向。
-    /// - Throws: 模型不支持目标尺寸或采集更新失败时抛出错误。
+    /// - Parameter orientation: The requested window orientation.
+    ///
+    /// - Throws: An error if the model rejects the dimensions or capture configuration fails.
     func updateOrientation(
         _ orientation: CameraOrientation
     ) async throws {
-        guard currentTrack != nil else { return }
-        try await updateCapture(videoFormat: nil, orientation: orientation)
+        guard currentTrack != nil else {
+            return
+        }
+        try await updateCapture(
+            videoFormat: nil,
+            orientation: orientation
+        )
     }
 
-    /// 更新摄像头完整规格，保留方向、镜头和当前轨道。
+    /// Updates the camera format while retaining orientation, position, and track.
     ///
-    /// - Parameter videoFormat: 模型支持的尺寸、采集帧率和编码配置。
-    /// - Throws: 摄像头未启动、规格无效或设备更新失败时抛出错误。
+    /// - Parameter videoFormat: The supported dimensions, capture frame rate, and encoding
+    ///   settings.
+    ///
+    /// - Throws: An error if capture is inactive, the format is invalid, or configuration fails.
     func updateVideoFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async throws {
-        try await updateCapture(videoFormat: videoFormat, orientation: nil)
+        try await updateCapture(
+            videoFormat: videoFormat,
+            orientation: nil
+        )
     }
 }
 
 private extension CameraController {
 
-    /// 按提交顺序更新采集配置，再同步轨道和待展示帧。
+    /// Applies camera format and orientation updates in submission order.
     ///
     /// - Parameters:
-    ///   - videoFormat: 显式目标规格；为空时仅更新方向。
-    ///   - orientation: 新窗口方向；为空时保留当前方向。
-    /// - Throws: 轨道已失效、规格不支持、操作取消或采集配置失败时抛出错误。
+    ///   - videoFormat: The requested format, or `nil` to change orientation only.
+    ///   - orientation: The requested orientation, or `nil` to retain the current orientation.
+    ///
+    /// - Throws: An error if the track is stale, the format is unsupported, the call is cancelled,
+    ///   or configuration fails.
     @MainActor
     func updateCapture(
         videoFormat: RealtimeVideoFormat?,
         orientation: CameraOrientation?
     ) async throws {
         guard let track = currentTrack else {
-            throw XmaxError(code: .invalidConfiguration, message: "Camera preview is not started")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Camera preview is not started"
+            )
         }
         let previous = formatUpdateTask
         let task = Task { @MainActor [self] in
             _ = try? await previous?.value
             try Task.checkCancellation()
             guard currentTrack === track, let current = track.videoFormat else {
-                throw XmaxError(code: .cancelled, message: "Camera stream is no longer active")
+                throw XmaxError(
+                    code: .cancelled,
+                    message: "Camera stream is no longer active"
+                )
             }
             var requested = videoFormat ?? current
             if let orientation, let appliedOrientation,
-               orientation.isLandscape != appliedOrientation.isLandscape {
-                requested = current.resized(width: current.height, height: current.width)
+                orientation.isLandscape != appliedOrientation.isLandscape
+            {
+                requested = current.resized(
+                    width: current.height,
+                    height: current.width
+                )
             }
             let resolved = try resolveVideoFormat(requested)
-            let output = try VideoFormat(width: resolved.width, height: resolved.height, pixelFormat: .nv12)
+            let output = try VideoFormat(
+                width: resolved.width,
+                height: resolved.height,
+                pixelFormat: .nv12
+            )
 
             if let orientation {
-                try await captureManager.updateOrientation(orientation, videoFormat: output)
+                try await captureManager.updateOrientation(
+                    orientation,
+                    videoFormat: output
+                )
             } else if resolved != current {
-                try await captureManager.updateFormat(output, frameRate: resolved.fps)
+                try await captureManager.updateFormat(
+                    output,
+                    frameRate: resolved.fps
+                )
             }
 
-            // 采集队列已完成旧规格的帧回调；在主线程一起更新元数据和预览队列。
+            // Old-format callbacks have completed; update track metadata and queued preview frames together.
             guard currentTrack === track else {
-                throw XmaxError(code: .cancelled, message: "Camera stream is no longer active")
+                throw XmaxError(
+                    code: .cancelled,
+                    message: "Camera stream is no longer active"
+                )
             }
             stateLock.withLock {
                 preview?.dispatcher.reset()
                 track.updateVideoFormat(resolved)
             }
-            if let orientation { appliedOrientation = orientation }
+            if let orientation {
+                appliedOrientation = orientation
+            }
         }
         formatUpdateTask = task
         try await withTaskCancellationHandler {
@@ -350,22 +435,23 @@ private extension CameraController {
         }
     }
 
-    /// 持有摄像头预览呈现器和帧分发器。
+    /// The camera preview presenter and dispatcher.
     struct Preview: Sendable {
 
-        /// 将摄像头帧显示到绑定的视频视图。
+        /// The presenter for camera frames.
         let presenter: DecodedVideoPreviewPresenter
 
-        /// 将最新采集帧交付到主线程预览。
+        /// The dispatcher delivering the latest frame to the main actor.
         let dispatcher: DecodedVideoPreviewDispatcher
     }
 
-    /// 创建并注册相机轨道对应的预览绑定。
+    /// Registers preview rendering for a camera track.
     ///
     /// - Parameters:
-    ///   - track: 需要预览的本地相机轨道。
-    ///   - position: 决定预览镜像的摄像头位置。
-    /// - Returns: 供后续帧提交和资源释放使用的预览组件。
+    ///   - track: The local camera track.
+    ///   - position: The camera position determining preview mirroring.
+    ///
+    /// - Returns: The resources for subsequent preview delivery and cleanup.
     @MainActor
     func makePreview(
         for track: RealtimeVideoTrack,
@@ -377,61 +463,82 @@ private extension CameraController {
             presenter: presenter,
             dispatcher: DecodedVideoPreviewDispatcher(presenter: presenter)
         )
-        VideoRenderRegistry.register(track, binding: VideoRenderBinding(
-            attachHandler: { [weak self] view, contentMode in
-                guard let videoView = view as? XmaxVideoView else {
-                    throw XmaxError(
-                        code: .invalidConfiguration,
-                        message: "Camera tracks require an XmaxVideoView"
+        VideoRenderRegistry.register(
+            track,
+            binding: VideoRenderBinding(
+                attachHandler: { [weak self] view, contentMode in
+                    guard let videoView = view as? XmaxVideoView else {
+                        throw XmaxError(
+                            code: .invalidConfiguration,
+                            message: "Camera tracks require an XmaxVideoView"
+                        )
+                    }
+                    presenter.attach(
+                        to: videoView,
+                        contentMode: contentMode
                     )
+                    self?.stateLock.withLock {
+                        self?.isPreviewAttached = true
+                    }
+                    self?.notifyPreviewReady(for: track)
+                },
+                detachHandler: { [weak self] view in
+                    if let videoView = view as? XmaxVideoView {
+                        presenter.detach(from: videoView)
+                    }
+                    self?.stateLock.withLock {
+                        self?.isPreviewAttached = false
+                    }
                 }
-                presenter.attach(to: videoView, contentMode: contentMode)
-                self?.stateLock.withLock { self?.isPreviewAttached = true }
-                self?.notifyPreviewReady(for: track)
-            },
-            detachHandler: { [weak self] view in
-                if let videoView = view as? XmaxVideoView { presenter.detach(from: videoView) }
-                self?.stateLock.withLock { self?.isPreviewAttached = false }
-            }
-        ))
+            )
+        )
         return preview
     }
 
-    /// 将当前轨道的采集帧提交给预览和媒体监听器。
+    /// Delivers a current camera frame to preview and the media listener.
     ///
     /// - Parameters:
-    ///   - frame: 已完成方向和尺寸转换的采集帧。
-    ///   - track: 产生该帧的相机轨道。
-    ///   - preview: 该轨道持有的预览组件。
-    /// - Throws: 视频帧监听器处理失败时抛出错误。
+    ///   - frame: The oriented and resized capture frame.
+    ///   - track: The camera track producing the frame.
+    ///   - preview: The track's preview resources.
+    ///
+    /// - Throws: An error if the frame listener fails.
     func handleFrame(
         _ frame: VideoFrame,
         track: RealtimeVideoTrack,
         preview: Preview
     ) throws {
         let accepted = try stateLock.withLock {
-            guard activeTrack === track else { return false }
+            guard activeTrack === track else {
+                return false
+            }
             preview.dispatcher.enqueue(frame)
             hasCapturedFrame = true
             try videoFrameListener(frame)
             return true
         }
-        if accepted { notifyPreviewReady(for: track) }
+        if accepted {
+            notifyPreviewReady(for: track)
+        }
     }
 
-    /// 在已有有效帧和预览绑定时一次性通知就绪。
+    /// Notifies readiness once a valid frame and attached preview are available.
     ///
-    /// - Parameter track: 需要核对有效性的相机轨道。
+    /// - Parameter track: The camera track whose validity is checked.
     func notifyPreviewReady(
         for track: RealtimeVideoTrack
     ) {
         let shouldNotify = stateLock.withLock {
-            activeTrack === track && hasCapturedFrame && isPreviewAttached &&
-                previewReadyHandler != nil
+            activeTrack === track && hasCapturedFrame && isPreviewAttached
+                && previewReadyHandler != nil
         }
-        guard shouldNotify else { return }
+        guard shouldNotify else {
+            return
+        }
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self else {
+                return
+            }
             let handler = stateLock.withLock { () -> CameraPreviewReadyHandler? in
                 guard activeTrack === track, hasCapturedFrame, isPreviewAttached else {
                     return nil
@@ -441,7 +548,9 @@ private extension CameraController {
                 return handler
             }
             handler? { [weak self] in
-                guard let self else { return false }
+                guard let self else {
+                    return false
+                }
                 return stateLock.withLock {
                     activeTrack === track
                 }
@@ -449,20 +558,28 @@ private extension CameraController {
         }
     }
 
-    /// 按模型尺寸规则解析摄像头的实际输出规格。
+    /// Resolves camera output according to model sizing rules.
     ///
-    /// - Parameter videoFormat: 调用方请求的相机视频规格。
-    /// - Returns: 保留帧率及编码选项的有效输出规格。
-    /// - Throws: 输入规格无效或模型不支持目标尺寸时抛出错误。
+    /// - Parameter videoFormat: The requested camera format.
+    ///
+    /// - Returns: The output format retaining frame rate and encoding settings.
+    ///
+    /// - Throws: An error if the format is invalid or unsupported by the model.
     func resolveVideoFormat(
         _ videoFormat: RealtimeVideoFormat
     ) throws -> RealtimeVideoFormat {
         try videoFormat.validate()
         let resolvedMediaSize = try mediaService.resolveMediaSize(
-            CGSize(width: videoFormat.width, height: videoFormat.height),
+            CGSize(
+                width: videoFormat.width,
+                height: videoFormat.height
+            ),
             source: .camera
         )
-        let resolvedFormat = videoFormat.resized(width: Int(resolvedMediaSize.width), height: Int(resolvedMediaSize.height))
+        let resolvedFormat = videoFormat.resized(
+            width: Int(resolvedMediaSize.width),
+            height: Int(resolvedMediaSize.height)
+        )
         try resolvedFormat.validate()
         return resolvedFormat
     }

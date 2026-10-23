@@ -8,41 +8,41 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// RTC 网络质量等级。
+/// An RTC network quality rating.
 public enum RealtimeNetworkQualityLevel: String, CaseIterable, Sendable {
 
-    /// RTC 尚未提供有效质量数据。
+    /// RTC has not supplied a valid quality rating.
     case unknown = "Unknown"
 
-    /// 网络质量优秀。
+    /// Excellent network quality.
     case excellent = "Excellent"
 
-    /// 网络质量良好。
+    /// Good network quality.
     case good = "Good"
 
-    /// 网络质量较差，实时体验可能开始受影响。
+    /// Poor quality that may affect realtime playback.
     case poor = "Poor"
 
-    /// 网络质量很差，实时体验明显受影响。
+    /// Very poor quality affecting realtime playback.
     case bad = "Bad"
 
-    /// 网络质量极差，媒体传输可能严重中断。
+    /// Extremely poor quality that may severely interrupt media.
     case veryBad = "VeryBad"
 
-    /// 网络连接已经中断。
+    /// The network connection is disconnected.
     case down = "Down"
 }
 
-/// 实时会话的上下行网络质量。
+/// The uplink and downlink quality of a realtime session.
 public struct RealtimeNetworkQuality: Equatable, Sendable {
 
-    /// 本地向 RTC 房间发送媒体的网络质量。
+    /// The network quality sending local media to the RTC room.
     public let uplink: RealtimeNetworkQualityLevel
 
-    /// 本地从 RTC 房间接收媒体的网络质量。
+    /// The network quality receiving media from the RTC room.
     public let downlink: RealtimeNetworkQualityLevel
 
-    /// 创建上下行网络质量快照。
+    /// Creates a network quality snapshot.
     public init(
         uplink: RealtimeNetworkQualityLevel,
         downlink: RealtimeNetworkQualityLevel
@@ -52,7 +52,8 @@ public struct RealtimeNetworkQuality: Equatable, Sendable {
     }
 }
 
-/// 实时网络质量监听器。
-public typealias RealtimeNetworkQualityListener = @MainActor @Sendable (
-    RealtimeNetworkQuality
-) -> Void
+/// A realtime network quality listener.
+public typealias RealtimeNetworkQualityListener =
+    @MainActor @Sendable (
+        RealtimeNetworkQuality
+    ) -> Void

@@ -11,29 +11,32 @@
 import Foundation
 @preconcurrency import QCloudCOSXML
 
-/// 封装第三方对象存储上传和 HTTP 文件下载能力。
+/// A COS upload and HTTP file download manager.
 final class StorageManager: StorageManaging, Sendable {
 
-    /// HTTP 下载使用的 URL Session。
+    /// The URL session for downloads.
     private let session: URLSession
 
-    /// 创建存储 Manager。
+    /// Creates a storage manager.
     init(
         session: URLSession = .shared
     ) {
         self.session = session
     }
 
-    /// 使用临时凭证上传数据或本地文件。
+    /// Uploads data or a local file using temporary credentials.
     ///
     /// - Parameters:
-    ///   - source: 待上传的二进制数据或本地文件。
-    ///   - objectKey: 存储桶内的目标对象路径。
-    ///   - contentType: 上传内容的 MIME 类型。
-    ///   - configuration: 存储地址、桶和临时访问凭证。
-    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
-    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
-    /// - Throws: 输入无效、凭证无效、上传失败或任务取消时抛出错误。
+    ///   - source: The data or local file to upload.
+    ///   - objectKey: The destination object key.
+    ///   - contentType: The upload MIME type.
+    ///   - configuration: The endpoint, bucket, and temporary credentials.
+    ///   - progress: The byte progress handler, or `nil` to omit notifications.
+    ///
+    /// - Returns: The uploaded URL, object key, and available ETag.
+    ///
+    /// - Throws: An error if input or credentials are invalid, uploading fails, or the task is
+    ///   cancelled.
     func upload(
         source: StorageUploadSource,
         objectKey: String,
@@ -72,14 +75,17 @@ final class StorageManager: StorageManaging, Sendable {
         }
     }
 
-    /// 下载远端文件并写入指定本地位置。
+    /// Downloads a file to the specified local location.
     ///
     /// - Parameters:
-    ///   - remoteURL: 待下载文件的远端 URL。
-    ///   - destinationURL: 写入文件的本地目标 URL。
-    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
-    /// - Returns: 写入完成的本地文件 URL 与字节数。
-    /// - Throws: 地址无效、下载或文件写入失败，以及任务取消时抛出错误。
+    ///   - remoteURL: The remote file URL.
+    ///   - destinationURL: The destination local file URL.
+    ///   - progress: The byte progress handler, or `nil` to omit notifications.
+    ///
+    /// - Returns: The completed local URL and byte count.
+    ///
+    /// - Throws: An error if a URL is invalid, downloading or writing fails, or the task is
+    ///   cancelled.
     func download(
         remoteURL: URL,
         destinationURL: URL,
@@ -104,7 +110,8 @@ final class StorageManager: StorageManaging, Sendable {
             try Task.checkCancellation()
 
             guard let httpResponse = response as? HTTPURLResponse,
-                  (200..<300).contains(httpResponse.statusCode) else {
+                (200..<300).contains(httpResponse.statusCode)
+            else {
                 let statusCode = (response as? HTTPURLResponse)?.statusCode
                 throw XmaxError(
                     code: .downloadError,
@@ -115,9 +122,15 @@ final class StorageManager: StorageManaging, Sendable {
                 )
             }
 
-            try data.write(to: destinationURL, options: .atomic)
+            try data.write(
+                to: destinationURL,
+                options: .atomic
+            )
             let byteCount = Int64(data.count)
-            progress?(byteCount, byteCount)
+            progress?(
+                byteCount,
+                byteCount
+            )
 
             return DownloadedFile(
                 fileURL: destinationURL,
@@ -130,7 +143,8 @@ final class StorageManager: StorageManaging, Sendable {
         } catch {
             let platformError = error as NSError
             if platformError.domain == NSURLErrorDomain,
-               platformError.code == NSURLErrorCancelled {
+                platformError.code == NSURLErrorCancelled
+            {
                 throw Self.cancelledError(operation: "Storage download")
             }
 
@@ -141,23 +155,27 @@ final class StorageManager: StorageManaging, Sendable {
         }
     }
 
-    /// 根据上传结果或存储配置生成对象访问地址。
+    /// Resolves an object's public URL from the upload response or storage configuration.
     ///
     /// - Parameters:
-    ///   - candidate: 上传响应中的候选访问地址。
-    ///   - configuration: 存储桶、区域和访问端点配置。
-    ///   - objectKey: 上传对象在存储桶内的键。
-    /// - Returns: 可通过 HTTP 或 HTTPS 访问的对象地址。
-    /// - Throws: 端点无效、对象键编码失败或地址构造失败时抛出错误。
+    ///   - candidate: The candidate URL from the upload response.
+    ///   - configuration: The bucket, region, and endpoint configuration.
+    ///   - objectKey: The uploaded object key.
+    ///
+    /// - Returns: An HTTP or HTTPS object URL.
+    ///
+    /// - Throws: An error if the endpoint is invalid or the object URL cannot be constructed.
     static func resolveObjectURL(
         candidate: String?,
         configuration: StorageConfiguration,
         objectKey: String
     ) throws -> URL {
-        let location = candidate?
+        let location =
+            candidate?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if location.hasPrefix("//"),
-           let url = URL(string: "https:\(location)") {
+            let url = URL(string: "https:\(location)")
+        {
             return url
         }
         if let url = URL(string: location) {
@@ -190,14 +208,15 @@ final class StorageManager: StorageManaging, Sendable {
         return url
     }
 
-    /// 校验上传源、对象键、存储位置及临时凭证。
+    /// Validates the upload source, object key, and credentials.
     ///
     /// - Parameters:
-    ///   - source: 待上传的数据或本地文件。
-    ///   - objectKey: 目标对象键。
-    ///   - contentType: 上传内容的 MIME 类型。
-    ///   - configuration: 目标存储位置及临时访问凭证。
-    /// - Throws: 上传配置无效或源文件不可用时抛出错误。
+    ///   - source: The data or local file to upload.
+    ///   - objectKey: The destination object key.
+    ///   - contentType: The upload MIME type.
+    ///   - configuration: The destination and temporary credentials.
+    ///
+    /// - Throws: An error if configuration is invalid or the source file is unavailable.
     private static func validateUpload(
         source: StorageUploadSource,
         objectKey: String,
@@ -223,29 +242,33 @@ final class StorageManager: StorageManaging, Sendable {
             throw uploadError(message: "Storage content type cannot be empty")
         }
         guard !credential.accessKeyID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !credential.secretAccessKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !credential.sessionToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            !credential.secretAccessKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            !credential.sessionToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
             throw uploadError(message: "Storage temporary credential is incomplete")
         }
 
         if case let .file(url) = source {
             var isDirectory = ObjCBool(false)
             guard url.isFileURL,
-                  FileManager.default.fileExists(
-                      atPath: url.path,
-                      isDirectory: &isDirectory
-                  ),
-                  !isDirectory.boolValue else {
+                FileManager.default.fileExists(
+                    atPath: url.path,
+                    isDirectory: &isDirectory
+                ),
+                !isDirectory.boolValue
+            else {
                 throw uploadError(message: "Storage upload file is unavailable")
             }
         }
     }
 
-    /// 根据端点配置创建 COS 服务实例。
+    /// Creates a COS service for an endpoint.
     ///
-    /// - Parameter configuration: 存储区域及访问端点。
-    /// - Returns: 用于本次上传的 COS 服务。
-    /// - Throws: 端点无效或无法创建平台端点时抛出错误。
+    /// - Parameter configuration: The storage region and endpoint.
+    ///
+    /// - Returns: The COS service for this upload.
+    ///
+    /// - Throws: An error if the endpoint is invalid or cannot be created.
     private static func makeStorageService(
         configuration: StorageConfiguration
     ) throws -> QCloudCOSXMLService {
@@ -277,15 +300,17 @@ final class StorageManager: StorageManaging, Sendable {
         )
     }
 
-    /// 构造携带临时凭证的 COS 单次上传请求。
+    /// Creates a COS upload request with temporary credentials.
     ///
     /// - Parameters:
-    ///   - source: 待上传的数据或本地文件。
-    ///   - objectKey: 目标对象键。
-    ///   - contentType: 上传内容的 MIME 类型。
-    ///   - configuration: 目标存储位置及凭证。
-    /// - Returns: 准备完成的对象上传请求。
-    /// - Throws: 临时凭证无效时抛出错误。
+    ///   - source: The data or local file to upload.
+    ///   - objectKey: The destination object key.
+    ///   - contentType: The upload MIME type.
+    ///   - configuration: The destination and credentials.
+    ///
+    /// - Returns: The prepared object upload request.
+    ///
+    /// - Throws: An error if temporary credentials are invalid.
     private static func makeUploadRequest(
         source: StorageUploadSource,
         objectKey: String,
@@ -309,11 +334,13 @@ final class StorageManager: StorageManaging, Sendable {
         return request
     }
 
-    /// 将临时访问配置转换为 COS 签名凭证。
+    /// Converts temporary credentials to COS signing credentials.
     ///
-    /// - Parameter configuration: 临时密钥和会话令牌。
-    /// - Returns: 供当前上传请求签名使用的凭证。
-    /// - Throws: 平台凭证校验失败时抛出错误。
+    /// - Parameter configuration: The temporary keys and session token.
+    ///
+    /// - Returns: The signing credentials for the upload.
+    ///
+    /// - Throws: An error if COS credential validation fails.
     private static func makeCredential(
         _ configuration: StorageCredential
     ) throws -> QCloudCredential {
@@ -331,14 +358,16 @@ final class StorageManager: StorageManaging, Sendable {
         return credential
     }
 
-    /// 规范化存储端点并按需添加存储桶域名前缀。
+    /// Resolves the storage endpoint with a bucket prefix when needed.
     ///
     /// - Parameters:
-    ///   - endpoint: 原始端点文本。
-    ///   - bucket: 目标存储桶名称。
-    ///   - preservePath: 是否保留端点中的路径及附加 URL 信息。
-    /// - Returns: 规范化的 HTTP 或 HTTPS 端点。
-    /// - Throws: 端点协议、主机或 URL 无效时抛出错误。
+    ///   - endpoint: The endpoint string.
+    ///   - bucket: The destination bucket name.
+    ///   - preservePath: Whether to preserve the endpoint path and additional URL components.
+    ///
+    /// - Returns: The resolved HTTP or HTTPS endpoint.
+    ///
+    /// - Throws: An error if the endpoint scheme, host, or URL is invalid.
     private static func normalizedEndpoint(
         _ endpoint: String,
         bucket: String,
@@ -347,9 +376,10 @@ final class StorageManager: StorageManaging, Sendable {
         let value = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = value.contains("://") ? value : "https://\(value)"
         guard var components = URLComponents(string: normalized),
-              let scheme = components.scheme?.lowercased(),
-              scheme == "https" || scheme == "http",
-              let host = components.host, !host.isEmpty else {
+            let scheme = components.scheme?.lowercased(),
+            scheme == "https" || scheme == "http",
+            let host = components.host, !host.isEmpty
+        else {
             throw uploadError(message: "Storage endpoint is invalid")
         }
 
@@ -368,43 +398,61 @@ final class StorageManager: StorageManaging, Sendable {
         return url
     }
 
-    /// 对对象键的各路径段进行 URL 编码。
+    /// URL-encodes object key path segments.
     ///
-    /// - Parameter objectKey: 原始对象键。
-    /// - Returns: 保留路径分隔符的编码对象键。
-    /// - Throws: 任一路径段无法编码时抛出错误。
+    /// - Parameter objectKey: The original object key.
+    ///
+    /// - Returns: The encoded object key retaining path separators.
+    ///
+    /// - Throws: An error if a path segment cannot be encoded.
     private static func encodeObjectKey(
         _ objectKey: String
     ) throws -> String {
         var allowed = CharacterSet.urlPathAllowed
         allowed.remove(charactersIn: "/?#")
-        let encodedParts = objectKey
-            .split(separator: "/", omittingEmptySubsequences: false)
-            .map { String($0).addingPercentEncoding(withAllowedCharacters: allowed) }
+        let encodedParts =
+            objectKey
+            .split(
+                separator: "/",
+                omittingEmptySubsequences: false
+            )
+            .map {
+                String($0).addingPercentEncoding(withAllowedCharacters: allowed)
+            }
 
-        guard encodedParts.allSatisfy({ $0 != nil }) else {
+        guard
+            encodedParts.allSatisfy({
+                $0 != nil
+            })
+        else {
             throw uploadError(message: "Storage object key cannot be URL encoded")
         }
-        return encodedParts.compactMap { $0 }.joined(separator: "/")
+        return encodedParts.compactMap {
+            $0
+        }.joined(separator: "/")
     }
 
-    /// 校验存储桶或区域标识允许的字符。
+    /// Validates a bucket or region identifier.
     ///
-    /// - Parameter value: 待校验的标识。
-    /// - Returns: 非空且只包含字母、数字、点和连字符时返回 `true`。
+    /// - Parameter value: The identifier to validate.
+    ///
+    /// - Returns: `true` for a nonempty identifier containing only letters, digits, dots, and
+    ///   hyphens.
     private static func matchesIdentifier(
         _ value: String
     ) -> Bool {
-        !value.isEmpty && value.range(
-            of: #"^[A-Za-z0-9.-]+$"#,
-            options: .regularExpression
-        ) != nil
+        !value.isEmpty
+            && value.range(
+                of: #"^[A-Za-z0-9.-]+$"#,
+                options: .regularExpression
+            ) != nil
     }
 
-    /// 将平台错误转换为上传错误。
+    /// Converts a platform failure to an upload error.
     ///
-    /// - Parameter error: 底层平台错误。
-    /// - Returns: 保留本地化描述的上传错误。
+    /// - Parameter error: The underlying platform error.
+    ///
+    /// - Returns: An upload error retaining the localized description.
     private static func uploadError(
         _ error: any Error
     ) -> XmaxError {
@@ -412,20 +460,25 @@ final class StorageManager: StorageManaging, Sendable {
         return uploadError(message: platformError.localizedDescription)
     }
 
-    /// 构造上传错误。
+    /// Creates an upload error.
     ///
-    /// - Parameter message: 错误描述。
-    /// - Returns: 包含指定描述的上传错误。
+    /// - Parameter message: The error description.
+    ///
+    /// - Returns: An upload error with the specified description.
     private static func uploadError(
         message: String
     ) -> XmaxError {
-        XmaxError(code: .uploadError, message: message)
+        XmaxError(
+            code: .uploadError,
+            message: message
+        )
     }
 
-    /// 构造存储操作取消错误。
+    /// Creates a storage cancellation error.
     ///
-    /// - Parameter operation: 被取消操作的名称。
-    /// - Returns: 包含操作名称的取消错误。
+    /// - Parameter operation: The cancelled operation's name.
+    ///
+    /// - Returns: A cancellation error naming the operation.
     private static func cancelledError(
         operation: String
     ) -> XmaxError {
@@ -436,43 +489,49 @@ final class StorageManager: StorageManaging, Sendable {
     }
 }
 
-/// 持有一次第三方上传请求，并保证完成、失败和取消只恢复异步调用一次。
+/// An asynchronous COS upload completing its waiter exactly once.
 private final class StorageUploadOperation: @unchecked Sendable {
 
-    /// 执行请求的 COS 服务。
+    /// Upload request.
+
+    /// The COS service performing the request.
     private let service: QCloudCOSXMLService
 
-    /// 本次上传使用的 COS 请求。
+    /// The upload request.
     private let request: QCloudPutObjectRequest<AnyObject>
 
-    /// 上传对象键。
+    /// The uploaded object key.
     private let objectKey: String
 
-    /// 上传目标及认证配置。
+    /// The destination and authentication configuration.
     private let configuration: StorageConfiguration
 
-    /// 接收上传字节进度。
+    /// Progress reporting.
+
+    /// The upload byte progress handler.
     private let progress: StorageProgressListener?
 
-    /// 上传操作的开始时刻，用于记录耗时。
+    /// The upload start time.
     private let startedAt = Date()
 
-    /// 保护上传结果和等待器的完成状态。
+    /// Completion state.
+
+    /// The lock protecting completion and its waiter.
     private let lock = NSLock()
 
-    /// 等待 COS 上传结果的异步调用。
+    /// The continuation awaiting upload completion.
     private var continuation: CheckedContinuation<StoredFile, Error>?
 
-    /// 回调先于等待器注册时暂存的上传结果。
+    /// The result retained until a waiter is registered.
     private var pendingResult: Result<StoredFile, Error>?
 
-    /// 上传请求是否已启动。
+    /// Whether the upload request has started.
     private var started = false
 
-    /// 上传是否已结束，避免重复恢复等待器。
+    /// Whether the upload has completed.
     private var completed = false
 
-    /// 创建持有一次 COS 上传请求的异步操作。
+    /// Creates an asynchronous COS upload.
     init(
         service: QCloudCOSXMLService,
         request: QCloudPutObjectRequest<AnyObject>,
@@ -487,10 +546,11 @@ private final class StorageUploadOperation: @unchecked Sendable {
         self.progress = progress
     }
 
-    /// 提交上传请求并等待唯一的完成结果。
+    /// Submits the upload and awaits its result.
     ///
-    /// - Returns: 上传成功的对象信息。
-    /// - Throws: 上传失败、结果解析失败或任务取消时抛出错误。
+    /// - Returns: The uploaded object information.
+    ///
+    /// - Throws: An error if uploading or result decoding fails, or the task is cancelled.
     func value() async throws -> StoredFile {
         configureCallbacks()
 
@@ -504,10 +564,16 @@ private final class StorageUploadOperation: @unchecked Sendable {
         }
     }
 
-    /// 安装上传进度和完成回调，并统一转换上传结果。
+    /// Installs upload progress and completion handlers.
     private func configureCallbacks() {
         request.sendProcessBlock = { [progress] _, totalBytes, expectedBytes in
-            progress?(totalBytes, max(expectedBytes, 0))
+            progress?(
+                totalBytes,
+                max(
+                    expectedBytes,
+                    0
+                )
+            )
         }
         request.finishBlock = { [weak self] result, error in
             guard let self else {
@@ -517,16 +583,20 @@ private final class StorageUploadOperation: @unchecked Sendable {
             if let error {
                 let platformError = error as NSError
                 XmaxLogger.storage.error(
-                    message: "上传失败 (Upload Failed)\n" +
-                        "├─ \(XmaxLogger.localized("错误域：", "Error Domain: "))\(platformError.domain)\n" +
-                        "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(platformError.code)\n" +
-                        "├─ \(XmaxLogger.localized("错误信息：", "Error Message: "))\(platformError.localizedDescription)\n" +
-                        "└─ \(XmaxLogger.localized("耗时：", "Duration: "))\(formatDuration())"
+                    message: "上传失败 (Upload Failed)\n"
+                        + "├─ \(XmaxLogger.localized("错误域：", "Error Domain: "))\(platformError.domain)\n"
+                        + "├─ \(XmaxLogger.localized("错误码：", "Error Code: "))\(platformError.code)\n"
+                        + "├─ \(XmaxLogger.localized("错误信息：", "Error Message: "))\(platformError.localizedDescription)\n"
+                        + "└─ \(XmaxLogger.localized("耗时：", "Duration: "))\(formatDuration())"
                 )
-                finish(.failure(XmaxError(
-                    code: .uploadError,
-                    message: platformError.localizedDescription
-                )))
+                finish(
+                    .failure(
+                        XmaxError(
+                            code: .uploadError,
+                            message: platformError.localizedDescription
+                        )
+                    )
+                )
                 return
             }
 
@@ -541,24 +611,31 @@ private final class StorageUploadOperation: @unchecked Sendable {
                     configuration: configuration,
                     objectKey: objectKey
                 )
-                let etag = Self.headerValue(
-                    keys: ["Etag", "ETag", "etag"],
-                    headers: headers
-                )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                finish(.success(StoredFile(
-                    url: url,
-                    objectKey: objectKey,
-                    etag: etag.isEmpty ? nil : etag
-                )))
+                let etag =
+                    Self.headerValue(
+                        keys: ["Etag", "ETag", "etag"],
+                        headers: headers
+                    )?.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    ) ?? ""
+                finish(
+                    .success(
+                        StoredFile(
+                            url: url,
+                            objectKey: objectKey,
+                            etag: etag.isEmpty ? nil : etag
+                        )
+                    )
+                )
             } catch {
                 finish(.failure(error))
             }
         }
     }
 
-    /// 安装异步恢复点，或立即交付已缓存的完成结果。
+    /// Registers the upload waiter or delivers a completed result.
     ///
-    /// - Parameter continuation: 等待上传结果的 continuation。
+    /// - Parameter continuation: The continuation awaiting the upload.
     private func install(
         _ continuation: CheckedContinuation<StoredFile, Error>
     ) {
@@ -575,7 +652,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
         }
     }
 
-    /// 仅在操作未开始且未结束时提交上传请求。
+    /// Submits an upload that has not started or completed.
     private func startIfNeeded() {
         lock.lock()
         guard !started, !completed else {
@@ -588,18 +665,22 @@ private final class StorageUploadOperation: @unchecked Sendable {
         service.putObject(request)
     }
 
-    /// 结束异步等待并取消底层上传请求。
+    /// Cancels the underlying upload and completes its waiter.
     private func cancel() {
-        finish(.failure(XmaxError(
-            code: .cancelled,
-            message: "Storage upload was cancelled"
-        )))
+        finish(
+            .failure(
+                XmaxError(
+                    code: .cancelled,
+                    message: "Storage upload was cancelled"
+                )
+            )
+        )
         request.cancel()
     }
 
-    /// 记录首个完成结果并恢复等待者。
+    /// Completes the upload waiter with the first result.
     ///
-    /// - Parameter result: 上传成功信息或失败错误。
+    /// - Parameter result: The uploaded object or failure.
     private func finish(
         _ result: Result<StoredFile, Error>
     ) {
@@ -619,23 +700,27 @@ private final class StorageUploadOperation: @unchecked Sendable {
         continuation?.resume(with: result)
     }
 
-    /// 格式化当前上传操作的耗时。
+    /// Formats the upload duration.
     ///
-    /// - Returns: 以毫秒或秒表示的耗时文本。
+    /// - Returns: The duration in milliseconds or seconds.
     private func formatDuration() -> String {
         let milliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
         if milliseconds < 1_000 {
             return "\(milliseconds) ms"
         }
-        return String(format: "%.2f s", Double(milliseconds) / 1_000)
+        return String(
+            format: "%.2f s",
+            Double(milliseconds) / 1_000
+        )
     }
 
-    /// 按优先顺序读取字符串响应头。
+    /// Returns the first matching string response header.
     ///
     /// - Parameters:
-    ///   - keys: 可接受的响应头名称。
-    ///   - headers: 平台返回的响应头；不可用时为 `nil`。
-    /// - Returns: 首个匹配的字符串值；未找到时返回 `nil`。
+    ///   - keys: The accepted header names in priority order.
+    ///   - headers: The response headers, if available.
+    ///
+    /// - Returns: The first matching string value, or `nil`.
     private static func headerValue(
         keys: [String],
         headers: [AnyHashable: Any]?

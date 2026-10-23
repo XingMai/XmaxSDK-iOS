@@ -33,9 +33,11 @@ public extension XmaxRealtimeManaging {
         useMicrophone: Bool = false
     ) async throws -> RealtimeMediaStream {
         guard
-            let format = options.model.supportedVideoFormats.first(where: {
-                $0.size == preset.size
-            })
+            let format = options.model.supportedVideoFormats.first(
+                where: {
+                    $0.size == preset.size
+                }
+            )
         else {
             throw XmaxError(
                 code: .invalidConfiguration,

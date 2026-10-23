@@ -10,30 +10,30 @@
 
 import Foundation
 
-/// 实时视频轨道及其动态元数据。
+/// A realtime video track with dynamic metadata.
 public final class RealtimeVideoTrack: @unchecked Sendable {
 
-    /// 视频轨道标识。
+    /// The video track identifier.
     public let id: String
 
-    /// 保护可随方向变化更新的轨道元数据。
+    /// The lock protecting mutable track metadata.
     private let metadataLock = NSLock()
 
-    /// 受锁保护的媒体尺寸和摄像头位置。
+    /// The synchronized media format and camera position.
     private var metadata: Metadata
 
-    /// 视图通知的当前摄像头显示方向。
+    /// The camera display orientation reported by the view.
     @MainActor var displayOrientation: CameraOrientation?
 
-    /// 视图方向变化时通知媒体链路；参数表示是否发生横竖屏切换。
+    /// The orientation handler indicating whether portrait-landscape axis changed.
     @MainActor var orientationChangeHandler: ((_ changedAxis: Bool) -> Void)?
 
-    /// 创建具有指定标识和初始元数据的视频轨道。
+    /// Creates a video track.
     ///
     /// - Parameters:
-    ///   - id: 轨道的唯一标识。
-    ///   - videoFormat: 初始视频规格；尚未确定时传入 `nil`。
-    ///   - position: 本地摄像头位置；非摄像头轨道传入 `nil`。
+    ///   - id: The unique track identifier.
+    ///   - videoFormat: The initial video format, or `nil` if unresolved.
+    ///   - position: The camera position, or `nil` for a noncamera track.
     init(
         id: String,
         videoFormat: RealtimeVideoFormat? = nil,
@@ -46,19 +46,23 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
         )
     }
 
-    /// 当前视频轨道使用的视频格式。
+    /// The track's current video format.
     public var videoFormat: RealtimeVideoFormat? {
-        metadataLock.withLock { metadata.videoFormat }
+        metadataLock.withLock {
+            metadata.videoFormat
+        }
     }
 
-    /// 本地相机轨道当前使用的摄像头位置。
+    /// The local camera track's current camera position.
     public var position: CameraPosition? {
-        metadataLock.withLock { metadata.position }
+        metadataLock.withLock {
+            metadata.position
+        }
     }
 
-    /// 更新视频轨道的当前规格。
+    /// Updates the track's video format.
     ///
-    /// - Parameter videoFormat: 新的尺寸、帧率和编码配置。
+    /// - Parameter videoFormat: The new dimensions, frame rate, and encoding settings.
     func updateVideoFormat(
         _ videoFormat: RealtimeVideoFormat
     ) {
@@ -67,9 +71,9 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
         }
     }
 
-    /// 更新本地相机轨道的摄像头位置。
+    /// Updates the local track's camera position.
     ///
-    /// - Parameter position: 当前采集使用的摄像头位置。
+    /// - Parameter position: The active capture camera.
     func updatePosition(
         _ position: CameraPosition
     ) {
@@ -81,13 +85,13 @@ public final class RealtimeVideoTrack: @unchecked Sendable {
 
 private extension RealtimeVideoTrack {
 
-    /// 保存可在采集与渲染期间更新的视频规格和摄像头位置。
+    /// The mutable video format and camera position.
     struct Metadata {
 
-        /// 当前处理后媒体的尺寸、帧率和编码配置。
+        /// The resolved media dimensions, frame rate, and encoding settings.
         var videoFormat: RealtimeVideoFormat?
 
-        /// 轨道来自摄像头时对应的镜头位置。
+        /// The camera position, if this is a camera track.
         var position: CameraPosition?
     }
 }

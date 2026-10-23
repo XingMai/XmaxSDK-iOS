@@ -13,38 +13,40 @@ import CoreGraphics
 import VideoToolbox
 #endif
 
-/// 集中判断当前运行环境和视频规格是否支持低延迟插帧。
+/// Checks low-latency frame interpolation support.
 enum FrameInterpolationSupport {
 
-    /// 当前系统和设备是否提供可用的插帧能力。
+    /// Whether the system and device support frame interpolation.
     static var isSupported: Bool {
-#if targetEnvironment(simulator)
+        #if targetEnvironment(simulator)
         false
-#else
+        #else
         if #available(iOS 26.0, *) {
             VTLowLatencyFrameInterpolationConfiguration.isSupported
         } else {
             false
         }
-#endif
+        #endif
     }
 
-    /// 判断当前设备是否支持指定尺寸的低延迟插帧。
+    /// Checks interpolation support for the requested dimensions.
     ///
-    /// - Parameter size: 待插帧视频的像素尺寸。
-    /// - Returns: 系统、设备及尺寸均满足插帧要求时返回 `true`。
+    /// - Parameter size: The video dimensions, in pixels.
+    ///
+    /// - Returns: `true` if the system, device, and dimensions support interpolation.
     static func supports(
         size: CGSize
     ) -> Bool {
         guard isSupported,
-              let width = integralDimension(size.width),
-              let height = integralDimension(size.height) else {
+            let width = integralDimension(size.width),
+            let height = integralDimension(size.height)
+        else {
             return false
         }
 
-#if targetEnvironment(simulator)
+        #if targetEnvironment(simulator)
         return false
-#else
+        #else
         if #available(iOS 26.0, *) {
             return VTLowLatencyFrameInterpolationConfiguration(
                 frameWidth: width,
@@ -53,26 +55,30 @@ enum FrameInterpolationSupport {
             ) != nil
         }
         return false
-#endif
+        #endif
     }
 }
 
 private extension FrameInterpolationSupport {
 
-    /// 将有效的正整数尺寸转换为整数。
+    /// Converts a valid dimension to a positive integer.
     ///
-    /// - Parameter value: 待转换的尺寸分量。
-    /// - Returns: 可表示的正整数；尺寸无效时返回 `nil`。
+    /// - Parameter value: The dimension to convert.
+    ///
+    /// - Returns: The positive integer, or `nil` if the dimension is invalid.
     static func integralDimension(
         _ value: CGFloat
     ) -> Int? {
         guard value.isFinite,
-              value > 0,
-              value <= CGFloat(Int.max) else {
+            value > 0,
+            value <= CGFloat(Int.max)
+        else {
             return nil
         }
         let roundedValue = value.rounded()
-        guard roundedValue == value else { return nil }
+        guard roundedValue == value else {
+            return nil
+        }
         return Int(roundedValue)
     }
 }

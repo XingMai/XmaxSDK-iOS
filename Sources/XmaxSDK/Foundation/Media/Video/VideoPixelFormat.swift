@@ -8,24 +8,24 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 中性视频帧支持的像素格式。
+/// A pixel format supported by video frames.
 enum VideoPixelFormat: String, CaseIterable, Sendable {
 
-    /// Y、U、V 分别存放的 4:2:0 格式。
+    /// Planar 4:2:0 with separate Y, U, and V planes.
     case i420
 
-    /// Y 平面与交错 UV 平面组成的 4:2:0 格式。
+    /// Biplanar 4:2:0 with Y and interleaved UV planes.
     case nv12
 
-    /// Y 平面与交错 VU 平面组成的 4:2:0 格式。
+    /// Biplanar 4:2:0 with Y and interleaved VU planes.
     case nv21
 
-    /// 按红、绿、蓝、透明度排列的像素格式。
+    /// Red, green, blue, and alpha pixels.
     case rgba
 
-    /// 按蓝、绿、红、透明度排列的像素格式。
+    /// Blue, green, red, and alpha pixels.
     case bgra
 
-    /// 按透明度、红、绿、蓝排列的像素格式。
+    /// Alpha, red, green, and blue pixels.
     case argb
 }

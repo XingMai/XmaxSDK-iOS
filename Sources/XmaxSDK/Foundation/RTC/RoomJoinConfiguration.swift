@@ -8,15 +8,15 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// RTC 房间加入参数。
+/// The credentials for joining an RTC room.
 struct RoomJoinConfiguration: Equatable, Sendable {
 
-    /// 准备加入的 RTC 房间标识。
+    /// The RTC room identifier to join.
     let roomID: String
 
-    /// 本地 RTC 用户标识。
+    /// The local RTC user identifier.
     let userID: String
 
-    /// 加入房间使用的认证令牌。
+    /// The room authentication token.
     let token: String
 }

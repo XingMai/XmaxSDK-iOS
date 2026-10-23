@@ -8,25 +8,26 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 表示视频帧的固定尺寸和像素格式。
+/// The fixed dimensions and pixel format of a video frame.
 struct VideoFormat: Equatable, Sendable {
 
-    /// 视频帧宽度，单位为像素。
+    /// The frame width, in pixels.
     let width: Int
 
-    /// 视频帧高度，单位为像素。
+    /// The frame height, in pixels.
     let height: Int
 
-    /// 帧数据的像素排列格式。
+    /// The pixel layout.
     let pixelFormat: VideoPixelFormat
 
-    /// 创建具有有效尺寸的像素格式。
+    /// Creates a video format.
     ///
     /// - Parameters:
-    ///   - width: 帧宽度，单位为像素，必须大于零。
-    ///   - height: 帧高度，单位为像素，必须大于零。
-    ///   - pixelFormat: 帧数据使用的像素格式。
-    /// - Throws: 宽度或高度非正数时抛出配置错误。
+    ///   - width: The positive frame width, in pixels.
+    ///   - height: The positive frame height, in pixels.
+    ///   - pixelFormat: The frame's pixel format.
+    ///
+    /// - Throws: A configuration error if either dimension is not positive.
     init(
         width: Int,
         height: Int,

@@ -10,56 +10,59 @@
 
 import Foundation
 
-/// 将解码得到的不定长 PCM 数据整理为 RTC 要求的固定 10 ms 音频帧。
+/// Packetizes decoded PCM into fixed 10 ms RTC audio frames.
 struct PCMFramePacketizer {
 
-    /// 保存一段实际 PCM 或静音样本及其消费进度。
+    /// An audio or silence segment and its consumed samples.
     private struct Segment {
 
-        /// 该段 PCM 数据；nil 表示对应长度的静音。
+        /// The PCM data, or `nil` for silence.
         let data: Data?
 
-        /// 该段实际音频或静音包含的采样数。
+        /// The segment's sample count.
         let sampleCount: Int
 
-        /// 该段已被分帧器消费的采样数。
+        /// The consumed sample count.
         var consumedSamples = 0
     }
 
-    /// 单个 PCM16 采样占用的字节数。
+    /// Packet format.
+
+    /// The bytes per PCM16 sample.
     private static let bytesPerSample = MemoryLayout<Int16>.size
 
-    /// 一个固定 10 ms PCM 包占用的字节数。
-    private static let frameByteCount = AudioFrame.samplesPerFrame *
-        bytesPerSample
+    /// The bytes per 10 ms packet.
+    private static let frameByteCount = AudioFrame.samplesPerFrame * bytesPerSample
 
-    /// 当前播放周期的总采样数，应按固定帧采样数对齐。
+    /// The playback cycle sample count, aligned to whole frames.
     private let totalSamples: Int
 
-    /// 等待消费的音频与静音片段。
+    /// Playback cycle state.
+
+    /// The pending audio and silence segments.
     private var segments: [Segment] = []
 
-    /// 当前正在消费的片段索引。
+    /// The segment being consumed.
     private var segmentIndex = 0
 
-    /// 当前播放周期中已写入的采样位置。
+    /// The samples written in this playback cycle.
     private var timelineWriteCursor = 0
 
-    /// 当前播放周期中已输出的采样位置。
+    /// The samples emitted in this playback cycle.
     private var outputCursor = 0
 
-    /// 创建限定总采样长度的 PCM 分帧器。
+    /// Creates a PCM packetizer for a fixed sample count.
     init(
         totalSamples: Int
     ) {
         self.totalSamples = totalSamples
     }
 
-    /// 按采样位置追加 PCM，补齐空隙并跳过重叠样本。
+    /// Appends PCM at a sample position, filling gaps and skipping overlaps.
     ///
     /// - Parameters:
-    ///   - data: 单声道 PCM16 数据。
-    ///   - requestedStartSample: 数据在当前周期内的起始采样位置。
+    ///   - data: The mono PCM16 data.
+    ///   - requestedStartSample: The starting sample position in this cycle.
     mutating func append(
         _ data: Data,
         at requestedStartSample: Int
@@ -67,7 +70,10 @@ struct PCMFramePacketizer {
         guard !data.isEmpty, timelineWriteCursor < totalSamples else {
             return
         }
-        let startSample = max(0, requestedStartSample)
+        let startSample = max(
+            0,
+            requestedStartSample
+        )
         if startSample > timelineWriteCursor {
             appendSilence(
                 sampleCount: min(
@@ -77,24 +83,28 @@ struct PCMFramePacketizer {
             )
         }
 
-        let overlapSamples = max(0, timelineWriteCursor - startSample)
+        let overlapSamples = max(
+            0,
+            timelineWriteCursor - startSample
+        )
         let overlapBytes = min(
             data.count,
             overlapSamples * Self.bytesPerSample
         )
-        let availableSamples = (data.count - overlapBytes) /
-            Self.bytesPerSample
+        let availableSamples = (data.count - overlapBytes) / Self.bytesPerSample
         let acceptedSamples = min(
             availableSamples,
             totalSamples - timelineWriteCursor
         )
-        guard acceptedSamples > 0 else { return }
+        guard acceptedSamples > 0 else {
+            return
+        }
 
         let acceptedBytes = acceptedSamples * Self.bytesPerSample
         segments.append(
             Segment(
                 data: Data(
-                    data[overlapBytes ..< overlapBytes + acceptedBytes]
+                    data[overlapBytes..<overlapBytes + acceptedBytes]
                 ),
                 sampleCount: acceptedSamples
             )
@@ -102,48 +112,46 @@ struct PCMFramePacketizer {
         timelineWriteCursor += acceptedSamples
     }
 
-    /// 使用静音样本补齐当前周期剩余长度。
+    /// Pads the rest of the playback cycle with silence.
     mutating func finishWithSilence() {
         appendSilence(sampleCount: totalSamples - timelineWriteCursor)
     }
 
-    /// 取出下一帧完整的 10 ms PCM 数据。
+    /// Returns the next complete 10 ms PCM frame.
     ///
-    /// - Returns: 音频数据及其周期内采样偏移；不足一帧或已结束时返回 `nil`。
+    /// - Returns: The audio and cycle sample offset, or `nil` if no complete frame remains.
     mutating func nextFrame() -> (data: Data, sampleOffset: Int)? {
         guard timelineWriteCursor - outputCursor >= AudioFrame.samplesPerFrame,
-              outputCursor < totalSamples else {
+            outputCursor < totalSamples
+        else {
             return nil
         }
 
         var data = Data(count: Self.frameByteCount)
         var destinationSampleOffset = 0
         while destinationSampleOffset < AudioFrame.samplesPerFrame {
-            guard segmentIndex < segments.count else { return nil }
-            let availableSamples = segments[segmentIndex].sampleCount -
-                segments[segmentIndex].consumedSamples
+            guard segmentIndex < segments.count else {
+                return nil
+            }
+            let availableSamples =
+                segments[segmentIndex].sampleCount - segments[segmentIndex].consumedSamples
             let copiedSamples = min(
                 availableSamples,
                 AudioFrame.samplesPerFrame - destinationSampleOffset
             )
             if let segmentData = segments[segmentIndex].data {
-                let sourceStart = segments[segmentIndex].consumedSamples *
-                    Self.bytesPerSample
-                let sourceEnd = sourceStart + copiedSamples *
-                    Self.bytesPerSample
-                let destinationStart = destinationSampleOffset *
-                    Self.bytesPerSample
-                let destinationEnd = destinationStart + copiedSamples *
-                    Self.bytesPerSample
+                let sourceStart = segments[segmentIndex].consumedSamples * Self.bytesPerSample
+                let sourceEnd = sourceStart + copiedSamples * Self.bytesPerSample
+                let destinationStart = destinationSampleOffset * Self.bytesPerSample
+                let destinationEnd = destinationStart + copiedSamples * Self.bytesPerSample
                 data.replaceSubrange(
-                    destinationStart ..< destinationEnd,
-                    with: segmentData[sourceStart ..< sourceEnd]
+                    destinationStart..<destinationEnd,
+                    with: segmentData[sourceStart..<sourceEnd]
                 )
             }
             segments[segmentIndex].consumedSamples += copiedSamples
             destinationSampleOffset += copiedSamples
-            if segments[segmentIndex].consumedSamples ==
-                segments[segmentIndex].sampleCount {
+            if segments[segmentIndex].consumedSamples == segments[segmentIndex].sampleCount {
                 segmentIndex += 1
             }
         }
@@ -153,14 +161,21 @@ struct PCMFramePacketizer {
         return (data, sampleOffset)
     }
 
-    /// 向输入时间轴追加静音样本。
+    /// Appends silence to the input timeline.
     ///
-    /// - Parameter sampleCount: 需要补齐的采样数；非正值不追加。
+    /// - Parameter sampleCount: The sample count to append. Nonpositive values are ignored.
     private mutating func appendSilence(
         sampleCount: Int
     ) {
-        guard sampleCount > 0 else { return }
-        segments.append(Segment(data: nil, sampleCount: sampleCount))
+        guard sampleCount > 0 else {
+            return
+        }
+        segments.append(
+            Segment(
+                data: nil,
+                sampleCount: sampleCount
+            )
+        )
         timelineWriteCursor += sampleCount
     }
 }

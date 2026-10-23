@@ -13,90 +13,119 @@ import CoreVideo
 import Foundation
 @preconcurrency import AgoraRtcKit
 
-/// 将声网解码帧复制到自有缓冲区，供异步渲染和插帧使用。
+/// Copies Agora decoded frames into buffers safe for asynchronous rendering.
 final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Sendable {
 
-    /// 接收数字用户标识、频道标识和自有像素缓冲区的回调。
+    /// The handler receiving a numeric UID, channel, and SDK-owned buffer.
     private let frameListener: @Sendable (UInt, String, RealtimeVideoFrame) -> Void
 
-    /// 保护远端像素缓冲池的复用与重建。
+    /// The lock protecting the remote pixel buffer pool.
     private let lock = NSLock()
 
-    /// 复用远端视频帧的像素缓冲区。
+    /// The reusable remote frame buffer pool.
     private var pool: CVPixelBufferPool?
 
-    /// 当前像素缓冲池对应的宽高，单位为像素。
+    /// The current pool dimensions, in pixels.
     private var dimensions = CGSize.zero
 
-    /// 当前像素缓冲池对应的像素格式。
+    /// The current pool pixel format.
     private var pixelFormat: OSType = 0
 
-    /// 创建远端解码帧接收器。
+    /// Creates a remote decoded frame receiver.
     init(
         frameListener: @escaping @Sendable (UInt, String, RealtimeVideoFrame) -> Void
     ) {
         self.frameListener = frameListener
     }
 
-    /// 指定远端帧使用 NV12 像素缓冲区。
+    /// Requests decoded frames as NV12 pixel buffers.
     ///
-    /// - Returns: NV12 视频帧格式。
-    func getVideoFormatPreference() -> AgoraVideoFormat { .cvPixelNV12 }
+    /// - Returns: The NV12 video format.
+    func getVideoFormatPreference() -> AgoraVideoFormat {
+        .cvPixelNV12
+    }
 
-    /// 指定在 RTC 渲染前接收解码帧。
+    /// Requests decoded frames before RTC rendering.
     ///
-    /// - Returns: 渲染前帧观察位置。
-    func getObservedFramePosition() -> AgoraVideoFramePosition { .preRenderer }
+    /// - Returns: The pre-render frame observation position.
+    func getObservedFramePosition() -> AgoraVideoFramePosition {
+        .preRenderer
+    }
 
-    /// 指定回调只读取 RTC 原始帧。
+    /// Requests read-only frame callbacks.
     ///
-    /// - Returns: 只读处理模式。
-    func getVideoFrameProcessMode() -> AgoraVideoFrameProcessMode { .readOnly }
+    /// - Returns: The read-only processing mode.
+    func getVideoFrameProcessMode() -> AgoraVideoFrameProcessMode {
+        .readOnly
+    }
 
-    /// 要求 RTC 在回调前将旋转应用到像素。
+    /// Requests rotation be applied to pixels before delivery.
     ///
-    /// - Returns: 始终返回 `true`。
-    func getRotationApplied() -> Bool { true }
+    /// - Returns: Always `true`.
+    func getRotationApplied() -> Bool {
+        true
+    }
 
-    /// 要求 RTC 保留未镜像的解码帧。
+    /// Requests unmirrored decoded frames.
     ///
-    /// - Returns: 始终返回 `false`。
-    func getMirrorApplied() -> Bool { false }
+    /// - Returns: Always `false`.
+    func getMirrorApplied() -> Bool {
+        false
+    }
 
-    /// 复制解码缓冲区并回调可异步持有的远端帧。
+    /// Delivers a copy of a decoded frame for asynchronous use.
     ///
     /// - Parameters:
-    ///   - frame: 声网提供的解码帧。
-    ///   - uid: 远端用户数字标识。
-    ///   - channelId: 帧所属频道标识。
-    /// - Returns: 始终返回 `true`，不阻止 RTC 继续处理该帧。
+    ///   - frame: The Agora decoded frame.
+    ///   - uid: The remote numeric UID.
+    ///   - channelId: The frame's channel identifier.
+    ///
+    /// - Returns: Always `true`, allowing RTC processing to continue.
     func onRenderVideoFrame(
         _ frame: AgoraOutputVideoFrame,
         uid: UInt,
         channelId: String
     ) -> Bool {
         guard let source = frame.pixelBuffer,
-              let buffer = lock.withLock({ copy(source) }) else { return true }
+            let buffer = lock.withLock({
+                copy(source)
+            })
+        else {
+            return true
+        }
 
-        frameListener(uid, channelId, RealtimeVideoFrame(
-            pixelBuffer: buffer,
-            presentationTimeStamp: CMTime(value: frame.renderTimeMs, timescale: 1000)
-        ))
+        frameListener(
+            uid,
+            channelId,
+            RealtimeVideoFrame(
+                pixelBuffer: buffer,
+                presentationTimeStamp: CMTime(
+                    value: frame.renderTimeMs,
+                    timescale: 1000
+                )
+            )
+        )
         return true
     }
 
-    /// 将双平面像素数据和附件复制到自有缓冲区。
+    /// Copies biplanar pixels and attachments into an owned buffer.
     ///
-    /// - Parameter source: 源像素缓冲区。
-    /// - Returns: 可独立持有的复制缓冲区；布局不支持或分配失败时返回 `nil`。
+    /// - Parameter source: The source pixel buffer.
+    ///
+    /// - Returns: An owned copy, or `nil` if allocation fails or the layout is unsupported.
     private func copy(
         _ source: CVPixelBuffer
     ) -> CVPixelBuffer? {
         let width = CVPixelBufferGetWidth(source)
         let height = CVPixelBufferGetHeight(source)
-        let size = CGSize(width: width, height: height)
+        let size = CGSize(
+            width: width,
+            height: height
+        )
         let format = CVPixelBufferGetPixelFormatType(source)
-        guard CVPixelBufferGetPlaneCount(source) == 2 else { return nil }
+        guard CVPixelBufferGetPlaneCount(source) == 2 else {
+            return nil
+        }
         if pool == nil || dimensions != size || pixelFormat != format {
             let attributes: [CFString: Any] = [
                 kCVPixelBufferWidthKey: width,
@@ -105,32 +134,94 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
                 kCVPixelBufferIOSurfacePropertiesKey: [:],
                 kCVPixelBufferMetalCompatibilityKey: true
             ]
-            guard CVPixelBufferPoolCreate(nil, nil, attributes as CFDictionary, &pool) == kCVReturnSuccess else { return nil }
+            guard
+                CVPixelBufferPoolCreate(
+                    nil,
+                    nil,
+                    attributes as CFDictionary,
+                    &pool
+                ) == kCVReturnSuccess
+            else {
+                return nil
+            }
             dimensions = size
             pixelFormat = format
         }
-        guard let pool else { return nil }
+        guard let pool else {
+            return nil
+        }
         var output: CVPixelBuffer?
-        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &output) == kCVReturnSuccess,
-              let output else { return nil }
+        guard
+            CVPixelBufferPoolCreatePixelBuffer(
+                nil,
+                pool,
+                &output
+            ) == kCVReturnSuccess,
+            let output
+        else {
+            return nil
+        }
 
-        CVPixelBufferLockBaseAddress(source, .readOnly)
-        CVPixelBufferLockBaseAddress(output, [])
+        CVPixelBufferLockBaseAddress(
+            source,
+            .readOnly
+        )
+        CVPixelBufferLockBaseAddress(
+            output,
+            []
+        )
         defer {
-            CVPixelBufferUnlockBaseAddress(output, [])
-            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+            CVPixelBufferUnlockBaseAddress(
+                output,
+                []
+            )
+            CVPixelBufferUnlockBaseAddress(
+                source,
+                .readOnly
+            )
         }
         for plane in 0..<CVPixelBufferGetPlaneCount(source) {
-            guard let src = CVPixelBufferGetBaseAddressOfPlane(source, plane),
-                  let dst = CVPixelBufferGetBaseAddressOfPlane(output, plane) else { return nil }
-            let srcStride = CVPixelBufferGetBytesPerRowOfPlane(source, plane)
-            let dstStride = CVPixelBufferGetBytesPerRowOfPlane(output, plane)
-            let bytes = min(srcStride, dstStride)
-            for row in 0..<CVPixelBufferGetHeightOfPlane(source, plane) {
-                memcpy(dst.advanced(by: row * dstStride), src.advanced(by: row * srcStride), bytes)
+            guard
+                let src = CVPixelBufferGetBaseAddressOfPlane(
+                    source,
+                    plane
+                ),
+                let dst = CVPixelBufferGetBaseAddressOfPlane(
+                    output,
+                    plane
+                )
+            else {
+                return nil
+            }
+            let srcStride = CVPixelBufferGetBytesPerRowOfPlane(
+                source,
+                plane
+            )
+            let dstStride = CVPixelBufferGetBytesPerRowOfPlane(
+                output,
+                plane
+            )
+            let bytes = min(
+                srcStride,
+                dstStride
+            )
+            for row
+                in 0..<CVPixelBufferGetHeightOfPlane(
+                    source,
+                    plane
+                )
+            {
+                memcpy(
+                    dst.advanced(by: row * dstStride),
+                    src.advanced(by: row * srcStride),
+                    bytes
+                )
             }
         }
-        CVBufferPropagateAttachments(source, output)
+        CVBufferPropagateAttachments(
+            source,
+            output
+        )
         return output
     }
 }

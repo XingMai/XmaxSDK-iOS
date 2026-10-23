@@ -8,24 +8,26 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 根据实时视频格式配置 RTC 视频编码参数。
+/// Applies RTC encoding settings for a realtime video format.
 final class EncodingController: EncodingControlling, Sendable {
 
-    /// 接收编码配置的 RTC 管理器。
+    /// The RTC encoder configuration target.
     private let rtcManager: any RtcManaging
 
-    /// 创建负责应用 RTC 视频编码配置的控制器。
+    /// Creates a video encoding controller.
     init(
         rtcManager: any RtcManaging
     ) {
         self.rtcManager = rtcManager
     }
 
-    /// 校验视频规格并应用解析后的 RTC 编码参数。
-    /// 未指定最低码率时使用 500 kbps，但不超过当前规格的最高码率。
+    /// Validates and applies a resolved encoder configuration. An unspecified minimum uses 500
+    /// kbps, capped by the maximum.
     ///
-    /// - Parameter videoFormat: 包含尺寸、帧率、可选码率及编码偏好的视频规格。
-    /// - Throws: 视频规格无效、默认码率解析或 RTC 配置失败时抛出错误。
+    /// - Parameter videoFormat: The dimensions, frame rate, optional bitrate bounds, and encoding
+    ///   preference.
+    ///
+    /// - Throws: An error if the format, bitrate resolution, or RTC configuration fails.
     func configure(
         _ videoFormat: RealtimeVideoFormat
     ) throws {
@@ -33,13 +35,22 @@ final class EncodingController: EncodingControlling, Sendable {
 
         let budget = try EncodingBitratePolicy.resolve(videoFormat)
         let maximum = budget.maximum
-        let minimum = videoFormat.minimumBitrate ?? min(500, maximum)
+        let minimum =
+            videoFormat.minimumBitrate
+            ?? min(
+                500,
+                maximum
+            )
 
-        let encoderPreference: VideoEncodingConfiguration.EncoderPreference = switch videoFormat.encoderPreference {
-            case .auto: .auto
-            case .maintainFramerate: .maintainFramerate
-            case .maintainQuality: .maintainQuality
-        }
+        let encoderPreference: VideoEncodingConfiguration.EncoderPreference =
+            switch videoFormat.encoderPreference {
+            case .auto:
+                .auto
+            case .maintainFramerate:
+                .maintainFramerate
+            case .maintainQuality:
+                .maintainQuality
+            }
 
         try rtcManager.configureVideoEncoding(
             VideoEncodingConfiguration(

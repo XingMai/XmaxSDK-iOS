@@ -8,26 +8,26 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 实时性能限制状态。
+/// A realtime performance limitation state.
 public enum RealtimePerformanceStatus: String, CaseIterable, Sendable {
 
-    /// 设备性能受限，接入方应考虑使用建议的视频格式。
+    /// Device performance is limited; consider the suggested format.
     case limited = "Limited"
 
-    /// 设备性能已经恢复。
+    /// Device performance has recovered.
     case recovered = "Recovered"
 }
 
-/// 实时性能告警信息。
+/// A realtime performance alarm.
 public struct RealtimePerformanceAlarm: Equatable, Sendable {
 
-    /// 当前设备性能是受限还是已经恢复。
+    /// The current performance limitation or recovery state.
     public let status: RealtimePerformanceStatus
 
-    /// RTC 建议的降级视频格式；建议参数无效时为空。
+    /// The suggested RTC fallback format, or `nil` if its parameters are invalid.
     public let suggestedVideoFormat: RealtimeVideoFormat?
 
-    /// 创建实时性能告警信息。
+    /// Creates a performance alarm.
     public init(
         status: RealtimePerformanceStatus,
         suggestedVideoFormat: RealtimeVideoFormat?
@@ -37,7 +37,8 @@ public struct RealtimePerformanceAlarm: Equatable, Sendable {
     }
 }
 
-/// 实时性能告警监听器。
-public typealias RealtimePerformanceAlarmListener = @MainActor @Sendable (
-    RealtimePerformanceAlarm
-) -> Void
+/// A realtime performance alarm listener.
+public typealias RealtimePerformanceAlarmListener =
+    @MainActor @Sendable (
+        RealtimePerformanceAlarm
+    ) -> Void

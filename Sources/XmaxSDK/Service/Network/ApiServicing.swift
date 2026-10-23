@@ -10,34 +10,37 @@
 
 import Foundation
 
-/// Xmax API 支持的 HTTP 请求方法。
+/// An HTTP method supported by the Xmax API.
 enum ApiMethod: String, Sendable {
 
-    /// 读取服务端资源。
+    /// Reads a server resource.
     case get = "GET"
 
-    /// 提交数据或创建资源。
+    /// Submits data or creates a resource.
     case post = "POST"
 
-    /// 更新服务端资源。
+    /// Updates a server resource.
     case put = "PUT"
 
-    /// 删除服务端资源。
+    /// Deletes a server resource.
     case delete = "DELETE"
 }
 
-/// 定义 Xmax API 的基础请求能力。
+/// An interface for Xmax API requests.
 protocol ApiServicing: Sendable {
 
-    /// 发送 HTTP 请求并将响应数据解析为指定类型。
+    /// Sends an HTTP request and decodes its response.
     ///
     /// - Parameters:
-    ///   - method: 请求使用的 HTTP 方法。
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - body: 已编码的请求体；`nil` 表示无请求体。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 凭证或地址无效、请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - method: The request's HTTP method.
+    ///   - path: The path relative to the API root.
+    ///   - body: The encoded body, or `nil` for no body.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if credentials or URL are invalid, the request is rejected, or transport
+    ///   or decoding fails.
     func request<Response: Decodable & Sendable>(
         _ method: ApiMethod,
         path: String,
@@ -48,13 +51,15 @@ protocol ApiServicing: Sendable {
 
 extension ApiServicing {
 
-    /// 发送 GET 请求并解析响应数据。
+    /// Sends a GET request and decodes the response.
     ///
     /// - Parameters:
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - path: The path relative to the API root.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if the request, business response, or decoding fails.
     func get<Response: Decodable & Sendable>(
         _ path: String,
         as responseType: Response.Type
@@ -67,13 +72,15 @@ extension ApiServicing {
         )
     }
 
-    /// 发送 POST 请求并解析响应数据。
+    /// Sends a POST request and decodes the response.
     ///
     /// - Parameters:
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - path: The path relative to the API root.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if the request, business response, or decoding fails.
     func post<Response: Decodable & Sendable>(
         _ path: String,
         as responseType: Response.Type
@@ -86,14 +93,16 @@ extension ApiServicing {
         )
     }
 
-    /// 发送带 JSON 请求体的 POST 请求。
+    /// Sends a POST request with a JSON body.
     ///
     /// - Parameters:
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - body: 需要编码为 JSON 的请求数据。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 请求体编码失败、请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - path: The path relative to the API root.
+    ///   - body: The request data to encode as JSON.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if body encoding, transport, business response, or decoding fails.
     func post<Body: Encodable & Sendable, Response: Decodable & Sendable>(
         _ path: String,
         body: Body,
@@ -107,13 +116,15 @@ extension ApiServicing {
         )
     }
 
-    /// 发送 PUT 请求并解析响应数据。
+    /// Sends a PUT request and decodes the response.
     ///
     /// - Parameters:
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - path: The path relative to the API root.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if the request, business response, or decoding fails.
     func put<Response: Decodable & Sendable>(
         _ path: String,
         as responseType: Response.Type
@@ -126,14 +137,16 @@ extension ApiServicing {
         )
     }
 
-    /// 发送带 JSON 请求体的 PUT 请求。
+    /// Sends a PUT request with a JSON body.
     ///
     /// - Parameters:
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - body: 需要编码为 JSON 的请求数据。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 请求体编码失败、请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - path: The path relative to the API root.
+    ///   - body: The request data to encode as JSON.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if body encoding, transport, business response, or decoding fails.
     func put<Body: Encodable & Sendable, Response: Decodable & Sendable>(
         _ path: String,
         body: Body,
@@ -147,13 +160,15 @@ extension ApiServicing {
         )
     }
 
-    /// 发送 DELETE 请求并解析响应数据。
+    /// Sends a DELETE request and decodes the response.
     ///
     /// - Parameters:
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - path: The path relative to the API root.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if the request, business response, or decoding fails.
     func delete<Response: Decodable & Sendable>(
         _ path: String,
         as responseType: Response.Type
@@ -166,11 +181,13 @@ extension ApiServicing {
         )
     }
 
-    /// 将请求数据编码为 JSON。
+    /// Encodes request data as JSON.
     ///
-    /// - Parameter body: 符合编码协议的请求数据。
-    /// - Returns: 可用于 HTTP 请求体的 JSON 数据。
-    /// - Throws: JSON 编码失败时抛出 API 错误。
+    /// - Parameter body: The encodable request data.
+    ///
+    /// - Returns: The JSON HTTP body.
+    ///
+    /// - Throws: An API error if JSON encoding fails.
     private func encode<Body: Encodable & Sendable>(
         _ body: Body
     ) throws -> Data {
@@ -179,8 +196,7 @@ extension ApiServicing {
         } catch {
             throw XmaxError(
                 code: .apiError,
-                message: "Failed to encode API request body: " +
-                    ErrorMessageFormatter.format(error)
+                message: "Failed to encode API request body: " + ErrorMessageFormatter.format(error)
             )
         }
     }

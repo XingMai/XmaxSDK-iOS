@@ -10,18 +10,18 @@
 
 import Foundation
 
-/// 保存远端视频轨道与轨迹交互能力之间的绑定。
+/// A registry of remote track interaction bindings.
 @MainActor
 enum TrajectoryRegistry {
 
-    /// 按视频轨道标识保存的交互绑定。
+    /// The interaction bindings keyed by video track identifier.
     private static var bindings: [ObjectIdentifier: TrajectoryBinding] = [:]
 
-    /// 登记远端轨道对应的轨迹交互绑定。
+    /// Registers a remote track's interaction binding.
     ///
     /// - Parameters:
-    ///   - track: 需要登记的远端视频轨道。
-    ///   - binding: 轨迹交互绑定。
+    ///   - track: The remote track to register.
+    ///   - binding: The trajectory interaction binding.
     static func register(
         _ track: RealtimeVideoTrack,
         binding: TrajectoryBinding
@@ -29,19 +29,20 @@ enum TrajectoryRegistry {
         bindings[ObjectIdentifier(track)] = binding
     }
 
-    /// 移除并停用指定轨道的轨迹交互绑定。
+    /// Removes and deactivates a track's interaction binding.
     ///
-    /// - Parameter track: 需要移除的远端视频轨道。
+    /// - Parameter track: The remote track to unregister.
     static func unregister(
         _ track: RealtimeVideoTrack
     ) {
         bindings.removeValue(forKey: ObjectIdentifier(track))?.invalidate()
     }
 
-    /// 查找指定轨道的轨迹交互绑定。
+    /// Returns a track's interaction binding.
     ///
-    /// - Parameter track: 待查找的远端视频轨道。
-    /// - Returns: 已登记的轨迹绑定；未登记时返回 `nil`。
+    /// - Parameter track: The remote track to find.
+    ///
+    /// - Returns: The registered binding, or `nil`.
     static func binding(
         for track: RealtimeVideoTrack
     ) -> TrajectoryBinding? {

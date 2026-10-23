@@ -12,19 +12,22 @@
 import CoreGraphics
 import Foundation
 
-/// 使用 AVFoundation 读取本地媒体文件元数据。
+/// An AVFoundation media metadata reader.
 final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
 
-    /// 读取视频的原始尺寸、显示旋转、时长和音频轨道信息。
+    /// Reads video dimensions, orientation, duration, and audio availability.
     ///
-    /// - Parameter fileURL: 可读取的本地视频文件 URL。
-    /// - Returns: 用于准备本地视频流的媒体元数据。
-    /// - Throws: 文件不可读、无视频轨道或媒体元数据无效时抛出错误。
+    /// - Parameter fileURL: The URL of a readable local video file.
+    ///
+    /// - Returns: The metadata needed to prepare a local video stream.
+    ///
+    /// - Throws: An error if the file is unreadable, lacks video, or has invalid metadata.
     func readMetadata(
         fileURL: URL
     ) async throws -> MediaFileMetadata {
         guard fileURL.isFileURL,
-              FileManager.default.fileExists(atPath: fileURL.path) else {
+            FileManager.default.fileExists(atPath: fileURL.path)
+        else {
             throw Self.mediaError("Media file does not exist")
         }
 
@@ -52,10 +55,11 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
             let durationSeconds = resolvedDuration.seconds
 
             guard width > 0,
-                  height > 0,
-                  durationSeconds.isFinite,
-                  durationSeconds > 0,
-                  durationSeconds <= Double(Int64.max) / 1_000_000 else {
+                height > 0,
+                durationSeconds.isFinite,
+                durationSeconds > 0,
+                durationSeconds <= Double(Int64.max) / 1_000_000
+            else {
                 throw Self.mediaError("Media file metadata is invalid")
             }
 
@@ -70,8 +74,7 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
             throw error
         } catch {
             throw Self.mediaError(
-                "Failed to read media metadata: " +
-                    (error as NSError).localizedDescription
+                "Failed to read media metadata: " + (error as NSError).localizedDescription
             )
         }
     }
@@ -79,26 +82,35 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
 
 private extension MediaFileMetadataManager {
 
-    /// 将媒体轨道变换转换为最接近的四分之一圈旋转方向。
+    /// Resolves a track transform to the nearest quarter-turn rotation.
     ///
-    /// - Parameter transform: 视频轨道的首选显示变换。
-    /// - Returns: 归一化后的 0、90、180 或 270 度旋转。
+    /// - Parameter transform: The track's preferred display transform.
+    ///
+    /// - Returns: A normalized rotation of 0, 90, 180, or 270 degrees.
     static func rotation(
         from transform: CGAffineTransform
     ) -> VideoRotation {
-        let degrees = atan2(transform.b, transform.a) * 180 / .pi
+        let degrees =
+            atan2(
+                transform.b,
+                transform.a
+            ) * 180 / .pi
         let normalized = (Int(degrees.rounded()) % 360 + 360) % 360
         let nearestQuarterTurn = ((normalized + 45) / 90 * 90) % 360
         return VideoRotation(rawValue: nearestQuarterTurn) ?? .rotation0
     }
 
-    /// 创建媒体读取错误。
+    /// Creates a media reading error.
     ///
-    /// - Parameter message: 可读的媒体错误说明。
-    /// - Returns: 带有指定说明的媒体错误。
+    /// - Parameter message: The media failure description.
+    ///
+    /// - Returns: A media error with the specified description.
     static func mediaError(
         _ message: String
     ) -> XmaxError {
-        XmaxError(code: .mediaError, message: message)
+        XmaxError(
+            code: .mediaError,
+            message: message
+        )
     }
 }

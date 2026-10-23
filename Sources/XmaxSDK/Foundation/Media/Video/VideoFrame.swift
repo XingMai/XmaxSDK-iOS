@@ -10,33 +10,34 @@
 
 import Foundation
 
-/// 持有中性像素数据及时间信息的视频帧。
+/// A video frame with owned pixel data and timing information.
 struct VideoFrame: Equatable, Sendable {
 
-    /// 可复用像素缓冲区的标识，供适配层缓存转换结果。
+    /// The buffer reuse identifier used to cache converted pixels.
     let bufferReuseID: UUID?
 
-    /// 帧的宽高和像素排列格式。
+    /// The frame dimensions and pixel format.
     let format: VideoFormat
 
-    /// 帧在统一媒体时间轴上的时间戳，单位为微秒。
+    /// The timestamp on the shared media timeline, in microseconds.
     let timestampUs: Int64
 
-    /// 将像素数据转换为显示方向所需的旋转角度。
+    /// The rotation needed for display.
     let rotation: VideoRotation
 
-    /// 组成当前图像的像素平面。
+    /// The image's pixel planes.
     let planes: [VideoFramePlane]
 
-    /// 创建持有像素平面、时间戳与显示方向的视频帧。
+    /// Creates a video frame.
     ///
     /// - Parameters:
-    ///   - format: 视频尺寸和像素格式。
-    ///   - timestampUs: 帧时间戳，单位为微秒，不能为负数。
-    ///   - planes: 至少包含一个元素的像素数据平面。
-    ///   - rotation: 显示时需要应用的旋转方向。
-    ///   - bufferReuseID: 允许复用底层缓冲区的标识；`nil` 表示不使用缓存标识。
-    /// - Throws: 时间戳为负数或像素平面为空时抛出配置错误。
+    ///   - format: The video dimensions and pixel format.
+    ///   - timestampUs: The nonnegative frame timestamp, in microseconds.
+    ///   - planes: The pixel planes, with at least one element.
+    ///   - rotation: The rotation applied for display.
+    ///   - bufferReuseID: The buffer reuse identifier, or `nil` to disable conversion caching.
+    ///
+    /// - Throws: A configuration error if the timestamp is negative or pixel planes are empty.
     init(
         format: VideoFormat,
         timestampUs: Int64,
@@ -64,13 +65,15 @@ struct VideoFrame: Equatable, Sendable {
         self.planes = planes
     }
 
-    /// 复用像素数据，生成具有新时间戳和可选旋转方向的视频帧。
+    /// Creates a frame sharing the original pixels with updated timing or rotation.
     ///
     /// - Parameters:
-    ///   - timestampUs: 新的帧时间戳，单位为微秒。
-    ///   - rotation: 新的旋转方向；`nil` 保留原方向。
-    /// - Returns: 共享原像素平面和复用标识的新帧。
-    /// - Throws: 新时间戳无效时抛出配置错误。
+    ///   - timestampUs: The new timestamp, in microseconds.
+    ///   - rotation: The new rotation, or `nil` to preserve the original.
+    ///
+    /// - Returns: A frame sharing the original pixel planes and reuse identifier.
+    ///
+    /// - Throws: A configuration error if the new timestamp is invalid.
     func updating(
         timestampUs: Int64,
         rotation: VideoRotation? = nil

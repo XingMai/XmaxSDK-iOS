@@ -10,18 +10,18 @@
 
 import Foundation
 
-/// 保存实时视频轨道与底层渲染能力之间的内部绑定关系。
+/// A registry of video track rendering bindings.
 @MainActor
 enum VideoRenderRegistry {
 
-    /// 按视频轨道标识保存的渲染绑定。
+    /// The bindings keyed by track identifier.
     private static var bindings: [ObjectIdentifier: VideoRenderBinding] = [:]
 
-    /// 登记视频轨道对应的渲染绑定。
+    /// Registers a video track's rendering binding.
     ///
     /// - Parameters:
-    ///   - track: 需要登记的视频轨道。
-    ///   - binding: 轨道使用的视图绑定能力。
+    ///   - track: The video track to register.
+    ///   - binding: The track's rendering binding.
     static func register(
         _ track: RealtimeVideoTrack,
         binding: VideoRenderBinding
@@ -29,19 +29,20 @@ enum VideoRenderRegistry {
         bindings[ObjectIdentifier(track)] = binding
     }
 
-    /// 移除指定轨道的渲染绑定记录。
+    /// Removes a video track's rendering binding.
     ///
-    /// - Parameter track: 需要移除的视频轨道。
+    /// - Parameter track: The video track to unregister.
     static func unregister(
         _ track: RealtimeVideoTrack
     ) {
         bindings.removeValue(forKey: ObjectIdentifier(track))
     }
 
-    /// 查找视频轨道对应的渲染绑定。
+    /// Returns a video track's rendering binding.
     ///
-    /// - Parameter track: 待查找的视频轨道。
-    /// - Returns: 已登记的绑定；未登记时返回 `nil`。
+    /// - Parameter track: The video track to find.
+    ///
+    /// - Returns: The registered binding, or `nil`.
     static func binding(
         for track: RealtimeVideoTrack
     ) -> VideoRenderBinding? {

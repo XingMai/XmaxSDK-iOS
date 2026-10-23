@@ -219,7 +219,7 @@ public protocol XmaxRealtimeManaging: Sendable {
         useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
 
-    /// Stops the local camera stream.
+    /// Stops the local camera stream and updates media readiness.
     ///
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
@@ -285,7 +285,7 @@ public protocol XmaxRealtimeManaging: Sendable {
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// Stops the local image stream.
+    /// Stops the local image stream and updates media readiness.
     ///
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
@@ -306,7 +306,7 @@ public protocol XmaxRealtimeManaging: Sendable {
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// Stops the local file video stream.
+    /// Stops the local file video stream and updates media readiness.
     ///
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.

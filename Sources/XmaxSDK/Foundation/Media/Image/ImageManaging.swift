@@ -10,14 +10,16 @@
 
 import Foundation
 
-/// 定义 SDK 内部使用的平台图片解码能力。
+/// An interface for image decoding.
 protocol ImageManaging: Sendable {
 
-    /// 解码图片数据并应用图片方向，返回可重复处理的像素图像。
+    /// Decodes image data and applies its orientation.
     ///
-    /// - Parameter data: JPEG、PNG 等受支持格式的编码图片数据。
-    /// - Returns: 已应用原始方向的解码图像。
-    /// - Throws: 数据为空、格式不支持或图片解码失败时抛出错误。
+    /// - Parameter data: Encoded image data, such as JPEG or PNG.
+    ///
+    /// - Returns: The orientation-corrected decoded image.
+    ///
+    /// - Throws: An error if data is empty, unsupported, or cannot be decoded.
     func decode(
         _ data: Data
     ) throws -> any DecodedImage

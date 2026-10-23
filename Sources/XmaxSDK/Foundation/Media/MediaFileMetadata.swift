@@ -8,21 +8,21 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 本地媒体文件中视频、音频和时间线所需的元数据。
+/// The video, audio, and timeline metadata of a local media file.
 struct MediaFileMetadata: Equatable, Sendable {
 
-    /// 视频轨道的原始宽度，单位为像素。
+    /// The encoded video width, in pixels.
     let width: Int
 
-    /// 视频轨道的原始高度，单位为像素。
+    /// The encoded video height, in pixels.
     let height: Int
 
-    /// 将原始视频帧转换为显示方向所需的旋转角度。
+    /// The rotation from encoded pixels to display orientation.
     let rotation: VideoRotation
 
-    /// 媒体文件时长，单位为秒。
+    /// The media duration, in seconds.
     let durationSeconds: Double
 
-    /// 文件是否包含音轨。
+    /// Whether the file contains an audio track.
     let hasAudio: Bool
 }

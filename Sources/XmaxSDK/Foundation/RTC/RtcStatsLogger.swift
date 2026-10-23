@@ -10,22 +10,26 @@
 
 import Foundation
 
-/// 将声网 RTC 运行统计输出为统一的 Xmax 调试日志。
+/// Formats RTC statistics for Xmax logs.
 enum RtcStatsLogger {
 
-    /// 在性能日志启用时输出视频上行指标。
+    /// Logs uplink video metrics when performance logging is enabled.
     ///
-    /// - Parameter video: 当前上行视频统计。
+    /// - Parameter video: The uplink video statistics.
     static func logUplinkVideoStatistics(
         _ video: UplinkVideoStatistics
     ) {
-        XmaxLogger.rtc.debug(message: uplinkVideoStatisticsMessage(video), option: .performance)
+        XmaxLogger.rtc.debug(
+            message: uplinkVideoStatisticsMessage(video),
+            option: .performance
+        )
     }
 
-    /// 格式化上行统计日志。
+    /// Formats uplink statistics.
     ///
-    /// - Parameter video: 当前上行视频统计。
-    /// - Returns: 包含本地化字段名称的上行日志正文。
+    /// - Parameter video: The uplink video statistics.
+    ///
+    /// - Returns: The uplink log with localized field labels.
     static func uplinkVideoStatisticsMessage(
         _ video: UplinkVideoStatistics
     ) -> String {
@@ -40,19 +44,23 @@ enum RtcStatsLogger {
         """
     }
 
-    /// 在性能日志启用时输出视频下行指标。
+    /// Logs downlink video metrics when performance logging is enabled.
     ///
-    /// - Parameter video: 当前下行视频统计。
+    /// - Parameter video: The downlink video statistics.
     static func logDownlinkVideoStatistics(
         _ video: DownlinkVideoStatistics
     ) {
-        XmaxLogger.rtc.debug(message: downlinkVideoStatisticsMessage(video), option: .performance)
+        XmaxLogger.rtc.debug(
+            message: downlinkVideoStatisticsMessage(video),
+            option: .performance
+        )
     }
 
-    /// 格式化下行统计日志。
+    /// Formats downlink statistics.
     ///
-    /// - Parameter video: 当前下行视频统计。
-    /// - Returns: 包含本地化字段名称的下行日志正文。
+    /// - Parameter video: The downlink video statistics.
+    ///
+    /// - Returns: The downlink log with localized field labels.
     static func downlinkVideoStatisticsMessage(
         _ video: DownlinkVideoStatistics
     ) -> String {
@@ -67,30 +75,36 @@ enum RtcStatsLogger {
         """
     }
 
-    /// 格式化可用的视频分辨率。
+    /// Formats available video dimensions.
     ///
     /// - Parameters:
-    ///   - width: 像素宽度；不可用时为 `nil`。
-    ///   - height: 像素高度；不可用时为 `nil`。
-    /// - Returns: 宽高文本；任一值不可用时返回占位符。
+    ///   - width: The pixel width, or `nil` if unavailable.
+    ///   - height: The pixel height, or `nil` if unavailable.
+    ///
+    /// - Returns: The dimensions, or a placeholder if either value is unavailable.
     private static func resolution(
         _ width: Int?,
         _ height: Int?
     ) -> String {
-        guard let width, let height else { return "—" }
+        guard let width, let height else {
+            return "—"
+        }
         return "\(width) × \(height)"
     }
 
-    /// 为可用统计值追加单位。
+    /// Formats an available statistic with its unit.
     ///
     /// - Parameters:
-    ///   - number: 统计值；不可用时为 `nil`。
-    ///   - unit: 统计值的单位。
-    /// - Returns: 带单位的数值文本或不可用占位符。
+    ///   - number: The statistic, or `nil` if unavailable.
+    ///   - unit: The statistic's unit.
+    ///
+    /// - Returns: The value with its unit, or an unavailable placeholder.
     private static func value(
         _ number: Int?,
         unit: String
     ) -> String {
-        number.map { "\($0) \(unit)" } ?? "—"
+        number.map {
+            "\($0) \(unit)"
+        } ?? "—"
     }
 }

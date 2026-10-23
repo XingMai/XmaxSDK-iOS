@@ -10,47 +10,55 @@
 
 import Foundation
 
-/// 管理 RTC 租约、连接等待、取消及事件有效期。
+/// Manages RTC leases, connection waits, and event validity.
 final class RtcManager: RtcManaging, @unchecked Sendable {
 
-    /// 默认进房超时，单位为纳秒。
+    /// The default room join timeout, in nanoseconds.
     static let joinTimeoutNanoseconds: UInt64 = 15000000000
 
-    /// 提供独占 RTC 引擎租约。
+    /// Connection dependencies.
+
+    /// The exclusive engine lease provider.
     private let engineManager: RtcEngineManager
 
-    /// 等待进房结果的超时时长，单位为纳秒。
+    /// The room join timeout, in nanoseconds.
     private let joinTimeout: UInt64
 
-    /// 保护房间、租约和初始化状态的短时读写。
+    /// Synchronization.
+
+    /// The lock protecting room, lease, and initialization state.
     private let stateLock = NSLock()
 
-    /// 串行保护会跨越多次状态访问的 RTC 操作。
+    /// The lock serializing compound RTC operations.
     private let operationLock = NSRecursiveLock()
 
-    /// 当前管理器持有的引擎租约。
+    /// Connection resources.
+
+    /// The engine lease held by this manager.
     private var engineLease: RtcEngineLease?
 
-    /// 当前已加入的房间及其有效期。
+    /// The active room and its validity.
     private var activeRoom: RoomContext?
 
-    /// 等待进房结果的请求。
+    /// The pending room join request.
     private var pendingJoin: PendingJoin?
 
-    /// 接收房间状态和远端流事件。
+    /// Event listeners.
+
+    /// The listener for room and remote stream events.
     private weak var eventListener: (any RtcEventListener)?
 
-    /// 接收 RTC 网络质量与音视频统计。
+    /// The listener for RTC quality and media statistics.
     private weak var qualityListener: (any RtcQualityListener)?
 
-    /// 正在等待引擎租约的共享初始化操作。
+    /// The shared engine initialization operation.
     private var initialization: Initialization?
 
-    /// 创建 RTC 管理器并配置进房等待时限。
+    /// Creates an RTC manager with a room join timeout.
     ///
     /// - Parameters:
-    ///   - engineManager: 管理进程级引擎独占租约的组件。
-    ///   - joinTimeoutNanoseconds: 进房超时，单位为纳秒。
+    ///   - engineManager: The exclusive engine lease manager.
+    ///   - joinTimeoutNanoseconds: The room join timeout, in nanoseconds.
     init(
         engineManager: RtcEngineManager = .shared,
         joinTimeoutNanoseconds: UInt64 = RtcManager.joinTimeoutNanoseconds
@@ -59,9 +67,9 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         joinTimeout = joinTimeoutNanoseconds
     }
 
-    /// 获取独占的 RTC 引擎租约并完成初始化。
+    /// Acquires an exclusive engine lease and initializes RTC.
     ///
-    /// - Throws: 等待租约被取消或 RTC 引擎初始化失败时抛出错误。
+    /// - Throws: An error if lease acquisition is cancelled or initialization fails.
     func initialize() async throws {
         guard !Task.isCancelled else {
             throw Self.cancelledError(operation: "RTC initialization")
@@ -114,7 +122,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    /// 销毁 RTC 引擎并释放资源。
+    /// Destroys the RTC engine and releases resources.
     func destroy() async {
         await leaveRoom()
         let resources = operationLock.withLock {
@@ -132,90 +140,115 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
-    /// 应用上传视频的编码配置。
+    /// Applies the uplink encoder configuration.
     ///
-    /// - Parameter configuration: 尺寸、帧率、码率和编码偏好。
-    /// - Throws: 厂商引擎拒绝配置时抛出错误。
+    /// - Parameter configuration: The dimensions, frame rate, bitrate, and encoding preference.
+    ///
+    /// - Throws: An error if the engine rejects the configuration.
     func configureVideoEncoding(
         _ configuration: VideoEncodingConfiguration
     ) throws {
         guard configuration.width > 0, configuration.height > 0, configuration.frameRate > 0 else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Video width, height, and frame rate must be positive")
+                message: "Video width, height, and frame rate must be positive"
+            )
         }
-        try withEngine { try $0.configureVideoEncoding(configuration) }
+        try withEngine {
+            try $0.configureVideoEncoding(configuration)
+        }
     }
 
-    /// 启用外部视频输入。
+    /// Enables external video input.
     ///
-    /// - Throws: 视频源配置失败时抛出错误。
+    /// - Throws: An error if video source configuration fails.
     func useExternalVideoSource() throws {
-        try withEngine { try $0.useExternalVideoSource() }
+        try withEngine {
+            try $0.useExternalVideoSource()
+        }
     }
 
-    /// 更新上传视频镜像。
+    /// Updates uplink video mirroring.
     ///
-    /// - Parameter position: 当前摄像头位置。
-    /// - Throws: 编码镜像配置失败时抛出错误。
+    /// - Parameter position: The current camera position.
+    ///
+    /// - Throws: An error if encoder mirroring cannot be configured.
     func configureLocalVideoMirror(
         for position: CameraPosition
     ) throws {
-        try withOptionalEngine { try $0.configureLocalVideoMirror(for: position) }
+        try withOptionalEngine {
+            try $0.configureLocalVideoMirror(for: position)
+        }
     }
 
-    /// 切换至麦克风输入并开始采集。
+    /// Switches to microphone input and starts capture.
     ///
-    /// - Throws: 音频源切换或采集失败时抛出错误。
+    /// - Throws: An error if source switching or capture fails.
     func startAudioCapture() throws {
-        try withEngine { try $0.startAudioCapture() }
+        try withEngine {
+            try $0.startAudioCapture()
+        }
     }
 
-    /// 停止麦克风采集。
+    /// Stops microphone capture.
     ///
-    /// - Throws: 厂商引擎停止采集失败时抛出错误。
+    /// - Throws: An error if the engine cannot stop capture.
     func stopAudioCapture() throws {
-        try withOptionalEngine { try $0.stopAudioCapture() }
+        try withOptionalEngine {
+            try $0.stopAudioCapture()
+        }
     }
 
-    /// 启用外部 PCM 输入。
+    /// Enables external PCM input.
     ///
-    /// - Throws: 外部音频轨创建失败时抛出错误。
+    /// - Throws: An error if the external audio track cannot be created.
     func startExternalAudioSource() throws {
-        try withEngine { try $0.startExternalAudioSource() }
+        try withEngine {
+            try $0.startExternalAudioSource()
+        }
     }
 
-    /// 停止外部 PCM 输入并释放音频轨。
+    /// Stops external PCM input and releases its track.
     ///
-    /// - Throws: 音频轨释放失败时抛出错误。
+    /// - Throws: An error if the audio track cannot be released.
     func stopExternalAudioSource() throws {
-        try withOptionalEngine { try $0.stopExternalAudioSource() }
+        try withOptionalEngine {
+            try $0.stopExternalAudioSource()
+        }
     }
 
-    /// 推送外部视频帧。
+    /// Pushes an external video frame.
     ///
-    /// - Parameter frame: SDK 中性视频帧。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: The SDK video frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalVideoFrame(
         _ frame: VideoFrame
     ) throws {
-        try withEngine { try $0.pushExternalVideoFrame(frame) }
+        try withEngine {
+            try $0.pushExternalVideoFrame(frame)
+        }
     }
 
-    /// 推送外部音频帧。
+    /// Pushes an external audio frame.
     ///
-    /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: A timestamped 10 ms PCM frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalAudioFrame(
         _ frame: AudioFrame
     ) throws {
-        try withEngine { try $0.pushExternalAudioFrame(frame) }
+        try withEngine {
+            try $0.pushExternalAudioFrame(frame)
+        }
     }
 
-    /// 加入 RTC 房间并等待连接完成。
+    /// Joins an RTC room and waits for connection.
     ///
-    /// - Parameter configuration: 房间、用户标识及令牌配置。
-    /// - Throws: 引擎不可用、进房失败、连接超时或调用取消时抛出错误。
+    /// - Parameter configuration: The room, user identifier, and token.
+    ///
+    /// - Throws: An error if the engine is unavailable, join fails or times out, or the call is
+    ///   cancelled.
     func joinRoom(
         configuration: RoomJoinConfiguration
     ) async throws {
@@ -223,21 +256,29 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             !configuration.userID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
             throw XmaxError(
-                code: .invalidConfiguration, message: "RTC room ID and user account cannot be empty"
+                code: .invalidConfiguration,
+                message: "RTC room ID and user account cannot be empty"
             )
         }
 
         let id = UUID()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                beginJoin(id: id, configuration: configuration, continuation: continuation)
+                beginJoin(
+                    id: id,
+                    configuration: configuration,
+                    continuation: continuation
+                )
             }
         } onCancel: {
-            self.failPendingJoin(id: id, error: Self.cancelledError(operation: "RTC join room"))
+            self.failPendingJoin(
+                id: id,
+                error: Self.cancelledError(operation: "RTC join room")
+            )
         }
     }
 
-    /// 离开当前 RTC 房间。
+    /// Leaves the active RTC room.
     func leaveRoom() async {
         operationLock.withLock {
             let resources = stateLock.withLock { () -> (RoomContext?, PendingJoin?) in
@@ -248,105 +289,149 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             }
             resources.1?.timeoutTask?.cancel()
             resources.1?.continuation.resume(
-                throwing: Self.cancelledError(operation: "RTC join room"))
+                throwing: Self.cancelledError(operation: "RTC join room")
+            )
             tearDownRoom(resources.1?.context)
             tearDownRoom(resources.0)
         }
     }
 
-    /// 发布本地视频流。
+    /// Publishes local video.
     ///
-    /// - Throws: 房间不可用或视频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or publication fails.
     func publishLocalVideo() throws {
-        try withRoom { try $0.publishLocalVideo(true) }
+        try withRoom {
+            try $0.publishLocalVideo(true)
+        }
     }
 
-    /// 停止发布本地视频流。
+    /// Stops local video publication.
     ///
-    /// - Throws: 房间不可用或停止视频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or unpublishing fails.
     func unpublishLocalVideo() throws {
-        try withOptionalRoom { try $0.publishLocalVideo(false) }
+        try withOptionalRoom {
+            try $0.publishLocalVideo(false)
+        }
     }
 
-    /// 发布本地音频流。
+    /// Publishes local audio.
     ///
-    /// - Throws: 房间不可用或音频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or audio publication fails.
     func publishLocalAudio() throws {
-        try withRoom { try $0.publishLocalAudio(true) }
+        try withRoom {
+            try $0.publishLocalAudio(true)
+        }
     }
 
-    /// 停止发布本地音频流。
+    /// Stops local audio publication.
     ///
-    /// - Throws: 房间不可用或停止音频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or audio unpublishing fails.
     func unpublishLocalAudio() throws {
-        try withOptionalRoom { try $0.publishLocalAudio(false) }
+        try withOptionalRoom {
+            try $0.publishLocalAudio(false)
+        }
     }
 
-    /// 设置指定远端用户的视频订阅状态。
+    /// Changes a remote user's video subscription.
     ///
     /// - Parameters:
-    ///   - userID: 远端 RTC 用户标识。
-    ///   - subscribe: 是否订阅视频流。
-    /// - Throws: 房间不可用、用户映射或订阅配置失败时抛出错误。
+    ///   - userID: The remote RTC user identifier.
+    ///   - subscribe: Whether to subscribe to video.
+    ///
+    /// - Throws: An error if the room is unavailable, the user cannot be resolved, or subscription
+    ///   fails.
     func subscribeRemoteVideo(
         userID: String,
         subscribe: Bool
     ) throws {
-        try withRoom { try $0.subscribeRemoteVideo(userID: userID, subscribe: subscribe) }
+        try withRoom {
+            try $0.subscribeRemoteVideo(
+                userID: userID,
+                subscribe: subscribe
+            )
+        }
     }
 
-    /// 设置指定远端用户的音频订阅状态。
+    /// Changes a remote user's audio subscription.
     ///
     /// - Parameters:
-    ///   - userID: 远端 RTC 用户标识。
-    ///   - subscribe: 是否订阅音频流。
-    /// - Throws: 房间不可用、用户映射或订阅配置失败时抛出错误。
+    ///   - userID: The remote RTC user identifier.
+    ///   - subscribe: Whether to subscribe to audio.
+    ///
+    /// - Throws: An error if the room is unavailable, the user cannot be resolved, or subscription
+    ///   fails.
     func subscribeRemoteAudio(
         userID: String,
         subscribe: Bool
     ) throws {
-        try withRoom { try $0.subscribeRemoteAudio(userID: userID, subscribe: subscribe) }
+        try withRoom {
+            try $0.subscribeRemoteAudio(
+                userID: userID,
+                subscribe: subscribe
+            )
+        }
     }
 
-    /// 设置指定远端用户的音频播放音量。
+    /// Sets a remote user's playback volume.
     ///
     /// - Parameters:
-    ///   - volume: 播放音量，范围为 0 到 100。
-    ///   - userID: 远端 RTC 用户标识。
-    /// - Throws: 房间不可用或音量设置失败时抛出错误。
+    ///   - volume: The playback volume, from 0 to 100.
+    ///   - userID: The remote RTC user identifier.
+    ///
+    /// - Throws: An error if the room is unavailable or volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Int,
         for userID: String
     ) throws {
         guard (0...100).contains(volume) else {
             throw XmaxError(
-                code: .invalidConfiguration, message: "RTC audio volume must be between 0 and 100")
+                code: .invalidConfiguration,
+                message: "RTC audio volume must be between 0 and 100"
+            )
         }
-        try withRoom { try $0.setRemoteAudioVolume(volume, for: userID) }
+        try withRoom {
+            try $0.setRemoteAudioVolume(
+                volume,
+                for: userID
+            )
+        }
     }
 
-    /// 设置指定远端流的解码帧监听器。
+    /// Sets a decoded frame listener for a remote stream.
     ///
     /// - Parameters:
-    ///   - listener: 解码帧回调；传入 `nil` 清除监听。
-    ///   - stream: 需要监听的远端流。
-    /// - Throws: 房间不可用或帧监听设置失败时抛出错误。
+    ///   - listener: The decoded frame handler, or `nil` to remove it.
+    ///   - stream: The remote stream to observe.
+    ///
+    /// - Throws: An error if the room is unavailable or the listener cannot be configured.
     func setRemoteVideoFrameListener(
         _ listener: RtcRemoteVideoFrameListener?,
         for stream: RemoteStream
     ) throws {
         try operationLock.withLock {
-            guard let context = stateLock.withLock({ activeRoom }), context.roomID == stream.roomID
+            guard
+                let context = stateLock.withLock({
+                    activeRoom
+                }), context.roomID == stream.roomID
             else {
-                if listener == nil { return }
-                throw XmaxError(code: .rtcError, message: "Remote stream is unavailable")
+                if listener == nil {
+                    return
+                }
+                throw XmaxError(
+                    code: .rtcError,
+                    message: "Remote stream is unavailable"
+                )
             }
 
             let id = context.id
             let guardedListener: RtcRemoteVideoFrameListener?
             if let listener {
                 guardedListener = { [weak self] frame in
-                    guard let self, self.stateLock.withLock({ self.activeRoom?.id == id }) else {
+                    guard let self,
+                        self.stateLock.withLock({
+                            self.activeRoom?.id == id
+                        })
+                    else {
                         return
                     }
                     listener(frame)
@@ -354,18 +439,23 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             } else {
                 guardedListener = nil
             }
-            try context.room.setRemoteVideoFrameListener(guardedListener, for: stream.userID)
+            try context.room.setRemoteVideoFrameListener(
+                guardedListener,
+                for: stream.userID
+            )
         }
     }
 
-    /// 向当前 RTC 房间发送消息。
+    /// Sends a message to the active RTC room.
     ///
     /// - Parameters:
-    ///   - message: 完整 JSON 信令。
-    ///   - reportFailure: 异步发送失败时是否上报房间故障。
-    ///   - key: 合并键；同键且尚未发送的信令仅保留最新内容。
-    /// - Returns: 本条信令的发送任务，可用于等待独立的发送结果。
-    /// - Throws: 入队失败时抛出错误。
+    ///   - message: The complete JSON message.
+    ///   - reportFailure: Whether asynchronous send failures are reported as room failures.
+    ///   - key: The key replacing older, unsent messages with the same key.
+    ///
+    /// - Returns: The task for awaiting this message's send result.
+    ///
+    /// - Throws: An error if enqueueing fails.
     @discardableResult
     func sendRoomMessage(
         _ message: String,
@@ -373,77 +463,89 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         replacingPendingMessage key: String? = nil
     ) throws -> Task<Void, any Error> {
         try withRoom {
-            try $0.sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: key)
+            try $0.sendRoomMessage(
+                message,
+                reportFailure: reportFailure,
+                replacingPendingMessage: key
+            )
         }
     }
 
-    /// 丢弃当前房间尚未开始发送的可合并信令。
+    /// Drops coalescible messages not yet sent by the active room.
     ///
-    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    /// - Parameter key: The coalescing key, or `nil` for all coalescible messages.
     func discardPendingMessages(
         key: String?
     ) {
         operationLock.withLock {
-            let room = stateLock.withLock { activeRoom?.room }
+            let room = stateLock.withLock {
+                activeRoom?.room
+            }
             room?.discardPendingMessages(key: key)
         }
     }
 
-    /// 等待已入队的房间信令发送完成。
+    /// Waits for queued room signaling to finish.
     ///
-    /// - Throws: 房间不可用、消息发送失败或等待取消时抛出错误。
+    /// - Throws: An error if the room is unavailable, sending fails, or waiting is cancelled.
     func awaitPendingMessages() async throws {
-        let room = try operationLock.withLock { try requireRoom().room }
+        let room = try operationLock.withLock {
+            try requireRoom().room
+        }
         try await room.awaitPendingMessages()
     }
 
-    /// 设置 RTC 连接及媒体事件监听器。
+    /// Sets the RTC connection and media event listener.
     ///
-    /// - Parameter listener: 事件监听器；传入 `nil` 清除监听。
+    /// - Parameter listener: The event listener, or `nil` to remove it.
     func setEventListener(
         _ listener: (any RtcEventListener)?
     ) {
-        stateLock.withLock { eventListener = listener }
+        stateLock.withLock {
+            eventListener = listener
+        }
     }
 
-    /// 设置 RTC 网络及媒体质量监听器。
+    /// Sets the RTC network and media quality listener.
     ///
-    /// - Parameter listener: 质量监听器；传入 `nil` 清除监听。
+    /// - Parameter listener: The quality listener, or `nil` to remove it.
     func setQualityListener(
         _ listener: (any RtcQualityListener)?
     ) {
-        stateLock.withLock { qualityListener = listener }
+        stateLock.withLock {
+            qualityListener = listener
+        }
     }
 }
 
 private extension RtcManager {
 
-    /// 保存一次共享初始化任务及仍在等待的调用者。
+    /// A shared initialization task and its waiting callers.
     struct Initialization {
 
-        /// 当前初始化周期的唯一标识。
+        /// The initialization revision identifier.
         let id: UUID
 
-        /// 供多个等待者共享的引擎租约申请任务。
+        /// The shared engine acquisition task.
         let task: Task<RtcEngineLease, any Error>
 
-        /// 等待同一次引擎初始化完成的请求标识。
+        /// The callers awaiting this initialization.
         var waiterIDs: Set<UUID>
     }
 
-    /// 关联一次连接的身份与平台房间，隔离旧连接的迟到事件。
+    /// A platform room and identity isolating events from previous connections.
     final class RoomContext: Sendable {
 
-        /// 当前连接的唯一标识。
+        /// The connection identifier.
         let id: UUID
 
-        /// 当前上下文对应的 RTC 房间标识。
+        /// The RTC room identifier for this context.
         let roomID: String
 
-        /// 本次连接使用的平台房间。
+        /// The connection's platform room.
         let room: any RtcRoom
 
-        /// 关联一次连接的身份和平台房间。
+        /// Creates a room context.
         init(
             id: UUID,
             roomID: String,
@@ -455,19 +557,19 @@ private extension RtcManager {
         }
     }
 
-    /// 保存待完成进房操作的房间、恢复点和超时任务。
+    /// A pending room join, including its continuation and timeout.
     final class PendingJoin: @unchecked Sendable {
 
-        /// 待连接的房间上下文。
+        /// The room awaiting connection.
         let context: RoomContext
 
-        /// 用于恢复进房调用的 continuation。
+        /// The continuation awaiting room join.
         let continuation: CheckedContinuation<Void, any Error>
 
-        /// 进房超时检查任务。
+        /// The room join timeout task.
         var timeoutTask: Task<Void, Never>?
 
-        /// 创建等待进房完成的上下文。
+        /// Creates a pending room join context.
         init(
             context: RoomContext,
             continuation: CheckedContinuation<Void, any Error>
@@ -477,12 +579,13 @@ private extension RtcManager {
         }
     }
 
-    /// 接管仍有效的引擎租约；初始化已失效时释放租约。
+    /// Accepts an engine lease if initialization remains current.
     ///
     /// - Parameters:
-    ///   - initializationID: 当前初始化操作标识。
-    ///   - lease: 新获取的引擎租约。
-    /// - Throws: 初始化已被取消或替换时抛出取消错误。
+    ///   - initializationID: The initialization identifier.
+    ///   - lease: The newly acquired engine lease.
+    ///
+    /// - Throws: A cancellation error if initialization was cancelled or replaced.
     func finishInitialization(
         initializationID: UUID,
         lease: RtcEngineLease
@@ -491,8 +594,12 @@ private extension RtcManager {
     {
         let installed = operationLock.withLock {
             stateLock.withLock { () -> Bool in
-                if engineLease?.id == lease.id { return true }
-                guard initialization?.id == initializationID else { return false }
+                if engineLease?.id == lease.id {
+                    return true
+                }
+                guard initialization?.id == initializationID else {
+                    return false
+                }
                 engineLease = lease
                 initialization = nil
                 return true
@@ -504,11 +611,11 @@ private extension RtcManager {
         }
     }
 
-    /// 移除初始化等待者，并在无等待者时取消租约获取。
+    /// Removes a waiter and cancels engine acquisition when none remain.
     ///
     /// - Parameters:
-    ///   - initializationID: 初始化操作标识。
-    ///   - waiterID: 需要取消的等待者标识。
+    ///   - initializationID: The initialization identifier.
+    ///   - waiterID: The waiter to cancel.
     func cancelInitializationWaiter(
         initializationID: UUID,
         waiterID: UUID
@@ -530,9 +637,9 @@ private extension RtcManager {
         task?.cancel()
     }
 
-    /// 清除匹配的初始化操作。
+    /// Clears a matching initialization operation.
     ///
-    /// - Parameter id: 需要清除的初始化标识。
+    /// - Parameter id: The initialization identifier to clear.
     func clearInitialization(
         id: UUID
     ) {
@@ -543,12 +650,12 @@ private extension RtcManager {
         }
     }
 
-    /// 创建房间并启动进房及超时等待。
+    /// Creates a room and begins join with timeout handling.
     ///
     /// - Parameters:
-    ///   - id: 本次连接的唯一标识。
-    ///   - configuration: 房间及用户连接配置。
-    ///   - continuation: 进房完成或失败时恢复的 continuation。
+    ///   - id: The connection identifier.
+    ///   - configuration: The room and user credentials.
+    ///   - continuation: The continuation receiving join success or failure.
     func beginJoin(
         id: UUID,
         configuration: RoomJoinConfiguration,
@@ -558,29 +665,59 @@ private extension RtcManager {
             do {
                 try Task.checkCancellation()
                 let engine = try requireEngine()
-                guard stateLock.withLock({ activeRoom == nil && pendingJoin == nil }) else {
-                    throw XmaxError(code: .rtcError, message: "RTC room is already active")
+                guard
+                    stateLock.withLock({
+                        activeRoom == nil && pendingJoin == nil
+                    })
+                else {
+                    throw XmaxError(
+                        code: .rtcError,
+                        message: "RTC room is already active"
+                    )
                 }
 
                 let room = try engine.createRoom(roomID: configuration.roomID)
-                let context = RoomContext(id: id, roomID: configuration.roomID, room: room)
-                let pending = PendingJoin(context: context, continuation: continuation)
-                stateLock.withLock { pendingJoin = pending }
+                let context = RoomContext(
+                    id: id,
+                    roomID: configuration.roomID,
+                    room: room
+                )
+                let pending = PendingJoin(
+                    context: context,
+                    continuation: continuation
+                )
+                stateLock.withLock {
+                    pendingJoin = pending
+                }
                 room.setEventListener { [weak self] event in
-                    self?.handleRoomEvent(event, id: id)
+                    self?.handleRoomEvent(
+                        event,
+                        id: id
+                    )
                 }
 
                 pending.timeoutTask = Task { [weak self, joinTimeout] in
                     try? await Task.sleep(nanoseconds: joinTimeout)
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled else {
+                        return
+                    }
                     self?.failPendingJoin(
-                        id: id, error: XmaxError(code: .timeout, message: "RTC join room timed out")
+                        id: id,
+                        error: XmaxError(
+                            code: .timeout,
+                            message: "RTC join room timed out"
+                        )
                     )
                 }
                 try room.join(configuration: configuration)
             } catch {
-                if stateLock.withLock({ pendingJoin?.context.id == id }) {
-                    failPendingJoin(id: id, error: XmaxError.from(error))
+                if stateLock.withLock({
+                    pendingJoin?.context.id == id
+                }) {
+                    failPendingJoin(
+                        id: id,
+                        error: XmaxError.from(error)
+                    )
                 } else {
                     continuation.resume(throwing: XmaxError.from(error))
                 }
@@ -588,37 +725,68 @@ private extension RtcManager {
         }
     }
 
-    /// 处理当前连接的房间事件，忽略已失效连接的事件。
+    /// Handles events from the current connection.
     ///
     /// - Parameters:
-    ///   - event: 平台房间事件。
-    ///   - id: 产生事件的连接标识。
+    ///   - event: The platform room event.
+    ///   - id: The connection that produced the event.
     func handleRoomEvent(
         _ event: RtcRoomEvent,
         id: UUID
     ) {
         operationLock.withLock {
             guard
-                let context = stateLock.withLock({
-                    activeRoom?.id == id ? activeRoom : pendingJoin?.context
-                }),
+                let context = stateLock.withLock(
+                    {
+                        activeRoom?.id == id ? activeRoom : pendingJoin?.context
+                    }
+                ),
                 context.id == id
-            else { return }
+            else {
+                return
+            }
 
             switch event {
             case .joined:
                 finishJoin(context)
-            case .publication(let userID, let published):
-                notifyPublication(id: id, userID: userID, published: published)
+            case .publication(
+                let userID,
+                let published
+            ):
+                notifyPublication(
+                    id: id,
+                    userID: userID,
+                    published: published
+                )
             case .failure(let error):
-                failRoom(id: id, error: error)
-            case .quality(let uplink, let downlink):
-                notifyQuality(id: id) { $0.onNetworkQuality(uplink: uplink, downlink: downlink) }
+                failRoom(
+                    id: id,
+                    error: error
+                )
+            case .quality(
+                let uplink,
+                let downlink
+            ):
+                notifyQuality(id: id) {
+                    $0.onNetworkQuality(
+                        uplink: uplink,
+                        downlink: downlink
+                    )
+                }
             case .uplinkVideoStatistics(let statistics):
-                notifyQuality(id: id) { $0.onUplinkVideoStatistics(statistics) }
+                notifyQuality(id: id) {
+                    $0.onUplinkVideoStatistics(statistics)
+                }
             case .downlinkVideoStatistics(let statistics):
-                notifyQuality(id: id) { $0.onDownlinkVideoStatistics(statistics) }
-            case .performance(let limited, let width, let height, let fps):
+                notifyQuality(id: id) {
+                    $0.onDownlinkVideoStatistics(statistics)
+                }
+            case .performance(
+                let limited,
+                let width,
+                let height,
+                let fps
+            ):
                 notifyQuality(id: id) {
                     $0.onPerformanceAlarm(
                         limited: limited,
@@ -631,13 +799,17 @@ private extension RtcManager {
         }
     }
 
-    /// 将待连接房间转为活动房间并恢复进房调用。
+    /// Activates a connected room and completes its join request.
     ///
-    /// - Parameter context: 成功连接的房间上下文。
+    /// - Parameter context: The connected room context.
     func finishJoin(
         _ context: RoomContext
     ) {
-        guard let pending = stateLock.withLock({ pendingJoin }), pending.context === context else {
+        guard
+            let pending = stateLock.withLock({
+                pendingJoin
+            }), pending.context === context
+        else {
             return
         }
         stateLock.withLock {
@@ -648,87 +820,119 @@ private extension RtcManager {
         pending.continuation.resume()
     }
 
-    /// 结束匹配的进房等待并释放未连接成功的房间。
+    /// Fails a matching join request and releases its room.
     ///
     /// - Parameters:
-    ///   - id: 待结束的连接标识。
-    ///   - error: 返回给进房调用者的错误。
+    ///   - id: The connection identifier to terminate.
+    ///   - error: The error returned to the join caller.
     func failPendingJoin(
         id: UUID,
         error: any Error
     ) {
         operationLock.withLock {
             let pending = stateLock.withLock { () -> PendingJoin? in
-                guard pendingJoin?.context.id == id else { return nil }
+                guard pendingJoin?.context.id == id else {
+                    return nil
+                }
                 let value = pendingJoin
                 pendingJoin = nil
                 return value
             }
-            guard let pending else { return }
+            guard let pending else {
+                return
+            }
             pending.timeoutTask?.cancel()
             tearDownRoom(pending.context)
             pending.continuation.resume(throwing: error)
         }
     }
 
-    /// 将连接失败返回给进房调用者或当前连接监听器。
+    /// Reports a connection failure to the join caller or connection listener.
     ///
     /// - Parameters:
-    ///   - id: 失败连接的标识。
-    ///   - error: 连接失败原因。
+    ///   - id: The failed connection identifier.
+    ///   - error: The connection failure.
     func failRoom(
         id: UUID,
         error: XmaxError
     ) {
-        if stateLock.withLock({ pendingJoin?.context.id == id }) {
-            failPendingJoin(id: id, error: error)
+        if stateLock.withLock({
+            pendingJoin?.context.id == id
+        }) {
+            failPendingJoin(
+                id: id,
+                error: error
+            )
             return
         }
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            let listener = stateLock.withLock { activeRoom?.id == id ? eventListener : nil }
+            guard let self else {
+                return
+            }
+            let listener = stateLock.withLock {
+                activeRoom?.id == id ? eventListener : nil
+            }
             listener?.onRtcFailure(error)
         }
     }
 
-    /// 在主线程通知仍有效连接的视频发布变化。
+    /// Delivers current video publication changes on the main actor.
     ///
     /// - Parameters:
-    ///   - id: 连接标识。
-    ///   - userID: 远端用户标识。
-    ///   - published: 远端视频是否已发布。
+    ///   - id: The connection identifier.
+    ///   - userID: The remote user identifier.
+    ///   - published: Whether remote video is published.
     func notifyPublication(
         id: UUID,
         userID: String,
         published: Bool
     ) {
-        guard stateLock.withLock({ activeRoom?.id == id }) else { return }
+        guard
+            stateLock.withLock({
+                activeRoom?.id == id
+            })
+        else {
+            return
+        }
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            let listener = stateLock.withLock { activeRoom?.id == id ? eventListener : nil }
-            listener?.onRemoteVideoPublished(userID: userID, published: published)
+            guard let self else {
+                return
+            }
+            let listener = stateLock.withLock {
+                activeRoom?.id == id ? eventListener : nil
+            }
+            listener?.onRemoteVideoPublished(
+                userID: userID,
+                published: published
+            )
         }
     }
 
-    /// 在主线程向当前连接的监听器转发质量事件。
+    /// Delivers quality events for the current connection on the main actor.
     ///
     /// - Parameters:
-    ///   - id: 连接标识。
-    ///   - action: 需要在质量监听器上执行的通知。
+    ///   - id: The connection identifier.
+    ///   - action: The quality notification to deliver.
     func notifyQuality(
         id: UUID,
         _ action: @escaping @MainActor @Sendable (any RtcQualityListener) -> Void
     ) {
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            let listener = stateLock.withLock { activeRoom?.id == id ? qualityListener : nil }
-            if let listener { action(listener) }
+            guard let self else {
+                return
+            }
+            let listener = stateLock.withLock {
+                activeRoom?.id == id ? qualityListener : nil
+            }
+            if let listener {
+                action(listener)
+            }
         }
     }
 
-    /// 解除房间事件监听并销毁房间。
+    /// Removes room event handlers and destroys the room.
     ///
-    /// - Parameter context: 需要释放的房间上下文；`nil` 时不执行操作。
+    /// - Parameter context: The room to release, or `nil` for no operation.
     func tearDownRoom(
         _ context: RoomContext?
     ) {
@@ -736,81 +940,119 @@ private extension RtcManager {
         context?.room.destroy()
     }
 
-    /// 获取当前有效租约持有的 RTC 引擎。
+    /// Returns the engine held by the active lease.
     ///
-    /// - Returns: 当前 RTC 平台引擎。
-    /// - Throws: 引擎未初始化时抛出错误。
+    /// - Returns: The current RTC platform engine.
+    ///
+    /// - Throws: An error if the engine is not initialized.
     func requireEngine() throws -> any RtcPlatform {
-        guard let engine = stateLock.withLock({ engineLease?.engine }) else {
-            throw XmaxError(code: .rtcError, message: "RTC engine is not initialized")
+        guard
+            let engine = stateLock.withLock({
+                engineLease?.engine
+            })
+        else {
+            throw XmaxError(
+                code: .rtcError,
+                message: "RTC engine is not initialized"
+            )
         }
         return engine
     }
 
-    /// 获取当前已连接的房间上下文。
+    /// Returns the connected room context.
     ///
-    /// - Returns: 活动房间上下文。
-    /// - Throws: 尚未加入房间时抛出错误。
+    /// - Returns: The active room context.
+    ///
+    /// - Throws: An error if no room has been joined.
     func requireRoom() throws -> RoomContext {
-        guard let context = stateLock.withLock({ activeRoom }) else {
-            throw XmaxError(code: .rtcError, message: "RTC room is not joined")
+        guard
+            let context = stateLock.withLock({
+                activeRoom
+            })
+        else {
+            throw XmaxError(
+                code: .rtcError,
+                message: "RTC room is not joined"
+            )
         }
         return context
     }
 
-    /// 在操作锁保护下使用当前 RTC 引擎。
+    /// Runs an engine operation under the operation lock.
     ///
-    /// - Parameter operation: 使用引擎执行的同步操作。
-    /// - Returns: 操作的返回值。
-    /// - Throws: 引擎不可用或操作失败时抛出错误。
+    /// - Parameter operation: The synchronous engine operation.
+    ///
+    /// - Returns: The operation result.
+    ///
+    /// - Throws: An error if the engine is unavailable or the operation fails.
     func withEngine<T>(
         _ operation: (any RtcPlatform) throws -> T
     ) throws -> T {
-        try operationLock.withLock { try operation(requireEngine()) }
+        try operationLock.withLock {
+            try operation(requireEngine())
+        }
     }
 
-    /// 在引擎存在时同步执行操作。
+    /// Runs an operation if an engine is available.
     ///
-    /// - Parameter operation: 使用引擎执行的操作；无引擎时跳过。
-    /// - Throws: 引擎操作失败时抛出错误。
+    /// - Parameter operation: The engine operation, skipped if no engine exists.
+    ///
+    /// - Throws: An error if the engine operation fails.
     func withOptionalEngine(
         _ operation: (any RtcPlatform) throws -> Void
     ) throws {
         try operationLock.withLock {
-            if let engine = stateLock.withLock({ engineLease?.engine }) { try operation(engine) }
+            if let engine = stateLock.withLock({
+                engineLease?.engine
+            }) {
+                try operation(engine)
+            }
         }
     }
 
-    /// 在操作锁保护下使用当前 RTC 房间。
+    /// Runs a room operation under the operation lock.
     ///
-    /// - Parameter operation: 使用房间执行的同步操作。
-    /// - Returns: 操作的返回值。
-    /// - Throws: 房间不可用或操作失败时抛出错误。
+    /// - Parameter operation: The synchronous room operation.
+    ///
+    /// - Returns: The operation result.
+    ///
+    /// - Throws: An error if the room is unavailable or the operation fails.
     func withRoom<T>(
         _ operation: (any RtcRoom) throws -> T
     ) throws -> T {
-        try operationLock.withLock { try operation(requireRoom().room) }
+        try operationLock.withLock {
+            try operation(requireRoom().room)
+        }
     }
 
-    /// 在活动房间存在时同步执行操作。
+    /// Runs an operation if an active room is available.
     ///
-    /// - Parameter operation: 使用房间执行的操作；无房间时跳过。
-    /// - Throws: 房间操作失败时抛出错误。
+    /// - Parameter operation: The room operation, skipped if no room exists.
+    ///
+    /// - Throws: An error if the room operation fails.
     func withOptionalRoom(
         _ operation: (any RtcRoom) throws -> Void
     ) throws {
         try operationLock.withLock {
-            if let context = stateLock.withLock({ activeRoom }) { try operation(context.room) }
+            if let context = stateLock.withLock({
+                activeRoom
+            }) {
+                try operation(context.room)
+            }
         }
     }
 
-    /// 构造 RTC 操作取消错误。
+    /// Creates an RTC cancellation error.
     ///
-    /// - Parameter operation: 被取消操作的名称。
-    /// - Returns: 包含操作名称的取消错误。
+    /// - Parameter operation: The cancelled operation's name.
+    ///
+    /// - Returns: A cancellation error naming the operation.
     static func cancelledError(
         operation: String
     ) -> XmaxError {
-        XmaxError(code: .cancelled, message: "\(operation) was cancelled")
+        XmaxError(
+            code: .cancelled,
+            message: "\(operation) was cancelled"
+        )
     }
 }

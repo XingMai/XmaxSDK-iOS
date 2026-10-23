@@ -10,24 +10,24 @@
 
 import Foundation
 
-/// 将解码帧投递到当前绑定的 SDK 视频视图。
+/// Presents decoded frames in an attached SDK video view.
 @MainActor
 final class DecodedVideoPreviewPresenter {
 
-    /// 当前承载本地预览的视频视图。
+    /// The local preview video view.
     private weak var view: XmaxVideoView?
 
-    /// 本地视频的填充方式。
+    /// The local video content mode.
     private var contentMode = VideoContentMode.fill
 
-    /// 本地预览是否水平镜像。
+    /// Whether local preview is horizontally mirrored.
     private var mirrored = false
 
-    /// 绑定视频视图并应用预览缩放及镜像设置。
+    /// Attaches a video view with its content mode and mirror setting.
     ///
     /// - Parameters:
-    ///   - view: 接收解码帧的 SDK 视频视图。
-    ///   - contentMode: 画面的缩放与裁剪方式。
+    ///   - view: The SDK video view receiving decoded frames.
+    ///   - contentMode: The video content mode.
     func attach(
         to view: XmaxVideoView,
         contentMode: VideoContentMode
@@ -38,9 +38,9 @@ final class DecodedVideoPreviewPresenter {
         view.setDecodedVideoPreviewMirrored(mirrored)
     }
 
-    /// 清除指定视图的解码预览并解除当前绑定。
+    /// Clears and detaches decoded preview from a view.
     ///
-    /// - Parameter view: 需要解除预览的视图。
+    /// - Parameter view: The view to detach.
     func detach(
         from view: XmaxVideoView
     ) {
@@ -50,18 +50,21 @@ final class DecodedVideoPreviewPresenter {
         }
     }
 
-    /// 向当前绑定视图提交解码帧。
+    /// Presents a decoded frame in the attached view.
     ///
-    /// - Parameter frame: 待显示的中性视频帧。
+    /// - Parameter frame: The video frame to display.
     func display(
         _ frame: VideoFrame
     ) {
-        view?.displayDecodedVideoFrame(frame, contentMode: contentMode)
+        view?.displayDecodedVideoFrame(
+            frame,
+            contentMode: contentMode
+        )
     }
 
-    /// 更新预览镜像并应用到当前视图。
+    /// Updates preview mirroring.
     ///
-    /// - Parameter mirrored: 是否水平镜像画面。
+    /// - Parameter mirrored: Whether to mirror video horizontally.
     func setMirrored(
         _ mirrored: Bool
     ) {
@@ -69,44 +72,46 @@ final class DecodedVideoPreviewPresenter {
         view?.setDecodedVideoPreviewMirrored(mirrored)
     }
 
-    /// 清除预览内容并释放视图绑定。
+    /// Clears preview and releases the view binding.
     func clear() {
         view?.clearDecodedVideoPreview()
         view = nil
     }
 }
 
-/// 合并主线程来不及显示的帧，只保留最新的视频预览帧。
+/// Coalesces pending preview frames, retaining only the latest.
 final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
 
-    /// 负责将帧呈现到视频视图的组件。
+    /// The video preview presenter.
     private let presenter: DecodedVideoPreviewPresenter
 
-    /// 保护待显示帧和主线程交付状态。
+    /// The lock protecting pending frames and main-actor delivery.
     private let lock = NSLock()
 
-    /// 尚未交付主线程的最新视频帧。
+    /// The latest frame awaiting main-actor delivery.
     private var pendingFrame: VideoFrame?
 
-    /// 是否已有主线程交付任务等待执行。
+    /// Whether a main-actor delivery is pending.
     private var isDeliveryScheduled = false
 
-    /// 创建向主线程合并投递预览帧的分发器。
+    /// Creates a coalescing preview frame dispatcher.
     init(
         presenter: DecodedVideoPreviewPresenter
     ) {
         self.presenter = presenter
     }
 
-    /// 更新待显示帧，并在需要时安排主线程投递。
+    /// Submits the latest frame for main-actor preview.
     ///
-    /// - Parameter frame: 最新可显示的视频帧。
+    /// - Parameter frame: The latest displayable video frame.
     func enqueue(
         _ frame: VideoFrame
     ) {
         let shouldSchedule = lock.withLock { () -> Bool in
             pendingFrame = frame
-            guard !isDeliveryScheduled else { return false }
+            guard !isDeliveryScheduled else {
+                return false
+            }
             isDeliveryScheduled = true
             return true
         }
@@ -115,21 +120,21 @@ final class DecodedVideoPreviewDispatcher: @unchecked Sendable {
         }
     }
 
-    /// 丢弃尚未提交的预览帧。
+    /// Discards a pending preview frame.
     func reset() {
         lock.withLock {
             pendingFrame = nil
         }
     }
 
-    /// 安排一次主线程预览帧投递。
+    /// Schedules main-actor frame delivery.
     private func scheduleDelivery() {
         Task { @MainActor [weak self] in
             self?.deliverLatestFrame()
         }
     }
 
-    /// 显示最新待投递帧，并按需继续调度后续帧。
+    /// Presents the latest pending frame.
     @MainActor
     private func deliverLatestFrame() {
         let frame = lock.withLock { () -> VideoFrame? in

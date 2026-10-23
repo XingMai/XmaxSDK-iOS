@@ -10,15 +10,15 @@
 
 import Foundation
 
-/// 对象存储上传完成后的中性结果。
+/// The result of a completed object upload.
 struct StoredFile: Equatable, Sendable {
 
-    /// 上传对象的远端访问地址。
+    /// The uploaded object's remote URL.
     let url: URL
 
-    /// 对象在存储桶中的路径。
+    /// The object key within the bucket.
     let objectKey: String
 
-    /// 对象存储返回的 ETag 标识。
+    /// The ETag returned by object storage.
     let etag: String?
 }

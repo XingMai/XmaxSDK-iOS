@@ -10,20 +10,20 @@
 
 import UIKit
 
-/// 将实时视频轨道绑定到具体 UIKit 渲染视图。
+/// Binds a video track to a UIKit rendering view.
 @MainActor
 final class VideoRenderBinding {
 
-    /// 将内容绑定到视图并应用显示模式的操作。
+    /// The operation attaching content with its content mode.
     private let attachHandler: (UIView, VideoContentMode) throws -> Void
 
-    /// 解除视图与渲染资源的绑定。
+    /// The operation detaching rendering resources.
     private let detachHandler: (UIView) throws -> Void
 
-    /// 当前绑定渲染资源的视图。
+    /// The currently attached view.
     private weak var attachedView: UIView?
 
-    /// 创建轨道与视图之间的渲染绑定。
+    /// Creates a track-to-view rendering binding.
     init(
         attachHandler: @escaping (UIView, VideoContentMode) throws -> Void,
         detachHandler: @escaping (UIView) throws -> Void
@@ -32,12 +32,13 @@ final class VideoRenderBinding {
         self.detachHandler = detachHandler
     }
 
-    /// 解除旧视图后，将内容绑定到目标视图。
+    /// Attaches content to a view after detaching the previous view.
     ///
     /// - Parameters:
-    ///   - view: 新的渲染目标视图。
-    ///   - contentMode: 视频缩放与裁剪方式。
-    /// - Throws: 旧视图解绑或新视图绑定失败时抛出错误。
+    ///   - view: The new rendering view.
+    ///   - contentMode: The video content mode.
+    ///
+    /// - Throws: An error if detaching or attaching fails.
     func attach(
         to view: UIView,
         contentMode: VideoContentMode
@@ -47,14 +48,18 @@ final class VideoRenderBinding {
             self.attachedView = nil
         }
 
-        try attachHandler(view, contentMode)
+        try attachHandler(
+            view,
+            contentMode
+        )
         attachedView = view
     }
 
-    /// 仅在指定视图为当前绑定目标时解除渲染。
+    /// Detaches rendering only if the view is currently attached.
     ///
-    /// - Parameter view: 需要解除绑定的视图。
-    /// - Throws: 底层解绑操作失败时抛出错误。
+    /// - Parameter view: The view to detach.
+    ///
+    /// - Throws: An error if the underlying detach operation fails.
     func detach(
         from view: UIView
     ) throws {
@@ -64,9 +69,9 @@ final class VideoRenderBinding {
         try detach()
     }
 
-    /// 清除图片预览并解除当前视图的渲染绑定。
+    /// Clears image preview and detaches rendering.
     ///
-    /// - Throws: 底层解绑操作失败时抛出错误。
+    /// - Throws: An error if the underlying detach operation fails.
     func detach() throws {
         guard let attachedView else {
             return
@@ -79,9 +84,9 @@ final class VideoRenderBinding {
 
 extension VideoRenderBinding {
 
-    /// 创建在 SDK 视频视图中显示静态图片的绑定。
+    /// Creates a static image preview binding.
     ///
-    /// - Parameter imageFrame: 用于生成图片预览的像素帧。
+    /// - Parameter imageFrame: The image pixels to preview.
     convenience init(
         imageFrame: VideoFrame
     ) {

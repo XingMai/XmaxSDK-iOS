@@ -10,21 +10,22 @@
 
 import Foundation
 
-/// 按模型和传输方向保存一小时内成功提交的档位。
+/// The successfully applied model and directional levels retained for one hour.
 struct QualityHistory {
 
-    /// 用于隔离历史档位的模型标识。
+    /// The model identifier isolating quality history.
     let model: String
 
-    /// 保存档位及有效时间的偏好存储。
+    /// The preferences storing levels and timestamps.
     var defaults: UserDefaults = .standard
 
-    /// 读取当前模型指定方向最近一小时内的有效档位。
+    /// Returns a valid level from the last hour for this model and direction.
     ///
     /// - Parameters:
-    ///   - downlink: 是否读取下行档位；`false` 表示上行。
-    ///   - now: 当前 Unix 时间，单位为秒。
-    /// - Returns: 有效历史档位；历史缺失、过期或时间无效时返回默认档位 2。
+    ///   - downlink: Whether to read downlink rather than uplink.
+    ///   - now: The Unix time, in seconds.
+    ///
+    /// - Returns: The valid historical level, or L2 if missing, expired, or invalid.
     func read(
         downlink: Bool,
         now: TimeInterval = Date().timeIntervalSince1970
@@ -32,29 +33,39 @@ struct QualityHistory {
         let key = key(downlink)
         let savedAt = defaults.double(forKey: key + ".time")
         guard let level = RealtimeQualityLevel(rawValue: defaults.integer(forKey: key)),
-              savedAt > 0, now >= savedAt, now - savedAt < 3600 else { return .l2 }
+            savedAt > 0, now >= savedAt, now - savedAt < 3600
+        else {
+            return .l2
+        }
         return level
     }
 
-    /// 保存当前模型指定方向成功应用的档位。
+    /// Persists a successfully applied model and directional level.
     ///
     /// - Parameters:
-    ///   - level: 成功应用的档位，范围为 `1...5`。
-    ///   - downlink: 是否保存下行档位；`false` 表示上行。
-    ///   - now: 当前 Unix 时间，单位为秒。
+    ///   - level: The applied quality level.
+    ///   - downlink: Whether to store downlink rather than uplink.
+    ///   - now: The Unix time, in seconds.
     func write(
         level: RealtimeQualityLevel,
         downlink: Bool,
         now: TimeInterval = Date().timeIntervalSince1970
     ) {
-        defaults.set(level.rawValue, forKey: key(downlink))
-        defaults.set(now, forKey: key(downlink) + ".time")
+        defaults.set(
+            level.rawValue,
+            forKey: key(downlink)
+        )
+        defaults.set(
+            now,
+            forKey: key(downlink) + ".time"
+        )
     }
 
-    /// 生成按模型和传输方向隔离的历史存储键。
+    /// Creates a model-specific directional history key.
     ///
-    /// - Parameter downlink: 是否为下行方向。
-    /// - Returns: 当前模型和方向对应的存储键。
+    /// - Parameter downlink: Whether this is the downlink direction.
+    ///
+    /// - Returns: The storage key for the model and direction.
     private func key(
         _ downlink: Bool
     ) -> String {

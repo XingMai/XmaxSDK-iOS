@@ -10,21 +10,21 @@
 
 import Foundation
 
-/// RTC 外部音频链路使用的 48 kHz 单声道 PCM 音频帧。
+/// A 48 kHz mono PCM frame for external RTC audio input.
 struct AudioFrame: Equatable, Sendable {
 
-    /// PCM 采样率，固定为 48000 Hz。
+    /// The sample rate, fixed at 48000 Hz.
     static let sampleRate = 48_000
 
-    /// PCM 声道数，固定为单声道。
+    /// The channel count, fixed at one.
     static let channelCount = 1
 
-    /// 每帧采样数；48 kHz 下对应 10 ms。
+    /// The samples per frame, representing 10 ms at 48 kHz.
     static let samplesPerFrame = 480
 
-    /// 48 kHz 单声道 PCM16 音频数据。
+    /// The 48 kHz mono PCM16 data.
     let data: Data
 
-    /// 音频帧在统一播放时间轴上的时间戳，单位为微秒。
+    /// The timestamp on the shared playback timeline, in microseconds.
     let timestampUs: Int64
 }

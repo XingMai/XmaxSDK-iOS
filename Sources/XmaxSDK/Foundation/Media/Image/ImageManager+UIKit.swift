@@ -13,16 +13,19 @@ import UIKit
 
 extension ImageManager {
 
-    /// 直接生成已应用显示方向的解码图像，不进行文件格式编码。
+    /// Decodes an image with its display orientation applied.
     ///
-    /// - Parameter image: 需要解码和规范方向的 UIKit 图片。
-    /// - Returns: 可直接生成视频帧的解码图像。
-    /// - Throws: 图片尺寸无效或无法生成像素图像时抛出错误。
+    /// - Parameter image: The UIKit image to decode.
+    ///
+    /// - Returns: A decoded image ready to produce video frames.
+    ///
+    /// - Throws: An error if dimensions are invalid or image pixels cannot be created.
     func decode(
         _ image: UIImage
     ) throws -> any DecodedImage {
         if image.imageOrientation == .up,
-           let cgImage = image.cgImage {
+            let cgImage = image.cgImage
+        {
             return CoreGraphicsDecodedImage(image: cgImage)
         }
 
@@ -45,7 +48,10 @@ extension ImageManager {
             format: format
         ).image { _ in
             image.draw(
-                in: CGRect(origin: .zero, size: pixelSize)
+                in: CGRect(
+                    origin: .zero,
+                    size: pixelSize
+                )
             )
         }
         guard let cgImage = normalizedImage.cgImage else {

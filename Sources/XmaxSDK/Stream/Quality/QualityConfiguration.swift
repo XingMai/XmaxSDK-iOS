@@ -10,35 +10,43 @@
 
 import Foundation
 
-/// 当前连接的媒体基准与两个方向的传输档位。
+/// The media baseline and directional quality levels for a connection.
 struct QualityConfiguration: Sendable {
 
-    /// 不随网络档位变化的处理后媒体规格。
+    /// The resolved media baseline, unchanged by quality adaptation.
     let baseline: RealtimeVideoFormat
 
-    /// 当前上行档位，范围为 1...5。
+    /// The current uplink quality level.
     let uplinkLevel: RealtimeQualityLevel
 
-    /// 下行目标档位，范围为 1...5。
+    /// The target downlink quality level.
     let downlinkLevel: RealtimeQualityLevel
 
-    /// 当前上行档位使用的编码规格。
+    /// The encoding format for the current uplink level.
     var uplink: RealtimeVideoFormat {
-        QualityVideoFormat.resolve(baseline, level: uplinkLevel, downlink: false)
+        QualityVideoFormat.resolve(
+            baseline,
+            level: uplinkLevel,
+            downlink: false
+        )
     }
 
-    /// 当前下行档位允许的回传规格。
+    /// The maximum returned format for the current downlink level.
     var downlink: RealtimeVideoFormat {
-        QualityVideoFormat.resolve(baseline, level: downlinkLevel, downlink: true)
+        QualityVideoFormat.resolve(
+            baseline,
+            level: downlinkLevel,
+            downlink: true
+        )
     }
 }
 
-/// 同一采样产生的上下行候选档位；nil 表示该方向保持不变。
+/// The directional quality proposals for one sample; `nil` leaves a direction unchanged.
 struct QualityChange: Sendable {
 
-    /// 本次采样提出的上行候选档位。
+    /// The proposed uplink level.
     let uplink: RealtimeQualityLevel?
 
-    /// 本次采样提出的下行候选档位。
+    /// The proposed downlink level.
     let downlink: RealtimeQualityLevel?
 }

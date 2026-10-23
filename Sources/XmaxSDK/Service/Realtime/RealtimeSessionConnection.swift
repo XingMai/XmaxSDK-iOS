@@ -8,24 +8,25 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 实时会话对应的 RTC 连接参数。
+/// The RTC credentials for a realtime session.
 struct RealtimeSessionConnection: Equatable, Sendable {
 
-    /// 服务端分配的 RTC 房间标识。
+    /// The server-assigned RTC room identifier.
     let roomID: String
 
-    /// 本地 RTC 用户标识。
+    /// The local RTC user identifier.
     let userID: String
 
-    /// RTC 房间认证令牌。
+    /// The RTC room token.
     let token: String
 
-    /// 生成结果流对应的远端用户标识。
+    /// The remote user providing generated media.
     let botName: String?
 }
 
-/// 实时会话心跳失败回调。
-typealias RealtimeSessionHeartbeatFailureHandler = @Sendable (
-    _ sessionID: String,
-    _ error: XmaxError
-) async -> Void
+/// A handler for realtime session heartbeat failure.
+typealias RealtimeSessionHeartbeatFailureHandler =
+    @Sendable (
+        _ sessionID: String,
+        _ error: XmaxError
+    ) async -> Void

@@ -10,157 +10,171 @@
 
 import Foundation
 
-/// 定义 RTC 引擎、房间、媒体传输和远端帧输出能力。
+/// An interface for RTC engines, rooms, media, and remote frames.
 protocol RtcManaging: Sendable {
 
-    /// 获取独占的 RTC 引擎租约并完成初始化。
+    /// Acquires an exclusive engine lease and initializes RTC.
     ///
-    /// - Throws: 等待租约被取消或 RTC 引擎初始化失败时抛出错误。
+    /// - Throws: An error if lease acquisition is cancelled or initialization fails.
     func initialize() async throws
 
-    /// 销毁 RTC 引擎并释放资源。
+    /// Destroys the RTC engine and releases resources.
     func destroy() async
 
-    /// 应用上传视频的编码配置。
+    /// Applies the uplink encoder configuration.
     ///
-    /// - Parameter configuration: 尺寸、帧率、码率和编码偏好。
-    /// - Throws: 厂商引擎拒绝配置时抛出错误。
+    /// - Parameter configuration: The dimensions, frame rate, bitrate, and encoding preference.
+    ///
+    /// - Throws: An error if the engine rejects the configuration.
     func configureVideoEncoding(
         _ configuration: VideoEncodingConfiguration
     ) throws
 
-    /// 切换至麦克风输入并开始采集。
+    /// Switches to microphone input and starts capture.
     ///
-    /// - Throws: 音频源切换或采集失败时抛出错误。
+    /// - Throws: An error if source switching or capture fails.
     func startAudioCapture() throws
 
-    /// 停止麦克风采集。
+    /// Stops microphone capture.
     ///
-    /// - Throws: 厂商引擎停止采集失败时抛出错误。
+    /// - Throws: An error if the engine cannot stop capture.
     func stopAudioCapture() throws
 
-    /// 启用外部视频输入。
+    /// Enables external video input.
     ///
-    /// - Throws: 视频源配置失败时抛出错误。
+    /// - Throws: An error if video source configuration fails.
     func useExternalVideoSource() throws
 
-    /// 启用外部 PCM 输入。
+    /// Enables external PCM input.
     ///
-    /// - Throws: 外部音频轨创建失败时抛出错误。
+    /// - Throws: An error if the external audio track cannot be created.
     func startExternalAudioSource() throws
 
-    /// 停止外部 PCM 输入并释放音频轨。
+    /// Stops external PCM input and releases its track.
     ///
-    /// - Throws: 音频轨释放失败时抛出错误。
+    /// - Throws: An error if the audio track cannot be released.
     func stopExternalAudioSource() throws
 
-    /// 更新上传视频镜像。
+    /// Updates uplink video mirroring.
     ///
-    /// - Parameter position: 当前摄像头位置。
-    /// - Throws: 编码镜像配置失败时抛出错误。
+    /// - Parameter position: The current camera position.
+    ///
+    /// - Throws: An error if encoder mirroring cannot be configured.
     func configureLocalVideoMirror(
         for position: CameraPosition
     ) throws
 
-    /// 推送外部视频帧。
+    /// Pushes an external video frame.
     ///
-    /// - Parameter frame: SDK 中性视频帧。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: The SDK video frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalVideoFrame(
         _ frame: VideoFrame
     ) throws
 
-    /// 推送外部音频帧。
+    /// Pushes an external audio frame.
     ///
-    /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: A timestamped 10 ms PCM frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalAudioFrame(
         _ frame: AudioFrame
     ) throws
 
-    /// 加入 RTC 房间并等待连接完成。
+    /// Joins an RTC room and waits for connection.
     ///
-    /// - Parameter configuration: 房间、用户标识及令牌配置。
-    /// - Throws: 引擎不可用、进房失败、连接超时或调用取消时抛出错误。
+    /// - Parameter configuration: The room, user identifier, and token.
+    ///
+    /// - Throws: An error if the engine is unavailable, join fails or times out, or the call is
+    ///   cancelled.
     func joinRoom(
         configuration: RoomJoinConfiguration
     ) async throws
 
-    /// 离开当前 RTC 房间。
+    /// Leaves the active RTC room.
     func leaveRoom() async
 
-    /// 发布本地视频流。
+    /// Publishes local video.
     ///
-    /// - Throws: 房间不可用或视频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or publication fails.
     func publishLocalVideo() throws
 
-    /// 停止发布本地视频流。
+    /// Stops local video publication.
     ///
-    /// - Throws: 房间不可用或停止视频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or unpublishing fails.
     func unpublishLocalVideo() throws
 
-    /// 发布本地音频流。
+    /// Publishes local audio.
     ///
-    /// - Throws: 房间不可用或音频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or audio publication fails.
     func publishLocalAudio() throws
 
-    /// 停止发布本地音频流。
+    /// Stops local audio publication.
     ///
-    /// - Throws: 房间不可用或停止音频发布失败时抛出错误。
+    /// - Throws: An error if the room is unavailable or audio unpublishing fails.
     func unpublishLocalAudio() throws
 
-    /// 设置指定远端用户的视频订阅状态。
+    /// Changes a remote user's video subscription.
     ///
     /// - Parameters:
-    ///   - userID: 远端 RTC 用户标识。
-    ///   - subscribe: 是否订阅视频流。
-    /// - Throws: 房间不可用、用户映射或订阅配置失败时抛出错误。
+    ///   - userID: The remote RTC user identifier.
+    ///   - subscribe: Whether to subscribe to video.
+    ///
+    /// - Throws: An error if the room is unavailable, the user cannot be resolved, or subscription
+    ///   fails.
     func subscribeRemoteVideo(
         userID: String,
         subscribe: Bool
     ) throws
 
-    /// 设置指定远端用户的音频订阅状态。
+    /// Changes a remote user's audio subscription.
     ///
     /// - Parameters:
-    ///   - userID: 远端 RTC 用户标识。
-    ///   - subscribe: 是否订阅音频流。
-    /// - Throws: 房间不可用、用户映射或订阅配置失败时抛出错误。
+    ///   - userID: The remote RTC user identifier.
+    ///   - subscribe: Whether to subscribe to audio.
+    ///
+    /// - Throws: An error if the room is unavailable, the user cannot be resolved, or subscription
+    ///   fails.
     func subscribeRemoteAudio(
         userID: String,
         subscribe: Bool
     ) throws
 
-    /// 设置指定远端用户的音频播放音量。
+    /// Sets a remote user's playback volume.
     ///
     /// - Parameters:
-    ///   - volume: 播放音量，范围为 0 到 100。
-    ///   - userID: 远端 RTC 用户标识。
-    /// - Throws: 房间不可用或音量设置失败时抛出错误。
+    ///   - volume: The playback volume, from 0 to 100.
+    ///   - userID: The remote RTC user identifier.
+    ///
+    /// - Throws: An error if the room is unavailable or volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Int,
         for userID: String
     ) throws
 
-    /// 设置指定远端流的解码帧监听器。
+    /// Sets a decoded frame listener for a remote stream.
     ///
     /// - Parameters:
-    ///   - listener: 解码帧回调；传入 `nil` 清除监听。
-    ///   - stream: 需要监听的远端流。
-    /// - Throws: 房间不可用或帧监听设置失败时抛出错误。
+    ///   - listener: The decoded frame handler, or `nil` to remove it.
+    ///   - stream: The remote stream to observe.
+    ///
+    /// - Throws: An error if the room is unavailable or the listener cannot be configured.
     func setRemoteVideoFrameListener(
         _ listener: RtcRemoteVideoFrameListener?,
         for stream: RemoteStream
     ) throws
 
-    /// 向当前 RTC 房间发送消息。
+    /// Sends a message to the active RTC room.
     ///
     /// - Parameters:
-    ///   - message: 完整 JSON 信令。
-    ///   - reportFailure: 异步发送失败时是否上报房间故障。
-    ///   - key: 合并键；同键且尚未发送的信令仅保留最新内容。
-    /// - Returns: 本条信令的发送任务，可用于等待独立的发送结果。
-    /// - Throws: 入队失败时抛出错误。
+    ///   - message: The complete JSON message.
+    ///   - reportFailure: Whether asynchronous send failures are reported as room failures.
+    ///   - key: The key replacing older, unsent messages with the same key.
+    ///
+    /// - Returns: The task for awaiting this message's send result.
+    ///
+    /// - Throws: An error if enqueueing fails.
     @discardableResult
     func sendRoomMessage(
         _ message: String,
@@ -168,28 +182,28 @@ protocol RtcManaging: Sendable {
         replacingPendingMessage key: String?
     ) throws -> Task<Void, any Error>
 
-    /// 丢弃尚未开始发送的可合并信令。
+    /// Drops coalescible messages that have not started sending.
     ///
-    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    /// - Parameter key: The coalescing key, or `nil` for all coalescible messages.
     func discardPendingMessages(
         key: String?
     )
 
-    /// 等待已入队的房间信令发送完成。
+    /// Waits for queued room signaling to finish.
     ///
-    /// - Throws: 房间不可用、消息发送失败或等待取消时抛出错误。
+    /// - Throws: An error if the room is unavailable, sending fails, or waiting is cancelled.
     func awaitPendingMessages() async throws
 
-    /// 设置 RTC 连接及媒体事件监听器。
+    /// Sets the RTC connection and media event listener.
     ///
-    /// - Parameter listener: 事件监听器；传入 `nil` 清除监听。
+    /// - Parameter listener: The event listener, or `nil` to remove it.
     func setEventListener(
         _ listener: (any RtcEventListener)?
     )
 
-    /// 设置 RTC 网络及媒体质量监听器。
+    /// Sets the RTC network and media quality listener.
     ///
-    /// - Parameter listener: 质量监听器；传入 `nil` 清除监听。
+    /// - Parameter listener: The quality listener, or `nil` to remove it.
     func setQualityListener(
         _ listener: (any RtcQualityListener)?
     )
@@ -197,18 +211,24 @@ protocol RtcManaging: Sendable {
 
 extension RtcManaging {
 
-    /// 将房间信令入队，并启用异步发送失败通知。
+    /// Enqueues signaling with asynchronous failure reporting enabled.
     ///
     /// - Parameters:
-    ///   - message: 完整 JSON 信令。
-    ///   - reportFailure: 异步发送失败时是否通知房间故障。
-    /// - Returns: 本条信令的发送任务。
-    /// - Throws: 信令无法入队时抛出错误。
+    ///   - message: The complete JSON message.
+    ///   - reportFailure: Whether asynchronous send failures are reported as room failures.
+    ///
+    /// - Returns: The message's send task.
+    ///
+    /// - Throws: An error if signaling cannot be enqueued.
     @discardableResult
     func sendRoomMessage(
         _ message: String,
         reportFailure: Bool = true
     ) throws -> Task<Void, any Error> {
-        try sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: nil)
+        try sendRoomMessage(
+            message,
+            reportFailure: reportFailure,
+            replacingPendingMessage: nil
+        )
     }
 }

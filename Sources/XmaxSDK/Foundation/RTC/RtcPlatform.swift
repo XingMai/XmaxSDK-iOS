@@ -10,74 +10,80 @@
 
 import Foundation
 
-/// 接收 SDK 自有像素缓冲区的远端视频帧。
+/// A handler for remote frames copied into SDK-owned pixel buffers.
 typealias RtcRemoteVideoFrameListener = @Sendable (RealtimeVideoFrame) -> Void
 
-/// 隔离第三方 RTC 引擎能力；不负责连接等待、超时和租约管理。
+/// An engine interface separate from connection waits, timeouts, and leases.
 protocol RtcPlatform: AnyObject, Sendable {
 
-    /// 应用上传视频的编码配置。
+    /// Applies the uplink encoder configuration.
     ///
-    /// - Parameter configuration: 尺寸、帧率、码率和编码偏好。
-    /// - Throws: 厂商引擎拒绝配置时抛出错误。
+    /// - Parameter configuration: The dimensions, frame rate, bitrate, and encoding preference.
+    ///
+    /// - Throws: An error if the engine rejects the configuration.
     func configureVideoEncoding(
         _ configuration: VideoEncodingConfiguration
     ) throws
 
-    /// 启用外部视频输入。
+    /// Enables external video input.
     ///
-    /// - Throws: 视频源配置失败时抛出错误。
+    /// - Throws: An error if video source configuration fails.
     func useExternalVideoSource() throws
 
-    /// 更新上传视频镜像。
+    /// Updates uplink video mirroring.
     ///
-    /// - Parameter position: 当前摄像头位置。
-    /// - Throws: 编码镜像配置失败时抛出错误。
+    /// - Parameter position: The current camera position.
+    ///
+    /// - Throws: An error if encoder mirroring cannot be configured.
     func configureLocalVideoMirror(
         for position: CameraPosition
     ) throws
 
-    /// 切换至麦克风输入并开始采集。
+    /// Switches to microphone input and starts capture.
     ///
-    /// - Throws: 音频源切换或采集失败时抛出错误。
+    /// - Throws: An error if source switching or capture fails.
     func startAudioCapture() throws
 
-    /// 停止麦克风采集。
+    /// Stops microphone capture.
     ///
-    /// - Throws: 厂商引擎停止采集失败时抛出错误。
+    /// - Throws: An error if the engine cannot stop capture.
     func stopAudioCapture() throws
 
-    /// 启用外部 PCM 输入。
+    /// Enables external PCM input.
     ///
-    /// - Throws: 外部音频轨创建失败时抛出错误。
+    /// - Throws: An error if the external audio track cannot be created.
     func startExternalAudioSource() throws
 
-    /// 停止外部 PCM 输入并释放音频轨。
+    /// Stops external PCM input and releases its track.
     ///
-    /// - Throws: 音频轨释放失败时抛出错误。
+    /// - Throws: An error if the audio track cannot be released.
     func stopExternalAudioSource() throws
 
-    /// 推送外部视频帧。
+    /// Pushes an external video frame.
     ///
-    /// - Parameter frame: SDK 中性视频帧。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: The SDK video frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalVideoFrame(
         _ frame: VideoFrame
     ) throws
 
-    /// 推送外部音频帧。
+    /// Pushes an external audio frame.
     ///
-    /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: A timestamped 10 ms PCM frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalAudioFrame(
         _ frame: AudioFrame
     ) throws
 
-    /// 创建独立的房间适配对象，尚不发起连接。
+    /// Creates a room adapter without connecting.
     ///
-    /// - Parameter roomID: 服务端分配的 RTC 房间标识。
-    /// - Returns: 尚未加入的房间。
-    /// - Throws: 已存在未释放房间时抛出错误。
+    /// - Parameter roomID: The server-assigned RTC room identifier.
+    ///
+    /// - Returns: An unjoined room.
+    ///
+    /// - Throws: An error if an unreleased room already exists.
     func createRoom(
         roomID: String
     ) throws -> any RtcRoom

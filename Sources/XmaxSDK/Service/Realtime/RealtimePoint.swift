@@ -8,12 +8,12 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 相对于处理后媒体尺寸的二维归一化交互点，左上角为原点，右下角为 `(1, 1)`。
+/// A normalized media point, from top-left `(0, 0)` to bottom-right `(1, 1)`.
 struct RealtimePoint: Equatable, Sendable {
 
-    /// 相对于完整媒体宽度的归一化横坐标，范围为 [0, 1]。
+    /// The normalized horizontal position within the full media width, in `[0, 1]`.
     let x: Double
 
-    /// 相对于完整媒体高度的归一化纵坐标，范围为 [0, 1]。
+    /// The normalized vertical position within the full media height, in `[0, 1]`.
     let y: Double
 }

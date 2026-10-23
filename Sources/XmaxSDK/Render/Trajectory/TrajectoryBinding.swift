@@ -10,22 +10,22 @@
 
 import UIKit
 
-/// 将渲染层触摸输入转交给媒体交互层。
+/// Connects rendering touch input to media interactions.
 final class TrajectoryBinding: @unchecked Sendable {
 
-    /// 接收交互采样帧的异步回调。
+    /// The asynchronous interaction frame handler.
     private let interactionListener: RenderInteractionListener
 
-    /// 当前绑定的轨迹覆盖层。
+    /// The attached trajectory overlay.
     @MainActor private weak var overlayView: TrajectoryOverlayView?
 
-    /// 当前媒体显示方式，用于触点坐标映射。
+    /// The media content mode for coordinate mapping.
     @MainActor private var contentMode: VideoContentMode = .fill
 
-    /// 用于轨迹坐标映射的处理后媒体尺寸。
+    /// The resolved media dimensions for trajectory mapping.
     private let resolvedMediaSize: CGSize
 
-    /// 创建连接轨迹视图与媒体交互层的绑定。
+    /// Creates a trajectory interaction binding.
     init(
         interactionListener: @escaping RenderInteractionListener,
         resolvedMediaSize: CGSize
@@ -34,11 +34,11 @@ final class TrajectoryBinding: @unchecked Sendable {
         self.resolvedMediaSize = resolvedMediaSize
     }
 
-    /// 绑定轨迹覆盖层并同步坐标映射配置。
+    /// Attaches an overlay with its coordinate mapping configuration.
     ///
     /// - Parameters:
-    ///   - overlayView: 接收触控输入的轨迹覆盖层。
-    ///   - contentMode: 视频缩放与裁剪方式。
+    ///   - overlayView: The overlay receiving touch input.
+    ///   - contentMode: The video content mode.
     @MainActor
     func attach(
         to overlayView: TrajectoryOverlayView,
@@ -54,28 +54,30 @@ final class TrajectoryBinding: @unchecked Sendable {
         overlayView.setResolvedMediaSize(resolvedMediaSize)
     }
 
-    /// 解除指定覆盖层的轨迹绑定。
+    /// Detaches a trajectory overlay.
     ///
-    /// - Parameter overlayView: 需要解除绑定的轨迹覆盖层。
+    /// - Parameter overlayView: The overlay to detach.
     @MainActor
     func detach(
         from overlayView: TrajectoryOverlayView
     ) {
-        guard self.overlayView === overlayView else { return }
+        guard self.overlayView === overlayView else {
+            return
+        }
         self.overlayView = nil
         overlayView.setBinding(nil)
     }
 
-    /// 解除当前轨迹覆盖层并使绑定失效。
+    /// Invalidates and detaches the current trajectory overlay.
     @MainActor
     func invalidate() {
         overlayView?.setBinding(nil)
         overlayView = nil
     }
 
-    /// 更新视频显示模式对应的交互映射。
+    /// Updates interaction mapping for a video content mode.
     ///
-    /// - Parameter contentMode: 新的缩放与裁剪方式。
+    /// - Parameter contentMode: The new video content mode.
     @MainActor
     func update(
         contentMode: VideoContentMode
@@ -84,17 +86,19 @@ final class TrajectoryBinding: @unchecked Sendable {
         overlayView?.setContentMode(contentMode)
     }
 
-    /// 将视口中的触控点封装为交互帧并异步交付。
+    /// Delivers sampled viewport positions as an interaction frame.
     ///
     /// - Parameters:
-    ///   - points: 本次采样的视口坐标点。
-    ///   - viewportSize: 采样时的视口尺寸。
+    ///   - points: The sampled viewport positions.
+    ///   - viewportSize: The viewport dimensions at sampling time.
     @MainActor
     func submit(
         points: [CGPoint],
         viewportSize: CGSize
     ) {
-        guard !points.isEmpty else { return }
+        guard !points.isEmpty else {
+            return
+        }
         let frame = InteractionFrame(
             points: points,
             viewportSize: viewportSize,

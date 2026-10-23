@@ -8,9 +8,9 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 提供 XmaxSDK 的构建信息。
+/// The XmaxSDK build information.
 public enum XmaxSDKInfo {
 
-    /// 当前 SDK 的语义化版本号。
+    /// The SDK semantic version.
     public static let version = "1.0.10"
 }

@@ -10,42 +10,51 @@
 
 import Foundation
 
-/// 定义本地文件视频流、音频预览和播放资源管理能力。
+/// An interface for video file streams, audio preview, and playback resources.
 protocol VideoControlling: Sendable {
 
-    /// 当前本地文件视频轨道；尚未创建或已停止时为空。
-    var currentTrack: RealtimeVideoTrack? { get }
+    /// The video file track, or `nil` before creation or after stopping.
+    var currentTrack: RealtimeVideoTrack? {
+        get
+    }
 
-    /// 当前文件视频是否包含由 SDK 管理的音频轨道。
-    var hasAudio: Bool { get }
+    /// Whether the video file contains SDK-managed audio.
+    var hasAudio: Bool {
+        get
+    }
 
-    /// 当前本地文件视频的音频预览音量。
-    var localAudioVolume: Float { get async }
+    /// The local video file preview volume.
+    var localAudioVolume: Float {
+        get async
+    }
 
-    /// 从本地视频文件创建循环播放的媒体流。
+    /// Creates a looping local video stream.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地视频文件地址。
-    /// - Returns: 包含本地文件视频轨道的媒体流。
-    /// - Throws: 已有活动视频流、文件或格式无效、播放启动失败时抛出错误。
+    ///   - fileURL: The URL of a readable local video file.
+    ///
+    /// - Returns: The local video file media stream.
+    ///
+    /// - Throws: An error if a stream exists, the file or format is invalid, or playback cannot
+    ///   start.
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// 静音或恢复本地文件视频的音频预览，不影响上传的音频帧。
+    /// Mutes or restores file audio preview without affecting uplink audio.
     ///
-    /// - Parameter muted: 为 true 时静音，为 false 时恢复配置的预览音量。
+    /// - Parameter muted: `true` to mute; `false` to restore the configured preview volume.
     func setLocalAudioPreviewMuted(
         _ muted: Bool
     ) async
 
-    /// 设置本地文件视频的音频预览音量。
+    /// Sets the local video file preview volume.
     ///
-    /// - Parameter volume: 已校验且取值范围为 0...1 的音量。
+    /// - Parameter volume: The validated volume, from 0 to 1.
     func setLocalAudioVolume(
         _ volume: Float
     ) async
 
-    /// 停止文件音视频输出，并释放当前轨道、RTC 外部音频和预览资源。
+    /// Stops file playback and releases external audio and preview resources.
     func stopLocalVideoStream() async
 }

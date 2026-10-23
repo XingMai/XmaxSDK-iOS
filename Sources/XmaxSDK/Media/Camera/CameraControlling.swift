@@ -10,72 +10,85 @@
 
 import Foundation
 
-/// 通知摄像头预览就绪，并提供异步处理时检查该预览仍有效的能力。
-typealias CameraPreviewReadyHandler = @MainActor @Sendable (
-    _ isCurrent: @escaping @Sendable () -> Bool
-) -> Void
+/// A preview readiness handler providing a check for stale notifications.
+typealias CameraPreviewReadyHandler =
+    @MainActor @Sendable (
+        _ isCurrent: @escaping @Sendable () -> Bool
+    ) -> Void
 
-/// 定义本地摄像头流、麦克风采集和预览资源管理能力。
+/// An interface for camera streams, microphone capture, and preview resources.
 protocol CameraControlling: Sendable {
 
-    /// 当前本地相机视频轨道；尚未创建或已停止时为空。
-    var currentTrack: RealtimeVideoTrack? { get }
+    /// The current camera track, or `nil` before creation or after stopping.
+    var currentTrack: RealtimeVideoTrack? {
+        get
+    }
 
-    /// 当前相机流是否配置为使用麦克风。
-    var useMicrophone: Bool { get }
+    /// Whether the camera stream uses microphone input.
+    var useMicrophone: Bool {
+        get
+    }
 
-    /// 设置当前相机流的一次性内部就绪处理；条件为已收到有效帧且预览已绑定。
+    /// Sets a one-shot readiness handler requiring a valid frame and an attached preview.
     ///
-    /// - Parameter handler: 就绪时调用的处理闭包；传入空值时清除。
+    /// - Parameter handler: The readiness handler, or `nil` to remove it.
     func setPreviewReadyHandler(
         _ handler: CameraPreviewReadyHandler?
     )
 
-    /// 创建并启动本地相机流。
+    /// Creates and starts a local camera stream.
     ///
     /// - Parameters:
-    ///   - videoFormat: 期望的输出尺寸、帧率和编码配置；尺寸按模型规则调整。
-    ///   - position: 首次启动时使用的摄像头位置。
-    ///   - useMicrophone: 是否申请麦克风权限并允许实时连接时启动音频采集。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 已有活动相机流、格式无效、权限不足或采集启动失败时抛出错误。
+    ///   - videoFormat: The requested dimensions, frame rate, and encoding settings, subject to
+    ///     model rules.
+    ///   - position: The initial camera position.
+    ///   - useMicrophone: Whether to request microphone access and capture audio while connected.
+    ///
+    /// - Returns: The local camera media stream.
+    ///
+    /// - Throws: An error if a camera stream exists, the format is invalid, permission is denied,
+    ///   or capture fails.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition,
         useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
 
-    /// 为已启用麦克风的相机流启动音频采集，不开启本地回放。
+    /// Starts configured microphone capture without local audio playback.
     ///
-    /// - Throws: RTC 音频源配置或麦克风采集启动失败时抛出错误。
+    /// - Throws: An error if RTC audio configuration or microphone capture fails.
     func startMicrophoneCapture() throws
 
-    /// 停止麦克风采集，保留下一次连接所需的配置。
+    /// Stops microphone capture while retaining its configuration.
     ///
-    /// - Throws: RTC 麦克风采集停止失败时抛出错误。
+    /// - Throws: An error if RTC microphone capture cannot stop.
     func stopMicrophoneCapture() throws
 
-    /// 停止相机和麦克风采集，并释放当前轨道及本地预览资源。
+    /// Stops camera and microphone capture and releases preview resources.
     func stopLocalCameraStream() async
 
-    /// 在前置和后置摄像头之间切换，保留当前视频轨道。
+    /// Switches cameras while retaining the video track.
     ///
-    /// - Returns: 包含更新后相机轨道的媒体流。
-    /// - Throws: 相机流尚未启动、设备切换或镜像配置失败时抛出错误。
+    /// - Returns: The media stream with the updated camera track.
+    ///
+    /// - Throws: An error if capture is inactive or camera switching or mirroring fails.
     func switchCamera() async throws -> RealtimeMediaStream
 
-    /// 按窗口方向更新摄像头采集及当前轨道尺寸。
+    /// Updates capture orientation and track dimensions for the window.
     ///
-    /// - Parameter orientation: 目标窗口方向。
-    /// - Throws: 模型不支持目标尺寸或采集更新失败时抛出错误。
+    /// - Parameter orientation: The requested window orientation.
+    ///
+    /// - Throws: An error if the model rejects the dimensions or capture configuration fails.
     func updateOrientation(
         _ orientation: CameraOrientation
     ) async throws
 
-    /// 更新输出规格和采集帧率，保留当前镜头及预览轨道。
+    /// Updates dimensions and capture frame rate while retaining the camera and preview track.
     ///
-    /// - Parameter videoFormat: 新的媒体尺寸、帧率和编码配置。
-    /// - Throws: 摄像头未启动、格式不支持或设备配置失败时抛出错误。
+    /// - Parameter videoFormat: The new media dimensions, frame rate, and encoding settings.
+    ///
+    /// - Throws: An error if capture is inactive, the format is unsupported, or configuration
+    ///   fails.
     func updateVideoFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async throws

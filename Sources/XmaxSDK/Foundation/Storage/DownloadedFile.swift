@@ -10,12 +10,12 @@
 
 import Foundation
 
-/// 远端文件下载完成后的中性结果。
+/// The result of a completed file download.
 struct DownloadedFile: Equatable, Sendable {
 
-    /// 下载完成后的本地文件地址。
+    /// The downloaded local file URL.
     let fileURL: URL
 
-    /// 下载文件的字节数。
+    /// The downloaded byte count.
     let byteCount: Int64
 }

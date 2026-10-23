@@ -8,12 +8,12 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 视频内容在渲染容器中的显示模式。
+/// The layout of video content within a rendering view.
 public enum VideoContentMode: String, CaseIterable, Sendable {
 
-    /// 等比完整显示，允许容器留空。
+    /// Preserves the full frame, allowing empty space.
     case fit
 
-    /// 等比铺满容器，允许裁剪画面。
+    /// Fills the view, cropping the frame when necessary.
     case fill
 }

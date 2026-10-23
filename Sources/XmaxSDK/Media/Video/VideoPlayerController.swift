@@ -14,24 +14,27 @@ import CoreVideo
 import Foundation
 import UIKit
 
-/// 定义基于统一媒体时间轴的文件音视频输出能力。
+/// An interface for file audio and video on a shared timeline.
 protocol VideoPlayerControlling: Sendable {
 
-    /// 当前本地音频预览音量。
+    /// The local audio preview volume.
     @MainActor
-    var localAudioVolume: Float { get }
+    var localAudioVolume: Float {
+        get
+    }
 
-    /// 配置本地视频文件及最终 RTC 输出格式。
+    /// Configures a local video file and its RTC output format.
     ///
     /// - Parameters:
-    ///   - fileURL: 已读取元数据的本地视频文件地址。
-    ///   - outputWidth: 输出视频帧的像素宽度。
-    ///   - outputHeight: 输出视频帧的像素高度。
-    ///   - rotation: 文件元数据中的视频旋转方向。
-    ///   - frameRate: 输出视频帧率。
-    ///   - hasAudio: 文件元数据中的音频轨道标记。
-    ///   - durationSeconds: 文件元数据中的原始时长，单位为秒。
-    /// - Throws: 文件、输出格式或播放器状态无效时抛出错误。
+    ///   - fileURL: The video file URL whose metadata has been read.
+    ///   - outputWidth: The output width, in pixels.
+    ///   - outputHeight: The output height, in pixels.
+    ///   - rotation: The source video's display rotation.
+    ///   - frameRate: The output frame rate.
+    ///   - hasAudio: Whether the source has an audio track.
+    ///   - durationSeconds: The source duration, in seconds.
+    ///
+    /// - Throws: An error if the file, output format, or playback state is invalid.
     @MainActor
     func configure(
         fileURL: URL,
@@ -43,109 +46,116 @@ protocol VideoPlayerControlling: Sendable {
         durationSeconds: Double
     ) throws
 
-    /// 启动共用播放时间轴的本地预览与音视频帧输出。
+    /// Starts preview and frame delivery on a shared timeline.
     ///
-    /// - Throws: 播放器未配置或已经启动时抛出错误。
+    /// - Throws: An error if playback is unconfigured or already running.
     @MainActor
     func start() async throws
 
-    /// 静音或恢复本地音频预览，不改变音视频帧输出。
+    /// Mutes or restores audio preview without changing frame output.
     ///
-    /// - Parameter muted: 是否将本地音频播放音量置零。
+    /// - Parameter muted: Whether to mute local audio.
     @MainActor
     func setLocalAudioPreviewMuted(
         _ muted: Bool
     )
 
-    /// 设置本地音频预览音量。
+    /// Sets local audio preview volume.
     ///
-    /// - Parameter volume: 已校验的预览音量，范围为 `0...1`。
+    /// - Parameter volume: The validated preview volume, in the range `0...1`.
     @MainActor
     func setLocalAudioVolume(
         _ volume: Float
     )
 
-    /// 将解码视频预览绑定到 SDK 视频视图。
+    /// Attaches decoded preview to an SDK video view.
     ///
     /// - Parameters:
-    ///   - view: 接收预览的 `XmaxVideoView`。
-    ///   - contentMode: 视频画面的缩放与裁剪方式。
-    /// - Throws: 视图不是 `XmaxVideoView` 时抛出错误。
+    ///   - view: The `XmaxVideoView` receiving preview.
+    ///   - contentMode: The video content mode.
+    ///
+    /// - Throws: An error if the view is not an `XmaxVideoView`.
     @MainActor
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
     ) throws
 
-    /// 从指定 SDK 视频视图解除解码预览。
+    /// Detaches decoded preview from an SDK video view.
     ///
-    /// - Parameter view: 需要解除预览的视图。
+    /// - Parameter view: The view to detach.
     @MainActor
     func detachPreview(
         from view: UIView
     )
 
-    /// 停止解码并等待全部 reader 在所属任务内安全退出。
+    /// Stops decoding and waits for readers to exit in their owning tasks.
     @MainActor
     func stop() async
 }
 
-/// 使用 AVAssetReader 解码共享时间轴上的本地音视频帧。
+/// An AVAssetReader player with a shared audio and video timeline.
 @MainActor
 final class VideoPlayerController: VideoPlayerControlling {
 
-    /// 保存文件解码、旋转、采样和循环播放所需配置。
+    /// The file decoding and playback configuration.
     private struct PlaybackConfiguration: Sendable {
 
-        /// 当前播放的本地视频文件地址。
+        /// The local video file URL.
         let fileURL: URL
 
-        /// 处理后的视频宽度，单位为像素。
+        /// The resolved width, in pixels.
         let outputWidth: Int
 
-        /// 处理后的视频高度，单位为像素。
+        /// The resolved height, in pixels.
         let outputHeight: Int
 
-        /// 源视频转换到显示方向所需的旋转角度。
+        /// The rotation from encoded pixels to display.
         let rotation: VideoRotation
 
-        /// 视频输出帧率，单位为 fps。
+        /// The video output frame rate, in frames per second.
         let frameRate: Int
 
-        /// 源文件是否包含音轨。
+        /// Whether the source file has audio.
         let hasAudio: Bool
 
-        /// 源文件时长，单位为秒。
+        /// The source duration, in seconds.
         let durationSeconds: Double
     }
 
-    /// 接收视频帧的回调。
+    /// Output handlers.
+
+    /// The video frame handler.
     private let videoFrameListener: MediaVideoFrameListener
 
-    /// 接收按统一播放时钟输出的音频帧。
+    /// The audio frame handler using the shared playback clock.
     private let audioFrameListener: MediaAudioFrameListener
 
-    /// 接收视频解码与播放失败。
+    /// The video decoding and playback failure handler.
     private let errorListener: XmaxErrorListener
 
-    /// 播放与视频共享时间轴的本地 PCM 音频。
+    /// Preview resources.
+
+    /// The PCM audio preview on the shared timeline.
     private let audioPreviewPlayer = LocalAudioPreviewPlayer()
 
-    /// 管理本地解码视频的预览视图。
+    /// The decoded video preview presenter.
     private let previewPresenter = DecodedVideoPreviewPresenter()
 
-    /// 合并待显示帧并交付主线程。
+    /// The dispatcher coalescing frames for the main actor.
     private lazy var previewDispatcher = DecodedVideoPreviewDispatcher(
         presenter: previewPresenter
     )
 
-    /// 当前视频文件的解码与输出配置。
+    /// Playback state.
+
+    /// The file decoding and output configuration.
     private var configuration: PlaybackConfiguration?
 
-    /// 执行文件循环解码和帧调度的任务。
+    /// The looping decode and frame scheduling task.
     private var playbackTask: Task<Void, Never>?
 
-    /// 创建共享时间轴的视频解码和本地音频播放组件。
+    /// Creates a shared-timeline video decoder and audio preview player.
     init(
         videoFrameListener: @escaping MediaVideoFrameListener,
         audioFrameListener: @escaping MediaAudioFrameListener,
@@ -156,22 +166,23 @@ final class VideoPlayerController: VideoPlayerControlling {
         self.errorListener = errorListener
     }
 
-    /// 当前本地预览音量，范围为 0...1。
+    /// The local preview volume, from 0 to 1.
     var localAudioVolume: Float {
         audioPreviewPlayer.currentVolume
     }
 
-    /// 配置本地视频文件及最终 RTC 输出格式。
+    /// Configures a local video file and its RTC output format.
     ///
     /// - Parameters:
-    ///   - fileURL: 已读取元数据的本地视频文件地址。
-    ///   - outputWidth: 输出视频帧的像素宽度。
-    ///   - outputHeight: 输出视频帧的像素高度。
-    ///   - rotation: 文件元数据中的视频旋转方向。
-    ///   - frameRate: 输出视频帧率。
-    ///   - hasAudio: 文件元数据中的音频轨道标记。
-    ///   - durationSeconds: 文件元数据中的原始时长，单位为秒。
-    /// - Throws: 文件、输出格式或播放器状态无效时抛出错误。
+    ///   - fileURL: The video file URL whose metadata has been read.
+    ///   - outputWidth: The output width, in pixels.
+    ///   - outputHeight: The output height, in pixels.
+    ///   - rotation: The source video's display rotation.
+    ///   - frameRate: The output frame rate.
+    ///   - hasAudio: Whether the source has an audio track.
+    ///   - durationSeconds: The source duration, in seconds.
+    ///
+    /// - Throws: An error if the file, output format, or playback state is invalid.
     func configure(
         fileURL: URL,
         outputWidth: Int,
@@ -182,14 +193,15 @@ final class VideoPlayerController: VideoPlayerControlling {
         durationSeconds: Double
     ) throws {
         guard fileURL.isFileURL,
-              FileManager.default.fileExists(atPath: fileURL.path),
-              outputWidth > 0,
-              outputHeight > 0,
-              outputWidth.isMultiple(of: 2),
-              outputHeight.isMultiple(of: 2),
-              frameRate > 0,
-              configuration == nil,
-              playbackTask == nil else {
+            FileManager.default.fileExists(atPath: fileURL.path),
+            outputWidth > 0,
+            outputHeight > 0,
+            outputWidth.isMultiple(of: 2),
+            outputHeight.isMultiple(of: 2),
+            frameRate > 0,
+            configuration == nil,
+            playbackTask == nil
+        else {
             throw Self.mediaError("Video player configuration is invalid")
         }
 
@@ -208,9 +220,9 @@ final class VideoPlayerController: VideoPlayerControlling {
         )
     }
 
-    /// 启动共用播放时间轴的本地预览与音视频帧输出。
+    /// Starts preview and frame delivery on a shared timeline.
     ///
-    /// - Throws: 播放器未配置或已经启动时抛出错误。
+    /// - Throws: An error if playback is unconfigured or already running.
     func start() async throws {
         guard let configuration, playbackTask == nil else {
             throw Self.mediaError("Configure the video player before starting it")
@@ -238,7 +250,10 @@ final class VideoPlayerController: VideoPlayerControlling {
                         do {
                             try videoListener(frame)
                         } catch {
-                            XmaxLogger.media.error(message: "视频帧推送失败 (Video Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
+                            XmaxLogger.media.error(
+                                message:
+                                    "视频帧推送失败 (Video Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)"
+                            )
                         }
                     },
                     audioHandler: { frame in
@@ -246,43 +261,49 @@ final class VideoPlayerController: VideoPlayerControlling {
                         do {
                             try audioListener(frame)
                         } catch {
-                            XmaxLogger.media.error(message: "音频帧推送失败 (Audio Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
+                            XmaxLogger.media.error(
+                                message:
+                                    "音频帧推送失败 (Audio Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)"
+                            )
                         }
                     }
                 )
             } catch is CancellationError {
                 return
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    return
+                }
                 errorListener(XmaxError.from(error))
             }
         }
     }
 
-    /// 静音或恢复本地音频预览，不改变音视频帧输出。
+    /// Mutes or restores audio preview without changing frame output.
     ///
-    /// - Parameter muted: 是否将本地音频播放音量置零。
+    /// - Parameter muted: Whether to mute local audio.
     func setLocalAudioPreviewMuted(
         _ muted: Bool
     ) {
         audioPreviewPlayer.setMuted(muted)
     }
 
-    /// 设置本地音频预览音量。
+    /// Sets local audio preview volume.
     ///
-    /// - Parameter volume: 已校验的预览音量，范围为 `0...1`。
+    /// - Parameter volume: The validated preview volume, in the range `0...1`.
     func setLocalAudioVolume(
         _ volume: Float
     ) {
         audioPreviewPlayer.setVolume(volume)
     }
 
-    /// 将解码视频预览绑定到 SDK 视频视图。
+    /// Attaches decoded preview to an SDK video view.
     ///
     /// - Parameters:
-    ///   - view: 接收预览的 `XmaxVideoView`。
-    ///   - contentMode: 视频画面的缩放与裁剪方式。
-    /// - Throws: 视图不是 `XmaxVideoView` 时抛出错误。
+    ///   - view: The `XmaxVideoView` receiving preview.
+    ///   - contentMode: The video content mode.
+    ///
+    /// - Throws: An error if the view is not an `XmaxVideoView`.
     func attachPreview(
         to view: UIView,
         contentMode: VideoContentMode
@@ -293,20 +314,25 @@ final class VideoPlayerController: VideoPlayerControlling {
                 message: "File video tracks require an XmaxVideoView"
             )
         }
-        previewPresenter.attach(to: videoView, contentMode: contentMode)
+        previewPresenter.attach(
+            to: videoView,
+            contentMode: contentMode
+        )
     }
 
-    /// 从指定 SDK 视频视图解除解码预览。
+    /// Detaches decoded preview from an SDK video view.
     ///
-    /// - Parameter view: 需要解除预览的视图。
+    /// - Parameter view: The view to detach.
     func detachPreview(
         from view: UIView
     ) {
-        guard let videoView = view as? XmaxVideoView else { return }
+        guard let videoView = view as? XmaxVideoView else {
+            return
+        }
         previewPresenter.detach(from: videoView)
     }
 
-    /// 停止解码并等待全部 reader 在所属任务内安全退出。
+    /// Stops decoding and waits for readers to exit in their owning tasks.
     func stop() async {
         let task = playbackTask
         playbackTask = nil
@@ -321,20 +347,21 @@ final class VideoPlayerController: VideoPlayerControlling {
 
 private extension VideoPlayerController {
 
-    /// 同步接收共享时间轴输出的视频帧。
+    /// The synchronous video frame handler.
     typealias VideoHandler = @Sendable (VideoFrame) throws -> Void
 
-    /// 同步接收共享时间轴输出的固定长度 PCM 帧。
+    /// The synchronous fixed-size PCM frame handler.
     typealias AudioHandler = @Sendable (AudioFrame) throws -> Void
 
-    /// 并行运行使用同一主机时钟的音视频解码循环。
+    /// Runs audio and video decoding on the same host clock.
     ///
     /// - Parameters:
-    ///   - configuration: 文件与输出规格配置。
-    ///   - timeline: 音视频共用的循环播放时间轴。
-    ///   - videoHandler: 按时间轴输出的视频帧回调。
-    ///   - audioHandler: 按时间轴输出的音频帧回调。
-    /// - Throws: 媒体读取、解码、回调处理失败或任务取消时抛出错误。
+    ///   - configuration: The file and output configuration.
+    ///   - timeline: The shared looping playback timeline.
+    ///   - videoHandler: The scheduled video frame handler.
+    ///   - audioHandler: The scheduled audio frame handler.
+    ///
+    /// - Throws: An error if media reading, decoding, or delivery fails, or the task is cancelled.
     private nonisolated static func play(
         configuration: PlaybackConfiguration,
         timeline: MediaPlaybackTimeline,
@@ -362,13 +389,15 @@ private extension VideoPlayerController {
         }
     }
 
-    /// 循环解码视频并按共享时间轴输出目标规格的视频帧。
+    /// Loops video decoding and schedules resolved frames on the shared timeline.
     ///
     /// - Parameters:
-    ///   - configuration: 视频文件、输出尺寸和采样帧率。
-    ///   - timeline: 用于计算循环播放时刻的共享时间轴。
-    ///   - handler: 接收定时视频帧的回调。
-    /// - Throws: 视频轨道不可用、解码失败、整轮无有效帧、回调失败或任务取消时抛出错误。
+    ///   - configuration: The video file, output dimensions, and sampling frame rate.
+    ///   - timeline: The shared playback timeline.
+    ///   - handler: The scheduled video frame handler.
+    ///
+    /// - Throws: An error if video is unavailable, decoding yields no valid frames, delivery fails,
+    ///   or the task is cancelled.
     private nonisolated static func produceVideoFrames(
         configuration: PlaybackConfiguration,
         timeline: MediaPlaybackTimeline,
@@ -403,8 +432,8 @@ private extension VideoPlayerController {
             reader.add(output)
             guard reader.startReading() else {
                 throw mediaError(
-                    reader.error?.localizedDescription ??
-                        "The media video track could not start decoding"
+                    reader.error?.localizedDescription
+                        ?? "The media video track could not start decoding"
                 )
             }
             defer {
@@ -421,14 +450,20 @@ private extension VideoPlayerController {
                     break
                 }
                 let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                let relativeTime = CMTimeSubtract(pts, timeRange.start)
-                let relativeSeconds = max(0, CMTimeGetSeconds(relativeTime))
+                let relativeTime = CMTimeSubtract(
+                    pts,
+                    timeRange.start
+                )
+                let relativeSeconds = max(
+                    0,
+                    CMTimeGetSeconds(relativeTime)
+                )
                 guard relativeSeconds.isFinite,
-                      relativeSeconds - lastYieldedSeconds >=
-                        frameIntervalSeconds * 0.75,
-                      let pixelBuffer = CMSampleBufferGetImageBuffer(
-                          sampleBuffer
-                      ) else {
+                    relativeSeconds - lastYieldedSeconds >= frameIntervalSeconds * 0.75,
+                    let pixelBuffer = CMSampleBufferGetImageBuffer(
+                        sampleBuffer
+                    )
+                else {
                     continue
                 }
 
@@ -450,7 +485,10 @@ private extension VideoPlayerController {
                         timestampUs: Int64(target / 1_000)
                     )
                 } catch {
-                    XmaxLogger.media.error(message: "视频帧转换失败 (Video Frame Conversion Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
+                    XmaxLogger.media.error(
+                        message:
+                            "视频帧转换失败 (Video Frame Conversion Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)"
+                    )
                     continue
                 }
                 try await sleep(untilNanoseconds: target)
@@ -461,8 +499,8 @@ private extension VideoPlayerController {
 
             if reader.status == .failed {
                 throw mediaError(
-                    reader.error?.localizedDescription ??
-                        "The media video track failed while decoding"
+                    reader.error?.localizedDescription
+                        ?? "The media video track failed while decoding"
                 )
             }
             guard yieldedFrame else {
@@ -477,13 +515,15 @@ private extension VideoPlayerController {
         }
     }
 
-    /// 循环解码 PCM 并补齐每轮音频时间轴。
+    /// Loops PCM decoding and pads each playback cycle.
     ///
     /// - Parameters:
-    ///   - configuration: 视频文件及音频配置。
-    ///   - timeline: 用于计算循环播放时刻的共享时间轴。
-    ///   - handler: 接收固定长度音频帧的回调。
-    /// - Throws: 音频轨道不可用、解码或回调失败，以及任务取消时抛出错误。
+    ///   - configuration: The video file and audio configuration.
+    ///   - timeline: The shared playback timeline.
+    ///   - handler: The fixed-size audio frame handler.
+    ///
+    /// - Throws: An error if audio is unavailable, decoding or delivery fails, or the task is
+    ///   cancelled.
     private nonisolated static func produceAudioFrames(
         configuration: PlaybackConfiguration,
         timeline: MediaPlaybackTimeline,
@@ -518,8 +558,8 @@ private extension VideoPlayerController {
             reader.add(output)
             guard reader.startReading() else {
                 throw mediaError(
-                    reader.error?.localizedDescription ??
-                        "The media audio track could not start decoding"
+                    reader.error?.localizedDescription
+                        ?? "The media audio track could not start decoding"
                 )
             }
             defer {
@@ -537,9 +577,17 @@ private extension VideoPlayerController {
                     break
                 }
                 let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                let relativeTime = CMTimeSubtract(pts, timeRange.start)
-                let relativeSeconds = max(0, CMTimeGetSeconds(relativeTime))
-                guard relativeSeconds.isFinite else { continue }
+                let relativeTime = CMTimeSubtract(
+                    pts,
+                    timeRange.start
+                )
+                let relativeSeconds = max(
+                    0,
+                    CMTimeGetSeconds(relativeTime)
+                )
+                guard relativeSeconds.isFinite else {
+                    continue
+                }
                 let startSample = Int(
                     (relativeSeconds * Double(AudioFrame.sampleRate)).rounded()
                 )
@@ -557,8 +605,8 @@ private extension VideoPlayerController {
 
             if reader.status == .failed {
                 throw mediaError(
-                    reader.error?.localizedDescription ??
-                        "The media audio track failed while decoding"
+                    reader.error?.localizedDescription
+                        ?? "The media audio track failed while decoding"
                 )
             }
             packetizer.finishWithSilence()
@@ -572,14 +620,15 @@ private extension VideoPlayerController {
         }
     }
 
-    /// 按共享时钟输出音频包，并丢弃超过延迟阈值的包。
+    /// Schedules audio packets, dropping packets beyond the latency limit.
     ///
     /// - Parameters:
-    ///   - packetizer: 提供待输出 PCM 包的分帧器。
-    ///   - loopIndex: 从零开始的循环播放轮次。
-    ///   - timeline: 音视频共用的播放时间轴。
-    ///   - handler: 接收带主机时间戳音频帧的回调。
-    /// - Throws: 等待被取消或音频回调失败时抛出错误。
+    ///   - packetizer: The PCM packetizer.
+    ///   - loopIndex: The zero-based playback cycle.
+    ///   - timeline: The shared audio and video timeline.
+    ///   - handler: The handler for host-timestamped audio frames.
+    ///
+    /// - Throws: An error if waiting is cancelled or audio delivery fails.
     nonisolated static func emitAudioFrames(
         packetizer: inout PCMFramePacketizer,
         loopIndex: Int,
@@ -606,11 +655,13 @@ private extension VideoPlayerController {
         }
     }
 
-    /// 复制音频样本缓冲区中的 PCM 数据。
+    /// Copies PCM data from an audio sample buffer.
     ///
-    /// - Parameter sampleBuffer: 包含解码 PCM 的样本缓冲区。
-    /// - Returns: 复制后的 PCM 数据；无数据缓冲区时返回空数据。
-    /// - Throws: 读取底层 PCM 数据失败时抛出错误。
+    /// - Parameter sampleBuffer: The decoded audio sample buffer.
+    ///
+    /// - Returns: The copied PCM, or empty data if no data buffer exists.
+    ///
+    /// - Throws: An error if PCM bytes cannot be read.
     nonisolated static func pcmData(
         from sampleBuffer: CMSampleBuffer
     ) throws -> Data {
@@ -636,25 +687,32 @@ private extension VideoPlayerController {
         return data
     }
 
-    /// 等待指定的主机单调时钟时刻。
+    /// Waits until a monotonic host time.
     ///
-    /// - Parameter target: 目标时刻，单位为纳秒。
-    /// - Throws: 等待被取消时抛出取消错误。
+    /// - Parameter target: The target host time, in nanoseconds.
+    ///
+    /// - Throws: A cancellation error if waiting is cancelled.
     nonisolated static func sleep(
         untilNanoseconds target: UInt64
     ) async throws {
         let now = DispatchTime.now().uptimeNanoseconds
-        guard now < target else { return }
+        guard now < target else {
+            return
+        }
         try await Task.sleep(nanoseconds: target - now)
     }
 
-    /// 构造文件音视频播放错误。
+    /// Creates a file playback error.
     ///
-    /// - Parameter message: 错误描述。
-    /// - Returns: 包含指定描述的媒体错误。
+    /// - Parameter message: The error description.
+    ///
+    /// - Returns: A media error with the specified description.
     nonisolated static func mediaError(
         _ message: String
     ) -> XmaxError {
-        XmaxError(code: .mediaError, message: message)
+        XmaxError(
+            code: .mediaError,
+            message: message
+        )
     }
 }

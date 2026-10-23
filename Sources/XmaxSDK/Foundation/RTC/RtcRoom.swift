@@ -10,121 +10,131 @@
 
 import Foundation
 
-/// 与厂商无关的单次房间连接事件。
+/// A vendor-independent RTC room event.
 enum RtcRoomEvent: Sendable {
 
-    /// RTC 房间连接成功。
+    /// The RTC room connection succeeded.
     case joined
 
-    /// 指定远端用户的视频发布状态变化。
+    /// A remote user's video publication changed.
     case publication(userID: String, published: Bool)
 
-    /// 房间连接或媒体传输失败。
+    /// The room connection or media transport failed.
     case failure(XmaxError)
 
-    /// 上行和下行网络质量更新。
+    /// Uplink and downlink network quality changed.
     case quality(uplink: RtcQualityLevel, downlink: RtcQualityLevel)
 
-    /// 上行视频统计更新。
+    /// Uplink video statistics were updated.
     case uplinkVideoStatistics(UplinkVideoStatistics)
 
-    /// 下行视频统计更新。
+    /// Downlink video statistics were updated.
     case downlinkVideoStatistics(DownlinkVideoStatistics)
 
-    /// 本地编码性能状态及实际编码规格更新。
+    /// Local encoding performance or format changed.
     case performance(limited: Bool, width: Int, height: Int, frameRate: Int)
 }
 
-/// 隔离第三方 RTC 房间能力。每个实例只服务一次连接。
+/// A vendor-independent room serving one connection.
 protocol RtcRoom: AnyObject, Sendable {
 
-    /// 设置房间事件回调。
+    /// Sets the room event listener.
     ///
-    /// - Parameter listener: 中性事件回调；传入 nil 清除监听。
+    /// - Parameter listener: The event handler, or `nil` to remove it.
     func setEventListener(
         _ listener: (@Sendable (RtcRoomEvent) -> Void)?
     )
 
-    /// 发起进房；成功通过 joined 事件通知。
+    /// Begins room join; completion is reported by the joined event.
     ///
-    /// - Parameter configuration: 房间、用户账号和令牌。
-    /// - Throws: 进房调用立即失败时抛出错误。
+    /// - Parameter configuration: The room, user account, and token.
+    ///
+    /// - Throws: An error if the join request fails immediately.
     func join(
         configuration: RoomJoinConfiguration
     ) throws
 
-    /// 停止回调、清理信令和帧监听，并离开房间；重复调用无副作用。
+    /// Leaves the room and clears callbacks and queued signaling. Repeated calls are safe.
     func destroy()
 
-    /// 更新本地视频发布状态。
+    /// Changes local video publication.
     ///
-    /// - Parameter publish: 是否发布外部视频轨。
-    /// - Throws: 发布配置失败时抛出错误。
+    /// - Parameter publish: Whether to publish external video.
+    ///
+    /// - Throws: An error if publication configuration fails.
     func publishLocalVideo(
         _ publish: Bool
     ) throws
 
-    /// 更新本地音频发布状态。
+    /// Changes local audio publication.
     ///
-    /// - Parameter publish: 是否发布当前音频源。
-    /// - Throws: 发布配置失败时抛出错误。
+    /// - Parameter publish: Whether to publish the current audio source.
+    ///
+    /// - Throws: An error if publication configuration fails.
     func publishLocalAudio(
         _ publish: Bool
     ) throws
 
-    /// 更新远端视频订阅。
+    /// Changes a remote video subscription.
     ///
     /// - Parameters:
-    ///   - userID: 服务端分配的 RTC 用户账号。
-    ///   - subscribe: 是否订阅视频。
-    /// - Throws: 用户映射或订阅失败时抛出错误。
+    ///   - userID: The server-assigned RTC account.
+    ///   - subscribe: Whether to subscribe to video.
+    ///
+    /// - Throws: An error if user mapping or subscription fails.
     func subscribeRemoteVideo(
         userID: String,
         subscribe: Bool
     ) throws
 
-    /// 更新远端音频订阅。
+    /// Changes a remote audio subscription.
     ///
     /// - Parameters:
-    ///   - userID: 服务端分配的 RTC 用户账号。
-    ///   - subscribe: 是否订阅音频。
-    /// - Throws: 用户映射或订阅失败时抛出错误。
+    ///   - userID: The server-assigned RTC account.
+    ///   - subscribe: Whether to subscribe to audio.
+    ///
+    /// - Throws: An error if user mapping or subscription fails.
     func subscribeRemoteAudio(
         userID: String,
         subscribe: Bool
     ) throws
 
-    /// 设置远端音频播放音量。
+    /// Sets remote audio playback volume.
     ///
     /// - Parameters:
-    ///   - volume: 0 到 100 的音量。
-    ///   - userID: RTC 用户账号。
-    /// - Throws: 用户映射或音量配置失败时抛出错误。
+    ///   - volume: The volume, from 0 to 100.
+    ///   - userID: The RTC user account.
+    ///
+    /// - Throws: An error if user mapping or volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Int,
         for userID: String
     ) throws
 
-    /// 设置远端解码帧监听。
+    /// Sets a decoded remote frame listener.
     ///
     /// - Parameters:
-    ///   - listener: 帧回调；传入 nil 清除监听。
-    ///   - userID: RTC 用户账号。
-    /// - Throws: 用户映射失败时抛出错误。
+    ///   - listener: The frame handler, or `nil` to remove it.
+    ///   - userID: The RTC user account.
+    ///
+    /// - Throws: An error if the user cannot be resolved.
     func setRemoteVideoFrameListener(
         _ listener: RtcRemoteVideoFrameListener?,
         for userID: String
     )
         throws
 
-    /// 将信令加入房间发送队列。
+    /// Enqueues room signaling.
     ///
     /// - Parameters:
-    ///   - message: 完整 JSON 信令。
-    ///   - reportFailure: 异步发送失败时是否通知房间故障；false 仅记录日志并由等待调用抛出。
-    ///   - key: 合并键；同键且尚未发送的信令仅保留最新内容。
-    /// - Throws: 信令无效或队列不可用时抛出错误。
-    /// - Returns: 本条信令的发送任务。
+    ///   - message: The complete JSON message.
+    ///   - reportFailure: Whether asynchronous send failure is fatal. When `false`, failure is
+    ///     logged and thrown to the waiting caller.
+    ///   - key: The key replacing older, unsent messages with the same key.
+    ///
+    /// - Throws: An error if the message is invalid or the queue is unavailable.
+    ///
+    /// - Returns: The message's send task.
     @discardableResult
     func sendRoomMessage(
         _ message: String,
@@ -132,33 +142,39 @@ protocol RtcRoom: AnyObject, Sendable {
         replacingPendingMessage key: String?
     ) throws -> Task<Void, any Error>
 
-    /// 丢弃尚未开始发送的可合并信令。
+    /// Drops coalescible messages that have not started sending.
     ///
-    /// - Parameter key: 需要清理的合并键；`nil` 清理所有可合并信令。
+    /// - Parameter key: The coalescing key, or `nil` for all coalescible messages.
     func discardPendingMessages(
         key: String?
     )
 
-    /// 等待此前排队的信令提交给 RTC。
+    /// Waits for previously queued signaling to be submitted to RTC.
     ///
-    /// - Throws: 发送失败、离房或调用取消时抛出错误。
+    /// - Throws: An error if sending fails, the room closes, or the call is cancelled.
     func awaitPendingMessages() async throws
 }
 
 extension RtcRoom {
 
-    /// 将房间信令入队，并启用异步发送失败通知。
+    /// Enqueues signaling with asynchronous failure reporting enabled.
     ///
     /// - Parameters:
-    ///   - message: 完整 JSON 信令。
-    ///   - reportFailure: 异步发送失败时是否通知房间故障。
-    /// - Returns: 本条信令的发送任务。
-    /// - Throws: 信令无效或发送队列不可用时抛出错误。
+    ///   - message: The complete JSON message.
+    ///   - reportFailure: Whether asynchronous send failures are reported as room failures.
+    ///
+    /// - Returns: The message's send task.
+    ///
+    /// - Throws: An error if signaling is invalid or the send queue is unavailable.
     @discardableResult
     func sendRoomMessage(
         _ message: String,
         reportFailure: Bool = true
     ) throws -> Task<Void, any Error> {
-        try sendRoomMessage(message, reportFailure: reportFailure, replacingPendingMessage: nil)
+        try sendRoomMessage(
+            message,
+            reportFailure: reportFailure,
+            replacingPendingMessage: nil
+        )
     }
 }

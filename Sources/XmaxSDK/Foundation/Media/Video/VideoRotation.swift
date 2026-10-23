@@ -8,18 +8,18 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 视频帧需要顺时针旋转的角度。
+/// The clockwise rotation applied to a video frame.
 enum VideoRotation: Int, CaseIterable, Sendable {
 
-    /// 不旋转。
+    /// No rotation.
     case rotation0 = 0
 
-    /// 旋转 90 度。
+    /// A 90-degree rotation.
     case rotation90 = 90
 
-    /// 旋转 180 度。
+    /// A 180-degree rotation.
     case rotation180 = 180
 
-    /// 旋转 270 度。
+    /// A 270-degree rotation.
     case rotation270 = 270
 }

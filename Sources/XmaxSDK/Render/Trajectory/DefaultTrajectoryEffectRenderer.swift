@@ -10,18 +10,19 @@
 
 import UIKit
 
-/// SDK 内置的发光轨迹效果。
+/// The built-in glowing trajectory effect.
 @MainActor
 public final class DefaultTrajectoryEffectRenderer: UIView,
-    TrajectoryEffectRendering {
+    TrajectoryEffectRendering
+{
 
-    /// 定义轨迹颜色、线宽及淡出效果参数。
+    /// The trajectory appearance and fade configuration.
     private enum Style {
 
-        /// 轨迹中心线的颜色。
+        /// The trajectory centerline color.
         static let coreColor = UIColor.white
 
-        /// 轨迹光晕颜色。
+        /// The trajectory glow color.
         static let glowColor = UIColor(
             red: 0,
             green: 1,
@@ -29,56 +30,62 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
             alpha: 1
         )
 
-        /// 轨迹中心线宽度，单位为点。
+        /// The centerline width, in points.
         static let coreWidth: CGFloat = 3
 
-        /// 轨迹光晕宽度，单位为点。
+        /// The glow width, in points.
         static let glowWidth: CGFloat = 18
 
-        /// 每次刷新时尾迹透明度的衰减量。
+        /// The trail opacity decay per refresh.
         static let fadeStep: CGFloat = 0.05
 
-        /// 停止交互后最多执行的淡出帧数。
+        /// The maximum fade frames after interaction stops.
         static let idleFadeFrameLimit = 64
     }
 
-    /// 保存活动轨迹的当前位置和开始时间。
+    /// An active trajectory's position and start time.
     private struct ActiveTrajectory {
 
-        /// 轨迹最新位置，单位为视图坐标点。
+        /// The latest trajectory position in view coordinates.
         var location: CGPoint
 
-        /// 脉冲动画的起始时刻，单位为秒。
+        /// The pulse animation start time, in seconds.
         let startTime: TimeInterval
     }
 
-    /// 承载轨迹效果的视图。
-    public var view: UIView { self }
+    /// The trajectory effect view.
+    public var view: UIView {
+        self
+    }
 
-    /// 按轨迹标识保存的活动触点和动画起点。
+    /// Trajectory drawing.
+
+    /// The active touches and animation origins keyed by trajectory identifier.
     private var activeTrajectories: [TrajectoryID: ActiveTrajectory] = [:]
 
-    /// 绘制持久轨迹尾迹的位图上下文。
+    /// The persistent trail bitmap context.
     private var trailBitmapContext: CGContext?
 
-    /// 尾迹位图对应的视图尺寸，单位为点。
+    /// The trail bitmap's view dimensions, in points.
     private var trailBitmapSize: CGSize = .zero
 
-    /// 尾迹位图采用的屏幕缩放系数。
+    /// The trail bitmap's display scale.
     private var trailBitmapScale: CGFloat = 0
 
-    /// 尾迹位图是否仍有需要绘制的内容。
+    /// Whether the trail bitmap contains visible content.
     private var hasTrailPixels = false
 
-    /// 停止交互后已执行的淡出帧数。
+    /// Animation state.
+
+    /// The elapsed fade frames since interaction ended.
     private var idleFadeFrameCount = 0
 
-    /// 驱动轨迹动画刷新的显示时钟。
+    /// The trajectory animation display link.
     private var displayLink: CADisplayLink?
 
-    /// 创建 SDK 内置发光轨迹渲染视图。
+    /// Creates the built-in glowing trajectory view.
     ///
-    /// - Parameter frame: 视图初始布局区域。
+    /// - Parameter frame: The initial view frame.
     public override init(
         frame: CGRect = .zero
     ) {
@@ -89,9 +96,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         contentMode = .redraw
     }
 
-    /// 标记归档初始化不可用；效果视图需通过代码创建。
+    /// Unavailable; create this effect view programmatically.
     ///
-    /// - Parameter coder: 视图归档解码器。
+    /// - Parameter coder: The archive decoder.
     @available(*, unavailable)
     public required init?(
         coder: NSCoder
@@ -99,18 +106,18 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// 结束轨迹动画的显示刷新回调。
+    /// Stops trajectory display refresh.
     isolated deinit {
         displayLink?.invalidate()
     }
 
-    /// 按当前视图尺寸更新轨迹位图缓冲区。
+    /// Updates the trajectory bitmap for the view dimensions.
     public override func layoutSubviews() {
         super.layoutSubviews()
         rebuildTrailBitmapIfNeeded()
     }
 
-    /// 在视图离开窗口时清理轨迹，进入窗口时准备位图。
+    /// Prepares or clears trajectories when window attachment changes.
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         if window == nil {
@@ -120,9 +127,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         }
     }
 
-    /// 开始绘制指定触点对应的轨迹。
+    /// Begins trajectories for new touches.
     ///
-    /// - Parameter points: 新开始的轨迹触点。
+    /// - Parameter points: The newly started touches.
     public func renderBegan(
         _ points: [TrajectoryPoint]
     ) {
@@ -136,9 +143,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         setNeedsDisplay()
     }
 
-    /// 更新活动轨迹的触点位置。
+    /// Updates active trajectory positions.
     ///
-    /// - Parameter points: 当前活动轨迹的最新触点。
+    /// - Parameter points: The latest active touches.
     public func renderMoved(
         _ points: [TrajectoryPoint]
     ) {
@@ -165,9 +172,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         startDisplayLink()
     }
 
-    /// 结束指定轨迹的活动绘制。
+    /// Ends active trajectories.
     ///
-    /// - Parameter identifiers: 需要结束的轨迹标识。
+    /// - Parameter identifiers: The trajectory identifiers to end.
     public func renderEnded(
         _ identifiers: [TrajectoryID]
     ) {
@@ -177,7 +184,7 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         setNeedsDisplay()
     }
 
-    /// 清除全部轨迹和动画资源。
+    /// Clears all trajectories and animation resources.
     public func reset() {
         activeTrajectories.removeAll()
         clearTrailBitmap()
@@ -185,9 +192,9 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
         setNeedsDisplay()
     }
 
-    /// 绘制累计轨迹位图和当前触点的动态效果。
+    /// Draws the trail bitmap and active touch effects.
     ///
-    /// - Parameter rect: 需要重绘的视图区域。
+    /// - Parameter rect: The view region to redraw.
     public override func draw(
         _ rect: CGRect
     ) {
@@ -196,20 +203,27 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
                 cgImage: trailImage,
                 scale: trailBitmapScale,
                 orientation: .up
-            ).draw(in: bounds)
+            ).draw(
+                in: bounds
+            )
         }
 
-        guard let context = UIGraphicsGetCurrentContext() else { return }
+        guard let context = UIGraphicsGetCurrentContext() else {
+            return
+        }
         context.saveGState()
         context.setBlendMode(.plusLighter)
-        drawTouchEffects(now: CACurrentMediaTime(), in: context)
+        drawTouchEffects(
+            now: CACurrentMediaTime(),
+            in: context
+        )
         context.restoreGState()
     }
 }
 
 private extension DefaultTrajectoryEffectRenderer {
 
-    /// 推进轨迹淡出并在无可见效果时停止刷新。
+    /// Advances fading and stops refresh when no effect remains.
     @objc func tick() {
         fadeTrailBitmap()
         setNeedsDisplay()
@@ -218,55 +232,75 @@ private extension DefaultTrajectoryEffectRenderer {
         }
     }
 
-    /// 启动轨迹效果的显示刷新回调。
+    /// Starts trajectory display refresh.
     func startDisplayLink() {
-        guard displayLink == nil else { return }
+        guard displayLink == nil else {
+            return
+        }
         let displayLink = CADisplayLink(
             target: self,
             selector: #selector(tick)
         )
         displayLink.preferredFramesPerSecond = 60
-        displayLink.add(to: .main, forMode: .common)
+        displayLink.add(
+            to: .main,
+            forMode: .common
+        )
         self.displayLink = displayLink
     }
 
-    /// 停止轨迹效果的显示刷新回调。
+    /// Stops trajectory display refresh.
     func stopDisplayLink() {
         displayLink?.invalidate()
         displayLink = nil
     }
 
-    /// 按视图尺寸和屏幕缩放系数创建或更新轨迹位图。
+    /// Resolves a trajectory bitmap for the view dimensions and display scale.
     func rebuildTrailBitmapIfNeeded() {
         let scale = window?.screen.scale ?? traitCollection.displayScale
         let pixelWidth = Int(ceil(bounds.width * scale))
         let pixelHeight = Int(ceil(bounds.height * scale))
-        guard pixelWidth > 0, pixelHeight > 0 else { return }
+        guard pixelWidth > 0, pixelHeight > 0 else {
+            return
+        }
 
-        let bitmapSize = CGSize(width: pixelWidth, height: pixelHeight)
-        guard trailBitmapContext == nil
+        let bitmapSize = CGSize(
+            width: pixelWidth,
+            height: pixelHeight
+        )
+        guard
+            trailBitmapContext == nil
                 || trailBitmapSize != bitmapSize
                 || trailBitmapScale != scale
         else {
             return
         }
 
-        let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue
+        let bitmapInfo =
+            CGBitmapInfo.byteOrder32Big.rawValue
             | CGImageAlphaInfo.premultipliedLast.rawValue
-        guard let context = CGContext(
-            data: nil,
-            width: pixelWidth,
-            height: pixelHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: pixelWidth * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: bitmapInfo
-        ) else {
+        guard
+            let context = CGContext(
+                data: nil,
+                width: pixelWidth,
+                height: pixelHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: pixelWidth * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: bitmapInfo
+            )
+        else {
             return
         }
 
-        context.translateBy(x: 0, y: CGFloat(pixelHeight))
-        context.scaleBy(x: scale, y: -scale)
+        context.translateBy(
+            x: 0,
+            y: CGFloat(pixelHeight)
+        )
+        context.scaleBy(
+            x: scale,
+            y: -scale
+        )
         trailBitmapContext = context
         trailBitmapSize = bitmapSize
         trailBitmapScale = scale
@@ -274,17 +308,19 @@ private extension DefaultTrajectoryEffectRenderer {
         idleFadeFrameCount = 0
     }
 
-    /// 向轨迹位图绘制带发光效果的线段。
+    /// Draws a glowing segment into the trail bitmap.
     ///
     /// - Parameters:
-    ///   - start: 线段起点，使用视图坐标。
-    ///   - end: 线段终点，使用视图坐标。
+    ///   - start: The segment start in view coordinates.
+    ///   - end: The segment end in view coordinates.
     func drawTrailSegment(
         from start: CGPoint,
         to end: CGPoint
     ) {
         rebuildTrailBitmapIfNeeded()
-        guard let context = trailBitmapContext else { return }
+        guard let context = trailBitmapContext else {
+            return
+        }
 
         context.saveGState()
         context.setBlendMode(.plusLighter)
@@ -305,7 +341,11 @@ private extension DefaultTrajectoryEffectRenderer {
             in: context
         )
 
-        context.setShadow(offset: .zero, blur: 0, color: nil)
+        context.setShadow(
+            offset: .zero,
+            blur: 0,
+            color: nil
+        )
         context.setLineCap(.round)
         context.setLineJoin(.round)
         context.setLineWidth(Style.coreWidth)
@@ -323,15 +363,15 @@ private extension DefaultTrajectoryEffectRenderer {
         setNeedsDisplay()
     }
 
-    /// 绘制指定线宽、模糊半径和透明度的发光线段。
+    /// Draws a glowing segment with the requested appearance.
     ///
     /// - Parameters:
-    ///   - start: 线段起点。
-    ///   - end: 线段终点。
-    ///   - width: 线宽，单位为点。
-    ///   - blur: 阴影模糊半径，单位为点。
-    ///   - alpha: 发光透明度。
-    ///   - context: 目标绘图上下文。
+    ///   - start: The segment start.
+    ///   - end: The segment end.
+    ///   - width: The line width, in points.
+    ///   - blur: The shadow blur radius, in points.
+    ///   - alpha: The glow opacity.
+    ///   - context: The drawing context.
     func drawGlowLayer(
         from start: CGPoint,
         to end: CGPoint,
@@ -340,7 +380,9 @@ private extension DefaultTrajectoryEffectRenderer {
         alpha: CGFloat,
         in context: CGContext
     ) {
-        guard width > 0, Style.glowColor != .clear else { return }
+        guard width > 0, Style.glowColor != .clear else {
+            return
+        }
         let color = Style.glowColor.withAlphaComponent(alpha)
         context.saveGState()
         context.setLineCap(.round)
@@ -361,9 +403,11 @@ private extension DefaultTrajectoryEffectRenderer {
         context.restoreGState()
     }
 
-    /// 逐帧降低累计轨迹的不透明度并清除已淡出的位图。
+    /// Fades accumulated trails and clears the bitmap when fading completes.
     func fadeTrailBitmap() {
-        guard hasTrailPixels, let context = trailBitmapContext else { return }
+        guard hasTrailPixels, let context = trailBitmapContext else {
+            return
+        }
         context.saveGState()
         context.setBlendMode(.destinationOut)
         context.setFillColor(
@@ -382,7 +426,7 @@ private extension DefaultTrajectoryEffectRenderer {
         }
     }
 
-    /// 清空轨迹位图并重置淡出状态。
+    /// Clears the trail bitmap and fade state.
     func clearTrailBitmap() {
         if let context = trailBitmapContext {
             context.saveGState()
@@ -394,44 +438,63 @@ private extension DefaultTrajectoryEffectRenderer {
         idleFadeFrameCount = 0
     }
 
-    /// 绘制全部活动触点的光环、粒子和中心亮点。
+    /// Draws active touch halos, particles, and highlights.
     ///
     /// - Parameters:
-    ///   - now: 当前单调时钟时间，单位为秒。
-    ///   - context: 目标绘图上下文。
+    ///   - now: The monotonic time, in seconds.
+    ///   - context: The drawing context.
     func drawTouchEffects(
         now: TimeInterval,
         in context: CGContext
     ) {
         for trajectory in activeTrajectories.values {
-            drawPulsingRings(for: trajectory, now: now, in: context)
-            drawOrbitParticles(for: trajectory, now: now, in: context)
-            drawHeadGlow(at: trajectory.location, in: context)
+            drawPulsingRings(
+                for: trajectory,
+                now: now,
+                in: context
+            )
+            drawOrbitParticles(
+                for: trajectory,
+                now: now,
+                in: context
+            )
+            drawHeadGlow(
+                at: trajectory.location,
+                in: context
+            )
         }
     }
 
-    /// 绘制触点中心亮点及径向发光。
+    /// Draws a touch highlight and radial glow.
     ///
     /// - Parameters:
-    ///   - point: 触点的视图坐标。
-    ///   - context: 目标绘图上下文。
+    ///   - point: The touch position in view coordinates.
+    ///   - context: The drawing context.
     func drawHeadGlow(
         at point: CGPoint,
         in context: CGContext
     ) {
-        let headRadius = max(Style.coreWidth * 5 / 3, 3)
-        let glowRadius = max(Style.glowWidth * 8 / 9, headRadius)
-        let colors = [
-            Style.glowColor.withAlphaComponent(0.9).cgColor,
-            Style.glowColor.withAlphaComponent(0.54).cgColor,
-            Style.glowColor.withAlphaComponent(0).cgColor,
-        ] as CFArray
+        let headRadius = max(
+            Style.coreWidth * 5 / 3,
+            3
+        )
+        let glowRadius = max(
+            Style.glowWidth * 8 / 9,
+            headRadius
+        )
+        let colors =
+            [
+                Style.glowColor.withAlphaComponent(0.9).cgColor,
+                Style.glowColor.withAlphaComponent(0.54).cgColor,
+                Style.glowColor.withAlphaComponent(0).cgColor,
+            ] as CFArray
         if Style.glowWidth > 0,
-           let gradient = CGGradient(
-               colorsSpace: CGColorSpaceCreateDeviceRGB(),
-               colors: colors,
-               locations: [0, 0.4, 1]
-           ) {
+            let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: colors,
+                locations: [0, 0.4, 1]
+            )
+        {
             context.drawRadialGradient(
                 gradient,
                 startCenter: point,
@@ -453,12 +516,12 @@ private extension DefaultTrajectoryEffectRenderer {
         )
     }
 
-    /// 按轨迹持续时间绘制脉动光环。
+    /// Draws a pulsing halo for an active trajectory.
     ///
     /// - Parameters:
-    ///   - trajectory: 需要绘制的活动轨迹。
-    ///   - now: 当前单调时钟时间，单位为秒。
-    ///   - context: 目标绘图上下文。
+    ///   - trajectory: The active trajectory to draw.
+    ///   - now: The monotonic time, in seconds.
+    ///   - context: The drawing context.
     private func drawPulsingRings(
         for trajectory: ActiveTrajectory,
         now: TimeInterval,
@@ -472,7 +535,8 @@ private extension DefaultTrajectoryEffectRenderer {
             let pulseOffset = elapsed * 1.2 + indexValue * 0.5
             let pulse = (sin(pulseOffset * .pi * 2) + 1) / 2
             let radius = baseRadius + pulse * 8
-            let alpha = 0.5
+            let alpha =
+                0.5
                 * (1 - indexValue * 0.2)
                 * (0.5 + pulse * 0.5)
             context.setStrokeColor(
@@ -489,12 +553,12 @@ private extension DefaultTrajectoryEffectRenderer {
         }
     }
 
-    /// 绘制围绕触点缓慢运动的发光粒子。
+    /// Draws glowing particles around a touch.
     ///
     /// - Parameters:
-    ///   - trajectory: 需要绘制的活动轨迹。
-    ///   - now: 当前单调时钟时间，单位为秒。
-    ///   - context: 目标绘图上下文。
+    ///   - trajectory: The active trajectory to draw.
+    ///   - now: The monotonic time, in seconds.
+    ///   - context: The drawing context.
     private func drawOrbitParticles(
         for trajectory: ActiveTrajectory,
         now: TimeInterval,
@@ -510,32 +574,40 @@ private extension DefaultTrajectoryEffectRenderer {
                 x: trajectory.location.x + cos(angle) * 22,
                 y: trajectory.location.y + sin(angle) * 22
             )
-            let alpha = 0.6
+            let alpha =
+                0.6
                 * (0.6 + sin(elapsed * 3 + indexValue) * 0.4)
-            drawParticle(at: center, alpha: alpha, in: context)
+            drawParticle(
+                at: center,
+                alpha: alpha,
+                in: context
+            )
         }
     }
 
-    /// 绘制一个径向渐变的发光粒子。
+    /// Draws a radial gradient particle.
     ///
     /// - Parameters:
-    ///   - point: 粒子中心的视图坐标。
-    ///   - alpha: 粒子中心透明度。
-    ///   - context: 目标绘图上下文。
+    ///   - point: The particle center in view coordinates.
+    ///   - alpha: The particle center opacity.
+    ///   - context: The drawing context.
     func drawParticle(
         at point: CGPoint,
         alpha: CGFloat,
         in context: CGContext
     ) {
-        let colors = [
-            Style.glowColor.withAlphaComponent(alpha).cgColor,
-            Style.glowColor.withAlphaComponent(0).cgColor,
-        ] as CFArray
-        guard let gradient = CGGradient(
-            colorsSpace: CGColorSpaceCreateDeviceRGB(),
-            colors: colors,
-            locations: [0, 1]
-        ) else {
+        let colors =
+            [
+                Style.glowColor.withAlphaComponent(alpha).cgColor,
+                Style.glowColor.withAlphaComponent(0).cgColor,
+            ] as CFArray
+        guard
+            let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: colors,
+                locations: [0, 1]
+            )
+        else {
             return
         }
         context.drawRadialGradient(

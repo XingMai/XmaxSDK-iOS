@@ -8,68 +8,68 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 中性的 RTC 网络质量等级。
+/// An RTC network quality rating.
 enum RtcQualityLevel: Int, CaseIterable, Sendable {
 
-    /// 尚无可用的网络质量评级。
+    /// No quality rating is available.
     case unknown
 
-    /// 网络质量优秀。
+    /// Excellent network quality.
     case excellent
 
-    /// 网络质量良好。
+    /// Good network quality.
     case good
 
-    /// 网络质量一般。
+    /// Fair network quality.
     case poor
 
-    /// 网络质量较差。
+    /// Poor network quality.
     case bad
 
-    /// 网络质量很差。
+    /// Very poor network quality.
     case veryBad
 
-    /// 网络连接不可用。
+    /// The network connection is unavailable.
     case down
 }
 
-/// 接收 RTC 网络质量和性能回退事件。
+/// A listener for RTC quality and performance fallback.
 protocol RtcQualityListener: AnyObject {
 
-    /// 接收本地视频上行统计。
+    /// Receives local uplink video statistics.
     ///
-    /// - Parameter statistics: 当前统计周期的上行指标。
+    /// - Parameter statistics: The current uplink statistics.
     @MainActor
     func onUplinkVideoStatistics(
         _ statistics: UplinkVideoStatistics
     )
 
-    /// 接收远端视频下行统计。
+    /// Receives remote downlink video statistics.
     ///
-    /// - Parameter statistics: 当前统计周期的下行指标。
+    /// - Parameter statistics: The current downlink statistics.
     @MainActor
     func onDownlinkVideoStatistics(
         _ statistics: DownlinkVideoStatistics
     )
 
-    /// 接收上下行实时网络质量。
+    /// Receives uplink and downlink network quality.
     ///
     /// - Parameters:
-    ///   - uplink: 本地发送方向的网络质量。
-    ///   - downlink: 远端接收方向的网络质量。
+    ///   - uplink: The local sending direction's quality.
+    ///   - downlink: The remote receiving direction's quality.
     @MainActor
     func onNetworkQuality(
         uplink: RtcQualityLevel,
         downlink: RtcQualityLevel
     )
 
-    /// 接收性能受限或恢复事件。
+    /// Receives performance limitation or recovery events.
     ///
     /// - Parameters:
-    ///   - limited: 当前是否受性能限制。
-    ///   - suggestedWidth: 建议的视频宽度，单位为像素。
-    ///   - suggestedHeight: 建议的视频高度，单位为像素。
-    ///   - suggestedFrameRate: 建议的视频帧率，单位为 fps。
+    ///   - limited: Whether performance is currently limited.
+    ///   - suggestedWidth: The suggested width, in pixels.
+    ///   - suggestedHeight: The suggested height, in pixels.
+    ///   - suggestedFrameRate: The suggested frame rate, in frames per second.
     @MainActor
     func onPerformanceAlarm(
         limited: Bool,

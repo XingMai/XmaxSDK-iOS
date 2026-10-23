@@ -10,14 +10,16 @@
 
 import Foundation
 
-/// 定义读取本地媒体文件元数据的能力。
+/// An interface for local media metadata.
 protocol MediaFileMetadataManaging: Sendable {
 
-    /// 读取视频的原始尺寸、显示旋转、时长和音频轨道信息。
+    /// Reads video dimensions, orientation, duration, and audio availability.
     ///
-    /// - Parameter fileURL: 可读取的本地视频文件 URL。
-    /// - Returns: 用于准备本地视频流的媒体元数据。
-    /// - Throws: 文件不可读、无视频轨道或媒体元数据无效时抛出错误。
+    /// - Parameter fileURL: The URL of a readable local video file.
+    ///
+    /// - Returns: The metadata needed to prepare a local video stream.
+    ///
+    /// - Throws: An error if the file is unreadable, lacks video, or has invalid metadata.
     func readMetadata(
         fileURL: URL
     ) async throws -> MediaFileMetadata

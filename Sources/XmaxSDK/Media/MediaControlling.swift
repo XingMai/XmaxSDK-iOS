@@ -10,175 +10,199 @@
 
 import Foundation
 
-/// 接收媒体层产生的中性视频帧。
+/// A handler for media video frames.
 typealias MediaVideoFrameListener = @Sendable (VideoFrame) throws -> Void
 
-/// 接收媒体层产生的中性音频帧。
+/// A handler for media audio frames.
 typealias MediaAudioFrameListener = @Sendable (AudioFrame) throws -> Void
 
-/// 定义媒体层向 Core 暴露的统一能力。
+/// The media layer interface used by Core.
 protocol MediaControlling: Actor, InteractionControlling {
 
-    /// 当前活动的本地视频轨道。
-    var currentTrack: RealtimeVideoTrack? { get }
+    /// The active local video track.
+    var currentTrack: RealtimeVideoTrack? {
+        get
+    }
 
-    /// 当前本地视频格式。
-    var currentVideoFormat: RealtimeVideoFormat? { get }
+    /// The current local video format.
+    var currentVideoFormat: RealtimeVideoFormat? {
+        get
+    }
 
-    /// 图片、文件视频和外部视频使用独立生成画布，媒体本身保持源比例。
-    var usesContainPadding: Bool { get }
+    /// Whether generation uses a separate canvas while retaining the media's aspect ratio.
+    var usesContainPadding: Bool {
+        get
+    }
 
-    /// 当前媒体来源是否包含由 SDK 管理的本地音频。
-    var hasAudio: Bool { get }
+    /// Whether the source includes SDK-managed audio.
+    var hasAudio: Bool {
+        get
+    }
 
-    /// 当前本地文件视频的音频预览音量。
-    var localAudioVolume: Float { get async }
+    /// The local video file preview volume.
+    var localAudioVolume: Float {
+        get async
+    }
 
-    /// 设置当前相机流的一次性内部就绪处理。
+    /// Sets a one-shot camera readiness handler.
     ///
-    /// - Parameter handler: 收到有效帧且预览已绑定时调用；传入空值时清除。
+    /// - Parameter handler: The handler called after a valid frame and preview binding, or `nil` to
+    ///   remove it.
     func setCameraPreviewReadyHandler(
         _ handler: CameraPreviewReadyHandler?
     )
 
-    /// 创建并持有本地相机媒体流，同时启动采集和本地预览。
+    /// Creates a camera stream and starts local preview.
     ///
     /// - Parameters:
-    ///   - videoFormat: 相机采集使用的目标视频格式。
-    ///   - position: 首次启用的摄像头位置。
-    ///   - useMicrophone: 是否使用麦克风；创建时检查权限，连接时启动采集。
-    /// - Returns: 包含本地相机视频轨道的媒体流。
-    /// - Throws: 相机权限、RTC 初始化或采集启动失败时抛出错误；
-    ///   已有活动媒体来源时也会失败。
+    ///   - videoFormat: The requested camera video format.
+    ///   - position: The initial camera position.
+    ///   - useMicrophone: Whether to request microphone access and capture audio while connected.
+    ///
+    /// - Returns: The local camera media stream.
+    ///
+    /// - Throws: An error if camera permission, RTC initialization, or capture startup fails; an
+    ///   existing active media source also prevents creation.
     func createLocalCameraStream(
         videoFormat: RealtimeVideoFormat,
         position: CameraPosition,
         useMicrophone: Bool
     ) async throws -> RealtimeMediaStream
 
-    /// 为启用了麦克风的相机流启动内部音频采集；其他来源不受影响。
+    /// Starts microphone capture for a configured camera source.
     ///
-    /// - Throws: 操作被取消或 RTC 音频采集启动失败时抛出错误。
+    /// - Throws: An error if the operation is cancelled or RTC audio capture cannot start.
     func startMicrophoneCapture() throws
 
-    /// 停止相机流的麦克风采集，保留相机预览和麦克风配置。
+    /// Stops microphone capture while retaining camera preview and configuration.
     ///
-    /// - Throws: RTC 音频采集停止失败时抛出错误。
+    /// - Throws: An error if RTC audio capture cannot stop.
     func stopMicrophoneCapture() throws
 
-    /// 停止并释放当前本地相机媒体流、预览绑定和 RTC 资源；
-    /// 当前来源不是相机时忽略。
+    /// Stops the camera stream and releases its preview and RTC resources; other input sources are
+    /// unaffected.
     func stopLocalCameraStream() async
 
-    /// 在前置和后置摄像头之间切换当前相机。
+    /// Switches the active camera position.
     ///
-    /// - Returns: 包含更新后摄像头位置的本地媒体流。
-    /// - Throws: 当前来源不是相机、存在并发媒体操作或摄像头切换失败时抛出错误。
+    /// - Returns: The local stream with its updated camera position.
+    ///
+    /// - Throws: An error if no camera is active, an operation conflicts, or switching fails.
     func switchCamera() async throws -> RealtimeMediaStream
 
-    /// 将当前摄像头的采集方向和尺寸同步到预览窗口；其他媒体来源保持不变。
+    /// Updates camera orientation and dimensions for the preview window.
     ///
-    /// - Throws: 模型不支持目标尺寸或采集配置失败时抛出错误。
+    /// - Throws: An error if the model rejects the dimensions or capture configuration fails.
     func updateCameraOrientation() async throws
 
-    /// 更新当前摄像头的媒体规格，保留轨道及预览绑定。
+    /// Updates the camera format while retaining its track and preview bindings.
     ///
-    /// - Parameter videoFormat: 新的输出尺寸、采集帧率与编码配置。
-    /// - Throws: 当前来源不是摄像头、存在媒体操作或配置失败时抛出错误。
+    /// - Parameter videoFormat: The output dimensions, capture frame rate, and encoding settings.
+    ///
+    /// - Throws: An error if the source is not a camera, an operation conflicts, or configuration
+    ///   fails.
     func updateCameraFormat(
         _ videoFormat: RealtimeVideoFormat
     ) async throws
 
-    /// 从编码后的图片数据创建并持有本地图片媒体流。
+    /// Creates a local image stream from encoded data.
     ///
     /// - Parameters:
-    ///   - imageData: PNG、JPEG 等受支持格式的编码图片数据。
-    /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
-    /// - Throws: 图片数据无效、媒体准备或外部视频源启动失败时抛出错误；
-    ///   已有活动媒体来源时也会失败。
+    ///   - imageData: Encoded image data, such as PNG or JPEG.
+    ///
+    /// - Returns: The local track continuously delivering image frames.
+    ///
+    /// - Throws: An error if image data, media preparation, or external video startup fails; an
+    ///   existing active media source also prevents creation.
     func createLocalImageStream(
         imageData: Data
     ) async throws -> RealtimeMediaStream
 
-    /// 从已解码图片创建并持有本地图片媒体流。
+    /// Creates a local stream from a decoded image.
     ///
     /// - Parameters:
-    ///   - decodedImage: 已经完成方向规范化和像素解码的图片。
-    /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
-    /// - Throws: 图片像素处理、媒体准备或外部视频源启动失败时抛出错误；
-    ///   已有活动媒体来源时也会失败。
+    ///   - decodedImage: The orientation-corrected decoded image.
+    ///
+    /// - Returns: The local track continuously delivering image frames.
+    ///
+    /// - Throws: An error if image processing, media preparation, or external video startup fails;
+    ///   an existing active media source also prevents creation.
     func createLocalImageStream(
         decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream
 
-    /// 从本地图片文件创建并持有本地图片媒体流。
+    /// Creates a local stream from an image file.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地图片文件地址。
-    /// - Returns: 包含持续输出图片帧的本地视频轨道的媒体流。
-    /// - Throws: 文件读取、图片解码、媒体准备或外部视频源启动失败时
-    ///   抛出错误；
-    ///   已有活动媒体来源时也会失败。
+    ///   - fileURL: The URL of a readable local image file.
+    ///
+    /// - Returns: The local track continuously delivering image frames.
+    ///
+    /// - Throws: An error if file reading, image decoding, media preparation, or external video
+    ///   startup fails; an existing active media source also prevents creation.
     func createLocalImageStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// 停止并释放当前本地图片媒体流、帧输出、预览绑定和 RTC 资源；
-    /// 当前来源不是图片时忽略。
+    /// Stops the image stream and releases frame delivery, preview, and RTC resources; other input
+    /// sources are unaffected.
     func stopLocalImageStream() async
 
-    /// 从本地视频文件创建并持有本地视频媒体流。
+    /// Creates a local stream from a video file.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地视频文件地址。
-    /// - Returns: 包含循环输出文件视频帧的本地媒体流。
-    /// - Throws: 文件读取、音视频准备或外部媒体源启动失败时
-    ///   抛出错误；
-    ///   已有活动媒体来源时也会失败。
+    ///   - fileURL: The URL of a readable local video file.
+    ///
+    /// - Returns: The local media stream looping the video file.
+    ///
+    /// - Throws: An error if file reading, media preparation, or external source startup fails; an
+    ///   existing active media source also prevents creation.
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// 停止并释放当前本地视频媒体流、音视频输出、预览绑定和 RTC 资源；
-    /// 当前来源不是文件视频时忽略。
+    /// Stops video file playback and releases preview and RTC resources; other input sources are
+    /// unaffected.
     func stopLocalVideoStream() async
 
-    /// 绑定接入方的外部视频源并建立预览。
+    /// Binds an external video source for preview.
     ///
-    /// - Parameter source: 接入方拥有的视频源。
-    /// - Returns: 可用于本地预览及生成的媒体流。
-    /// - Throws: 已有媒体来源、规格无效或绑定失败时抛出错误。
+    /// - Parameter source: The video source owned by your app.
+    ///
+    /// - Returns: The local media stream for preview and generation.
+    ///
+    /// - Throws: An error if a source exists, the format is invalid, or binding fails.
     func createExternalVideoStream(
         source: any RealtimeExternalVideoSource
     ) async throws -> RealtimeMediaStream
 
-    /// 解绑外部供帧并清除预览，不释放接入方的采集资源。
+    /// Unbinds external video and preview without releasing your app's capture resources.
     func stopExternalVideoStream() async
 
-    /// 停止并释放当前本地媒体流、预览绑定和 RTC Engine；
-    /// 没有活动来源时忽略。
+    /// Stops local media and releases preview and the RTC engine; does nothing if no source is
+    /// active.
     func stopLocalStream() async
 
-    /// 静音或恢复文件视频的本地音频预览，不影响播放时间轴和 RTC 音频推流。
+    /// Mutes or restores local preview without changing playback timing or RTC audio.
     ///
-    /// - Parameter muted: `true` 表示仅静音本地播放器；
-    ///   `false` 表示恢复本地播放器音量。
+    /// - Parameter muted: `true` to mute only local playback; `false` restores its configured
+    ///   volume.
     func setLocalAudioPreviewMuted(
         _ muted: Bool
     ) async
 
-    /// 设置本地文件视频的音频预览音量。
+    /// Sets the local video file preview volume.
     ///
-    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
+    /// - Parameter volume: The validated volume, in the range `0...1`.
     func setLocalAudioVolume(
         _ volume: Float
     ) async
 
-    /// 判断指定媒体流是否由当前活动媒体来源持有。
+    /// Checks whether a stream belongs to the active media source.
     ///
-    /// - Parameter stream: 需要验证所有权的媒体流。
-    /// - Returns: 媒体流的视频轨道由当前活动来源持有时返回 `true`，
-    ///   否则返回 `false`。
+    /// - Parameter stream: The stream whose ownership is checked.
+    ///
+    /// - Returns: `true` if the active source owns the stream's video track; otherwise `false`.
     func owns(
         _ stream: RealtimeMediaStream
     ) -> Bool

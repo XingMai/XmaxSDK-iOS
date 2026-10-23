@@ -11,24 +11,24 @@
 import CoreMedia
 import CoreVideo
 
-/// 实时视频链路经过 SDK 处理后使用的视频帧。
+/// A processed frame from the realtime video pipeline.
 public struct RealtimeVideoFrame: @unchecked Sendable {
 
-    /// 当前帧的像素缓冲区。
+    /// The frame's pixel buffer.
     ///
-    /// 像素格式由实际远端视频链路决定。调用方可以持有该缓冲区，并在异步
-    /// 编码完成后释放。
+    /// The pixel format depends on the remote video pipeline. Retain the buffer until asynchronous
+    /// encoding completes.
     public let pixelBuffer: CVPixelBuffer
 
-    /// 当前帧在实时视频时间轴中的显示时间。
+    /// The frame's presentation time on the realtime timeline.
     ///
-    /// 时间戳不保证从零开始；录制时应以收到的第一帧作为输出时间轴起点。
+    /// Timestamps may not start at zero. Use the first received frame as the recording origin.
     public let presentationTimeStamp: CMTime
 
-    /// 当前帧的建议显示时长；未知时为 `.invalid`。
+    /// The suggested display duration, or `.invalid` if unknown.
     public let duration: CMTime
 
-    /// 创建可供显示或录制的实时视频帧。
+    /// Creates a realtime frame for display or recording.
     init(
         pixelBuffer: CVPixelBuffer,
         presentationTimeStamp: CMTime,
@@ -40,7 +40,8 @@ public struct RealtimeVideoFrame: @unchecked Sendable {
     }
 }
 
-/// 接收远端最终视频帧的监听器。
-public typealias RealtimeVideoFrameListener = @Sendable (
-    _ frame: RealtimeVideoFrame
-) -> Void
+/// A listener for processed remote video frames.
+public typealias RealtimeVideoFrameListener =
+    @Sendable (
+        _ frame: RealtimeVideoFrame
+    ) -> Void

@@ -8,21 +8,21 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// Xmax 实时生成会话。
+/// An Xmax realtime generation session.
 struct RealtimeSession: Equatable, Sendable {
 
-    /// 服务端会话标识。
+    /// The server session identifier.
     let id: String
 
-    /// 服务端关联的用户标识。
+    /// The session's server user identifier.
     let userID: String?
 
-    /// 服务端返回的会话状态。
+    /// The server-reported session state.
     let status: String?
 
-    /// 该会话对应的 RTC 连接信息。
+    /// The session's RTC connection information.
     let connection: RealtimeSessionConnection?
 
-    /// 服务端报告的会话关闭原因。
+    /// The server-reported session closure reason.
     let closeReason: String?
 }

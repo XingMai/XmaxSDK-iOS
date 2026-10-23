@@ -11,54 +11,66 @@
 @preconcurrency import AVFoundation
 import Foundation
 
-/// 使用 AVFoundation 采集视频；设备操作和帧处理由同一串行队列管理。
+/// An AVFoundation video capturer with serialized device and frame operations.
 final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Sendable {
 
-    /// 管理摄像头输入和视频输出的采集会话。
+    /// Capture resources.
+
+    /// The capture session.
     private let session = AVCaptureSession()
 
-    /// 接收摄像头原始视频帧的输出端。
+    /// The raw video output.
     private let output = AVCaptureVideoDataOutput()
 
-    /// 串行执行采集配置和帧处理的队列。
-    private let captureQueue = DispatchQueue(label: "ai.xmax.sdk.camera", qos: .userInitiated)
+    /// The queue serializing capture configuration and frame processing.
+    private let captureQueue = DispatchQueue(
+        label: "ai.xmax.sdk.camera",
+        qos: .userInitiated
+    )
 
-    /// 当前摄像头输入；仅在 captureQueue 中访问。
+    /// Capture configuration.
+
+    /// The active camera input, accessed only on `captureQueue`.
     private var input: AVCaptureDeviceInput?
 
-    /// 裁剪缩放后的视频帧规格。
+    /// The cropped and scaled frame format.
     private var videoFormat: VideoFormat?
 
-    /// 请求的采集帧率，单位为 fps。
+    /// The requested capture frame rate, in frames per second.
     private var frameRate = 0
 
-    /// 用于转换采集帧的目标显示方向。
+    /// The display orientation applied to captured frames.
     private var orientation: CameraOrientation = .portrait
 
-    /// 接收经过方向转换和缩放的视频帧。
+    /// Frame and session events.
+
+    /// The handler for oriented and scaled frames.
     private var frameListener: (@Sendable (VideoFrame) throws -> Void)?
 
-    /// 接收采集与帧处理失败。
+    /// The handler for capture and frame processing failures.
     private var errorListener: XmaxErrorListener?
 
-    /// 采集会话通知的观察者，用于停止时移除监听。
+    /// The capture session notification observers.
     private var observers: [NSObjectProtocol] = []
 
-    /// 最近输出帧的微秒时间戳，用于维持时间递增。
+    /// Frame delivery state.
+
+    /// The most recent output timestamp, in microseconds.
     private var lastTimestampUs: Int64?
 
-    /// 是否已上报当前采集周期的帧处理错误，避免重复通知。
+    /// Whether a frame processing failure has already been reported for this capture.
     private var hasReportedFrameError = false
 
-    /// 启动摄像头，输出已经转正并调整到目标尺寸的 NV12 帧。
+    /// Starts capture with upright NV12 frames at the requested dimensions.
     ///
     /// - Parameters:
-    ///   - videoFormat: 输出像素格式和尺寸。
-    ///   - frameRate: 采集帧率。
-    ///   - position: 摄像头位置。
-    ///   - frameListener: 在采集串行队列接收视频帧。
-    ///   - errorListener: 接收采集运行错误。
-    /// - Throws: 设备、规格或采集启动失败时抛出错误。
+    ///   - videoFormat: The output pixel format and dimensions.
+    ///   - frameRate: The capture frame rate.
+    ///   - position: The camera position.
+    ///   - frameListener: The frame handler, called on the capture queue.
+    ///   - errorListener: The capture failure handler.
+    ///
+    /// - Throws: An error if the device or format is unavailable or capture cannot start.
     func start(
         videoFormat: VideoFormat,
         frameRate: Int,
@@ -68,21 +80,24 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
     ) async throws {
         try Task.checkCancellation()
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, any Error>) in
             captureQueue.async { [self] in
                 do {
                     guard self.videoFormat == nil else {
                         throw Self.cameraError("Camera capture is already running")
                     }
                     guard frameRate > 0, frameRate <= Int(Int32.max),
-                          videoFormat.pixelFormat == .nv12,
-                          videoFormat.width.isMultiple(of: 2), videoFormat.height.isMultiple(of: 2) else {
+                        videoFormat.pixelFormat == .nv12,
+                        videoFormat.width.isMultiple(of: 2), videoFormat.height.isMultiple(of: 2)
+                    else {
                         throw Self.cameraError("Camera capture format is invalid")
                     }
 
                     self.videoFormat = videoFormat
                     self.frameRate = frameRate
-                    orientation = videoFormat.height >= videoFormat.width ? .portrait : .landscapeRight
+                    orientation =
+                        videoFormat.height >= videoFormat.width ? .portrait : .landscapeRight
                     self.frameListener = frameListener
                     self.errorListener = errorListener
 
@@ -99,16 +114,22 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                         }
                         session.addOutput(output)
 
-                        guard output.availableVideoPixelFormatTypes.contains(
-                            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-                        ) else {
+                        guard
+                            output.availableVideoPixelFormatTypes.contains(
+                                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                            )
+                        else {
                             throw Self.cameraError("Camera does not support NV12 video output")
                         }
                         output.videoSettings = [
-                            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                            kCVPixelBufferPixelFormatTypeKey as String:
+                                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
                         ]
                         output.alwaysDiscardsLateVideoFrames = true
-                        output.setSampleBufferDelegate(self, queue: captureQueue)
+                        output.setSampleBufferDelegate(
+                            self,
+                            queue: captureQueue
+                        )
                         try configureConnection()
                     } catch {
                         session.commitConfiguration()
@@ -126,23 +147,26 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                 } catch {
                     stopCapture()
                     continuation.resume(
-                        throwing: error as? XmaxError ?? Self.cameraError(error.localizedDescription)
+                        throwing: error as? XmaxError
+                            ?? Self.cameraError(error.localizedDescription)
                     )
                 }
             }
         }
     }
 
-    /// 切换摄像头，保持输出尺寸和帧率。
+    /// Switches cameras while retaining output dimensions and frame rate.
     ///
-    /// - Parameter position: 目标摄像头位置。
-    /// - Throws: 设备不可用或切换失败时抛出错误。
+    /// - Parameter position: The requested camera position.
+    ///
+    /// - Throws: An error if the camera is unavailable or switching fails.
     func switchCamera(
         to position: CameraPosition
     ) async throws {
         try Task.checkCancellation()
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, any Error>) in
             captureQueue.async { [self] in
                 do {
                     guard videoFormat != nil else {
@@ -176,44 +200,57 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                     continuation.resume()
                 } catch {
                     continuation.resume(
-                        throwing: error as? XmaxError ?? Self.cameraError(error.localizedDescription)
+                        throwing: error as? XmaxError
+                            ?? Self.cameraError(error.localizedDescription)
                     )
                 }
             }
         }
     }
 
-    /// 更新输出尺寸和设备采集帧率，保留摄像头会话及显示方向。
+    /// Updates output dimensions and capture frame rate without replacing the session.
     ///
     /// - Parameters:
-    ///   - videoFormat: 新的 NV12 输出尺寸。
-    ///   - frameRate: 设备采集帧率，须位于设备支持范围内。
-    /// - Throws: 采集未启动、规格不支持或设备配置失败时抛出错误。
+    ///   - videoFormat: The new NV12 output dimensions.
+    ///   - frameRate: The frame rate, which must be supported by the device.
+    ///
+    /// - Throws: An error if capture is inactive, the format is unsupported, or configuration
+    ///   fails.
     func updateFormat(
         _ videoFormat: VideoFormat,
         frameRate: Int
     ) async throws {
         try Task.checkCancellation()
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, any Error>) in
             captureQueue.async { [self] in
                 do {
                     guard self.videoFormat != nil, let device = input?.device else {
                         throw Self.cameraError("Camera capture is not running")
                     }
                     guard frameRate > 0, frameRate <= Int(Int32.max),
-                          videoFormat.width > 0, videoFormat.height > 0,
-                          videoFormat.width.isMultiple(of: 2), videoFormat.height.isMultiple(of: 2),
-                          videoFormat.pixelFormat == .nv12 else {
+                        videoFormat.width > 0, videoFormat.height > 0,
+                        videoFormat.width.isMultiple(of: 2), videoFormat.height.isMultiple(of: 2),
+                        videoFormat.pixelFormat == .nv12
+                    else {
                         throw Self.cameraError("Camera capture format is invalid")
                     }
 
                     if self.frameRate != frameRate {
-                        let selected = try selectFormat(device: device, frameRate: frameRate)
+                        let selected = try selectFormat(
+                            device: device,
+                            frameRate: frameRate
+                        )
                         try device.lockForConfiguration()
-                        defer { device.unlockForConfiguration() }
+                        defer {
+                            device.unlockForConfiguration()
+                        }
                         session.beginConfiguration()
                         device.activeFormat = selected
-                        let duration = CMTime(value: 1, timescale: Int32(frameRate))
+                        let duration = CMTime(
+                            value: 1,
+                            timescale: Int32(frameRate)
+                        )
                         device.activeVideoMinFrameDuration = duration
                         device.activeVideoMaxFrameDuration = duration
                         device.automaticallyAdjustsVideoHDREnabled = false
@@ -225,13 +262,16 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                     self.videoFormat = videoFormat
                     continuation.resume()
                 } catch {
-                    continuation.resume(throwing: error as? XmaxError ?? Self.cameraError(error.localizedDescription))
+                    continuation.resume(
+                        throwing: error as? XmaxError
+                            ?? Self.cameraError(error.localizedDescription)
+                    )
                 }
             }
         }
     }
 
-    /// 停止采集，等待正在处理的帧结束并释放设备。
+    /// Stops capture and waits for pending frames before releasing the device.
     func stop() async {
         await withCheckedContinuation { continuation in
             captureQueue.async { [self] in
@@ -241,19 +281,21 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
         }
     }
 
-    /// 更新帧转换方向和输出尺寸，保留采集连接及帧率。
+    /// Updates frame orientation and dimensions without changing capture frame rate.
     ///
     /// - Parameters:
-    ///   - orientation: 窗口显示方向。
-    ///   - videoFormat: 转正后的输出尺寸和像素格式。
-    /// - Throws: 采集已停止时抛出错误。
+    ///   - orientation: The window's interface orientation.
+    ///   - videoFormat: The upright output dimensions and pixel format.
+    ///
+    /// - Throws: An error if capture has stopped.
     func updateOrientation(
         _ orientation: CameraOrientation,
         videoFormat: VideoFormat
     ) async throws {
         try Task.checkCancellation()
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, any Error>) in
             captureQueue.async { [self] in
                 do {
                     guard self.videoFormat != nil else {
@@ -277,20 +319,21 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
 
 extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    /// 将采集帧转换为目标尺寸和方向，并回调使用主机时钟时间戳的视频帧。
+    /// Delivers an oriented, resized frame with a host-clock timestamp.
     ///
     /// - Parameters:
-    ///   - output: 输出视频样本的采集输出。
-    ///   - sampleBuffer: 包含像素缓冲区和采集时间戳的视频样本。
-    ///   - connection: 当前视频输出的采集连接。
+    ///   - output: The video capture output.
+    ///   - sampleBuffer: The captured pixel buffer and timestamp.
+    ///   - connection: The video capture connection.
     func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
         guard let videoFormat, let frameListener,
-              connection === self.output.connection(with: .video),
-              let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            connection === self.output.connection(with: .video),
+            let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
+        else {
             return
         }
 
@@ -319,7 +362,11 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             timescale: 1000000,
             method: .default
         ).value
-        guard timestampUs >= 0, lastTimestampUs.map({ timestampUs > $0 }) ?? true else {
+        guard timestampUs >= 0,
+            lastTimestampUs.map({
+                timestampUs > $0
+            }) ?? true
+        else {
             return
         }
         lastTimestampUs = timestampUs
@@ -339,29 +386,38 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
 
             hasReportedFrameError = true
-            XmaxLogger.media.error(message: "摄像头帧处理失败 (Camera Frame Processing Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
+            XmaxLogger.media.error(
+                message:
+                    "摄像头帧处理失败 (Camera Frame Processing Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)"
+            )
         }
     }
 }
 
 private extension CameraCaptureManager {
 
-    /// 替换摄像头输入，并应用支持目标帧率的采集格式。
+    /// Replaces the camera input and applies a format supporting the requested frame rate.
     ///
-    /// - Parameter position: 目标摄像头位置。
-    /// - Throws: 摄像头不可用、采集格式不受支持或设备配置失败时抛出错误。
+    /// - Parameter position: The requested camera position.
+    ///
+    /// - Throws: An error if the camera or format is unavailable or configuration fails.
     func replaceInput(
         position: CameraPosition
     ) throws {
-        guard let device = AVCaptureDevice.default(
-            .builtInWideAngleCamera,
-            for: .video,
-            position: position == .front ? .front : .back
-        ) else {
+        guard
+            let device = AVCaptureDevice.default(
+                .builtInWideAngleCamera,
+                for: .video,
+                position: position == .front ? .front : .back
+            )
+        else {
             throw Self.cameraError("The requested camera is unavailable")
         }
 
-        let selected = try selectFormat(device: device, frameRate: frameRate)
+        let selected = try selectFormat(
+            device: device,
+            frameRate: frameRate
+        )
 
         let newInput = try AVCaptureDeviceInput(device: device)
         if let input {
@@ -381,7 +437,10 @@ private extension CameraCaptureManager {
         }
 
         device.activeFormat = selected
-        let duration = CMTime(value: 1, timescale: Int32(frameRate))
+        let duration = CMTime(
+            value: 1,
+            timescale: Int32(frameRate)
+        )
         device.activeVideoMinFrameDuration = duration
         device.activeVideoMaxFrameDuration = duration
         device.automaticallyAdjustsVideoHDREnabled = false
@@ -396,33 +455,51 @@ private extension CameraCaptureManager {
         }
     }
 
-    /// 选择指定帧率下可用的采集格式，优先使用 16:9，再回退到 4:3。
+    /// Selects a capture format at the requested frame rate, preferring 16:9 over 4:3.
     ///
     /// - Parameters:
-    ///   - device: 当前摄像头设备。
-    ///   - frameRate: 请求的采集帧率。
-    /// - Returns: 不超过 1920×1080 的 16:9 格式或 1920×1440 的 4:3 格式。
-    /// - Throws: 没有兼容格式时抛出错误。
+    ///   - device: The camera device.
+    ///   - frameRate: The requested capture frame rate.
+    ///
+    /// - Returns: A 16:9 format up to 1920 × 1080, or a 4:3 format up to 1920 × 1440.
+    ///
+    /// - Throws: An error if no compatible format exists.
     func selectFormat(
         device: AVCaptureDevice,
         frameRate: Int
     ) throws -> AVCaptureDevice.Format {
-        let selected = device.formats.compactMap { format -> (
-            format: AVCaptureDevice.Format, area: Int64, isWide: Bool
-        )? in
-            guard format.videoSupportedFrameRateRanges.contains(where: {
-                $0.minFrameRate <= Double(frameRate) && Double(frameRate) <= $0.maxFrameRate
-            }) else {
+        let selected = device.formats.compactMap {
+            format -> (
+                format: AVCaptureDevice.Format, area: Int64, isWide: Bool
+            )? in
+            guard
+                format.videoSupportedFrameRateRanges.contains(
+                    where: {
+                        $0.minFrameRate <= Double(frameRate) && Double(frameRate) <= $0.maxFrameRate
+                    }
+                )
+            else {
                 return nil
             }
 
             let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            let longSide = Int64(max(dimensions.width, dimensions.height))
-            let shortSide = Int64(min(dimensions.width, dimensions.height))
+            let longSide = Int64(
+                max(
+                    dimensions.width,
+                    dimensions.height
+                )
+            )
+            let shortSide = Int64(
+                min(
+                    dimensions.width,
+                    dimensions.height
+                )
+            )
             let isWide = longSide * 9 == shortSide * 16
             guard longSide > 0, shortSide > 0,
-                  longSide <= 1920, shortSide <= 1440,
-                  isWide || longSide * 3 == shortSide * 4 else {
+                longSide <= 1920, shortSide <= 1440,
+                isWide || longSide * 3 == shortSide * 4
+            else {
                 return nil
             }
 
@@ -444,16 +521,17 @@ private extension CameraCaptureManager {
         return selected
     }
 
-    /// 设置固定的采集连接方向，并关闭系统自动镜像。
+    /// Configures a fixed capture orientation with automatic mirroring disabled.
     ///
-    /// - Throws: 采集连接不可用或不支持方向设置时抛出错误。
+    /// - Throws: An error if the capture connection or orientation is unavailable.
     func configureConnection() throws {
         guard let connection = output.connection(with: .video),
-              connection.isVideoOrientationSupported else {
+            connection.isVideoOrientationSupported
+        else {
             throw Self.cameraError("Camera video orientation is unavailable")
         }
 
-        // 固定竖向采集基准，窗口旋转由帧转换器处理。
+        // Capture remains portrait-based; the frame converter applies window rotation.
         connection.videoOrientation = .portrait
         if connection.isVideoMirroringSupported {
             connection.automaticallyAdjustsVideoMirroring = false
@@ -461,51 +539,64 @@ private extension CameraCaptureManager {
         }
     }
 
-    /// 监听采集会话异常，并在媒体服务重置或中断结束后恢复采集。
+    /// Observes capture failures and resumes after media service resets or interruptions.
     func observeSession() {
         let errorListener = errorListener
-        observers.append(NotificationCenter.default.addObserver(
-            forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil
-        ) { [weak self] notification in
-            let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
-            let message = error?.localizedDescription ?? "Camera capture failed"
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: AVCaptureSession.runtimeErrorNotification,
+                object: session,
+                queue: nil
+            ) { [weak self] notification in
+                let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
+                let message = error?.localizedDescription ?? "Camera capture failed"
 
-            self?.captureQueue.async { [weak self] in
-                guard let self, videoFormat != nil else {
-                    return
+                self?.captureQueue.async { [weak self] in
+                    guard let self, videoFormat != nil else {
+                        return
+                    }
+
+                    if error?.code == AVError.mediaServicesWereReset.rawValue {
+                        session.startRunning()
+                        if session.isRunning {
+                            return
+                        }
+                    }
+                    errorListener?(Self.cameraError(message))
                 }
+            }
+        )
 
-                if error?.code == AVError.mediaServicesWereReset.rawValue {
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: AVCaptureSession.interruptionEndedNotification,
+                object: session,
+                queue: nil
+            ) { [weak self] _ in
+                self?.captureQueue.async { [weak self] in
+                    guard let self, videoFormat != nil, !session.isRunning else {
+                        return
+                    }
+
                     session.startRunning()
-                    if session.isRunning { return }
-                }
-                errorListener?(Self.cameraError(message))
-            }
-        })
-
-        observers.append(NotificationCenter.default.addObserver(
-            forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil
-        ) { [weak self] _ in
-            self?.captureQueue.async { [weak self] in
-                guard let self, videoFormat != nil, !session.isRunning else {
-                    return
-                }
-
-                session.startRunning()
-                if !session.isRunning {
-                    errorListener?(Self.cameraError("Camera capture failed to resume"))
+                    if !session.isRunning {
+                        errorListener?(Self.cameraError("Camera capture failed to resume"))
+                    }
                 }
             }
-        })
+        )
     }
 
-    /// 停止采集并移除输入、输出、观察者及帧回调。
+    /// Releases capture inputs, outputs, observers, and frame handlers.
     func stopCapture() {
         frameListener = nil
         errorListener = nil
         videoFormat = nil
 
-        output.setSampleBufferDelegate(nil, queue: nil)
+        output.setSampleBufferDelegate(
+            nil,
+            queue: nil
+        )
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -527,13 +618,17 @@ private extension CameraCaptureManager {
         hasReportedFrameError = false
     }
 
-    /// 构造摄像头采集错误。
+    /// Creates a camera capture error.
     ///
-    /// - Parameter message: 错误描述。
-    /// - Returns: 包含指定描述的媒体错误。
+    /// - Parameter message: The error description.
+    ///
+    /// - Returns: A media error with the specified description.
     static func cameraError(
         _ message: String
     ) -> XmaxError {
-        XmaxError(code: .mediaError, message: message)
+        XmaxError(
+            code: .mediaError,
+            message: message
+        )
     }
 }

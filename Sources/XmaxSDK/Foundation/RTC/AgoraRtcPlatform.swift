@@ -11,48 +11,56 @@
 @preconcurrency import AgoraRtcKit
 import Foundation
 
-/// 将中性引擎操作转换为声网调用。
+/// An Agora adapter for RTC engine operations.
 final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
 
-    /// 已初始化的声网引擎。
+    /// Engine resources.
+
+    /// The initialized Agora engine.
     let engine: AgoraRtcEngineKit
 
-    /// 串行保护引擎配置与房间操作。
+    /// The lock serializing engine configuration and room operations.
     let lock = NSRecursiveLock()
 
-    /// 当前平台实例创建的 RTC 房间。
+    /// The room owned by this platform instance.
     private weak var room: AgoraRtcRoom?
 
-    /// 复用外部视频帧的声网适配结果。
+    /// Video encoding.
+
+    /// The cached Agora external video frame.
     private let videoFrameCache = RtcVideoFrameCache()
 
-    /// 最近应用的视频编码配置。
+    /// The most recently applied encoder configuration.
     private var videoConfiguration: VideoEncodingConfiguration?
 
-    /// 当前本地视频编码镜像模式。
+    /// The local encoder mirror mode.
     private var videoMirrorMode = AgoraVideoMirrorMode.disabled
 
-    /// 当前外部音频轨标识。
+    /// The external audio track identifier.
     private(set) var audioTrackID: Int?
 
-    /// 包装声网引擎以提供 SDK 平台接口。
+    /// Creates a platform adapter for an Agora engine.
     private init(
         engine: AgoraRtcEngineKit
     ) {
         self.engine = engine
     }
 
-    /// 创建声网引擎，并禁用默认的摄像头和麦克风采集。
+    /// Creates an Agora engine with default camera and microphone capture disabled.
     ///
-    /// - Parameter appID: 声网应用标识。
-    /// - Returns: 初始化成功的平台适配器；配置失败时返回 `nil`。
+    /// - Parameter appID: The Agora application identifier.
+    ///
+    /// - Returns: The platform adapter, or `nil` if configuration fails.
     static func create(
         appID: String
     ) -> (any RtcPlatform)? {
         let configuration = AgoraRtcEngineConfig()
         configuration.appId = appID
         configuration.channelProfile = .liveBroadcasting
-        let engine = AgoraRtcEngineKit.sharedEngine(with: configuration, delegate: nil)
+        let engine = AgoraRtcEngineKit.sharedEngine(
+            with: configuration,
+            delegate: nil
+        )
         guard engine.enableVideo() == 0,
             engine.enableLocalVideo(false) == 0,
             engine.enableLocalAudio(false) == 0
@@ -63,15 +71,16 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
         return AgoraRtcPlatform(engine: engine)
     }
 
-    /// 销毁进程级声网共享引擎。
+    /// Destroys the process-wide Agora engine.
     static func destroyEngine() {
         AgoraRtcEngineKit.destroy()
     }
 
-    /// 应用上传视频的编码配置。
+    /// Applies the uplink encoder configuration.
     ///
-    /// - Parameter configuration: 尺寸、帧率、码率和编码偏好。
-    /// - Throws: 厂商引擎拒绝配置时抛出错误。
+    /// - Parameter configuration: The dimensions, frame rate, bitrate, and encoding preference.
+    ///
+    /// - Throws: An error if the engine rejects the configuration.
     func configureVideoEncoding(
         _ configuration: VideoEncodingConfiguration
     ) throws {
@@ -81,22 +90,27 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
         }
     }
 
-    /// 启用外部视频输入。
+    /// Enables external video input.
     ///
-    /// - Throws: 视频源配置失败时抛出错误。
+    /// - Throws: An error if video source configuration fails.
     func useExternalVideoSource() throws {
         try lock.withLock {
             videoFrameCache.removeAll()
-            engine.setExternalVideoSource(true, useTexture: false, sourceType: .videoFrame)
+            engine.setExternalVideoSource(
+                true,
+                useTexture: false,
+                sourceType: .videoFrame
+            )
             videoMirrorMode = .disabled
             try reapplyVideoConfiguration()
         }
     }
 
-    /// 更新上传视频镜像。
+    /// Updates uplink video mirroring.
     ///
-    /// - Parameter position: 当前摄像头位置。
-    /// - Throws: 编码镜像配置失败时抛出错误。
+    /// - Parameter position: The current camera position.
+    ///
+    /// - Throws: An error if encoder mirroring cannot be configured.
     func configureLocalVideoMirror(
         for position: CameraPosition
     ) throws {
@@ -106,79 +120,107 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
         }
     }
 
-    /// 切换至麦克风输入并开始采集。
+    /// Switches to microphone input and starts capture.
     ///
-    /// - Throws: 音频源切换或采集失败时抛出错误。
+    /// - Throws: An error if source switching or capture fails.
     func startAudioCapture() throws {
         try lock.withLock {
             try stopExternalAudioSource()
-            try Self.checkResult(engine.enableLocalAudio(true), operation: "enableLocalAudio")
+            try Self.checkResult(
+                engine.enableLocalAudio(true),
+                operation: "enableLocalAudio"
+            )
         }
     }
 
-    /// 停止麦克风采集。
+    /// Stops microphone capture.
     ///
-    /// - Throws: 厂商引擎停止采集失败时抛出错误。
+    /// - Throws: An error if the engine cannot stop capture.
     func stopAudioCapture() throws {
         try lock.withLock {
-            try Self.checkResult(engine.enableLocalAudio(false), operation: "enableLocalAudio")
+            try Self.checkResult(
+                engine.enableLocalAudio(false),
+                operation: "enableLocalAudio"
+            )
         }
     }
 
-    /// 启用外部 PCM 输入。
+    /// Enables external PCM input.
     ///
-    /// - Throws: 外部音频轨创建失败时抛出错误。
+    /// - Throws: An error if the external audio track cannot be created.
     func startExternalAudioSource() throws {
         try lock.withLock {
-            guard audioTrackID == nil else { return }
-            try Self.checkResult(engine.enableLocalAudio(false), operation: "enableLocalAudio")
+            guard audioTrackID == nil else {
+                return
+            }
+            try Self.checkResult(
+                engine.enableLocalAudio(false),
+                operation: "enableLocalAudio"
+            )
 
             let config = AgoraAudioTrackConfig()
             config.enableLocalPlayback = false
             config.enableAudioProcessing = false
-            let id = engine.createCustomAudioTrack(.direct, config: config)
-            try Self.checkResult(id, operation: "createCustomAudioTrack")
+            let id = engine.createCustomAudioTrack(
+                .direct,
+                config: config
+            )
+            try Self.checkResult(
+                id,
+                operation: "createCustomAudioTrack"
+            )
             audioTrackID = Int(id)
         }
     }
 
-    /// 停止外部 PCM 输入并释放音频轨。
+    /// Stops external PCM input and releases its track.
     ///
-    /// - Throws: 音频轨释放失败时抛出错误。
+    /// - Throws: An error if the audio track cannot be released.
     func stopExternalAudioSource() throws {
         try lock.withLock {
-            guard let id = audioTrackID else { return }
+            guard let id = audioTrackID else {
+                return
+            }
             try Self.checkResult(
-                engine.destroyCustomAudioTrack(id), operation: "destroyCustomAudioTrack")
+                engine.destroyCustomAudioTrack(id),
+                operation: "destroyCustomAudioTrack"
+            )
             audioTrackID = nil
         }
     }
 
-    /// 推送外部视频帧。
+    /// Pushes an external video frame.
     ///
-    /// - Parameter frame: SDK 中性视频帧。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: The SDK video frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalVideoFrame(
         _ frame: VideoFrame
     ) throws {
         try lock.withLock {
             let converted = try videoFrameCache.frame(for: frame)
             _ = withExtendedLifetime(converted) {
-                engine.pushExternalVideoFrame(converted.value, videoTrackId: 0)
+                engine.pushExternalVideoFrame(
+                    converted.value,
+                    videoTrackId: 0
+                )
             }
         }
     }
 
-    /// 推送外部音频帧。
+    /// Pushes an external audio frame.
     ///
-    /// - Parameter frame: 带时间戳的 10 ms PCM 数据。
-    /// - Throws: 帧格式或数据无效时抛出错误。
+    /// - Parameter frame: A timestamped 10 ms PCM frame.
+    ///
+    /// - Throws: An error if the frame format or data is invalid.
     func pushExternalAudioFrame(
         _ frame: AudioFrame
     ) throws {
         let data = try RtcAudioConverter.convertFrame(frame)
         lock.withLock {
-            guard let audioTrackID else { return }
+            guard let audioTrackID else {
+                return
+            }
             data.withUnsafeBytes { bytes in
                 _ = engine.pushExternalAudioFrameRawData(
                     UnsafeMutableRawPointer(mutating: bytes.baseAddress!),
@@ -192,52 +234,65 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
         }
     }
 
-    /// 创建独立的房间适配对象，尚不发起连接。
+    /// Creates a room adapter without connecting.
     ///
-    /// - Parameter roomID: 服务端分配的 RTC 房间标识。
-    /// - Returns: 尚未加入的房间。
-    /// - Throws: 已存在未释放房间时抛出错误。
+    /// - Parameter roomID: The server-assigned RTC room identifier.
+    ///
+    /// - Returns: An unjoined room.
+    ///
+    /// - Throws: An error if an unreleased room already exists.
     func createRoom(
         roomID: String
     ) throws -> any RtcRoom {
         try lock.withLock {
             guard room == nil || room?.isClosed == true else {
-                throw XmaxError(code: .rtcError, message: "RTC room is already active")
+                throw XmaxError(
+                    code: .rtcError,
+                    message: "RTC room is already active"
+                )
             }
-            let room = AgoraRtcRoom(platform: self, roomID: roomID)
+            let room = AgoraRtcRoom(
+                platform: self,
+                roomID: roomID
+            )
             self.room = room
             return room
         }
     }
 
-    /// 重新应用已保存的编码配置和当前镜像设置。
+    /// Reapplies the saved encoder configuration and mirror setting.
     ///
-    /// - Throws: 声网拒绝编码配置时抛出错误。
+    /// - Throws: An error if Agora rejects the encoder configuration.
     func reapplyVideoConfiguration() throws {
         if let videoConfiguration {
             try applyVideoConfiguration(videoConfiguration)
         }
     }
 
-    /// 将声网负返回码转换为 RTC 错误。
+    /// Converts a negative Agora return code to an RTC error.
     ///
     /// - Parameters:
-    ///   - result: 平台调用返回码。
-    ///   - operation: 用于错误描述的操作名称。
-    /// - Throws: 返回码为负数时抛出错误。
+    ///   - result: The platform return code.
+    ///   - operation: The operation name for the error message.
+    ///
+    /// - Throws: An error if the return code is negative.
     static func checkResult<T: BinaryInteger>(
         _ result: T,
         operation: String
     ) throws {
         if result < 0 {
-            throw XmaxError(code: .rtcError, message: "\(operation) failed: \(result)")
+            throw XmaxError(
+                code: .rtcError,
+                message: "\(operation) failed: \(result)"
+            )
         }
     }
 
-    /// 将编码配置应用到活动连接或全局引擎。
+    /// Applies the encoder configuration to the active connection or engine.
     ///
-    /// - Parameter configuration: 待应用的视频编码配置。
-    /// - Throws: 声网编码配置失败时抛出错误。
+    /// - Parameter configuration: The encoder configuration to apply.
+    ///
+    /// - Throws: An error if Agora encoder configuration fails.
     private func applyVideoConfiguration(
         _ configuration: VideoEncodingConfiguration
     ) throws {
@@ -246,10 +301,15 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
         let result: Int32
         if let room, room.isJoined, !room.isClosed {
             result = engine.setVideoEncoderConfigurationEx(
-                rtcConfiguration, connection: room.connection)
+                rtcConfiguration,
+                connection: room.connection
+            )
         } else {
             result = engine.setVideoEncoderConfiguration(rtcConfiguration)
         }
-        try Self.checkResult(result, operation: "setVideoEncoderConfiguration")
+        try Self.checkResult(
+            result,
+            operation: "setVideoEncoderConfiguration"
+        )
     }
 }

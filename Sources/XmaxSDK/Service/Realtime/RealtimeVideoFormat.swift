@@ -8,41 +8,47 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 实时视频的编码策略偏好。
+/// The encoding preference for realtime video.
 public enum RealtimeVideoEncoderPreference: Equatable, Sendable {
 
-    /// 平衡帧率和分辨率。
+    /// Balances frame rate and resolution.
     case auto
 
-    /// 优先保障帧率。
+    /// Prioritizes frame rate.
     case maintainFramerate
 
-    /// 优先保障分辨率。
+    /// Prioritizes resolution.
     case maintainQuality
 }
 
-/// 实时视频的尺寸、帧率和上传编码配置。
+/// The dimensions, frame rate, and uplink encoding settings for realtime video.
 public struct RealtimeVideoFormat: Equatable, Sendable {
 
-    /// 视频宽度，单位为像素；必须为正偶数。
+    /// Video dimensions and timing.
+
+    /// The positive, even video width, in pixels.
     public let width: Int
 
-    /// 视频高度，单位为像素；必须为正偶数。
+    /// The positive, even video height, in pixels.
     public let height: Int
 
-    /// 视频帧率，单位为 fps；必须大于 0。
+    /// The positive frame rate, in frames per second.
     public let fps: Int
 
-    /// 最低上传码率，单位为 kbps；nil 使用默认值 100，0 表示不设最低码率。
+    /// Encoding configuration.
+
+    /// The minimum uplink bitrate, in kbps. `nil` uses 500, capped by the maximum; zero disables
+    /// the minimum.
     public let minimumBitrate: Int?
 
-    /// 最高上传码率，单位为 kbps；nil 按最终上传尺寸和帧率计算，指定时必须大于 0。
+    /// The maximum uplink bitrate, in kbps. `nil` derives it from upload dimensions and frame rate;
+    /// explicit values must be positive.
     public let maximumBitrate: Int?
 
-    /// 上传编码策略偏好，默认优先保障帧率。
+    /// The uplink encoding preference, defaulting to frame rate preservation.
     public let encoderPreference: RealtimeVideoEncoderPreference
 
-    /// 创建实时视频格式。
+    /// Creates a realtime video format.
     public init(
         width: Int,
         height: Int,
@@ -59,41 +65,52 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
         self.encoderPreference = encoderPreference
     }
 
-    /// 校验尺寸、帧率和显式指定的码率范围。
+    /// Validates dimensions, frame rate, and explicit bitrate bounds.
     ///
-    /// - Throws: 尺寸、帧率或码率配置无效时抛出错误。
+    /// - Throws: An error if dimensions, frame rate, or bitrate settings are invalid.
     public func validate() throws {
         guard width > 0,
-              height > 0,
-              fps > 0,
-              width.isMultiple(of: 2),
-              height.isMultiple(of: 2) else {
+            height > 0,
+            fps > 0,
+            width.isMultiple(of: 2),
+            height.isMultiple(of: 2)
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Realtime video width and height must be positive " +
-                    "even numbers, and fps must be greater than zero"
+                message: "Realtime video width and height must be positive "
+                    + "even numbers, and fps must be greater than zero"
             )
         }
         if let minimumBitrate, minimumBitrate < 0 {
-            throw XmaxError(code: .invalidConfiguration, message: "Minimum bitrate must not be negative")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Minimum bitrate must not be negative"
+            )
         }
         if let maximumBitrate, maximumBitrate <= 0 {
-            throw XmaxError(code: .invalidConfiguration, message: "Maximum bitrate must be greater than zero")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Maximum bitrate must be greater than zero"
+            )
         }
         if let minimumBitrate, let maximumBitrate, minimumBitrate > maximumBitrate {
-            throw XmaxError(code: .invalidConfiguration, message: "Minimum bitrate must not exceed maximum bitrate")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Minimum bitrate must not exceed maximum bitrate"
+            )
         }
     }
 }
 
 extension RealtimeVideoFormat {
 
-    /// 生成调整宽高后的视频规格，保留帧率和编码配置。
+    /// Returns a format with new dimensions, retaining frame rate and encoding settings.
     ///
     /// - Parameters:
-    ///   - width: 目标宽度，单位为像素。
-    ///   - height: 目标高度，单位为像素。
-    /// - Returns: 使用目标宽高的新视频规格。
+    ///   - width: The target width, in pixels.
+    ///   - height: The target height, in pixels.
+    ///
+    /// - Returns: The resized video format.
     func resized(
         width: Int,
         height: Int

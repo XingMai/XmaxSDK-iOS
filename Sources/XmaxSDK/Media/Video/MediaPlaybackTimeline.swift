@@ -10,21 +10,21 @@
 
 import Foundation
 
-/// 为同一文件的音频和视频提供统一的循环播放时钟。
+/// A shared looping playback clock for file audio and video.
 struct MediaPlaybackTimeline: Sendable {
 
-    /// 第一轮播放的主机单调时钟起点，单位为纳秒。
+    /// The first cycle's monotonic host start time, in nanoseconds.
     let anchorNanoseconds: UInt64
 
-    /// 单次循环的采样数，按完整 PCM 包对齐。
+    /// The samples per cycle, aligned to complete PCM packets.
     let cycleSampleCount: Int
 
-    /// 单次循环的时长，单位为纳秒。
+    /// The cycle duration, in nanoseconds.
     let cycleDurationNanoseconds: UInt64
 
-    /// 创建以完整 PCM 包对齐循环时长的音视频播放时钟。
+    /// Creates a playback clock with cycles aligned to complete PCM packets.
     ///
-    /// - Parameter mediaDurationSeconds: 已校验为正有限值的文件时长，单位为秒。
+    /// - Parameter mediaDurationSeconds: The validated positive, finite media duration, in seconds.
     init(
         mediaDurationSeconds: Double
     ) {
@@ -39,43 +39,46 @@ struct MediaPlaybackTimeline: Sendable {
             packetCount * AudioFrame.samplesPerFrame
         )
         cycleDurationNanoseconds = UInt64(
-            Double(cycleSampleCount) /
-                Double(AudioFrame.sampleRate) * 1_000_000_000
+            Double(cycleSampleCount) / Double(AudioFrame.sampleRate) * 1_000_000_000
         )
         anchorNanoseconds = DispatchTime.now().uptimeNanoseconds + 100_000_000
     }
 
-    /// 将媒体时间偏移映射到主机播放时刻。
+    /// Maps a media offset to its host playback time.
     ///
     /// - Parameters:
-    ///   - loopIndex: 从零开始的循环轮次。
-    ///   - mediaOffsetSeconds: 当前轮次内的媒体偏移，单位为秒。
-    /// - Returns: 对应主机单调时钟的纳秒时间戳。
+    ///   - loopIndex: The zero-based playback cycle.
+    ///   - mediaOffsetSeconds: The offset within this cycle, in seconds.
+    ///
+    /// - Returns: The monotonic host timestamp, in nanoseconds.
     func target(
         loopIndex: Int,
         mediaOffsetSeconds: Double
     ) -> UInt64 {
         let loopOffset = cycleDurationNanoseconds * UInt64(loopIndex)
         let mediaOffset = UInt64(
-            max(0, mediaOffsetSeconds) * 1_000_000_000
+            max(
+                0,
+                mediaOffsetSeconds
+            ) * 1_000_000_000
         )
         return anchorNanoseconds + loopOffset + mediaOffset
     }
 
-    /// 将音频采样偏移映射到主机播放时刻。
+    /// Maps an audio sample offset to its host playback time.
     ///
     /// - Parameters:
-    ///   - loopIndex: 从零开始的循环轮次。
-    ///   - sampleOffset: 当前轮次内的音频采样偏移。
-    /// - Returns: 对应主机单调时钟的纳秒时间戳。
+    ///   - loopIndex: The zero-based playback cycle.
+    ///   - sampleOffset: The audio sample offset within this cycle.
+    ///
+    /// - Returns: The monotonic host timestamp, in nanoseconds.
     func target(
         loopIndex: Int,
         sampleOffset: Int
     ) -> UInt64 {
         target(
             loopIndex: loopIndex,
-            mediaOffsetSeconds: Double(sampleOffset) /
-                Double(AudioFrame.sampleRate)
+            mediaOffsetSeconds: Double(sampleOffset) / Double(AudioFrame.sampleRate)
         )
     }
 }

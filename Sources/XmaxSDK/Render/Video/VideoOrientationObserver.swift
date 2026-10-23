@@ -10,54 +10,63 @@
 
 import UIKit
 
-/// 通过标准子控制器生命周期，在窗口旋转开始时通知视频视图。
+/// Observes window rotation through a child view controller.
 @MainActor
 final class VideoOrientationObserver: UIViewController {
 
-    /// 需要同步窗口显示方向的视频视图。
+    /// The video view receiving window orientation changes.
     private weak var videoView: XmaxVideoView?
 
-    /// 读取当前设备物理方向。
+    /// The physical device orientation provider.
     private let deviceOrientation: () -> UIDeviceOrientation
 
-    /// 视图是否处于横竖屏切换过程中。
+    /// Whether a portrait-landscape transition is active.
     private(set) var isTransitioning = false
 
-    /// 是否由当前观察者开启设备方向通知。
+    /// Whether this observer began device orientation notifications.
     private var generatesOrientationNotifications = false
 
-    /// 创建监听窗口旋转的子控制器。
+    /// Creates a window rotation observer.
     ///
     /// - Parameters:
-    ///   - videoView: 需要提前更新显示方向的视频视图。
-    ///   - deviceOrientation: 读取当前设备物理方向的操作。
+    ///   - videoView: The video view receiving early orientation updates.
+    ///   - deviceOrientation: The physical device orientation provider.
     init(
         videoView: XmaxVideoView,
-        deviceOrientation: @escaping () -> UIDeviceOrientation = { UIDevice.current.orientation }
+        deviceOrientation: @escaping () -> UIDeviceOrientation = {
+            UIDevice.current.orientation
+        }
     ) {
         self.videoView = videoView
         self.deviceOrientation = deviceOrientation
-        super.init(nibName: nil, bundle: nil)
+        super.init(
+            nibName: nil,
+            bundle: nil
+        )
     }
 
-    /// 从归档创建窗口方向观察器。
+    /// Creates an orientation observer from an archive.
     ///
-    /// - Parameter coder: 视图控制器归档解码器。
+    /// - Parameter coder: The view controller archive decoder.
     required init?(
         coder: NSCoder
     ) {
-        deviceOrientation = { UIDevice.current.orientation }
+        deviceOrientation = {
+            UIDevice.current.orientation
+        }
         super.init(coder: coder)
     }
 
-    /// 结束由当前观察器启动的设备方向通知。
+    /// Ends device notifications started by this observer.
     deinit {
         if generatesOrientationNotifications {
-            Task { @MainActor in UIDevice.current.endGeneratingDeviceOrientationNotifications() }
+            Task { @MainActor in
+                UIDevice.current.endGeneratingDeviceOrientationNotifications()
+            }
         }
     }
 
-    /// 创建不接收交互且不参与无障碍访问的透明观察视图。
+    /// Creates a transparent, noninteractive observation view.
     override func loadView() {
         view = UIView()
         view.backgroundColor = .clear
@@ -65,9 +74,9 @@ final class VideoOrientationObserver: UIViewController {
         view.accessibilityElementsHidden = true
     }
 
-    /// 随父控制器绑定状态启动或停止设备方向通知。
+    /// Updates device notifications when parent attachment changes.
     ///
-    /// - Parameter parent: 新的父视图控制器；移除时为 `nil`。
+    /// - Parameter parent: The new parent, or `nil` on removal.
     override func didMove(
         toParent parent: UIViewController?
     ) {
@@ -81,46 +90,62 @@ final class VideoOrientationObserver: UIViewController {
         }
     }
 
-    /// 在旋转开始时通知目标方向，结束后同步实际窗口方向。
+    /// Reports target orientation before rotation and actual orientation afterward.
     ///
     /// - Parameters:
-    ///   - size: 旋转完成后的容器尺寸。
-    ///   - coordinator: 管理系统旋转动画与完成回调的协调器。
+    ///   - size: The container dimensions after rotation.
+    ///   - coordinator: The system rotation transition coordinator.
     override func viewWillTransition(
         to size: CGSize,
         with coordinator: any UIViewControllerTransitionCoordinator
     ) {
-        super.viewWillTransition(to: size, with: coordinator)
-        guard !coordinator.targetTransform.isIdentity else { return }
+        super.viewWillTransition(
+            to: size,
+            with: coordinator
+        )
+        guard !coordinator.targetTransform.isIdentity else {
+            return
+        }
 
         isTransitioning = true
         let target = Self.interfaceOrientation(for: deviceOrientation())
         if let target,
-           target.isLandscape == (size.width > size.height) {
+            target.isLandscape == (size.width > size.height)
+        {
             videoView?.updateInterfaceOrientation(target)
         }
 
         let registered = coordinator.animate(alongsideTransition: nil) { [weak self] _ in
-            guard let self else { return }
+            guard let self else {
+                return
+            }
             isTransitioning = false
             videoView?.updateWindowOrientation()
         }
-        if !registered { isTransitioning = false }
+        if !registered {
+            isTransitioning = false
+        }
     }
 
-    /// 将设备物理方向转换为对应的界面方向。
+    /// Converts device orientation to interface orientation.
     ///
-    /// - Parameter orientation: 当前设备方向。
-    /// - Returns: 对应界面方向；平放或未知方向返回 `nil`。
+    /// - Parameter orientation: The device orientation.
+    ///
+    /// - Returns: The interface orientation, or `nil` if flat or unknown.
     static func interfaceOrientation(
         for orientation: UIDeviceOrientation
     ) -> UIInterfaceOrientation? {
         switch orientation {
-        case .portrait: .portrait
-        case .portraitUpsideDown: .portraitUpsideDown
-        case .landscapeLeft: .landscapeRight
-        case .landscapeRight: .landscapeLeft
-        default: nil
+        case .portrait:
+            .portrait
+        case .portraitUpsideDown:
+            .portraitUpsideDown
+        case .landscapeLeft:
+            .landscapeRight
+        case .landscapeRight:
+            .landscapeLeft
+        default:
+            nil
         }
     }
 }

@@ -8,12 +8,12 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 相机采集使用的镜头方向。
+/// The camera used for capture.
 public enum CameraPosition: String, CaseIterable, Sendable {
 
-    /// 前置摄像头。
+    /// The front camera.
     case front
 
-    /// 后置摄像头。
+    /// The rear camera.
     case back
 }

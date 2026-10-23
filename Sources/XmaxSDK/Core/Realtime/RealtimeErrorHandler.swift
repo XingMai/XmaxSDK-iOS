@@ -14,11 +14,12 @@ import Foundation
 final class RealtimeErrorHandler: @unchecked Sendable {
 
     /// A handler that terminates resources affected by a current runtime failure.
-    typealias FailureHandler = @Sendable (
-        XmaxError,
-        RealtimeCoordinator.TerminationScope,
-        @escaping @Sendable () -> Bool
-    ) async -> Void
+    typealias FailureHandler =
+        @Sendable (
+            XmaxError,
+            RealtimeCoordinator.TerminationScope,
+            @escaping @Sendable () -> Bool
+        ) async -> Void
 
     /// The lock protecting failure revisions and the failure handler.
     private let lock = NSLock()

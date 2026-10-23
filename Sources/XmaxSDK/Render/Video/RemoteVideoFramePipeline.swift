@@ -13,67 +13,74 @@ import CoreMedia
 import CoreVideo
 import Foundation
 
-/// 串行处理远端解码帧，并在可用时插入一个中间帧。
+/// Serializes decoded remote frames and optional interpolation.
 actor RemoteVideoFramePipeline {
 
-    /// 判断指定视频像素尺寸是否可进行插帧。
-    typealias FrameInterpolationSupportChecker = @Sendable (
-        _ size: CGSize
-    ) -> Bool
+    /// A capability check for frame interpolation dimensions.
+    typealias FrameInterpolationSupportChecker =
+        @Sendable (
+            _ size: CGSize
+        ) -> Bool
 
-    /// 异步接收最终视频帧及其输出流有效期标识。
-    typealias OutputListener = @Sendable (
-        _ frame: RealtimeVideoFrame,
-        _ outputToken: UInt64
-    ) async -> Void
+    /// An asynchronous handler for final frames and stream revisions.
+    typealias OutputListener =
+        @Sendable (
+            _ frame: RealtimeVideoFrame,
+            _ outputToken: UInt64
+        ) async -> Void
 
-    /// 根据源帧规格创建插帧处理器，不可用时返回空值。
-    typealias InterpolationManagerFactory = @Sendable (
-        _ frame: RealtimeVideoFrame
-    ) throws -> (any FrameInterpolationManaging)?
+    /// A frame-based interpolation processor factory returning `nil` if unavailable.
+    typealias InterpolationManagerFactory =
+        @Sendable (
+            _ frame: RealtimeVideoFrame
+        ) throws -> (any FrameInterpolationManaging)?
 
-    /// 判断帧尺寸是否支持插帧的操作。
-    private let frameInterpolationSupportChecker:
-        FrameInterpolationSupportChecker
+    /// Processing dependencies.
 
-    /// 根据输入帧规格创建插帧处理器。
+    /// The dimension-based interpolation capability check.
+    private let frameInterpolationSupportChecker: FrameInterpolationSupportChecker
+
+    /// The frame-based interpolation processor factory.
     private let interpolationManagerFactory: InterpolationManagerFactory
 
-    /// 接收最终帧及其流标识的异步回调。
+    /// The asynchronous final frame and stream identifier handler.
     private let outputListener: OutputListener
 
-    /// 接收插帧失败并降级时的错误。
+    /// The interpolation failure and fallback handler.
     private let errorListener: XmaxErrorListener
 
-    /// 当前远端流使用的插帧处理器。
-    private var interpolationManager:
-        (any FrameInterpolationManaging)?
+    /// Processing resources.
 
-    /// 尚未处理的最新远端帧。
+    /// The active remote interpolation processor.
+    private var interpolationManager: (any FrameInterpolationManaging)?
+
+    /// The latest unprocessed remote frame.
     private var pendingFrame: RealtimeVideoFrame?
 
-    /// 串行消费远端帧的任务。
+    /// The serial frame consumption task.
     private var drainTask: Task<Void, Never>?
 
-    /// 等待旧插帧会话完成资源释放的任务。
+    /// The task releasing previous interpolation resources.
     private var cleanupTask: Task<Void, Never>?
 
-    /// 当前请求的插帧开关。
+    /// Output state.
+
+    /// The requested interpolation setting.
     private var interpolationEnabled: Bool
 
-    /// 当前插帧处理器对应的视频尺寸。
+    /// The current processor's video dimensions.
     private var interpolationVideoSize: CGSize?
 
-    /// 上一输出帧的展示时间，用于确定中间帧时间戳。
+    /// The preceding output presentation time.
     private var previousPresentationTimeStamp: CMTime?
 
-    /// 帧处理任务的有效期，用于丢弃过期输出。
+    /// The processing revision rejecting stale output.
     private var generation = 0
 
-    /// 输出流标识，用于区分前后两次远端流。
+    /// The output stream identifier.
     private var outputToken: UInt64
 
-    /// 创建带流有效期检查的远端帧处理管线。
+    /// Creates a remote processing pipeline with stream validity checks.
     init(
         interpolationEnabled: Bool,
         outputToken: UInt64,
@@ -82,15 +89,15 @@ actor RemoteVideoFramePipeline {
                 FrameInterpolationSupport.supports(size: $0)
             },
         interpolationManagerFactory: @escaping InterpolationManagerFactory = {
-#if targetEnvironment(simulator)
+            #if targetEnvironment(simulator)
             nil
-#else
+            #else
             if #available(iOS 26.0, *) {
                 try FrameInterpolationManager(frame: $0)
             } else {
                 nil
             }
-#endif
+            #endif
         },
         outputListener: @escaping OutputListener,
         errorListener: @escaping XmaxErrorListener
@@ -104,35 +111,42 @@ actor RemoteVideoFramePipeline {
         self.errorListener = errorListener
     }
 
-    /// 当前是否请求启用插帧。
+    /// Whether interpolation is requested.
     var isFrameInterpolationEnabled: Bool {
         interpolationEnabled
     }
 
-    /// 将帧加入当前输出流的处理队列。
+    /// Enqueues a frame for the current output stream.
     ///
-    /// - Parameter frame: 最新远端解码帧。
+    /// - Parameter frame: The latest decoded remote frame.
     func enqueue(
         _ frame: RealtimeVideoFrame
     ) {
-        enqueue(frame, outputToken: outputToken)
+        enqueue(
+            frame,
+            outputToken: outputToken
+        )
     }
 
-    /// 接收有效流的最新帧，并在清理完成后开始处理。
+    /// Accepts a current frame and begins processing after cleanup completes.
     ///
     /// - Parameters:
-    ///   - frame: 最新远端解码帧。
-    ///   - outputToken: 该帧所属的输出流标识。
+    ///   - frame: The latest decoded remote frame.
+    ///   - outputToken: The frame's output stream identifier.
     func enqueue(
         _ frame: RealtimeVideoFrame,
         outputToken: UInt64
     ) {
-        guard outputToken >= self.outputToken else { return }
+        guard outputToken >= self.outputToken else {
+            return
+        }
         if outputToken > self.outputToken {
             resetProcessing(outputToken: outputToken)
         }
         pendingFrame = frame
-        guard drainTask == nil else { return }
+        guard drainTask == nil else {
+            return
+        }
         let activeGeneration = generation
         let activeOutputToken = outputToken
         drainTask = Task { [weak self, cleanupTask] in
@@ -144,20 +158,22 @@ actor RemoteVideoFramePipeline {
         }
     }
 
-    /// 校验并切换插帧模式，等待旧处理资源结束。
+    /// Changes interpolation mode after previous processing resources finish.
     ///
     /// - Parameters:
-    ///   - enabled: 是否启用插帧。
-    ///   - videoSize: 期望回传尺寸；未知时只校验设备能力。
-    ///   - outputToken: 调用时对应的输出流标识。
-    /// - Throws: 启用插帧但设备或指定尺寸不受支持时抛出错误。
+    ///   - enabled: Whether to enable interpolation.
+    ///   - videoSize: The expected returned dimensions, or `nil` to check device support only.
+    ///   - outputToken: The output stream identifier at the time of the call.
+    ///
+    /// - Throws: An error if interpolation is enabled but the device or dimensions are unsupported.
     func setFrameInterpolationEnabled(
         _ enabled: Bool,
         videoSize: CGSize?,
         outputToken: UInt64
     ) async throws {
         if enabled {
-            let supported = videoSize.map(frameInterpolationSupportChecker)
+            let supported =
+                videoSize.map(frameInterpolationSupportChecker)
                 ?? FrameInterpolationSupport.isSupported
             guard supported else {
                 throw Self.unsupportedError(videoSize: videoSize)
@@ -165,14 +181,20 @@ actor RemoteVideoFramePipeline {
         }
         interpolationEnabled = enabled
         interpolationVideoSize = enabled ? videoSize : nil
-        // 模式切换不更换流标识，也不能覆盖异步等待期间已经切换的新流标识。
-        resetProcessing(outputToken: max(outputToken, self.outputToken))
+        // Mode changes must not overwrite a stream identifier replaced across an asynchronous boundary.
+        resetProcessing(
+            outputToken: max(
+                outputToken,
+                self.outputToken
+            )
+        )
         await cleanupTask?.value
     }
 
-    /// 更新输出流有效期并等待旧处理资源清理。
+    /// Updates stream validity and awaits previous resource cleanup.
     ///
-    /// - Parameter outputToken: 目标输出流标识；旧标识不会覆盖当前流。
+    /// - Parameter outputToken: The requested stream identifier; stale identifiers cannot replace
+    ///   the current stream.
     func reset(
         outputToken: UInt64
     ) async {
@@ -185,21 +207,21 @@ actor RemoteVideoFramePipeline {
 
 private extension RemoteVideoFramePipeline {
 
-    /// 记录决定插帧器是否可复用的视频帧规格。
+    /// The input format governing interpolation processor reuse.
     struct FrameSignature: Equatable {
 
-        /// 当前插帧输入宽度，单位为像素。
+        /// The interpolation input width, in pixels.
         let width: Int
 
-        /// 当前插帧输入高度，单位为像素。
+        /// The interpolation input height, in pixels.
         let height: Int
 
-        /// 当前插帧输入的像素格式。
+        /// The interpolation input pixel format.
         let pixelFormat: OSType
 
-        /// 提取视频帧的尺寸和像素格式。
+        /// Creates a format key from a frame.
         ///
-        /// - Parameter frame: 用于检查插帧器兼容性的视频帧。
+        /// - Parameter frame: The frame used to check processor compatibility.
         init(
             _ frame: RealtimeVideoFrame
         ) {
@@ -208,15 +230,18 @@ private extension RemoteVideoFramePipeline {
             pixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
         }
 
-        /// 插帧输入对应的像素宽高。
+        /// The interpolation input dimensions.
         var size: CGSize {
-            CGSize(width: width, height: height)
+            CGSize(
+                width: width,
+                height: height
+            )
         }
     }
 
-    /// 使在途处理失效并串行回收旧插帧器及任务。
+    /// Invalidates in-flight work and serializes processor cleanup.
     ///
-    /// - Parameter outputToken: 新的输出流有效期标识。
+    /// - Parameter outputToken: The new output stream revision.
     func resetProcessing(
         outputToken: UInt64
     ) {
@@ -237,18 +262,19 @@ private extension RemoteVideoFramePipeline {
         }
     }
 
-    /// 处理待输出的最新帧，并过滤取消或过期结果。
+    /// Processes the latest frame, rejecting cancelled or stale output.
     ///
     /// - Parameters:
-    ///   - activeGeneration: 当前帧处理版本。
-    ///   - activeOutputToken: 当前输出流标识。
+    ///   - activeGeneration: The processing revision.
+    ///   - activeOutputToken: The current output stream identifier.
     func drainFrames(
         generation activeGeneration: Int,
         outputToken activeOutputToken: UInt64
     ) async {
         while !Task.isCancelled,
-              generation == activeGeneration,
-              let frame = pendingFrame {
+            generation == activeGeneration,
+            let frame = pendingFrame
+        {
             pendingFrame = nil
             let sourceDuration = frameDuration(
                 for: frame.presentationTimeStamp
@@ -259,15 +285,20 @@ private extension RemoteVideoFramePipeline {
                 generation: activeGeneration
             )
             guard !Task.isCancelled,
-                  generation == activeGeneration else {
+                generation == activeGeneration
+            else {
                 break
             }
             for outputFrame in outputFrames {
                 guard !Task.isCancelled,
-                      generation == activeGeneration else {
+                    generation == activeGeneration
+                else {
                     break
                 }
-                await outputListener(outputFrame, activeOutputToken)
+                await outputListener(
+                    outputFrame,
+                    activeOutputToken
+                )
             }
         }
         if generation == activeGeneration {
@@ -275,33 +306,49 @@ private extension RemoteVideoFramePipeline {
         }
     }
 
-    /// 为有效帧生成插值结果，或在未启用及降级时透传。
+    /// Interpolates a valid frame or passes it through when disabled.
     ///
     /// - Parameters:
-    ///   - frame: 当前远端解码帧。
-    ///   - sourceDuration: 源帧显示时长。
-    ///   - activeGeneration: 当前帧处理版本。
-    /// - Returns: 可输出的视频帧数组；处理已失效时返回空数组。
+    ///   - frame: The current decoded remote frame.
+    ///   - sourceDuration: The source frame duration.
+    ///   - activeGeneration: The processing revision.
+    ///
+    /// - Returns: The output frames, or an empty array if processing is stale.
     func process(
         _ frame: RealtimeVideoFrame,
         sourceDuration: CMTime,
         generation activeGeneration: Int
     ) async -> [RealtimeVideoFrame] {
         guard interpolationEnabled else {
-            return [passthrough(frame, duration: sourceDuration)]
+            return [
+                passthrough(
+                    frame,
+                    duration: sourceDuration
+                )
+            ]
         }
 
         let signature = FrameSignature(frame)
-        // 调整回传尺寸期间，旧尺寸帧继续显示，不进入插帧器，也不关闭用户开关。
+        // While target dimensions change, display old-size frames without interpolating or disabling the requested setting.
         if let interpolationVideoSize, signature.size != interpolationVideoSize {
             let previousManager = interpolationManager
             interpolationManager = nil
             await previousManager?.close()
-            return [passthrough(frame, duration: sourceDuration)]
+            return [
+                passthrough(
+                    frame,
+                    duration: sourceDuration
+                )
+            ]
         }
         guard frameInterpolationSupportChecker(signature.size) else {
             await disableAfterFailure(Self.unsupportedError(videoSize: signature.size))
-            return [passthrough(frame, duration: sourceDuration)]
+            return [
+                passthrough(
+                    frame,
+                    duration: sourceDuration
+                )
+            ]
         }
 
         do {
@@ -311,7 +358,8 @@ private extension RemoteVideoFramePipeline {
                 await previousManager?.close()
 
                 guard !Task.isCancelled,
-                      generation == activeGeneration else {
+                    generation == activeGeneration
+                else {
                     return []
                 }
                 interpolationManager = try interpolationManagerFactory(frame)
@@ -325,7 +373,8 @@ private extension RemoteVideoFramePipeline {
             )
         } catch {
             guard !Task.isCancelled,
-                  generation == activeGeneration else {
+                generation == activeGeneration
+            else {
                 return []
             }
             let resolvedError: XmaxError
@@ -334,18 +383,23 @@ private extension RemoteVideoFramePipeline {
             } else {
                 resolvedError = XmaxError(
                     code: .mediaError,
-                    message: "Frame interpolation failed: " +
-                        (error as NSError).localizedDescription
+                    message: "Frame interpolation failed: "
+                        + (error as NSError).localizedDescription
                 )
             }
             await disableAfterFailure(resolvedError)
-            return [passthrough(frame, duration: sourceDuration)]
+            return [
+                passthrough(
+                    frame,
+                    duration: sourceDuration
+                )
+            ]
         }
     }
 
-    /// 关闭插帧并通知降级原因，随后释放处理器。
+    /// Disables interpolation and reports the fallback reason.
     ///
-    /// - Parameter error: 导致插帧降级的错误。
+    /// - Parameter error: The interpolation failure.
     func disableAfterFailure(
         _ error: XmaxError
     ) async {
@@ -356,12 +410,13 @@ private extension RemoteVideoFramePipeline {
         await previousManager?.close()
     }
 
-    /// 保留源像素和时间戳并补充帧时长。
+    /// Passes through source pixels and timing with a resolved duration.
     ///
     /// - Parameters:
-    ///   - frame: 需要透传的视频帧。
-    ///   - duration: 输出帧的显示时长。
-    /// - Returns: 带有效显示时长的源视频帧。
+    ///   - frame: The frame to pass through.
+    ///   - duration: The output display duration.
+    ///
+    /// - Returns: The source frame with a valid duration.
     func passthrough(
         _ frame: RealtimeVideoFrame,
         duration: CMTime
@@ -373,10 +428,11 @@ private extension RemoteVideoFramePipeline {
         )
     }
 
-    /// 根据相邻有效时间戳估算源帧时长。
+    /// Estimates source duration from consecutive valid timestamps.
     ///
-    /// - Parameter presentationTimeStamp: 当前帧的显示时间戳。
-    /// - Returns: 有效帧间隔；无法估算时返回 1/24 秒。
+    /// - Parameter presentationTimeStamp: The current presentation timestamp.
+    ///
+    /// - Returns: The valid interval, or 1/24 second if unavailable.
     func frameDuration(
         for presentationTimeStamp: CMTime
     ) -> CMTime {
@@ -386,31 +442,43 @@ private extension RemoteVideoFramePipeline {
             }
         }
         guard presentationTimeStamp.isValid,
-              let previousPresentationTimeStamp,
-              previousPresentationTimeStamp.isValid else {
-            return CMTime(value: 1, timescale: 24)
+            let previousPresentationTimeStamp,
+            previousPresentationTimeStamp.isValid
+        else {
+            return CMTime(
+                value: 1,
+                timescale: 24
+            )
         }
 
         let duration = presentationTimeStamp - previousPresentationTimeStamp
         guard duration.isValid,
-              duration > .zero,
-              duration < CMTime(seconds: 1, preferredTimescale: 600) else {
-            return CMTime(value: 1, timescale: 24)
+            duration > .zero,
+            duration
+                < CMTime(
+                    seconds: 1,
+                    preferredTimescale: 600
+                )
+        else {
+            return CMTime(
+                value: 1,
+                timescale: 24
+            )
         }
         return duration
     }
 
-    /// 构造设备或尺寸不支持插帧的错误。
+    /// Creates an unsupported interpolation error.
     ///
-    /// - Parameter videoSize: 不受支持的视频尺寸；`nil` 表示设备能力不支持。
-    /// - Returns: 包含不支持原因的插帧错误。
+    /// - Parameter videoSize: The unsupported dimensions, or `nil` for device incompatibility.
+    ///
+    /// - Returns: The interpolation error describing unsupported capability.
     static func unsupportedError(
         videoSize: CGSize?
     ) -> XmaxError {
         let sizeDescription: String
         if let videoSize {
-            sizeDescription = " for \(Int(videoSize.width)) × " +
-                "\(Int(videoSize.height)) video"
+            sizeDescription = " for \(Int(videoSize.width)) × " + "\(Int(videoSize.height)) video"
         } else {
             sizeDescription = " on this device"
         }

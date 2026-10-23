@@ -10,40 +10,46 @@
 
 import Foundation
 
-/// 将外部视频源绑定到 SDK 的本地预览及 RTC 帧链路。
+/// Binds an external video source to local preview and RTC.
 final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendable {
 
-    /// 配置 RTC 外部视频输入。
+    /// Source dependencies.
+
+    /// The RTC external video adapter.
     private let rtcManager: any RtcManaging
 
-    /// 解析模型面积上限及媒体尺寸。
+    /// The media sizing service.
     private let mediaService: any MediaServicing
 
-    /// 将视频帧交付给传输层。
+    /// The handler delivering video to transport.
     private let videoFrameListener: MediaVideoFrameListener
 
-    /// 将媒体错误交付给生命周期协调器。
+    /// The handler delivering failures to lifecycle coordination.
     private let errorListener: XmaxErrorListener
 
-    /// 保护跨线程读取的当前轨道。
+    /// Track state.
+
+    /// The lock protecting cross-thread track access.
     private let lock = NSLock()
 
-    /// 当前外部源对应的视频轨道。
+    /// The external source's current track.
     private var track: RealtimeVideoTrack?
 
-    /// 本次绑定的外部源，生命周期由主线程管理。
+    /// Source binding and preview.
+
+    /// The bound source, with its lifecycle managed on the main actor.
     @MainActor private var source: (any RealtimeExternalVideoSource)?
 
-    /// 本次绑定的同步供帧入口。
+    /// The synchronous frame sink for this binding.
     @MainActor private var sink: ExternalVideoFrameSink?
 
-    /// 当前预览呈现组件。
+    /// The preview presenter.
     @MainActor private var presenter: DecodedVideoPreviewPresenter?
 
-    /// 合并主线程未处理的预览帧。
+    /// The dispatcher coalescing pending preview frames.
     @MainActor private var dispatcher: DecodedVideoPreviewDispatcher?
 
-    /// 创建外部视频生命周期及预览控制器。
+    /// Creates an external video lifecycle and preview controller.
     init(
         rtcManager: any RtcManaging,
         mediaService: any MediaServicing,
@@ -56,34 +62,51 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
         self.errorListener = errorListener
     }
 
-    /// 当前有效的外部视频轨道。
+    /// The active external video track.
     var currentTrack: RealtimeVideoTrack? {
-        lock.withLock { track }
+        lock.withLock {
+            track
+        }
     }
 
-    /// 解析源规格，注册预览并绑定供帧；失败时撤销部分创建的资源。
+    /// Binds an external source for preview and generation.
     ///
-    /// - Parameter source: 接入方拥有的视频源。
-    /// - Returns: 可绑定 SDK 视频视图的本地媒体流。
-    /// - Throws: 规格、RTC 配置或源绑定失败，以及取消时抛出错误。
+    /// - Parameter source: The video source owned by your app.
+    ///
+    /// - Returns: A local stream for SDK video views.
+    ///
+    /// - Throws: An error if format, RTC configuration, or source binding fails, or the call is
+    ///   cancelled.
     @MainActor
     func createExternalVideoStream(
         source: any RealtimeExternalVideoSource
     ) async throws -> RealtimeMediaStream {
         guard self.source == nil else {
-            throw XmaxError(code: .invalidConfiguration, message: "Stop the current external video stream before creating another one")
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Stop the current external video stream before creating another one"
+            )
         }
         let requested = source.videoFormat
         try requested.validate()
         let size = try mediaService.resolveMediaSize(
-            CGSize(width: requested.width, height: requested.height),
+            CGSize(
+                width: requested.width,
+                height: requested.height
+            ),
             source: .external
         )
-        let format = requested.resized(width: Int(size.width), height: Int(size.height))
+        let format = requested.resized(
+            width: Int(size.width),
+            height: Int(size.height)
+        )
         try format.validate()
         try Task.checkCancellation()
 
-        let track = RealtimeVideoTrack(id: "external0", videoFormat: format)
+        let track = RealtimeVideoTrack(
+            id: "external0",
+            videoFormat: format
+        )
         let presenter = DecodedVideoPreviewPresenter()
         let dispatcher = DecodedVideoPreviewDispatcher(presenter: presenter)
         let sink = ExternalVideoFrameSink(
@@ -99,34 +122,53 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
         self.sink = sink
         self.presenter = presenter
         self.dispatcher = dispatcher
-        lock.withLock { self.track = track }
+        lock.withLock {
+            self.track = track
+        }
 
         do {
             try rtcManager.useExternalVideoSource()
-            VideoRenderRegistry.register(track, binding: VideoRenderBinding(
-                attachHandler: { view, contentMode in
-                    guard let view = view as? XmaxVideoView else {
-                        throw XmaxError(code: .invalidConfiguration, message: "External video tracks require an XmaxVideoView")
+            VideoRenderRegistry.register(
+                track,
+                binding: VideoRenderBinding(
+                    attachHandler: { view, contentMode in
+                        guard let view = view as? XmaxVideoView else {
+                            throw XmaxError(
+                                code: .invalidConfiguration,
+                                message: "External video tracks require an XmaxVideoView"
+                            )
+                        }
+                        presenter.attach(
+                            to: view,
+                            contentMode: contentMode
+                        )
+                    },
+                    detachHandler: { view in
+                        if let view = view as? XmaxVideoView {
+                            presenter.detach(from: view)
+                        }
                     }
-                    presenter.attach(to: view, contentMode: contentMode)
-                },
-                detachHandler: { view in
-                    if let view = view as? XmaxVideoView { presenter.detach(from: view) }
-                }
-            ))
+                )
+            )
             try await source.start(sink: sink)
             try Task.checkCancellation()
             guard sink.isRequestingFrames else {
-                throw XmaxError(code: .mediaError, message: "External video source failed during setup")
+                throw XmaxError(
+                    code: .mediaError,
+                    message: "External video source failed during setup"
+                )
             }
-            return RealtimeMediaStream(id: StreamID.local.rawValue, videoTrack: track)
+            return RealtimeMediaStream(
+                id: StreamID.local.rawValue,
+                videoTrack: track
+            )
         } catch {
             await stopExternalVideoStream()
             throw XmaxError.from(error)
         }
     }
 
-    /// 先使供帧入口失效，再清除预览并通知接入方解绑。
+    /// Unbinds the source after invalidating frame delivery and clearing preview.
     @MainActor
     func stopExternalVideoStream() async {
         sink?.invalidate()
@@ -146,7 +188,10 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
             do {
                 try VideoRenderRegistry.binding(for: previousTrack)?.detach()
             } catch {
-                XmaxLogger.media.error(message: "解除外部视频预览失败 (Failed to Detach External Video Preview)\n└─ \(error.localizedDescription)")
+                XmaxLogger.media.error(
+                    message:
+                        "解除外部视频预览失败 (Failed to Detach External Video Preview)\n└─ \(error.localizedDescription)"
+                )
             }
             VideoRenderRegistry.unregister(previousTrack)
         }

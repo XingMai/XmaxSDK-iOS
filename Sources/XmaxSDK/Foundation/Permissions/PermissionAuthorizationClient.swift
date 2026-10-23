@@ -10,46 +10,48 @@
 
 @preconcurrency import AVFoundation
 
-/// SDK 需要检查的媒体权限。
+/// A media permission required by the SDK.
 enum MediaPermission: Equatable, Sendable {
 
-    /// 摄像头采集权限。
+    /// Camera capture permission.
     case camera
 
-    /// 麦克风采集权限。
+    /// Microphone capture permission.
     case microphone
 }
 
-/// 平台媒体权限的中性授权状态。
+/// A platform-independent media authorization status.
 enum MediaAuthorizationStatus: Sendable {
 
-    /// 用户尚未作出授权选择。
+    /// The user has not made an authorization choice.
     case notDetermined
 
-    /// 系统限制访问，无法通过权限弹窗获取授权。
+    /// Access is restricted by the system.
     case restricted
 
-    /// 用户已拒绝访问。
+    /// The user denied access.
     case denied
 
-    /// 用户已允许访问。
+    /// The user granted access.
     case authorized
 }
 
-/// 提供平台媒体权限查询与异步授权接口。
+/// An interface for querying and requesting media permissions.
 struct PermissionAuthorizationClient: Sendable {
 
-    /// 查询指定媒体权限的当前授权状态。
-    let authorizationStatus: @Sendable (
-        _ permission: MediaPermission
-    ) -> MediaAuthorizationStatus
+    /// Returns the current media authorization status.
+    let authorizationStatus:
+        @Sendable (
+            _ permission: MediaPermission
+        ) -> MediaAuthorizationStatus
 
-    /// 请求指定媒体权限，并返回是否获得授权。
-    let requestAccess: @Sendable (
-        _ permission: MediaPermission
-    ) async throws -> Bool
+    /// Requests media access and returns whether it was granted.
+    let requestAccess:
+        @Sendable (
+            _ permission: MediaPermission
+        ) async throws -> Bool
 
-    /// 使用 AVFoundation 查询和申请媒体权限。
+    /// An AVFoundation media permission client.
     static let live = PermissionAuthorizationClient(
         authorizationStatus: { permission in
             let status = AVCaptureDevice.authorizationStatus(
@@ -76,7 +78,7 @@ struct PermissionAuthorizationClient: Sendable {
 
 private extension MediaPermission {
 
-    /// 权限对应的 AVFoundation 媒体类型。
+    /// The AVFoundation media type for this permission.
     var mediaType: AVMediaType {
         switch self {
         case .camera:

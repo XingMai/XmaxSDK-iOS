@@ -10,12 +10,12 @@
 
 import Foundation
 
-/// 对象存储上传支持的二进制数据或本地文件。
+/// The data or local file used for an object upload.
 enum StorageUploadSource: Equatable, Sendable {
 
-    /// 上传内存中的数据。
+    /// Uploads in-memory data.
     case data(Data)
 
-    /// 上传本地文件。
+    /// Uploads a local file.
     case file(URL)
 }

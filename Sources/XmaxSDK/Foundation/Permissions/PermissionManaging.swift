@@ -8,16 +8,16 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 定义 SDK 所需平台权限的检查与申请能力。
+/// An interface for SDK media permissions.
 protocol PermissionManaging: Sendable {
 
-    /// 确认相机权限可用；尚未询问时发起系统授权请求。
+    /// Requests camera access if necessary and verifies authorization.
     ///
-    /// - Throws: 相机权限被拒绝、受限或申请失败时抛出相机权限错误。
+    /// - Throws: A camera permission error if access is denied, restricted, or not granted.
     func ensureCameraPermission() async throws
 
-    /// 确认麦克风权限可用；尚未询问时发起系统授权请求。
+    /// Requests microphone access if necessary and verifies authorization.
     ///
-    /// - Throws: 麦克风权限被拒绝、受限或申请失败时抛出麦克风权限错误。
+    /// - Throws: A microphone permission error if access is denied, restricted, or not granted.
     func ensureMicrophonePermission() async throws
 }

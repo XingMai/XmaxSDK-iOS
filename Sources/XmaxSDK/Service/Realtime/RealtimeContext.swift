@@ -10,20 +10,21 @@
 
 import Foundation
 
-/// 单次实时生成任务的文本和参考资源上下文。
+/// The prompt and reference media for a generation task.
 public struct RealtimeContext: Equatable, Sendable {
 
-    /// 实时生成使用的文本条件。
+    /// The generation prompt.
     public let prompt: String
 
-    /// 已上传参考图片的可选远端路径。
+    /// The uploaded reference image's remote path, if used.
     public let referencePath: String?
 
-    /// 创建实时生成条件，并去除文本与参考路径首尾空白。
+    /// Creates generation conditions.
     ///
     /// - Parameters:
-    ///   - prompt: 实时生成的文本条件。
-    ///   - referencePath: 参考图的远端路径；`nil` 或仅包含空白时不使用参考图。
+    ///   - prompt: The generation prompt.
+    ///   - referencePath: The remote reference image path. `nil` or whitespace-only values omit the
+    ///     reference.
     public init(
         prompt: String,
         referencePath: String? = nil
@@ -32,7 +33,8 @@ public struct RealtimeContext: Equatable, Sendable {
         let normalizedReferencePath = referencePath?.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
-        self.referencePath = normalizedReferencePath?.isEmpty == false
+        self.referencePath =
+            normalizedReferencePath?.isEmpty == false
             ? normalizedReferencePath
             : nil
     }

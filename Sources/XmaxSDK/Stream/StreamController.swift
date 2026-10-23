@@ -10,73 +10,89 @@
 
 import Foundation
 
-/// 在主线程更新远端结果流绑定，空值表示清除绑定。
-typealias RemoteStreamListener = @MainActor @Sendable (
-    RemoteStream?
-) throws -> Void
+/// A main-actor remote stream binding handler; `nil` clears the binding.
+typealias RemoteStreamListener =
+    @MainActor @Sendable (
+        RemoteStream?
+    ) throws -> Void
 
-/// 统一协调 RTC 房间、媒体流、编码和质量事件。
+/// Coordinates RTC rooms, media streams, encoding, and quality.
 final class StreamController: StreamControlling, RtcEventListener,
-    @unchecked Sendable {
+    @unchecked Sendable
+{
 
-    /// 执行 RTC 媒体发布、订阅和帧推送。
+    /// Transport components.
+
+    /// The RTC media publication, subscription, and frame adapter.
     private let rtcManager: any RtcManaging
 
-    /// 管理房间连接和控制信令。
+    /// The room connection and signaling controller.
     private let roomController: any RoomControlling
 
-    /// 应用上传编码规格和码率配置。
+    /// The uplink encoder configuration controller.
     private let encodingController: any EncodingControlling
 
-    /// 收集质量统计并计算自适应档位。
+    /// The quality statistics and adaptation controller.
     private let qualityController: any QualityControlling
 
-    /// 接收传输链路的运行故障。
+    /// Events and timing.
+
+    /// The transport failure handler.
     private let errorListener: XmaxErrorListener
 
-    /// 接收远端结果流的发布和结束通知。
+    /// The remote result publication and end handler.
     private let remoteStreamListener: RemoteStreamListener
 
-    /// 配置等待生成结果流的超时时长。
+    /// The generation stream confirmation timeout.
     private let generationTiming: StreamGenerationTiming
 
-    /// 记录连接与生成启动的阶段耗时。
+    /// The connection and generation startup timing recorder.
     private let timing: RealtimeTiming
 
-    /// 远端播放音量百分比，范围为 0...100。
+    /// Connection and media state.
+
+    /// The remote volume percentage, from 0 to 100.
     private var remoteAudioVolumePercentage = 100
 
-    /// 保护连接、发布、订阅和生成状态。
+    /// The lock protecting connection, media, and generation state.
     private let stateLock = NSLock()
 
-    /// 串行保护流发布、订阅与生成操作。
+    /// The lock serializing media and generation operations.
     private let operationLock = NSRecursiveLock()
 
-    /// 当前传输链路的状态快照。
+    /// The transport state snapshot.
     private var state = State()
 
-    /// 当前是否持有尚未结束的生成任务。
+    /// Whether a generation task remains active.
     var hasGenerationTask: Bool {
-        stateLock.withLock { state.generationTask != nil }
+        stateLock.withLock {
+            state.generationTask != nil
+        }
     }
 
-    /// 当前远端播放音量，范围为 0...1。
+    /// The remote playback volume, from 0 to 1.
     var remoteAudioVolume: Float {
-        Float(stateLock.withLock { remoteAudioVolumePercentage }) / 100
+        Float(
+            stateLock.withLock {
+                remoteAudioVolumePercentage
+            }
+        ) / 100
     }
 
-    /// 创建房间、编码和质量组件组成的流控制器。
+    /// Creates a stream controller with room, encoding, and quality components.
     ///
     /// - Parameters:
-    ///   - rtcManager: 底层 RTC 管理器。
-    ///   - errorListener: 接收流运行错误的回调。
-    ///   - remoteStreamListener: 接收远端结果流绑定变化的回调。
-    ///   - generationTiming: 结果流确认等待的超时配置。
-    ///   - timing: 共享的实时启动耗时记录器。
+    ///   - rtcManager: The RTC manager.
+    ///   - errorListener: The stream failure handler.
+    ///   - remoteStreamListener: The remote result binding handler.
+    ///   - generationTiming: The result stream confirmation timeout.
+    ///   - timing: The shared startup timing recorder.
     convenience init(
         rtcManager: any RtcManaging,
-        errorListener: @escaping XmaxErrorListener = { _ in },
-        remoteStreamListener: @escaping RemoteStreamListener = { _ in },
+        errorListener: @escaping XmaxErrorListener = { _ in
+        },
+        remoteStreamListener: @escaping RemoteStreamListener = { _ in
+        },
         generationTiming: StreamGenerationTiming = .live,
         timing: RealtimeTiming = RealtimeTiming()
     ) {
@@ -95,24 +111,26 @@ final class StreamController: StreamControlling, RtcEventListener,
         )
     }
 
-    /// 使用指定组件创建流控制器并注册 RTC 事件监听。
+    /// Creates a stream controller with the specified components.
     ///
     /// - Parameters:
-    ///   - rtcManager: 底层 RTC 管理器。
-    ///   - roomController: 房间连接和信令组件。
-    ///   - encodingController: 视频编码配置组件。
-    ///   - qualityController: 网络质量和调档组件。
-    ///   - errorListener: 接收流运行错误的回调。
-    ///   - remoteStreamListener: 接收远端结果流绑定变化的回调。
-    ///   - generationTiming: 结果流确认等待的超时配置。
-    ///   - timing: 共享的实时启动耗时记录器。
+    ///   - rtcManager: The RTC manager.
+    ///   - roomController: The room connection and signaling component.
+    ///   - encodingController: The video encoder component.
+    ///   - qualityController: The quality and adaptation component.
+    ///   - errorListener: The stream failure handler.
+    ///   - remoteStreamListener: The remote result binding handler.
+    ///   - generationTiming: The result stream confirmation timeout.
+    ///   - timing: The shared startup timing recorder.
     init(
         rtcManager: any RtcManaging,
         roomController: any RoomControlling,
         encodingController: any EncodingControlling,
         qualityController: any QualityControlling,
-        errorListener: @escaping XmaxErrorListener = { _ in },
-        remoteStreamListener: @escaping RemoteStreamListener = { _ in },
+        errorListener: @escaping XmaxErrorListener = { _ in
+        },
+        remoteStreamListener: @escaping RemoteStreamListener = { _ in
+        },
         generationTiming: StreamGenerationTiming = .live,
         timing: RealtimeTiming = RealtimeTiming()
     ) {
@@ -127,26 +145,31 @@ final class StreamController: StreamControlling, RtcEventListener,
         rtcManager.setEventListener(self)
     }
 
-    /// 设置实时视频编码器配置。
+    /// Sets the realtime video encoder configuration.
     ///
-    /// - Parameter videoFormat: RTC 视频编码使用的宽度、高度和帧率。
-    /// - Throws: 视频格式无效或 RTC 编码配置失败时抛出错误。
+    /// - Parameter videoFormat: The RTC encoding dimensions and frame rate.
+    ///
+    /// - Throws: An error if the format is invalid or RTC configuration fails.
     func setVideoEncoderConfig(
         _ videoFormat: RealtimeVideoFormat
     ) throws {
         try encodingController.configure(videoFormat)
     }
 
-    /// 当前媒体基准与上下行质量档位。
-    var qualityConfiguration: QualityConfiguration? { qualityController.qualityConfiguration }
+    /// The current media baseline and directional quality levels.
+    var qualityConfiguration: QualityConfiguration? {
+        qualityController.qualityConfiguration
+    }
 
-    /// 根据媒体基准和模型历史准备上下行档位。
+    /// Prepares quality levels from the media baseline and model history.
     ///
     /// - Parameters:
-    ///   - baseline: 本地媒体原始输出规格，不随调档改变。
-    ///   - model: 用于隔离历史档位的模型标识。
-    ///   - isAdaptiveQualityEnabled: 是否启用自适应调档；关闭时从 L1 开始，不读写历史档位。
-    /// - Returns: 本次连接的初始上下行配置。
+    ///   - baseline: The resolved local media baseline, unchanged by adaptation.
+    ///   - model: The model identifier isolating quality history.
+    ///   - isAdaptiveQualityEnabled: Whether to adapt quality. Disabled connections start at L1
+    ///     without using history.
+    ///
+    /// - Returns: The initial directional quality configuration.
     func prepareQuality(
         baseline: RealtimeVideoFormat,
         model: String,
@@ -159,85 +182,98 @@ final class StreamController: StreamControlling, RtcEventListener,
         )
     }
 
-    /// 设置内部调档采样回调，不影响公开网络质量监听。
+    /// Sets internal quality sampling independently of the public network listener.
     ///
-    /// - Parameter listener: 接收网络质量及单调时钟采样时间；nil 表示移除。
+    /// - Parameter listener: The quality and monotonic sample time handler, or `nil` to remove it.
     func setAdaptiveQualityListener(
         _ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
     ) {
         qualityController.setAdaptiveQualityListener(listener)
     }
 
-    /// 消费当前网络采样并返回候选档位。
+    /// Proposes levels from the current network sample.
     ///
     /// - Parameters:
-    ///   - quality: 当前上下行网络质量。
-    ///   - sampledAt: 单调时钟的采样时间，单位为秒。
-    /// - Returns: 满足连续采样和冷却条件的候选档位。
+    ///   - quality: The current directional network quality.
+    ///   - sampledAt: The monotonic sample time, in seconds.
+    ///
+    /// - Returns: The candidate levels satisfying sample and cooldown requirements.
     func proposeQuality(
         _ quality: RealtimeNetworkQuality,
         sampledAt: TimeInterval
     ) -> QualityChange {
-        qualityController.proposeQuality(quality, sampledAt: sampledAt)
+        qualityController.proposeQuality(
+            quality,
+            sampledAt: sampledAt
+        )
     }
 
-    /// 提交调档结果，成功时保存历史档位。
+    /// Commits adjustment results, persisting successful levels.
     ///
     /// - Parameters:
-    ///   - downlink: true 表示下行，false 表示上行。
-    ///   - level: 本次尝试的档位，范围为 1...5。
-    ///   - success: 配置是否成功应用。
+    ///   - downlink: Whether this is downlink rather than uplink.
+    ///   - level: The attempted quality level.
+    ///   - success: Whether configuration succeeded.
     func completeQuality(
         downlink: Bool,
         level: RealtimeQualityLevel,
         success: Bool
     ) {
-        qualityController.completeQuality(downlink: downlink, level: level, success: success)
+        qualityController.completeQuality(
+            downlink: downlink,
+            level: level,
+            success: success
+        )
     }
 
-    /// 清除连续采样窗口。
-    func resetQualitySamples() { qualityController.resetQualitySamples() }
+    /// Clears consecutive quality samples.
+    func resetQualitySamples() {
+        qualityController.resetQualitySamples()
+    }
 
-    /// 设置视频上行统计监听器。
+    /// Sets the uplink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: The main-actor handler, receiving `nil` when unpublished or
+    ///   disconnected. Pass `nil` to remove it.
     func setUplinkVideoStatisticsListener(
         _ listener: UplinkVideoStatisticsListener?
     ) {
         qualityController.setUplinkVideoStatisticsListener(listener)
     }
 
-    /// 设置视频下行统计监听器。
+    /// Sets the downlink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: The main-actor handler, receiving `nil` when the result stream clears.
+    ///   Pass `nil` to remove it.
     func setDownlinkVideoStatisticsListener(
         _ listener: DownlinkVideoStatisticsListener?
     ) {
         qualityController.setDownlinkVideoStatisticsListener(listener)
     }
 
-    /// 设置网络质量监听器，传入空值时清除监听器。
+    /// Sets the network quality listener.
     ///
-    /// - Parameter listener: 接收上行和下行网络质量事件的监听器；
+    /// - Parameter listener: The directional network quality listener;
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     ) {
         qualityController.setNetworkQualityListener(listener)
     }
 
-    /// 设置设备性能告警监听器，传入空值时清除监听器。
+    /// Sets the device performance listener.
     ///
-    /// - Parameter listener: 接收设备性能受限与恢复事件的监听器；
+    /// - Parameter listener: The device limitation and recovery listener;
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     ) {
         qualityController.setPerformanceAlarmListener(listener)
     }
 
-    /// 设置远端生成音频播放音量。
+    /// Sets remote generated audio volume.
     ///
-    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
-    /// - Throws: RTC 音量配置失败时抛出错误。
+    /// - Parameter volume: The validated volume, in the range `0...1`.
+    ///
+    /// - Throws: An error if RTC volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Float
     ) throws {
@@ -258,21 +294,24 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 加入 RTC 房间并发布本地媒体流。
+    /// Joins an RTC room and publishes local media.
     ///
     /// - Parameters:
-    ///   - connection: RTC 房间、用户、Token 和目标机器人信息。
-    ///   - includeLocalAudio: 是否随本地视频一起发布本地音频。
-    ///   - ensureActive: 在异步边界校验当前连接操作仍然有效的回调；
-    /// - Throws: 连接已取消，或 RTC 进房、房间配置与本地流发布失败时
-    ///   抛出错误。
+    ///   - connection: The RTC room, user, token, and result user information.
+    ///   - includeLocalAudio: Whether to publish audio alongside local video.
+    ///   - ensureActive: The connection validity check across asynchronous boundaries;
+    ///
+    /// - Throws: An error if cancelled or RTC join, configuration, or local publication fails.
     func connect(
         connection: RealtimeSessionConnection,
         includeLocalAudio: Bool,
         ensureActive: @escaping @Sendable () throws -> Void
     ) async throws {
         try ensureActive()
-        try configureRoom(roomID: connection.roomID, botName: connection.botName)
+        try configureRoom(
+            roomID: connection.roomID,
+            botName: connection.botName
+        )
         try await roomController.join(
             connection: connection,
             ensureActive: ensureActive
@@ -283,25 +322,28 @@ final class StreamController: StreamControlling, RtcEventListener,
         timing.finishLocalPublication()
     }
 
-    /// 清理生成状态、本地发布和远端订阅，并离开当前 RTC 房间；
-    /// 没有活动房间时安全返回。
+    /// Disconnects the RTC room and releases media and generation state; safe when no room is
+    /// active.
     func disconnect() async {
         qualityController.resetQuality()
         await resetStream()
         await roomController.leave()
     }
 
-    /// 建立生成任务、发送开始信令并启动结果流确认等待。
+    /// Starts a generation task and its result stream confirmation.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务的唯一标识。
-    ///   - videoFormat: 服务端生成使用的视频规格。
-    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
-    ///   - context: 生成使用的参考图、提示词等条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - paddingContain: 是否按包含模式保留源比例并填充生成画布。
-    /// - Returns: 等待远端结果流发布确认的任务。
-    /// - Throws: 任务参数无效、房间未就绪、已有生成任务、信令失败或发送等待超时时抛出错误。
+    ///   - taskID: The unique generation task identifier.
+    ///   - videoFormat: The server generation format.
+    ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+    ///   - context: The generation prompt and reference conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - paddingContain: Whether to contain input within the generation canvas.
+    ///
+    /// - Returns: The task awaiting remote result stream confirmation.
+    ///
+    /// - Throws: An error if the task or room is invalid, a task exists, or signaling fails or
+    ///   times out.
     func beginGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -322,12 +364,19 @@ final class StreamController: StreamControlling, RtcEventListener,
                 paddingContain: paddingContain
             )
             try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { try await self.rtcManager.awaitPendingMessages() }
+                group.addTask {
+                    try await self.rtcManager.awaitPendingMessages()
+                }
                 group.addTask {
                     try await Task.sleep(nanoseconds: self.generationTiming.timeoutNanoseconds)
-                    throw XmaxError(code: .timeout, message: "Realtime generation start timed out")
+                    throw XmaxError(
+                        code: .timeout,
+                        message: "Realtime generation start timed out"
+                    )
                 }
-                defer { group.cancelAll() }
+                defer {
+                    group.cancelAll()
+                }
                 try await group.next()
             }
             try Task.checkCancellation()
@@ -340,13 +389,15 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 在远端首帧已经可显示后订阅当前生成流的音频。
+    /// Subscribes to generated audio after remote video is ready.
     ///
-    /// - Throws: 当前生成流尚未确认，或 RTC 音量和订阅配置失败时抛出错误。
+    /// - Throws: An error if the result stream is unconfirmed or RTC volume or subscription fails.
     func activateRemoteAudio() throws {
         try operationLock.withLock {
             let remoteStream: RemoteStream? = stateLock.withLock {
-                guard state.generationTask != nil else { return nil }
+                guard state.generationTask != nil else {
+                    return nil
+                }
                 return state.activeRemoteStream
             }
             guard let remoteStream else {
@@ -359,16 +410,17 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 发送当前生成任务的条件变更信令。
+    /// Sends an active task's condition update.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务的唯一标识。
-    ///   - videoFormat: 服务端生成使用的视频规格。
-    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
-    ///   - context: 生成使用的参考图、提示词等条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - paddingContain: 是否按包含模式保留源比例并填充生成画布。
-    /// - Throws: 房间未就绪、参数无效或信令提交失败时抛出错误。
+    ///   - taskID: The unique generation task identifier.
+    ///   - videoFormat: The server generation format.
+    ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+    ///   - context: The generation prompt and reference conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - paddingContain: Whether to contain input within the generation canvas.
+    ///
+    /// - Throws: An error if the room or parameters are invalid or signaling submission fails.
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -383,14 +435,15 @@ final class StreamController: StreamControlling, RtcEventListener,
             targetSize: targetSize,
             context: context,
             faceRestoration: faceRestoration,
-                paddingContain: paddingContain
+            paddingContain: paddingContain
         )
     }
 
-    /// 停止生成任务并清理远端结果流。
+    /// Stops generation and clears its result stream.
     ///
-    /// - Parameter taskID: 需要停止的生成任务标识；传入空字符串时停止
-    /// - Throws: RTC 停止信令发送失败时抛出错误。
+    /// - Parameter taskID: The task to stop. An empty string stops
+    ///
+    /// - Throws: An error if the RTC stop signal cannot be sent.
     func stopGeneration(
         taskID: String
     ) async throws {
@@ -401,13 +454,13 @@ final class StreamController: StreamControlling, RtcEventListener,
         try await roomController.stopGeneration(taskID: stoppedTaskID)
     }
 
-    /// 发送生成任务的交互轨迹。
+    /// Sends a generation task's trajectory.
     ///
     /// - Parameters:
-    ///   - taskID: 接收交互轨迹的生成任务标识。
-    ///   - points: 需要发送的轨迹点；空数组会被忽略。
-    /// - Throws: RTC 房间未就绪、任务标识无效或轨迹信令发送失败时
-    ///   抛出错误。
+    ///   - taskID: The task receiving the trajectory.
+    ///   - points: The trajectory points. Empty arrays are ignored.
+    ///
+    /// - Throws: An error if the room or task is invalid or trajectory signaling fails.
     func sendTracks(
         taskID: String,
         points: [RealtimePoint]
@@ -418,18 +471,20 @@ final class StreamController: StreamControlling, RtcEventListener,
         )
     }
 
-    /// 校验并记录当前房间及目标机器人标识。
+    /// Sets the room and expected result user.
     ///
     /// - Parameters:
-    ///   - roomID: RTC 房间标识。
-    ///   - botName: 目标机器人账号；`nil` 或空值表示不限制账号。
-    /// - Throws: 房间标识为空或仍存在活动媒体状态时抛出错误。
+    ///   - roomID: The RTC room identifier.
+    ///   - botName: The expected result account, or `nil` or empty to allow any account.
+    ///
+    /// - Throws: An error if the room identifier is empty or media remains active.
     func configureRoom(
         roomID: String,
         botName: String?
     ) throws {
         let roomID = roomID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let botName = botName?
+        let botName =
+            botName?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !roomID.isEmpty else {
             throw XmaxError(
@@ -441,13 +496,13 @@ final class StreamController: StreamControlling, RtcEventListener,
         try operationLock.withLock {
             try stateLock.withLock {
                 guard !state.localVideoPublished,
-                      !state.localAudioPublished,
-                      state.subscribedRemoteUserIDs.isEmpty,
-                      state.generationTask == nil else {
+                    !state.localAudioPublished,
+                    state.subscribedRemoteUserIDs.isEmpty,
+                    state.generationTask == nil
+                else {
                     throw XmaxError(
                         code: .invalidConfiguration,
-                        message: "Reset the current RTC room before " +
-                            "configuring another one"
+                        message: "Reset the current RTC room before " + "configuring another one"
                     )
                 }
                 state.roomID = roomID
@@ -456,20 +511,22 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 发布本地视频并按配置发布本地音频。
+    /// Publishes local video and optional audio.
     ///
-    /// - Parameter includeAudio: 是否同时发布本地音频。
-    /// - Throws: 房间未配置或 RTC 媒体发布失败时抛出错误。
+    /// - Parameter includeAudio: Whether to also publish local audio.
+    ///
+    /// - Throws: An error if the room is unconfigured or RTC publication fails.
     func publishLocalStream(
         includeAudio: Bool
     ) throws {
         try operationLock.withLock {
-            let currentState = stateLock.withLock { state }
+            let currentState = stateLock.withLock {
+                state
+            }
             guard !currentState.roomID.isEmpty else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "Configure an RTC room before publishing " +
-                        "the local stream"
+                    message: "Configure an RTC room before publishing " + "the local stream"
                 )
             }
 
@@ -499,14 +556,19 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 在生成任务活动期间推送本地外部视频帧；无生成任务时忽略。
+    /// Pushes external video during generation, ignoring frames without an active task.
     ///
-    /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
-    /// - Throws: RTC 资源尚未就绪或视频帧转换失败时抛出错误。
+    /// - Parameter frame: The local frame prepared for RTC.
+    ///
+    /// - Throws: An error if RTC is unready or video conversion fails.
     func pushLocalVideoFrame(
         _ frame: VideoFrame
     ) throws {
-        guard stateLock.withLock({ state.generationTask != nil }) else {
+        guard
+            stateLock.withLock({
+                state.generationTask != nil
+            })
+        else {
             return
         }
         do {
@@ -516,14 +578,19 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 推送本地外部音频帧。
+    /// Pushes an external audio frame.
     ///
-    /// - Parameter frame: 已准备好交给 RTC 的 PCM 音频帧；
-    /// - Throws: RTC 资源尚未就绪或音频帧转换失败时抛出错误。
+    /// - Parameter frame: The PCM frame prepared for RTC;
+    ///
+    /// - Throws: An error if RTC is unready or audio conversion fails.
     func pushLocalAudioFrame(
         _ frame: AudioFrame
     ) throws {
-        guard stateLock.withLock({ state.localAudioPublished }) else {
+        guard
+            stateLock.withLock({
+                state.localAudioPublished
+            })
+        else {
             return
         }
         do {
@@ -533,13 +600,14 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 调整当前生成任务的回传尺寸，不重启生成。
+    /// Changes returned dimensions without restarting generation.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务标识。
-    ///   - targetSize: 生成后回传的整数像素尺寸。
-    ///   - ensureActive: 发送前确认当前配置操作仍有效。
-    /// - Throws: 操作已取消、房间未就绪或信令发送失败时抛出错误。
+    ///   - taskID: The generation task identifier.
+    ///   - targetSize: The integer returned pixel dimensions.
+    ///   - ensureActive: The configuration validity check before sending.
+    ///
+    /// - Throws: An error if cancelled, the room is not ready, or signaling fails.
     func changeTargetSize(
         taskID: String,
         targetSize: CGSize,
@@ -552,11 +620,14 @@ final class StreamController: StreamControlling, RtcEventListener,
         )
     }
 
-    /// 创建一次生成结果流确认等待及其超时任务。
+    /// Creates a generation result stream wait.
     ///
-    /// - Parameter taskID: 需要确认的生成任务标识。
-    /// - Returns: 可取消的结果流确认任务。
-    /// - Throws: 任务标识无效、房间未配置、已有生成任务或等待器创建失败时抛出错误。
+    /// - Parameter taskID: The generation task to confirm.
+    ///
+    /// - Returns: The cancellable confirmation task.
+    ///
+    /// - Throws: An error if the task or room is invalid, a task exists, or a waiter cannot be
+    ///   created.
     func beginGenerationConfirmation(
         taskID: String
     ) throws -> Task<Void, any Error> {
@@ -569,7 +640,9 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
 
         return try operationLock.withLock {
-            let currentState = stateLock.withLock { state }
+            let currentState = stateLock.withLock {
+                state
+            }
             guard !currentState.roomID.isEmpty else {
                 throw XmaxError(
                     code: .rtcError,
@@ -583,8 +656,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 )
             }
 
-            var continuation:
-                AsyncThrowingStream<Void, any Error>.Continuation?
+            var continuation: AsyncThrowingStream<Void, any Error>.Continuation?
             let stream = AsyncThrowingStream<Void, any Error> {
                 continuation = $0
             }
@@ -640,12 +712,13 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 停止匹配生成任务并清除远端音频和结果流绑定。
+    /// Stops a matching task and clears its audio and result binding.
     ///
     /// - Parameters:
-    ///   - taskID: 待停止的任务标识；空字符串表示当前任务。
-    ///   - reason: 用于结束确认等待的取消原因。
-    /// - Returns: 被停止的任务标识；没有匹配任务时返回空字符串。
+    ///   - taskID: The task identifier, or an empty string for the current task.
+    ///   - reason: The reason for cancelling confirmation.
+    ///
+    /// - Returns: The stopped task identifier, or empty if none matched.
     @discardableResult
     func stopStreamGeneration(
         taskID: String,
@@ -659,10 +732,11 @@ final class StreamController: StreamControlling, RtcEventListener,
                 return nil
             }
 
-            let stoppedState = stateLock.withLock { () -> (
-                GenerationWaiter?,
-                Set<String>
-            ) in
+            let stoppedState = stateLock.withLock {
+                () -> (
+                    GenerationWaiter?,
+                    Set<String>
+                ) in
                 let waiter = state.generationWaiter
                 let remoteAudioUserIDs =
                     state.subscribedRemoteAudioUserIDs
@@ -684,10 +758,15 @@ final class StreamController: StreamControlling, RtcEventListener,
 
         reject(
             result.waiter,
-            error: XmaxError(code: .cancelled, message: reason)
+            error: XmaxError(
+                code: .cancelled,
+                message: reason
+            )
         )
         for userID in result.remoteAudioUserIDs.sorted() {
-            performCleanup("取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)") {
+            performCleanup(
+                "取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)"
+            ) {
                 try rtcManager.subscribeRemoteAudio(
                     userID: userID,
                     subscribe: false
@@ -698,7 +777,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         return result.taskID
     }
 
-    /// 清空生成、发布与订阅状态并回收对应 RTC 资源。
+    /// Releases generation, publication, and subscription resources.
     func resetStream() async {
         qualityController.setUplinkVideoStatisticsEnabled(false)
         _ = await stopStreamGeneration(taskID: "")
@@ -710,7 +789,9 @@ final class StreamController: StreamControlling, RtcEventListener,
             }
 
             for userID in previousState.subscribedRemoteUserIDs.sorted() {
-                performCleanup("取消订阅 RTC 远端视频失败 (Failed to Unsubscribe from RTC Remote Video)") {
+                performCleanup(
+                    "取消订阅 RTC 远端视频失败 (Failed to Unsubscribe from RTC Remote Video)"
+                ) {
                     try rtcManager.subscribeRemoteVideo(
                         userID: userID,
                         subscribe: false
@@ -718,23 +799,27 @@ final class StreamController: StreamControlling, RtcEventListener,
                 }
             }
             if previousState.localAudioPublished {
-                performCleanup("取消发布 RTC 本地音频失败 (Failed to Unpublish RTC Local Audio)") {
+                performCleanup(
+                    "取消发布 RTC 本地音频失败 (Failed to Unpublish RTC Local Audio)"
+                ) {
                     try rtcManager.unpublishLocalAudio()
                 }
             }
             if previousState.localVideoPublished {
-                performCleanup("取消发布 RTC 本地视频失败 (Failed to Unpublish RTC Local Video)") {
+                performCleanup(
+                    "取消发布 RTC 本地视频失败 (Failed to Unpublish RTC Local Video)"
+                ) {
                     try rtcManager.unpublishLocalVideo()
                 }
             }
         }
     }
 
-    /// 接收远端用户的视频发布状态变化。
+    /// Reports remote video publication changes.
     ///
     /// - Parameters:
-    ///   - userID: 远端 RTC 用户标识。
-    ///   - published: 当前是否已发布视频。
+    ///   - userID: The remote RTC user identifier.
+    ///   - published: Whether video is currently published.
     @MainActor
     func onRemoteVideoPublished(
         userID: String,
@@ -746,16 +831,23 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
 
         operationLock.withLock {
-            let currentState = stateLock.withLock { state }
+            let currentState = stateLock.withLock {
+                state
+            }
             guard !currentState.roomID.isEmpty,
-                  currentState.botName.isEmpty ||
-                    currentState.botName == userID else {
+                currentState.botName.isEmpty || currentState.botName == userID
+            else {
                 return
             }
 
             if published {
                 subscribeRemoteVideo(userID: userID)
-                confirmRemoteStream(RemoteStream(roomID: currentState.roomID, userID: userID))
+                confirmRemoteStream(
+                    RemoteStream(
+                        roomID: currentState.roomID,
+                        userID: userID
+                    )
+                )
             } else {
                 _ = stateLock.withLock {
                     state.subscribedRemoteUserIDs.remove(userID)
@@ -771,16 +863,21 @@ final class StreamController: StreamControlling, RtcEventListener,
         }
     }
 
-    /// 接收导致当前 RTC 连接或信令传输无法继续的错误。
+    /// Reports a failure preventing further connection or signaling.
     ///
-    /// - Parameter error: 连接或信令传输错误。
+    /// - Parameter error: The connection or signaling failure.
     @MainActor
     func onRtcFailure(
         _ error: XmaxError
     ) {
-        let taskID = stateLock.withLock { state.generationWaiter?.taskID }
+        let taskID = stateLock.withLock {
+            state.generationWaiter?.taskID
+        }
         if let taskID {
-            rejectGenerationStart(taskID: taskID, error: error)
+            rejectGenerationStart(
+                taskID: taskID,
+                error: error
+            )
         } else {
             errorListener(error)
         }
@@ -789,27 +886,40 @@ final class StreamController: StreamControlling, RtcEventListener,
 
 private extension StreamController {
 
-    /// 标记开始信令已发送，并确认已发布的目标结果流。
+    /// Marks start signaling as sent and confirms an available result stream.
     ///
-    /// - Parameter taskID: 开始信令所属的生成任务标识。
+    /// - Parameter taskID: The task whose start signal was sent.
     @MainActor
     func confirmPublishedRemoteStream(
         taskID: String
     ) {
         let stream = stateLock.withLock { () -> RemoteStream? in
-            guard let waiter = state.generationWaiter, waiter.taskID == taskID else { return nil }
+            guard let waiter = state.generationWaiter, waiter.taskID == taskID else {
+                return nil
+            }
             waiter.signalSent = true
-            guard let userID = state.subscribedRemoteUserIDs.first(where: {
-                state.botName.isEmpty || $0 == state.botName
-            }) else { return nil }
-            return RemoteStream(roomID: state.roomID, userID: userID)
+            guard
+                let userID = state.subscribedRemoteUserIDs.first(
+                    where: {
+                        state.botName.isEmpty || $0 == state.botName
+                    }
+                )
+            else {
+                return nil
+            }
+            return RemoteStream(
+                roomID: state.roomID,
+                userID: userID
+            )
         }
-        if let stream { confirmRemoteStream(stream) }
+        if let stream {
+            confirmRemoteStream(stream)
+        }
     }
 
-    /// 绑定已发布的目标结果流并结束生成确认等待。
+    /// Binds a published result stream and completes confirmation.
     ///
-    /// - Parameter stream: 待确认的远端结果流。
+    /// - Parameter stream: The remote result stream to confirm.
     @MainActor
     func confirmRemoteStream(
         _ stream: RemoteStream
@@ -817,13 +927,13 @@ private extension StreamController {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
                 guard state.generationTask != nil,
-                      let waiter = state.generationWaiter,
-                      waiter.signalSent,
-                      !waiter.confirmationPending,
-                      state.subscribedRemoteUserIDs.contains(stream.userID),
-                      stream.roomID == state.roomID,
-                      state.botName.isEmpty ||
-                        stream.userID == state.botName else {
+                    let waiter = state.generationWaiter,
+                    waiter.signalSent,
+                    !waiter.confirmationPending,
+                    state.subscribedRemoteUserIDs.contains(stream.userID),
+                    stream.roomID == state.roomID,
+                    state.botName.isEmpty || stream.userID == state.botName
+                else {
                     return nil
                 }
                 waiter.confirmationPending = true
@@ -855,63 +965,63 @@ private extension StreamController {
 
 private extension StreamController {
 
-    /// 保存当前房间的媒体发布、订阅和生成状态。
+    /// The room's publication, subscription, and generation state.
     struct State {
 
-        /// 当前 RTC 房间标识。
+        /// The current RTC room identifier.
         var roomID = ""
 
-        /// 服务端指定的生成结果用户标识。
+        /// The server-assigned result user identifier.
         var botName = ""
 
-        /// 本地视频是否已发布到 RTC 房间。
+        /// Whether local video is published.
         var localVideoPublished = false
 
-        /// 本地音频是否已发布到 RTC 房间。
+        /// Whether local audio is published.
         var localAudioPublished = false
 
-        /// 当前已订阅视频的远端用户集合。
+        /// The remote users with subscribed video.
         var subscribedRemoteUserIDs: Set<String> = []
 
-        /// 当前已订阅音频的远端用户集合。
+        /// The remote users with subscribed audio.
         var subscribedRemoteAudioUserIDs: Set<String> = []
 
-        /// 当前已提交的生成任务。
+        /// The submitted generation task.
         var generationTask: GenerationTask?
 
-        /// 等待当前生成任务信令和结果流就绪的请求。
+        /// The waiter for generation signaling and remote stream readiness.
         var generationWaiter: GenerationWaiter?
 
-        /// 已确认的远端生成结果流。
+        /// The confirmed remote result stream.
         var activeRemoteStream: RemoteStream?
     }
 
-    /// 标识当前活动的生成任务。
+    /// The identity of an active generation task.
     struct GenerationTask {
 
-        /// 生成任务的唯一标识。
+        /// The unique generation task identifier.
         let id: String
     }
 
-    /// 管理生成结果流确认、超时与异步通知。
+    /// A result stream waiter with timeout and asynchronous notification.
     final class GenerationWaiter: @unchecked Sendable {
 
-        /// 等待结果流的生成任务标识。
+        /// The generation task awaiting its result stream.
         let taskID: String
 
-        /// 用于完成确认等待的异步流 continuation。
+        /// The continuation completing confirmation.
         let continuation: AsyncThrowingStream<Void, any Error>.Continuation
 
-        /// 等待生成结果的超时任务。
+        /// The generation result timeout task.
         var timeoutTask: Task<Void, Never>?
 
-        /// 是否正在确认匹配的远端结果流。
+        /// Whether a matching result stream is being confirmed.
         var confirmationPending = false
 
-        /// 启动信令是否已成功提交。
+        /// Whether start signaling was submitted successfully.
         var signalSent = false
 
-        /// 创建生成结果流确认上下文。
+        /// Creates a generation stream confirmation context.
         init(
             taskID: String,
             continuation:
@@ -922,22 +1032,22 @@ private extension StreamController {
         }
     }
 
-    /// 保存停止生成后仍需清理的等待者与音频订阅。
+    /// The waiter and audio subscriptions retained for stop cleanup.
     struct StopResult {
 
-        /// 需要停止的生成任务标识。
+        /// The generation task to stop.
         let taskID: String
 
-        /// 清理时需要结束的生成等待请求。
+        /// The generation waiter to finish during cleanup.
         let waiter: GenerationWaiter?
 
-        /// 本次停止需要取消的远端音频订阅。
+        /// The remote audio subscriptions to cancel.
         let remoteAudioUserIDs: Set<String>
     }
 
-    /// 订阅远端视频，并将失败交付给当前启动等待或错误回调。
+    /// Subscribes to remote video and reports failure to startup or runtime handling.
     ///
-    /// - Parameter userID: 需要订阅的远端用户账号。
+    /// - Parameter userID: The remote user to subscribe to.
     func subscribeRemoteVideo(
         userID: String
     ) {
@@ -974,10 +1084,11 @@ private extension StreamController {
         }
     }
 
-    /// 应用当前音量后订阅远端音频。
+    /// Applies volume and subscribes to remote audio.
     ///
-    /// - Parameter userID: 需要订阅的远端用户账号。
-    /// - Throws: 音量设置或音频订阅失败时抛出错误。
+    /// - Parameter userID: The remote user to subscribe to.
+    ///
+    /// - Throws: An error if volume configuration or audio subscription fails.
     func subscribeRemoteAudio(
         userID: String
     ) throws {
@@ -1004,9 +1115,9 @@ private extension StreamController {
         }
     }
 
-    /// 取消已记录的远端音频订阅。
+    /// Cancels a recorded remote audio subscription.
     ///
-    /// - Parameter userID: 需要取消订阅的远端用户账号。
+    /// - Parameter userID: The remote user to unsubscribe.
     func unsubscribeRemoteAudio(
         userID: String
     ) {
@@ -1016,7 +1127,9 @@ private extension StreamController {
         guard wasSubscribed else {
             return
         }
-        performCleanup("取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)") {
+        performCleanup(
+            "取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)"
+        ) {
             try rtcManager.subscribeRemoteAudio(
                 userID: userID,
                 subscribe: false
@@ -1024,16 +1137,17 @@ private extension StreamController {
         }
     }
 
-    /// 成功完成匹配生成任务的结果流确认等待。
+    /// Completes confirmation for a matching generation task.
     ///
-    /// - Parameter taskID: 已确认结果流的生成任务标识。
+    /// - Parameter taskID: The confirmed generation task identifier.
     func resolveGenerationStart(
         taskID: String
     ) {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
                 guard state.generationTask?.id == taskID,
-                      state.generationWaiter?.taskID == taskID else {
+                    state.generationWaiter?.taskID == taskID
+                else {
                     return nil
                 }
                 let waiter = state.generationWaiter
@@ -1049,11 +1163,11 @@ private extension StreamController {
         waiter.continuation.finish()
     }
 
-    /// 以错误结束匹配生成任务的结果流确认等待。
+    /// Fails confirmation for a matching generation task.
     ///
     /// - Parameters:
-    ///   - taskID: 等待失败的生成任务标识。
-    ///   - error: 确认失败的原因。
+    ///   - taskID: The failed generation task identifier.
+    ///   - error: The confirmation failure.
     func rejectGenerationStart(
         taskID: String,
         error: XmaxError
@@ -1061,7 +1175,8 @@ private extension StreamController {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
                 guard state.generationTask?.id == taskID,
-                      state.generationWaiter?.taskID == taskID else {
+                    state.generationWaiter?.taskID == taskID
+                else {
                     return nil
                 }
                 let waiter = state.generationWaiter
@@ -1069,14 +1184,17 @@ private extension StreamController {
                 return waiter
             }
         }
-        reject(waiter, error: error)
+        reject(
+            waiter,
+            error: error
+        )
     }
 
-    /// 取消超时任务并以错误结束指定等待者。
+    /// Fails a waiter and cancels its timeout.
     ///
     /// - Parameters:
-    ///   - waiter: 需要结束的确认等待者；`nil` 时不执行操作。
-    ///   - error: 返回给等待者的错误。
+    ///   - waiter: The waiter to finish, or `nil` for no operation.
+    ///   - error: The error returned to the waiter.
     func reject(
         _ waiter: GenerationWaiter?,
         error: XmaxError
@@ -1088,7 +1206,7 @@ private extension StreamController {
         waiter.continuation.finish(throwing: error)
     }
 
-    /// 清除下行统计目标并通知远端结果流解绑。
+    /// Clears downlink statistics and the remote result binding.
     @MainActor
     func clearRemoteStream() {
         qualityController.setDownlinkVideoStatisticsUser(nil)
@@ -1096,14 +1214,14 @@ private extension StreamController {
             try remoteStreamListener(nil)
         } catch {
             XmaxLogger.stream.error(
-                message: "清理 RTC 远端生成流失败 (Failed to Clean Up RTC Remote Generation Stream)\n" +
-                    "└─ \(XmaxLogger.localized("原因：", "Reason: "))" +
-                    (error as NSError).localizedDescription
+                message: "清理 RTC 远端生成流失败 (Failed to Clean Up RTC Remote Generation Stream)\n"
+                    + "└─ \(XmaxLogger.localized("原因：", "Reason: "))"
+                    + (error as NSError).localizedDescription
             )
         }
     }
 
-    /// 撤销本次操作已发布的视频并关闭上行统计。
+    /// Unpublishes this operation's video and clears uplink statistics.
     func rollbackLocalVideoPublication() {
         qualityController.setUplinkVideoStatisticsEnabled(false)
         do {
@@ -1113,18 +1231,18 @@ private extension StreamController {
             }
         } catch {
             XmaxLogger.stream.error(
-                message: "回滚 RTC 本地视频发布失败 (Failed to Roll Back RTC Local Video Publication)\n" +
-                    "└─ \(XmaxLogger.localized("原因：", "Reason: "))" +
-                    (error as NSError).localizedDescription
+                message: "回滚 RTC 本地视频发布失败 (Failed to Roll Back RTC Local Video Publication)\n"
+                    + "└─ \(XmaxLogger.localized("原因：", "Reason: "))"
+                    + (error as NSError).localizedDescription
             )
         }
     }
 
-    /// 执行清理操作，并记录未能完成的清理错误。
+    /// Performs cleanup while logging failures.
     ///
     /// - Parameters:
-    ///   - title: 用于清理失败日志的中英文标题。
-    ///   - action: 需要执行的同步清理操作。
+    ///   - title: The bilingual cleanup failure title.
+    ///   - action: The synchronous cleanup operation.
     func performCleanup(
         _ title: String,
         action: () throws -> Void
@@ -1133,20 +1251,20 @@ private extension StreamController {
             try action()
         } catch {
             XmaxLogger.stream.error(
-                message: "\(title)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))" +
-                    (error as NSError).localizedDescription
+                message: "\(title)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))"
+                    + (error as NSError).localizedDescription
             )
         }
     }
 }
 
-/// 定义生成确认等待的超时时间。
+/// The generation confirmation timeout configuration.
 struct StreamGenerationTiming: Sendable {
 
-    /// 等待生成结果确认的超时时长，单位为纳秒。
+    /// The result stream confirmation timeout, in nanoseconds.
     let timeoutNanoseconds: UInt64
 
-    /// 默认等待生成结果确认的超时配置。
+    /// The default result confirmation timeout.
     static let live = StreamGenerationTiming(
         timeoutNanoseconds: 30_000_000_000
     )

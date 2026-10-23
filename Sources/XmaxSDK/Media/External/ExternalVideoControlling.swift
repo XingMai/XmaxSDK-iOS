@@ -8,23 +8,28 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 管理外部视频的供帧绑定、轨道和本地预览。
+/// An interface for external video binding, tracks, and preview.
 protocol ExternalVideoControlling: Sendable {
 
-    /// 当前外部视频轨道，解绑后为空。
-    var currentTrack: RealtimeVideoTrack? { get }
+    /// The external video track, or `nil` after unbinding.
+    var currentTrack: RealtimeVideoTrack? {
+        get
+    }
 
-    /// 校验源规格并绑定供帧，保留接入方的采集资源所有权。
+    /// Binds an external source without taking ownership of its capture resources.
     ///
-    /// - Parameter source: 接入方拥有的外部视频源。
-    /// - Returns: 可用于预览和生成的本地媒体流。
-    /// - Throws: 规格无效、重复绑定、RTC 配置失败或源启动失败时抛出错误。
+    /// - Parameter source: The external source owned by your app.
+    ///
+    /// - Returns: The local stream for preview and generation.
+    ///
+    /// - Throws: An error if the format is invalid, a binding exists, or RTC or source startup
+    ///   fails.
     @MainActor
     func createExternalVideoStream(
         source: any RealtimeExternalVideoSource
     ) async throws -> RealtimeMediaStream
 
-    /// 停止接收帧，清除预览并通知外部源解绑。
+    /// Stops frame delivery and preview and unbinds the source.
     @MainActor
     func stopExternalVideoStream() async
 }

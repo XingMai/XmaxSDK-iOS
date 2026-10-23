@@ -11,41 +11,45 @@
 import CoreGraphics
 import Foundation
 
-/// 协调本地视频播放器、RTC 外部音视频源和预览资源。
+/// Coordinates video file playback, external RTC media, and preview.
 final class VideoController: VideoControlling, @unchecked Sendable {
 
-    /// 文件视频的本地轨道标识。
+    /// The local video file track identifier.
     private static let localVideoTrackID = "video0"
 
-    /// RTC 外部媒体源适配组件。
+    /// Playback dependencies.
+
+    /// The external RTC media adapter.
     private let rtcManager: any RtcManaging
 
-    /// 读取视频尺寸、方向、时长和音频轨道信息。
+    /// The video metadata reader.
     private let metadataManager: any MediaFileMetadataManaging
 
-    /// 解析媒体尺寸和模型默认帧率。
+    /// The media sizing and default frame rate service.
     private let mediaService: any MediaServicing
 
-    /// 负责文件解码、播放时间轴和本地预览。
+    /// The file decoder, playback timeline, and preview controller.
     private let playerController: any VideoPlayerControlling
 
-    /// 保护文件视频轨道的创建与停止。
+    /// Stream state.
+
+    /// The lock protecting video track creation and stopping.
     private let stateLock = NSLock()
 
-    /// 当前文件视频对应的本地轨道。
+    /// The current video file track.
     private var activeTrack: RealtimeVideoTrack?
 
-    /// 当前文件流是否已启用外部音频输入。
+    /// Whether the current file uses external audio input.
     private var storedHasAudio = false
 
-    /// 创建文件解码、音视频输出和本地预览控制器。
+    /// Creates a video playback and preview controller.
     ///
     /// - Parameters:
-    ///   - rtcManager: RTC 外部媒体源适配组件。
-    ///   - mediaService: 提供模型默认帧率的服务。
-    ///   - videoFrameListener: 接收视频帧的回调。
-    ///   - audioFrameListener: 接收音频帧的回调。
-    ///   - errorListener: 接收播放运行错误的回调。
+    ///   - rtcManager: The external RTC media adapter.
+    ///   - mediaService: The model default frame rate provider.
+    ///   - videoFrameListener: The video frame handler.
+    ///   - audioFrameListener: The audio frame handler.
+    ///   - errorListener: The playback failure handler.
     @MainActor
     convenience init(
         rtcManager: any RtcManaging,
@@ -66,7 +70,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         )
     }
 
-    /// 使用文件元数据、模型规则及播放器组件创建视频控制器。
+    /// Creates a video controller with metadata, sizing, and playback dependencies.
     init(
         rtcManager: any RtcManaging,
         metadataManager: any MediaFileMetadataManaging = MediaFileMetadataManager(),
@@ -79,36 +83,42 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         self.playerController = playerController
     }
 
-    /// 当前活动的本地文件视频轨道；尚未创建时返回空值。
+    /// The active video file track, if created.
     var currentTrack: RealtimeVideoTrack? {
-        stateLock.withLock { activeTrack }
+        stateLock.withLock {
+            activeTrack
+        }
     }
 
-    /// 当前文件视频是否包含由 SDK 管理的音频轨道。
+    /// Whether the video file contains SDK-managed audio.
     var hasAudio: Bool {
-        stateLock.withLock { storedHasAudio }
+        stateLock.withLock {
+            storedHasAudio
+        }
     }
 
-    /// 当前本地文件视频的音频预览音量。
+    /// The local video file preview volume.
     var localAudioVolume: Float {
         get async {
             await playerController.localAudioVolume
         }
     }
 
-    /// 从本地视频文件创建循环播放的媒体流。
+    /// Creates a looping local video stream.
     ///
-    /// - Parameter fileURL: 可读取的本地视频文件地址。
-    /// - Returns: 包含本地文件视频轨道的媒体流。
-    /// - Throws: 已有活动视频流、文件或格式无效、播放启动失败时抛出错误。
+    /// - Parameter fileURL: The URL of a readable local video file.
+    ///
+    /// - Returns: The local video file media stream.
+    ///
+    /// - Throws: An error if a stream exists, the file or format is invalid, or playback cannot
+    ///   start.
     func createLocalVideoStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         guard currentTrack == nil else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Stop the current local video stream before " +
-                    "creating another one"
+                message: "Stop the current local video stream before " + "creating another one"
             )
         }
 
@@ -117,9 +127,9 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         )
     }
 
-    /// 静音或恢复本地文件视频的音频预览，不影响上传的音频帧。
+    /// Mutes or restores file audio preview without affecting uplink audio.
     ///
-    /// - Parameter muted: 为 true 时静音，为 false 时恢复配置的预览音量。
+    /// - Parameter muted: `true` to mute; `false` to restore the configured preview volume.
     func setLocalAudioPreviewMuted(
         _ muted: Bool
     ) async {
@@ -129,21 +139,22 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         await playerController.setLocalAudioPreviewMuted(muted)
     }
 
-    /// 设置本地文件视频的音频预览音量。
+    /// Sets the local video file preview volume.
     ///
-    /// - Parameter volume: 已校验且取值范围为 0...1 的音量。
+    /// - Parameter volume: The validated volume, from 0 to 1.
     func setLocalAudioVolume(
         _ volume: Float
     ) async {
         await playerController.setLocalAudioVolume(volume)
     }
 
-    /// 停止文件音视频输出，并释放当前轨道、RTC 外部音频和预览资源。
+    /// Stops file playback and releases external audio and preview resources.
     func stopLocalVideoStream() async {
-        let state = stateLock.withLock { () -> (
-            RealtimeVideoTrack?,
-            Bool
-        ) in
+        let state = stateLock.withLock {
+            () -> (
+                RealtimeVideoTrack?,
+                Bool
+            ) in
             let track = activeTrack
             let hasAudio = storedHasAudio
             activeTrack = nil
@@ -158,9 +169,9 @@ final class VideoController: VideoControlling, @unchecked Sendable {
             } catch {
                 XmaxLogger.realtime.error(
                     message: """
-                    停止 RTC 外部音频源失败 (Failed to Stop RTC External Audio Source)
-                    └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                    """
+                        停止 RTC 外部音频源失败 (Failed to Stop RTC External Audio Source)
+                        └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                        """
                 )
             }
         }
@@ -174,11 +185,14 @@ final class VideoController: VideoControlling, @unchecked Sendable {
 
 private extension VideoController {
 
-    /// 准备文件视频并启动外部音视频源及循环播放。
+    /// Starts file playback and external audio and video input.
     ///
-    /// - Parameter fileURL: 待播放的本地视频文件地址。
-    /// - Returns: 持有文件视频轨道的本地媒体流。
-    /// - Throws: 文件准备、外部源配置或播放启动失败时抛出错误。
+    /// - Parameter fileURL: The local video file URL.
+    ///
+    /// - Returns: The local video file media stream.
+    ///
+    /// - Throws: An error if file preparation, external source configuration, or playback startup
+    ///   fails.
     func createStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
@@ -231,9 +245,9 @@ private extension VideoController {
                 } catch {
                     XmaxLogger.realtime.error(
                         message: """
-                        回滚 RTC 外部音频源失败 (Failed to Roll Back RTC External Audio Source)
-                        └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
-                        """
+                            回滚 RTC 外部音频源失败 (Failed to Roll Back RTC External Audio Source)
+                            └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                            """
                     )
                 }
             }
@@ -246,9 +260,9 @@ private extension VideoController {
         }
     }
 
-    /// 为文件视频轨道注册播放器预览绑定。
+    /// Registers playback preview for a video track.
     ///
-    /// - Parameter track: 需要绑定预览的本地视频轨道。
+    /// - Parameter track: The local video track to preview.
     @MainActor
     func registerPreview(
         for track: RealtimeVideoTrack
@@ -269,11 +283,14 @@ private extension VideoController {
         )
     }
 
-    /// 根据视频显示方向和模型面积上限计算媒体规格。
+    /// Resolves the video media format from display orientation and model limits.
     ///
-    /// - Parameter metadata: 源文件的编码尺寸、方向及音频信息。
-    /// - Returns: 保留显示比例并采用模型默认帧率的媒体规格。
-    /// - Throws: 原始尺寸或解析结果无效时抛出错误。
+    /// - Parameter metadata: The file's encoded dimensions, orientation, and audio information.
+    ///
+    /// - Returns: A media format retaining display aspect ratio with the model's default frame
+    ///   rate.
+    ///
+    /// - Throws: An error if source dimensions or the resolved format are invalid.
     func resolveVideoFormat(
         metadata: MediaFileMetadata
     ) throws -> RealtimeVideoFormat {

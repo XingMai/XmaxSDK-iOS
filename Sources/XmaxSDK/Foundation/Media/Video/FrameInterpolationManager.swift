@@ -15,44 +15,51 @@ import CoreVideo
 import Foundation
 import VideoToolbox
 
-/// 使用 VideoToolbox 在相邻视频帧之间生成一个低延迟中间帧。
+/// A VideoToolbox processor generating one low-latency frame between source frames.
 @available(iOS 26.0, *)
 actor FrameInterpolationManager: FrameInterpolationManaging {
 
-    /// 插帧输入宽度，单位为像素。
+    /// Input format.
+
+    /// The interpolation input width, in pixels.
     private let sourceWidth: Int
 
-    /// 插帧输入高度，单位为像素。
+    /// The interpolation input height, in pixels.
     private let sourceHeight: Int
 
-    /// 插帧输入的像素格式。
+    /// The interpolation input pixel format.
     private let sourcePixelFormat: OSType
 
-    /// 执行系统视频插帧处理。
+    /// Processing resources.
+
+    /// The system frame interpolation processor.
     private let processor = VTFrameProcessor()
 
-    /// 转换插帧输入图像的 Core Image 上下文。
+    /// The Core Image context for input conversion.
     private let imageContext = CIContext(options: nil)
 
-    /// 复用插帧输入像素缓冲区。
+    /// The reusable interpolation input buffers.
     private let sourcePool: CVPixelBufferPool
 
-    /// 复用插帧输出像素缓冲区。
+    /// The reusable interpolation output buffers.
     private let destinationPool: CVPixelBufferPool
 
-    /// 与当前帧配对生成中间帧的上一输入帧。
+    /// Processing state.
+
+    /// The preceding frame used for interpolation.
     private var previousSourceFrame: VTFrameProcessorFrame?
 
-    /// 最近一次规范化后的时间戳，用于保持帧时间递增。
+    /// The last normalized timestamp.
     private var lastNormalizedTimeStamp: CMTime?
 
-    /// 是否已关闭插帧会话。
+    /// Whether the interpolation session is closed.
     private var isClosed = false
 
-    /// 根据首帧规格建立低延迟插帧会话及像素缓冲池。
+    /// Creates an interpolation session for the first frame's format.
     ///
-    /// - Parameter frame: 确定输入尺寸和像素格式的首帧。
-    /// - Throws: 设备或尺寸不支持插帧、缓冲池创建失败或处理会话启动失败时抛出错误。
+    /// - Parameter frame: The first frame, defining input dimensions and pixel format.
+    ///
+    /// - Throws: An error if interpolation is unsupported or buffer or session creation fails.
     init(
         frame: RealtimeVideoFrame
     ) throws {
@@ -61,16 +68,16 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
         sourcePixelFormat = CVPixelBufferGetPixelFormatType(frame.pixelBuffer)
 
         guard VTLowLatencyFrameInterpolationConfiguration.isSupported,
-              let configuration =
+            let configuration =
                 VTLowLatencyFrameInterpolationConfiguration(
                     frameWidth: sourceWidth,
                     frameHeight: sourceHeight,
                     numberOfInterpolatedFrames: 1
-                ) else {
+                )
+        else {
             throw XmaxError(
                 code: .frameInterpolationUnsupported,
-                message: "Frame interpolation is unavailable for the " +
-                    "remote video dimensions"
+                message: "Frame interpolation is unavailable for the " + "remote video dimensions"
             )
         }
 
@@ -92,44 +99,48 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
         } catch {
             throw XmaxError(
                 code: .mediaError,
-                message: "Failed to start frame interpolation: " +
-                    (error as NSError).localizedDescription
+                message: "Failed to start frame interpolation: "
+                    + (error as NSError).localizedDescription
             )
         }
     }
 
-    /// 结束尚未关闭的插帧会话。
+    /// Closes an active interpolation session.
     isolated deinit {
         if !isClosed {
             processor.endSession()
         }
     }
 
-    /// 判断处理器是否仍匹配输入帧的视频规格。
+    /// Checks whether the processor matches an input frame.
     ///
-    /// - Parameter frame: 待比较的视频帧。
-    /// - Returns: 分辨率与像素格式均匹配时返回 `true`。
+    /// - Parameter frame: The frame to compare.
+    ///
+    /// - Returns: `true` if dimensions and pixel format match.
     nonisolated func matches(
         _ frame: RealtimeVideoFrame
     ) -> Bool {
-        CVPixelBufferGetWidth(frame.pixelBuffer) == sourceWidth &&
-            CVPixelBufferGetHeight(frame.pixelBuffer) == sourceHeight &&
-            CVPixelBufferGetPixelFormatType(frame.pixelBuffer) ==
-                sourcePixelFormat
+        CVPixelBufferGetWidth(frame.pixelBuffer) == sourceWidth
+            && CVPixelBufferGetHeight(frame.pixelBuffer) == sourceHeight
+            && CVPixelBufferGetPixelFormatType(frame.pixelBuffer) == sourcePixelFormat
     }
 
-    /// 在前一帧和当前帧之间生成一个中间帧。
+    /// Generates an intermediate frame between the previous and current frames.
     ///
     /// - Parameters:
-    ///   - frame: 当前解码视频帧。
-    ///   - sourceDuration: 当前源帧使用的显示时长。
-    /// - Returns: 首帧返回原帧，后续返回中间帧与当前原帧。
-    /// - Throws: 像素缓冲区准备或 VideoToolbox 处理失败时抛出错误。
+    ///   - frame: The current decoded video frame.
+    ///   - sourceDuration: The current source frame's display duration.
+    ///
+    /// - Returns: The original first frame, or an interpolated frame followed by the current frame.
+    ///
+    /// - Throws: An error if buffer preparation or VideoToolbox processing fails.
     func process(
         _ frame: RealtimeVideoFrame,
         sourceDuration: CMTime
     ) async throws -> [RealtimeVideoFrame] {
-        guard !isClosed else { throw CancellationError() }
+        guard !isClosed else {
+            throw CancellationError()
+        }
 
         let timeStamp = normalizedTimeStamp(
             frame.presentationTimeStamp,
@@ -138,10 +149,12 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
         let sourcePixelBuffer = try makeSourcePixelBuffer(
             copying: frame.pixelBuffer
         )
-        guard let sourceFrame = VTFrameProcessorFrame(
-            buffer: sourcePixelBuffer,
-            presentationTimeStamp: timeStamp
-        ) else {
+        guard
+            let sourceFrame = VTFrameProcessorFrame(
+                buffer: sourcePixelBuffer,
+                presentationTimeStamp: timeStamp
+            )
+        else {
             throw Self.mediaError(
                 "Remote video pixel buffer is not IOSurface-backed"
             )
@@ -164,8 +177,7 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
             fallback: sourceDuration
         )
         let interpolationTimeStamp =
-            previousSourceFrame.presentationTimeStamp +
-            interpolationDuration.multiplied(by: 0.5)
+            previousSourceFrame.presentationTimeStamp + interpolationDuration.multiplied(by: 0.5)
         let destinationFrame = try makeDestinationFrame(
             timeStamp: interpolationTimeStamp
         )
@@ -173,19 +185,23 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
             sourcePixelBuffer,
             destinationFrame.buffer
         )
-        guard let parameters = VTLowLatencyFrameInterpolationParameters(
-            sourceFrame: sourceFrame,
-            previousFrame: previousSourceFrame,
-            interpolationPhase: [0.5],
-            destinationFrames: [destinationFrame]
-        ) else {
+        guard
+            let parameters = VTLowLatencyFrameInterpolationParameters(
+                sourceFrame: sourceFrame,
+                previousFrame: previousSourceFrame,
+                interpolationPhase: [0.5],
+                destinationFrames: [destinationFrame]
+            )
+        else {
             throw Self.mediaError(
                 "Failed to create frame interpolation parameters"
             )
         }
 
         try await process(parameters)
-        guard !isClosed else { throw CancellationError() }
+        guard !isClosed else {
+            throw CancellationError()
+        }
         self.previousSourceFrame = sourceFrame
 
         let outputDuration = sourceDuration.divided(by: 2)
@@ -203,9 +219,11 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
         ]
     }
 
-    /// 结束插帧会话并释放历史帧，不再接受新的处理请求。
+    /// Closes interpolation and releases retained frames.
     func close() {
-        guard !isClosed else { return }
+        guard !isClosed else {
+            return
+        }
         isClosed = true
         processor.endSession()
         previousSourceFrame = nil
@@ -216,10 +234,11 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
 @available(iOS 26.0, *)
 private extension FrameInterpolationManager {
 
-    /// 提交一次 VideoToolbox 帧处理并等待完成。
+    /// Submits a VideoToolbox processing request and awaits completion.
     ///
-    /// - Parameter parameters: 当前帧处理所需的输入和输出参数。
-    /// - Throws: VideoToolbox 处理失败时抛出原始错误。
+    /// - Parameter parameters: The input and output processing parameters.
+    ///
+    /// - Throws: The underlying VideoToolbox processing error.
     func process(
         _ parameters: any VTFrameProcessorParameters
     ) async throws {
@@ -235,11 +254,13 @@ private extension FrameInterpolationManager {
         }
     }
 
-    /// 从输出缓冲池创建带时间戳的目标帧。
+    /// Creates a timestamped frame from the output pool.
     ///
-    /// - Parameter timeStamp: 插值帧的显示时间戳。
-    /// - Returns: 供 VideoToolbox 写入插值结果的帧。
-    /// - Throws: 缓冲区分配或处理帧创建失败时抛出错误。
+    /// - Parameter timeStamp: The interpolated frame's presentation timestamp.
+    ///
+    /// - Returns: The frame receiving the interpolation output.
+    ///
+    /// - Throws: An error if buffer or processing frame allocation fails.
     func makeDestinationFrame(
         timeStamp: CMTime
     ) throws -> VTFrameProcessorFrame {
@@ -250,24 +271,26 @@ private extension FrameInterpolationManager {
             &pixelBuffer
         )
         guard status == kCVReturnSuccess,
-              let pixelBuffer,
-              let frame = VTFrameProcessorFrame(
+            let pixelBuffer,
+            let frame = VTFrameProcessorFrame(
                 buffer: pixelBuffer,
                 presentationTimeStamp: timeStamp
-              ) else {
+            )
+        else {
             throw Self.mediaError(
-                "Failed to allocate an interpolation output buffer: " +
-                    "\(status)"
+                "Failed to allocate an interpolation output buffer: " + "\(status)"
             )
         }
         return frame
     }
 
-    /// 复制输入像素到符合插帧要求的缓冲区。
+    /// Copies input pixels into an interpolation-compatible buffer.
     ///
-    /// - Parameter pixelBuffer: 待复制的源像素缓冲区。
-    /// - Returns: 保留源附件并转换为处理像素格式的缓冲区。
-    /// - Throws: 源缓冲池分配失败时抛出错误。
+    /// - Parameter pixelBuffer: The source pixel buffer.
+    ///
+    /// - Returns: A converted buffer retaining the source attachments.
+    ///
+    /// - Throws: An error if input buffer allocation fails.
     func makeSourcePixelBuffer(
         copying pixelBuffer: CVPixelBuffer
     ) throws -> CVPixelBuffer {
@@ -279,12 +302,14 @@ private extension FrameInterpolationManager {
         )
         guard status == kCVReturnSuccess, let sourcePixelBuffer else {
             throw Self.mediaError(
-                "Failed to allocate an interpolation source buffer: " +
-                    "\(status)"
+                "Failed to allocate an interpolation source buffer: " + "\(status)"
             )
         }
 
-        CVBufferPropagateAttachments(pixelBuffer, sourcePixelBuffer)
+        CVBufferPropagateAttachments(
+            pixelBuffer,
+            sourcePixelBuffer
+        )
         imageContext.render(
             CIImage(cvPixelBuffer: pixelBuffer),
             to: sourcePixelBuffer
@@ -292,12 +317,13 @@ private extension FrameInterpolationManager {
         return sourcePixelBuffer
     }
 
-    /// 保留有效时间戳，或根据上一帧时间和帧时长补全时间戳。
+    /// Resolves a valid timestamp using the previous frame when necessary.
     ///
     /// - Parameters:
-    ///   - timeStamp: 输入帧的显示时间戳。
-    ///   - duration: 缺失时间戳时使用的帧间隔。
-    /// - Returns: 当前帧用于插值的时间戳。
+    ///   - timeStamp: The input presentation timestamp.
+    ///   - duration: The frame interval used when the timestamp is missing.
+    ///
+    /// - Returns: The timestamp used for interpolation.
     func normalizedTimeStamp(
         _ timeStamp: CMTime,
         duration: CMTime
@@ -314,13 +340,15 @@ private extension FrameInterpolationManager {
         return resolvedTimeStamp
     }
 
-    /// 确定相邻源帧之间有效的插值间隔。
+    /// Resolves a valid interpolation interval between source frames.
     ///
     /// - Parameters:
-    ///   - previous: 上一帧显示时间戳。
-    ///   - current: 当前帧显示时间戳。
-    ///   - fallback: 时间差无效或不在一秒以内时使用的间隔。
-    /// - Returns: 有效帧间隔或指定的备用间隔。
+    ///   - previous: The previous presentation timestamp.
+    ///   - current: The current presentation timestamp.
+    ///   - fallback: The fallback interval for invalid differences or differences of at least one
+    ///     second.
+    ///
+    /// - Returns: The resolved frame interval.
     func resolvedInterpolationDuration(
         previous: CMTime,
         current: CMTime,
@@ -328,29 +356,38 @@ private extension FrameInterpolationManager {
     ) -> CMTime {
         let duration = current - previous
         guard duration.isValid,
-              duration > .zero,
-              duration < CMTime(seconds: 1, preferredTimescale: 600) else {
+            duration > .zero,
+            duration
+                < CMTime(
+                    seconds: 1,
+                    preferredTimescale: 600
+                )
+        else {
             return fallback
         }
         return duration
     }
 
-    /// 按指定像素属性创建可复用的缓冲池。
+    /// Creates a reusable pixel buffer pool.
     ///
-    /// - Parameter attributes: 像素缓冲区属性。
-    /// - Returns: 新建的像素缓冲池。
-    /// - Throws: 缓冲池创建失败时抛出错误。
+    /// - Parameter attributes: The pixel buffer attributes.
+    ///
+    /// - Returns: The pixel buffer pool.
+    ///
+    /// - Throws: An error if pool creation fails.
     static func makePixelBufferPool(
         attributes: [String: Any]
     ) throws -> CVPixelBufferPool {
         try makePixelBufferPool(attributes: attributes as CFDictionary)
     }
 
-    /// 按指定像素属性创建可复用的缓冲池。
+    /// Creates a reusable pixel buffer pool.
     ///
-    /// - Parameter attributes: 像素缓冲区属性。
-    /// - Returns: 新建的像素缓冲池。
-    /// - Throws: 缓冲池创建失败时抛出错误。
+    /// - Parameter attributes: The pixel buffer attributes.
+    ///
+    /// - Returns: The pixel buffer pool.
+    ///
+    /// - Throws: An error if pool creation fails.
     static func makePixelBufferPool(
         attributes: CFDictionary
     ) throws -> CVPixelBufferPool {
@@ -366,22 +403,23 @@ private extension FrameInterpolationManager {
         )
         guard status == kCVReturnSuccess, let pool else {
             throw mediaError(
-                "Failed to create an interpolation pixel buffer pool: " +
-                    "\(status)"
+                "Failed to create an interpolation pixel buffer pool: " + "\(status)"
             )
         }
         return pool
     }
 
-    /// 合并处理器要求和输入规格，创建支持 IOSurface 的源缓冲池。
+    /// Creates an IOSurface-backed input pool satisfying processor requirements.
     ///
     /// - Parameters:
-    ///   - width: 输入宽度，单位为像素。
-    ///   - height: 输入高度，单位为像素。
-    ///   - pixelFormat: 处理使用的像素格式。
-    ///   - requiredAttributes: 处理器要求的源缓冲区属性。
-    /// - Returns: 满足处理要求的源像素缓冲池。
-    /// - Throws: 属性无法合并或缓冲池创建失败时抛出错误。
+    ///   - width: The input width, in pixels.
+    ///   - height: The input height, in pixels.
+    ///   - pixelFormat: The processing pixel format.
+    ///   - requiredAttributes: The processor's required source attributes.
+    ///
+    /// - Returns: A compatible source pixel buffer pool.
+    ///
+    /// - Throws: An error if attributes cannot be merged or the pool cannot be created.
     static func makeSourcePixelBufferPool(
         width: Int,
         height: Int,
@@ -406,19 +444,20 @@ private extension FrameInterpolationManager {
         )
         guard status == kCVReturnSuccess, let resolvedAttributes else {
             throw mediaError(
-                "Failed to resolve interpolation buffer attributes: " +
-                    "\(status)"
+                "Failed to resolve interpolation buffer attributes: " + "\(status)"
             )
         }
         return try makePixelBufferPool(attributes: resolvedAttributes)
     }
 
-    /// 选取处理器支持的输入像素格式。
+    /// Selects a supported input pixel format.
     ///
     /// - Parameters:
-    ///   - inputPixelFormat: 原始输入像素格式。
-    ///   - supportedPixelFormats: 处理器支持的像素格式列表。
-    /// - Returns: 优先保留原格式，其次选择 NV12、BGRA 或首个支持的格式。
+    ///   - inputPixelFormat: The source pixel format.
+    ///   - supportedPixelFormats: The processor's supported pixel formats.
+    ///
+    /// - Returns: The source format if supported, otherwise NV12, BGRA, or the first supported
+    ///   format.
     static func preferredSourcePixelFormat(
         inputPixelFormat: OSType,
         supportedPixelFormats: [OSType]
@@ -437,37 +476,50 @@ private extension FrameInterpolationManager {
         return supportedPixelFormats.first ?? inputPixelFormat
     }
 
-    /// 构造插帧处理错误。
+    /// Creates a frame interpolation error.
     ///
-    /// - Parameter message: 错误描述。
-    /// - Returns: 包含指定描述的媒体错误。
+    /// - Parameter message: The error description.
+    ///
+    /// - Returns: A media error with the specified description.
     static func mediaError(
         _ message: String
     ) -> XmaxError {
-        XmaxError(code: .mediaError, message: message)
+        XmaxError(
+            code: .mediaError,
+            message: message
+        )
     }
 }
 
 private extension CMTime {
 
-    /// 将时间按浮点倍数缩放。
+    /// Scales a time value by a floating-point multiplier.
     ///
-    /// - Parameter multiplier: 时间缩放倍数。
-    /// - Returns: 缩放后的时间。
+    /// - Parameter multiplier: The time multiplier.
+    ///
+    /// - Returns: The scaled time.
     func multiplied(
         by multiplier: Float64
     ) -> CMTime {
-        CMTimeMultiplyByFloat64(self, multiplier: multiplier)
+        CMTimeMultiplyByFloat64(
+            self,
+            multiplier: multiplier
+        )
     }
 
-    /// 将时间按整数除数分割。
+    /// Divides a time value by an integer.
     ///
-    /// - Parameter divisor: 时间除数。
-    /// - Returns: 分割后的时间。
+    /// - Parameter divisor: The time divisor.
+    ///
+    /// - Returns: The divided time.
     func divided(
         by divisor: Int32
     ) -> CMTime {
-        CMTimeMultiplyByRatio(self, multiplier: 1, divisor: divisor)
+        CMTimeMultiplyByRatio(
+            self,
+            multiplier: 1,
+            divisor: divisor
+        )
     }
 }
 #endif

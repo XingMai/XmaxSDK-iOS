@@ -10,29 +10,32 @@
 
 import CoreMedia
 
-/// 定义单帧插值处理器的内部能力。
+/// An interface for single-frame interpolation.
 protocol FrameInterpolationManaging: AnyObject, Sendable {
 
-    /// 判断处理器是否仍匹配输入帧的视频规格。
+    /// Checks whether the processor matches an input frame.
     ///
-    /// - Parameter frame: 待比较的视频帧。
-    /// - Returns: 分辨率与像素格式均匹配时返回 `true`。
+    /// - Parameter frame: The frame to compare.
+    ///
+    /// - Returns: `true` if dimensions and pixel format match.
     func matches(
         _ frame: RealtimeVideoFrame
     ) -> Bool
 
-    /// 在前一帧和当前帧之间生成一个中间帧。
+    /// Generates an intermediate frame between the previous and current frames.
     ///
     /// - Parameters:
-    ///   - frame: 当前解码视频帧。
-    ///   - sourceDuration: 当前源帧使用的显示时长。
-    /// - Returns: 首帧返回原帧，后续返回中间帧与当前原帧。
-    /// - Throws: 像素缓冲区准备或 VideoToolbox 处理失败时抛出错误。
+    ///   - frame: The current decoded video frame.
+    ///   - sourceDuration: The current source frame's display duration.
+    ///
+    /// - Returns: The original first frame, or an interpolated frame followed by the current frame.
+    ///
+    /// - Throws: An error if buffer preparation or VideoToolbox processing fails.
     func process(
         _ frame: RealtimeVideoFrame,
         sourceDuration: CMTime
     ) async throws -> [RealtimeVideoFrame]
 
-    /// 结束插帧会话并释放历史帧，不再接受新的处理请求。
+    /// Closes interpolation and releases retained frames.
     func close() async
 }

@@ -8,23 +8,23 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 接收 RTC 媒体和数据信令事件。
+/// A listener for RTC media and signaling events.
 protocol RtcEventListener: AnyObject {
 
-    /// 接收远端用户的视频发布状态变化。
+    /// Reports remote video publication changes.
     ///
     /// - Parameters:
-    ///   - userID: 远端 RTC 用户标识。
-    ///   - published: 当前是否已发布视频。
+    ///   - userID: The remote RTC user identifier.
+    ///   - published: Whether video is currently published.
     @MainActor
     func onRemoteVideoPublished(
         userID: String,
         published: Bool
     )
 
-    /// 接收导致当前 RTC 连接或信令传输无法继续的错误。
+    /// Reports a failure preventing further connection or signaling.
     ///
-    /// - Parameter error: 连接或信令传输错误。
+    /// - Parameter error: The connection or signaling failure.
     @MainActor
     func onRtcFailure(
         _ error: XmaxError

@@ -10,65 +10,71 @@
 
 import Foundation
 
-/// 异步接收渲染视图采集的交互帧。
-typealias RenderInteractionListener = @Sendable (
-    _ frame: InteractionFrame
-) async -> Void
+/// An asynchronous handler for view interaction frames.
+typealias RenderInteractionListener =
+    @Sendable (
+        _ frame: InteractionFrame
+    ) async -> Void
 
-/// 定义渲染层向 Core 暴露的统一能力。
+/// The rendering interface used by Core.
 @MainActor
 protocol RenderControlling: AnyObject, Sendable {
 
-    /// 当前远端视频插帧是否处于开启状态。
-    var isFrameInterpolationEnabled: Bool { get async }
+    /// Whether remote frame interpolation is active.
+    var isFrameInterpolationEnabled: Bool {
+        get async
+    }
 
-    /// 更新远端解码帧来源并使旧流的缓存和等待失效。
+    /// Changes the remote source, invalidating cached frames and waits for the previous stream.
     ///
-    /// - Parameter stream: 新的远端流；传入 `nil` 清除当前来源。
-    /// - Throws: 旧流监听解除或新流监听绑定失败时抛出错误。
+    /// - Parameter stream: The remote stream, or `nil` to clear it.
+    ///
+    /// - Throws: An error if frame listener removal or attachment fails.
     func setRemoteStream(
         _ stream: RemoteStream?
     ) throws
 
-    /// 设置远端最终视频帧监听器。
+    /// Sets the final remote video frame listener.
     ///
-    /// - Parameter listener: 在独立串行队列接收最终帧的回调；`nil` 表示清除。
+    /// - Parameter listener: The handler on a separate serial queue, or `nil` to remove it.
     func setRemoteVideoFrameListener(
         _ listener: RealtimeVideoFrameListener?
     )
 
-    /// 为远端轨道注册视频渲染和轨迹交互绑定。
+    /// Registers remote rendering and trajectory interactions.
     ///
     /// - Parameters:
-    ///   - track: 需要注册的远端视频轨道。
-    ///   - resolvedMediaSize: 处理后的本地媒体尺寸，用于轨迹交互映射。
-    ///   - interactionListener: 接收视图交互采样的异步回调。
+    ///   - track: The remote video track to register.
+    ///   - resolvedMediaSize: The resolved local media dimensions for interaction mapping.
+    ///   - interactionListener: The asynchronous view interaction handler.
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,
         resolvedMediaSize: CGSize,
         interactionListener: @escaping RenderInteractionListener
     )
 
-    /// 开启或关闭远端视频插帧。
+    /// Enables or disables remote frame interpolation.
     ///
     /// - Parameters:
-    ///   - enabled: 是否开启插帧。
-    ///   - videoFormat: 期望的回传视频格式；尚未创建本地流时为空。
-    /// - Throws: 显式开启时，当前设备或视频规格不支持插帧则抛出错误。
+    ///   - enabled: Whether to enable interpolation.
+    ///   - videoFormat: The expected returned format, or `nil` before local media creation.
+    ///
+    /// - Throws: An error if explicitly enabling unsupported interpolation.
     func setFrameInterpolationEnabled(
         _ enabled: Bool,
         videoFormat: RealtimeVideoFormat?
     ) async throws
 
-    /// 等待当前远端流产生第一张已经完成处理、可立即提交显示的视频帧。
+    /// Waits for the first processed remote frame ready for display.
     ///
-    /// - Throws: 等待被取消、远端流被重置或首帧等待超时时抛出错误。
+    /// - Throws: An error if cancelled, the remote stream is reset, or the wait times out.
     func waitUntilRemoteFrameReady() async throws
 
-    /// 注销远端轨道的所有渲染绑定，重置画面并等待在途帧处理结束。
+    /// Unregisters remote rendering and waits for in-flight processing.
     ///
-    /// - Parameter track: 需要注销的远端轨道；没有轨道时仍会清理帧处理资源。
-    /// - Throws: 解除 RTC 视频帧监听失败时抛出错误。
+    /// - Parameter track: The track to unregister, or `nil` to clear processing without a track.
+    ///
+    /// - Throws: An error if RTC frame listener removal fails.
     func resetRemoteTrack(
         _ track: RealtimeVideoTrack?
     ) async throws

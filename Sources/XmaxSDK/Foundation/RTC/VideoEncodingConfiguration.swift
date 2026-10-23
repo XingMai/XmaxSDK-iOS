@@ -8,41 +8,41 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// RTC 主视频流编码参数。
+/// The encoding settings for the RTC main video stream.
 struct VideoEncodingConfiguration: Equatable, Sendable {
 
-    /// 指定网络受限时的视频编码退化偏好。
+    /// The preferred encoding fallback under network constraints.
     enum EncoderPreference: Equatable, Sendable {
 
-        /// 由 RTC 引擎选择编码降级策略。
+        /// Lets the RTC engine choose a degradation strategy.
         case auto
 
-        /// 带宽不足时优先保持帧率。
+        /// Preserves frame rate when bandwidth is limited.
         case maintainFramerate
 
-        /// 带宽不足时优先保持画质。
+        /// Preserves picture quality when bandwidth is limited.
         case maintainQuality
     }
 
-    /// 编码宽度，单位为像素。
+    /// The encoding width, in pixels.
     let width: Int
 
-    /// 目标编码高度，单位为像素。
+    /// The target encoding height, in pixels.
     let height: Int
 
-    /// 目标编码帧率，单位为 fps。
+    /// The target encoding frame rate, in frames per second.
     let frameRate: Int
 
-    /// 编码码率下限，单位为 kbps；0 表示不设最低码率。
+    /// The minimum bitrate, in kbps. Zero disables the minimum.
     let minimumBitrate: Int
 
-    /// 编码码率上限，单位为 kbps；负值使用平台默认值。
+    /// The maximum bitrate, in kbps. Negative values use the platform default.
     let maximumBitrate: Int
 
-    /// 网络或性能受限时的编码降级偏好。
+    /// The encoding fallback preference under network or performance constraints.
     let encoderPreference: EncoderPreference
 
-    /// 创建 RTC 视频编码配置。
+    /// Creates a video encoder configuration.
     init(
         width: Int,
         height: Int,

@@ -10,23 +10,26 @@
 
 import CoreGraphics
 
-/// 一次从渲染视口采集到的交互输入。
+/// An interaction sampled from a video viewport.
 struct InteractionFrame: Sendable {
 
-    /// 本次采样得到的触点，坐标相对于视口。
+    /// The sampled touch positions relative to the viewport.
     let points: [CGPoint]
 
-    /// 采样视口的宽高，单位为点。
+    /// The viewport dimensions, in points.
     let viewportSize: CGSize
 
-    /// 视图显示媒体时采用的填充方式。
+    /// The view's video content mode.
     let contentMode: VideoContentMode
 }
 
 extension RealtimeVideoFormat {
 
-    /// 视频规格对应的像素宽高。
+    /// The video format dimensions, in pixels.
     var size: CGSize {
-        CGSize(width: width, height: height)
+        CGSize(
+            width: width,
+            height: height
+        )
     }
 }

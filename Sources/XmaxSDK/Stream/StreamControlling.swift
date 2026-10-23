@@ -10,157 +10,174 @@
 
 import Foundation
 
-/// 定义传输层向 Core 暴露的统一能力。
+/// The transport interface used by Core.
 protocol StreamControlling: Sendable {
 
-    /// 当前媒体基准及上下行档位。
-    var qualityConfiguration: QualityConfiguration? { get }
+    /// The current media baseline and directional quality levels.
+    var qualityConfiguration: QualityConfiguration? {
+        get
+    }
 
-    /// 根据媒体基准和模型历史准备上下行档位。
+    /// Prepares quality levels from the media baseline and model history.
     ///
     /// - Parameters:
-    ///   - baseline: 本地媒体原始输出规格，不随调档改变。
-    ///   - model: 用于隔离历史档位的模型标识。
-    ///   - isAdaptiveQualityEnabled: 是否启用自适应调档；关闭时从 L1 开始，不读写历史档位。
-    /// - Returns: 本次连接的初始上下行配置。
+    ///   - baseline: The resolved local media baseline, unchanged by adaptation.
+    ///   - model: The model identifier isolating quality history.
+    ///   - isAdaptiveQualityEnabled: Whether to adapt quality. Disabled connections start at L1
+    ///     without using history.
+    ///
+    /// - Returns: The initial directional quality configuration.
     func prepareQuality(
         baseline: RealtimeVideoFormat,
         model: String,
         isAdaptiveQualityEnabled: Bool
     ) -> QualityConfiguration
 
-    /// 设置内部调档采样回调，不影响公开网络质量监听。
+    /// Sets internal quality sampling independently of the public network listener.
     ///
-    /// - Parameter listener: 接收网络质量及单调时钟采样时间；nil 表示移除。
+    /// - Parameter listener: The quality and monotonic sample time handler, or `nil` to remove it.
     func setAdaptiveQualityListener(
         _ listener: (@Sendable (RealtimeNetworkQuality, TimeInterval) -> Void)?
     )
 
-    /// 消费当前网络采样并返回候选档位。
+    /// Proposes levels from the current network sample.
     ///
     /// - Parameters:
-    ///   - quality: 当前上下行网络质量。
-    ///   - sampledAt: 单调时钟的采样时间，单位为秒。
-    /// - Returns: 满足连续采样和冷却条件的候选档位。
+    ///   - quality: The current directional network quality.
+    ///   - sampledAt: The monotonic sample time, in seconds.
+    ///
+    /// - Returns: The candidate levels satisfying sample and cooldown requirements.
     func proposeQuality(
         _ quality: RealtimeNetworkQuality,
         sampledAt: TimeInterval
     ) -> QualityChange
 
-    /// 提交调档结果，成功时保存历史档位。
+    /// Commits adjustment results, persisting successful levels.
     ///
     /// - Parameters:
-    ///   - downlink: true 表示下行，false 表示上行。
-    ///   - level: 本次尝试的档位，范围为 1...5。
-    ///   - success: 配置是否成功应用。
+    ///   - downlink: Whether this is downlink rather than uplink.
+    ///   - level: The attempted quality level.
+    ///   - success: Whether configuration succeeded.
     func completeQuality(
         downlink: Bool,
         level: RealtimeQualityLevel,
         success: Bool
     )
 
-    /// 清除连续采样窗口。
+    /// Clears consecutive quality samples.
     func resetQualitySamples()
 
-    /// 当前是否存在正在启动或已经运行的生成任务。
-    var hasGenerationTask: Bool { get }
+    /// Whether generation is starting or running.
+    var hasGenerationTask: Bool {
+        get
+    }
 
-    /// 当前远端生成音频播放音量。
-    var remoteAudioVolume: Float { get }
+    /// The remote generated audio volume.
+    var remoteAudioVolume: Float {
+        get
+    }
 
-    /// 设置实时视频编码器配置。
+    /// Sets the realtime video encoder configuration.
     ///
-    /// - Parameter videoFormat: RTC 视频编码使用的宽度、高度和帧率。
-    /// - Throws: 视频格式无效或 RTC 编码配置失败时抛出错误。
+    /// - Parameter videoFormat: The RTC encoding dimensions and frame rate.
+    ///
+    /// - Throws: An error if the format is invalid or RTC configuration fails.
     func setVideoEncoderConfig(
         _ videoFormat: RealtimeVideoFormat
     ) throws
 
-    /// 设置视频上行统计监听器。
+    /// Sets the uplink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；未发布或断开连接时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: The main-actor handler, receiving `nil` when unpublished or
+    ///   disconnected. Pass `nil` to remove it.
     func setUplinkVideoStatisticsListener(
         _ listener: UplinkVideoStatisticsListener?
     )
 
-    /// 设置视频下行统计监听器。
+    /// Sets the downlink video statistics listener.
     ///
-    /// - Parameter listener: 主线程回调；结果流清理时收到 nil；传入 nil 清除监听器。
+    /// - Parameter listener: The main-actor handler, receiving `nil` when the result stream clears.
+    ///   Pass `nil` to remove it.
     func setDownlinkVideoStatisticsListener(
         _ listener: DownlinkVideoStatisticsListener?
     )
 
-    /// 设置网络质量监听器，传入空值时清除监听器。
+    /// Sets the network quality listener.
     ///
-    /// - Parameter listener: 接收上行和下行网络质量事件的监听器；
-    ///   传入空值时清除现有监听器。
+    /// - Parameter listener: The directional network quality listener; pass `nil` to remove the
+    ///   listener.
     func setNetworkQualityListener(
         _ listener: RealtimeNetworkQualityListener?
     )
 
-    /// 设置设备性能告警监听器，传入空值时清除监听器。
+    /// Sets the device performance listener.
     ///
-    /// - Parameter listener: 接收设备性能受限与恢复事件的监听器；
-    ///   传入空值时清除现有监听器。
+    /// - Parameter listener: The device limitation and recovery listener; pass `nil` to remove the
+    ///   listener.
     func setPerformanceAlarmListener(
         _ listener: RealtimePerformanceAlarmListener?
     )
 
-    /// 设置远端生成音频播放音量。
+    /// Sets remote generated audio volume.
     ///
-    /// - Parameter volume: 已校验且取值范围为 `0...1` 的音量。
-    /// - Throws: RTC 音量配置失败时抛出错误。
+    /// - Parameter volume: The validated volume, in the range `0...1`.
+    ///
+    /// - Throws: An error if RTC volume configuration fails.
     func setRemoteAudioVolume(
         _ volume: Float
     ) throws
 
-    /// 加入 RTC 房间并发布本地媒体流。
+    /// Joins an RTC room and publishes local media.
     ///
     /// - Parameters:
-    ///   - connection: RTC 房间、用户、Token 和目标机器人信息。
-    ///   - includeLocalAudio: 是否随本地视频一起发布本地音频。
-    ///   - ensureActive: 在异步边界校验当前连接操作仍然有效的回调；
-    ///     无效时应抛出取消错误。
-    /// - Throws: 连接已取消，或 RTC 进房、房间配置与本地流发布失败时
-    ///   抛出错误。
+    ///   - connection: The RTC room, user, token, and result user information.
+    ///   - includeLocalAudio: Whether to publish audio alongside local video.
+    ///   - ensureActive: The connection validity check across asynchronous boundaries; throw a
+    ///     cancellation error if no longer current.
+    ///
+    /// - Throws: An error if cancelled or RTC join, configuration, or local publication fails.
     func connect(
         connection: RealtimeSessionConnection,
         includeLocalAudio: Bool,
         ensureActive: @escaping @Sendable () throws -> Void
     ) async throws
 
-    /// 清理生成状态、本地发布和远端订阅，并离开当前 RTC 房间；
-    /// 没有活动房间时安全返回。
+    /// Disconnects the RTC room and releases media and generation state; safe when no room is
+    /// active.
     func disconnect() async
 
-    /// 在生成任务活动期间推送本地外部视频帧；无生成任务时忽略。
+    /// Pushes external video during generation, ignoring frames without an active task.
     ///
-    /// - Parameter frame: 已准备好交给 RTC 的本地视频帧。
-    /// - Throws: RTC 资源尚未就绪或视频帧转换失败时抛出错误。
+    /// - Parameter frame: The local frame prepared for RTC.
+    ///
+    /// - Throws: An error if RTC is unready or video conversion fails.
     func pushLocalVideoFrame(
         _ frame: VideoFrame
     ) throws
 
-    /// 推送本地外部音频帧。
+    /// Pushes an external audio frame.
     ///
-    /// - Parameter frame: 已准备好交给 RTC 的 PCM 音频帧；
-    ///   本地音频尚未发布时忽略。
-    /// - Throws: RTC 资源尚未就绪或音频帧转换失败时抛出错误。
+    /// - Parameter frame: The PCM frame prepared for RTC; ignored when local audio is unpublished.
+    ///
+    /// - Throws: An error if RTC is unready or audio conversion fails.
     func pushLocalAudioFrame(
         _ frame: AudioFrame
     ) throws
 
-    /// 建立生成任务、发送开始信令并启动结果流确认等待。
+    /// Starts a generation task and its result stream confirmation.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务的唯一标识。
-    ///   - videoFormat: 服务端生成使用的视频规格。
-    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
-    ///   - context: 生成使用的参考图、提示词等条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - paddingContain: 是否按包含模式保留源比例并填充生成画布。
-    /// - Returns: 等待远端结果流发布确认的任务。
-    /// - Throws: 任务参数无效、房间未就绪、已有生成任务、信令失败或发送等待超时时抛出错误。
+    ///   - taskID: The unique generation task identifier.
+    ///   - videoFormat: The server generation format.
+    ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+    ///   - context: The generation prompt and reference conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - paddingContain: Whether to contain input within the generation canvas.
+    ///
+    /// - Returns: The task awaiting remote result stream confirmation.
+    ///
+    /// - Throws: An error if the task or room is invalid, a task exists, or signaling fails or
+    ///   times out.
     func beginGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -170,21 +187,22 @@ protocol StreamControlling: Sendable {
         paddingContain: Bool
     ) async throws -> Task<Void, any Error>
 
-    /// 在远端首帧已经可显示后订阅当前生成流的音频。
+    /// Subscribes to generated audio after remote video is ready.
     ///
-    /// - Throws: 当前生成流尚未确认，或 RTC 音量和订阅配置失败时抛出错误。
+    /// - Throws: An error if the result stream is unconfirmed or RTC volume or subscription fails.
     func activateRemoteAudio() throws
 
-    /// 发送当前生成任务的条件变更信令。
+    /// Sends an active task's condition update.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务的唯一标识。
-    ///   - videoFormat: 服务端生成使用的视频规格。
-    ///   - targetSize: 生成后回传的像素尺寸；`nil` 表示保持生成尺寸。
-    ///   - context: 生成使用的参考图、提示词等条件。
-    ///   - faceRestoration: 是否回贴原始人脸。
-    ///   - paddingContain: 是否按包含模式保留源比例并填充生成画布。
-    /// - Throws: 房间未就绪、参数无效或信令提交失败时抛出错误。
+    ///   - taskID: The unique generation task identifier.
+    ///   - videoFormat: The server generation format.
+    ///   - targetSize: The returned dimensions, or `nil` to retain generation dimensions.
+    ///   - context: The generation prompt and reference conditions.
+    ///   - faceRestoration: Whether to restore the original face.
+    ///   - paddingContain: Whether to contain input within the generation canvas.
+    ///
+    /// - Throws: An error if the room or parameters are invalid or signaling submission fails.
     func updateGeneration(
         taskID: String,
         videoFormat: RealtimeVideoFormat,
@@ -194,35 +212,36 @@ protocol StreamControlling: Sendable {
         paddingContain: Bool
     ) async throws
 
-    /// 调整当前生成任务的回传尺寸，不重启生成。
+    /// Changes returned dimensions without restarting generation.
     ///
     /// - Parameters:
-    ///   - taskID: 当前生成任务标识。
-    ///   - targetSize: 生成后回传的整数像素尺寸。
-    ///   - ensureActive: 发送前确认当前配置操作仍有效。
-    /// - Throws: 操作已取消、房间未就绪或信令发送失败时抛出错误。
+    ///   - taskID: The generation task identifier.
+    ///   - targetSize: The integer returned pixel dimensions.
+    ///   - ensureActive: The configuration validity check before sending.
+    ///
+    /// - Throws: An error if cancelled, the room is not ready, or signaling fails.
     func changeTargetSize(
         taskID: String,
         targetSize: CGSize,
         ensureActive: @escaping @Sendable () throws -> Void
     ) async throws
 
-    /// 停止生成任务并清理远端结果流。
+    /// Stops generation and clears its result stream.
     ///
-    /// - Parameter taskID: 需要停止的生成任务标识；传入空字符串时停止
-    ///   当前任务。
-    /// - Throws: RTC 停止信令发送失败时抛出错误。
+    /// - Parameter taskID: The task to stop. An empty string stops the current task.
+    ///
+    /// - Throws: An error if the RTC stop signal cannot be sent.
     func stopGeneration(
         taskID: String
     ) async throws
 
-    /// 发送生成任务的交互轨迹。
+    /// Sends a generation task's trajectory.
     ///
     /// - Parameters:
-    ///   - taskID: 接收交互轨迹的生成任务标识。
-    ///   - points: 需要发送的轨迹点；空数组会被忽略。
-    /// - Throws: RTC 房间未就绪、任务标识无效或轨迹信令发送失败时
-    ///   抛出错误。
+    ///   - taskID: The task receiving the trajectory.
+    ///   - points: The trajectory points. Empty arrays are ignored.
+    ///
+    /// - Throws: An error if the room or task is invalid or trajectory signaling fails.
     func sendTracks(
         taskID: String,
         points: [RealtimePoint]

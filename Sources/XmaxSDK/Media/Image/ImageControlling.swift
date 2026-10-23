@@ -10,42 +10,52 @@
 
 import Foundation
 
-/// 定义本地图片流创建、帧输出和预览资源管理能力。
+/// An interface for image streams, frames, and preview.
 protocol ImageControlling: Sendable {
 
-    /// 当前本地图片视频轨道；尚未创建或已停止时为空。
-    var currentTrack: RealtimeVideoTrack? { get }
+    /// The image video track, or `nil` before creation or after stopping.
+    var currentTrack: RealtimeVideoTrack? {
+        get
+    }
 
-    /// 从已解码的图片创建媒体流并开始持续输出视频帧。
+    /// Creates a stream of repeated frames from a decoded image.
     ///
     /// - Parameters:
-    ///   - decodedImage: 已完成方向处理和像素解码的图片。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 已有活动图片流、格式无效、图片处理或帧输出启动失败时抛出错误。
+    ///   - decodedImage: The orientation-corrected decoded image.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists, the format is invalid, or image processing or frame
+    ///   startup fails.
     func createLocalImageStream(
         decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream
 
-    /// 从编码后的图片数据创建媒体流并开始持续输出视频帧。
+    /// Creates a stream of repeated frames from encoded image data.
     ///
     /// - Parameters:
-    ///   - imageData: 非空的图片文件编码数据。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 已有活动图片流、数据或格式无效、图片解码或帧输出启动失败时抛出错误。
+    ///   - imageData: The nonempty encoded image data.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists or data, format, decoding, or frame startup fails.
     func createLocalImageStream(
         imageData: Data
     ) async throws -> RealtimeMediaStream
 
-    /// 从本地图片文件创建媒体流并开始持续输出视频帧。
+    /// Creates a stream of repeated frames from a local image file.
     ///
     /// - Parameters:
-    ///   - fileURL: 可读取的本地图片文件地址。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 已有活动图片流、文件读取、格式校验、图片解码或帧输出启动失败时抛出错误。
+    ///   - fileURL: The URL of a readable local image file.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists or file reading, validation, decoding, or startup
+    ///   fails.
     func createLocalImageStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream
 
-    /// 停止并等待图片帧输出任务结束，释放当前轨道及预览绑定；无活动流时不执行操作。
+    /// Stops image frame delivery and releases its track and preview binding.
     func stopLocalImageStream() async
 }

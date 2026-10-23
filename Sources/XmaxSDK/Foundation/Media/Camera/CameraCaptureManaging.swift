@@ -10,49 +10,54 @@
 
 import Foundation
 
-/// 摄像头画面在窗口中的显示方向。
+/// The camera frame's orientation in its window.
 enum CameraOrientation: Sendable {
 
-    /// 竖屏，设备顶部朝上。
+    /// Portrait with the device's top edge up.
     case portrait
 
-    /// 倒置竖屏，设备顶部朝下。
+    /// Upside-down portrait.
     case portraitUpsideDown
 
-    /// 横屏，采用界面的左横屏方向。
+    /// The interface's left landscape orientation.
     case landscapeLeft
 
-    /// 横屏，采用界面的右横屏方向。
+    /// The interface's right landscape orientation.
     case landscapeRight
 
-    /// 当前方向是否为横屏。
+    /// Whether the orientation is landscape.
     var isLandscape: Bool {
         self == .landscapeLeft || self == .landscapeRight
     }
 
-    /// 将固定竖向、未镜像的采集帧转为窗口显示方向。
+    /// The rotation from portrait, unmirrored capture to the window orientation.
     var frameRotation: VideoRotation {
         switch self {
-        case .portrait: .rotation0
-        case .portraitUpsideDown: .rotation180
-        case .landscapeLeft: .rotation270
-        case .landscapeRight: .rotation90
+        case .portrait:
+            .rotation0
+        case .portraitUpsideDown:
+            .rotation180
+        case .landscapeLeft:
+            .rotation270
+        case .landscapeRight:
+            .rotation90
         }
     }
 }
 
-/// 管理系统摄像头及其原始视频帧输出。
+/// An interface for camera capture and raw video frames.
 protocol CameraCaptureManaging: Sendable {
 
-    /// 启动摄像头，输出已经转正并调整到目标尺寸的 NV12 帧。
+    /// Starts capture with upright NV12 frames at the requested dimensions.
     ///
     /// - Parameters:
-    ///   - videoFormat: 输出像素格式和尺寸。
-    ///   - frameRate: 采集帧率。
-    ///   - position: 摄像头位置。
-    ///   - frameListener: 在采集串行队列接收视频帧。
-    ///   - errorListener: 接收采集运行错误。
-    /// - Throws: 设备、规格或采集启动失败时抛出错误。
+    ///   - videoFormat: The output pixel format and dimensions.
+    ///   - frameRate: The capture frame rate.
+    ///   - position: The camera position.
+    ///   - frameListener: The frame handler, called on the capture queue.
+    ///   - errorListener: The capture failure handler.
+    ///
+    /// - Throws: An error if the device or format is unavailable or capture cannot start.
     func start(
         videoFormat: VideoFormat,
         frameRate: Int,
@@ -61,36 +66,40 @@ protocol CameraCaptureManaging: Sendable {
         errorListener: @escaping XmaxErrorListener
     ) async throws
 
-    /// 切换摄像头，保持输出尺寸和帧率。
+    /// Switches cameras while retaining output dimensions and frame rate.
     ///
-    /// - Parameter position: 目标摄像头位置。
-    /// - Throws: 设备不可用或切换失败时抛出错误。
+    /// - Parameter position: The requested camera position.
+    ///
+    /// - Throws: An error if the camera is unavailable or switching fails.
     func switchCamera(
         to position: CameraPosition
     ) async throws
 
-    /// 更新输出尺寸和实际采集帧率，保留镜头、方向及帧监听器。
+    /// Updates output dimensions and capture frame rate while retaining the camera and listeners.
     ///
     /// - Parameters:
-    ///   - videoFormat: 新的 NV12 输出规格。
-    ///   - frameRate: 设备需要应用的采集帧率。
-    /// - Throws: 摄像头未启动、格式不支持或设备配置失败时抛出错误。
+    ///   - videoFormat: The new NV12 output format.
+    ///   - frameRate: The capture frame rate to apply.
+    ///
+    /// - Throws: An error if capture is inactive, the format is unsupported, or configuration
+    ///   fails.
     func updateFormat(
         _ videoFormat: VideoFormat,
         frameRate: Int
     ) async throws
 
-    /// 更新帧转换方向和输出尺寸，保留采集连接及帧率。
+    /// Updates frame orientation and dimensions without changing capture frame rate.
     ///
     /// - Parameters:
-    ///   - orientation: 窗口显示方向。
-    ///   - videoFormat: 转正后的输出尺寸和像素格式。
-    /// - Throws: 采集已停止时抛出错误。
+    ///   - orientation: The window's interface orientation.
+    ///   - videoFormat: The upright output dimensions and pixel format.
+    ///
+    /// - Throws: An error if capture has stopped.
     func updateOrientation(
         _ orientation: CameraOrientation,
         videoFormat: VideoFormat
     ) async throws
 
-    /// 停止采集，等待正在处理的帧结束并释放设备。
+    /// Stops capture and waits for pending frames before releasing the device.
     func stop() async
 }

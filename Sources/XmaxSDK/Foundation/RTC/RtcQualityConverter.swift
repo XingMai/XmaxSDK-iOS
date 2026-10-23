@@ -10,13 +10,14 @@
 
 @preconcurrency import AgoraRtcKit
 
-/// 在声网质量事件与中性质量模型之间转换。
+/// Converts Agora quality events to SDK metrics.
 enum RtcQualityConverter {
 
-    /// 将声网本地视频统计转换为 SDK 上行指标。
+    /// Converts Agora local video statistics to uplink metrics.
     ///
-    /// - Parameter stats: 声网上行统计。
-    /// - Returns: 无效指标使用 `nil` 表示的上行统计。
+    /// - Parameter stats: The Agora uplink statistics.
+    ///
+    /// - Returns: The uplink metrics, with invalid values represented by `nil`.
     static func uplinkVideoStatistics(
         _ stats: AgoraRtcLocalVideoStats
     ) -> UplinkVideoStatistics {
@@ -27,16 +28,19 @@ enum RtcQualityConverter {
             encodeFrameRate: nonnegative(stats.encoderOutputFrameRate),
             sendFrameRate: Int(exactly: stats.sentFrameRate),
             bitrateKbps: Int(exactly: stats.sentBitrate),
-            packetLossPercent: (0...100).contains(stats.txPacketLossRate) ? stats.txPacketLossRate : nil
+            packetLossPercent: (0...100).contains(stats.txPacketLossRate)
+                ? stats.txPacketLossRate : nil
         )
     }
 
-    /// 将声网远端视频统计转换为 SDK 下行指标。
+    /// Converts Agora remote statistics to downlink metrics.
     ///
     /// - Parameters:
-    ///   - userID: 远端用户账号。
-    ///   - stats: 声网下行统计。
-    /// - Returns: 关联远端账号且无效指标为 `nil` 的下行统计。
+    ///   - userID: The remote user account.
+    ///   - stats: The Agora downlink statistics.
+    ///
+    /// - Returns: The downlink metrics for the remote account, with invalid values represented by
+    ///   `nil`.
     static func downlinkVideoStatistics(
         userID: String,
         _ stats: AgoraRtcRemoteVideoStats
@@ -48,25 +52,28 @@ enum RtcQualityConverter {
             decodeFrameRate: nonnegative(stats.decoderOutputFrameRate),
             renderFrameRate: nonnegative(stats.rendererOutputFrameRate),
             bitrateKbps: Int(exactly: stats.receivedBitrate),
-            packetLossPercent: (0...100).contains(stats.packetLossRate) ? stats.packetLossRate : nil,
+            packetLossPercent: (0...100).contains(stats.packetLossRate)
+                ? stats.packetLossRate : nil,
             endToEndDelayMs: Int(exactly: stats.e2eDelay)
         )
     }
 
-    /// 保留非负统计值并过滤无效负值。
+    /// Filters invalid negative statistics.
     ///
-    /// - Parameter value: 待校验的统计值。
-    /// - Returns: 非负原值；负值返回 `nil`。
+    /// - Parameter value: The statistic to validate.
+    ///
+    /// - Returns: The nonnegative value, or `nil` if negative.
     private static func nonnegative(
         _ value: Int
     ) -> Int? {
         value >= 0 ? value : nil
     }
 
-    /// 将声网网络质量转换为 SDK 质量等级。
+    /// Converts Agora network quality to an SDK rating.
     ///
-    /// - Parameter quality: 声网网络质量等级。
-    /// - Returns: 对应的 SDK 等级；未知值返回 `.unknown`。
+    /// - Parameter quality: The Agora network quality.
+    ///
+    /// - Returns: The SDK rating, or `.unknown` for unrecognized values.
     static func convertLevel(
         _ quality: AgoraNetworkQuality
     ) -> RtcQualityLevel {

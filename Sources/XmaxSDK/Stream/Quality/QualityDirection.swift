@@ -10,42 +10,47 @@
 
 import Foundation
 
-/// 单个传输方向的网络采样与升降档规则。
+/// The sampling and adaptation policy for one transport direction.
 struct QualityDirection: Sendable {
 
-    /// 不随档位变化的处理后媒体规格。
+    /// Quality configuration.
+
+    /// The resolved media baseline, unchanged by quality levels.
     let baseline: RealtimeVideoFormat
 
-    /// 是否处理下行方向；false 表示上行。
+    /// Whether this policy governs downlink rather than uplink.
     let downlink: Bool
 
-    /// 当前档位，范围为 1...5。
+    /// Adaptation state.
+
+    /// The current quality level.
     private(set) var level: RealtimeQualityLevel
 
-    /// 连续良好网络样本数。
+    /// The consecutive good sample count.
     private var goodSamples = 0
 
-    /// 连续较差网络样本数。
+    /// The consecutive poor sample count.
     private var poorSamples = 0
 
-    /// 最近一次有效采样的单调时钟时间，单位为秒。
+    /// The last valid monotonic sample time, in seconds.
     private var lastSample: TimeInterval?
 
-    /// 调档稳定观察期的结束时刻，单位为秒。
+    /// The adjustment stabilization deadline, in seconds.
     private var stableUntil: TimeInterval = 0
 
-    /// 允许再次升档的最早时刻，单位为秒。
+    /// The earliest next upgrade time, in seconds.
     private var upgradeAfter: TimeInterval = 0
 
-    /// 升档后探测窗口的结束时刻，单位为秒。
+    /// The post-upgrade probing deadline, in seconds.
     private var probeUntil: TimeInterval = 0
 
-    /// 创建单个方向的质量策略，并解析可用的初始档位。
+    /// Creates a directional policy with a supported initial level.
     ///
     /// - Parameters:
-    ///   - baseline: 不会随调档变化的媒体原始规格。
-    ///   - level: 初始档位；上行码率预算不支持时逐级提高质量。
-    ///   - downlink: 是否为下行方向。
+    ///   - baseline: The media baseline, unchanged by adaptation.
+    ///   - level: The initial level. Uplink levels increase in quality until the bitrate budget is
+    ///     supported.
+    ///   - downlink: Whether this is the downlink direction.
     init(
         baseline: RealtimeVideoFormat,
         level: RealtimeQualityLevel,
@@ -55,45 +60,62 @@ struct QualityDirection: Sendable {
         self.downlink = downlink
         self.level = level
         while !supports(self.level),
-              let higher = RealtimeQualityLevel(rawValue: self.level.rawValue - 1) {
+            let higher = RealtimeQualityLevel(rawValue: self.level.rawValue - 1)
+        {
             self.level = higher
         }
     }
 
-    /// 当前方向和档位对应的传输规格。
-    var format: RealtimeVideoFormat { format(at: level) }
+    /// The transport format for this direction and level.
+    var format: RealtimeVideoFormat {
+        format(at: level)
+    }
 
-    /// 计算指定档位对应的传输规格。
+    /// Resolves a quality level's transport format.
     ///
-    /// - Parameter level: 目标传输档位。
-    /// - Returns: 由当前媒体基准和方向解析的规格。
+    /// - Parameter level: The target quality level.
+    ///
+    /// - Returns: The format derived from the baseline and direction.
     func format(
         at level: RealtimeQualityLevel
     ) -> RealtimeVideoFormat {
-        QualityVideoFormat.resolve(baseline, level: level, downlink: downlink)
+        QualityVideoFormat.resolve(
+            baseline,
+            level: level,
+            downlink: downlink
+        )
     }
 
-    /// 清空连续好坏网络采样及最后采样时间。
+    /// Clears consecutive quality samples and their last timestamp.
     mutating func resetSamples() {
         goodSamples = 0
         poorSamples = 0
         lastSample = nil
     }
 
-    /// 根据有效连续采样和冷却条件提出升降档候选。
+    /// Proposes a level from valid consecutive samples and cooldown rules.
     ///
     /// - Parameters:
-    ///   - quality: 当前网络质量等级。
-    ///   - sampledAt: 该质量样本的单调时钟时间，单位为秒。
-    ///   - now: 当前单调时钟时间，单位为秒。
-    /// - Returns: 可执行的候选档位；无需调整时返回 `nil`。
+    ///   - quality: The current network quality.
+    ///   - sampledAt: The monotonic sample time, in seconds.
+    ///   - now: The monotonic time, in seconds.
+    ///
+    /// - Returns: The candidate level, or `nil` if no change is needed.
     mutating func observe(
         _ quality: RealtimeNetworkQualityLevel,
         sampledAt: TimeInterval,
         now: TimeInterval
     ) -> RealtimeQualityLevel? {
-        guard sampledAt <= now, lastSample.map({ sampledAt > $0 }) ?? true else { return nil }
-        if let lastSample, sampledAt - lastSample > 5 { resetSamples() }
+        guard sampledAt <= now,
+            lastSample.map({
+                sampledAt > $0
+            }) ?? true
+        else {
+            return nil
+        }
+        if let lastSample, sampledAt - lastSample > 5 {
+            resetSamples()
+        }
         lastSample = sampledAt
         guard now - sampledAt <= 5, now >= stableUntil else {
             goodSamples = 0
@@ -106,12 +128,16 @@ struct QualityDirection: Sendable {
         case .bad, .veryBad:
             goodSamples = 0
             poorSamples += 1
-            guard poorSamples >= 3 else { return nil }
+            guard poorSamples >= 3 else {
+                return nil
+            }
             step = 1
         case .excellent, .good:
             poorSamples = 0
             goodSamples += 1
-            guard goodSamples >= 5, now >= upgradeAfter else { return nil }
+            guard goodSamples >= 5, now >= upgradeAfter else {
+                return nil
+            }
             step = -1
         default:
             goodSamples = 0
@@ -121,18 +147,20 @@ struct QualityDirection: Sendable {
 
         var rawValue = level.rawValue + step
         while let candidate = RealtimeQualityLevel(rawValue: rawValue) {
-            if format(at: candidate) != format, supports(candidate) { return candidate }
+            if format(at: candidate) != format, supports(candidate) {
+                return candidate
+            }
             rawValue += step
         }
         return nil
     }
 
-    /// 记录调档结果，并更新稳定窗口及升档冷却期。
+    /// Records adjustment success and updates stabilization and cooldown.
     ///
     /// - Parameters:
-    ///   - next: 本次尝试的目标档位。
-    ///   - success: 该档位是否成功应用。
-    ///   - now: 当前单调时钟时间，单位为秒。
+    ///   - next: The attempted quality level.
+    ///   - success: Whether the level was applied.
+    ///   - now: The monotonic time, in seconds.
     mutating func complete(
         level next: RealtimeQualityLevel,
         success: Bool,
@@ -140,24 +168,28 @@ struct QualityDirection: Sendable {
     ) {
         resetSamples()
         stableUntil = now + 4
-        guard success else { return }
+        guard success else {
+            return
+        }
         if next.rawValue < level.rawValue {
             probeUntil = now + 20
         } else if next.rawValue > level.rawValue {
-            if now < probeUntil { upgradeAfter = now + 60 }
+            if now < probeUntil {
+                upgradeAfter = now + 60
+            }
             probeUntil = 0
         }
         level = next
     }
 
-    /// 判断指定档位是否满足当前方向的编码预算。
+    /// Checks whether a quality level fits the directional bitrate budget.
     ///
-    /// - Parameter level: 需要校验的档位。
-    /// - Returns: 下行或上行码率预算可成功解析时返回 `true`。
+    /// - Parameter level: The quality level to validate.
+    ///
+    /// - Returns: `true` if the direction's bitrate budget can be resolved.
     func supports(
         _ level: RealtimeQualityLevel
     ) -> Bool {
         downlink || (try? EncodingBitratePolicy.resolve(format(at: level))) != nil
     }
 }
-

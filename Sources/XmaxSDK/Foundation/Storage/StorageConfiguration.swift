@@ -8,18 +8,18 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 对象存储请求使用的服务地址、存储桶和临时凭证。
+/// The endpoint, bucket, and temporary credentials for object storage.
 struct StorageConfiguration: Equatable, Sendable {
 
-    /// COS 存储桶名称。
+    /// The COS bucket name.
     let bucket: String
 
-    /// COS 存储桶所在地域。
+    /// The COS bucket region.
     let region: String
 
-    /// 对象存储服务地址。
+    /// The object storage endpoint.
     let endpoint: String
 
-    /// 当前存储请求使用的临时凭证。
+    /// The request's temporary credentials.
     let credential: StorageCredential
 }

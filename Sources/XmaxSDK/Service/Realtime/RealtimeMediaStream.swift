@@ -8,12 +8,12 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 包含本地输入或远端生成结果的实时媒体流。
+/// A realtime stream containing local input or remote generation.
 public struct RealtimeMediaStream: Sendable {
 
-    /// 媒体流标识。
+    /// The media stream identifier.
     public let id: String
 
-    /// 媒体流包含的视频轨道。
+    /// The stream's video track.
     public let videoTrack: RealtimeVideoTrack?
 }

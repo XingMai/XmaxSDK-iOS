@@ -10,19 +10,22 @@
 
 import Foundation
 
-/// 定义基础文件上传和下载能力。
+/// An interface for file uploads and downloads.
 protocol StorageManaging: Sendable {
 
-    /// 使用临时凭证上传数据或本地文件。
+    /// Uploads data or a local file using temporary credentials.
     ///
     /// - Parameters:
-    ///   - source: 待上传的二进制数据或本地文件。
-    ///   - objectKey: 存储桶内的目标对象路径。
-    ///   - contentType: 上传内容的 MIME 类型。
-    ///   - configuration: 存储地址、桶和临时访问凭证。
-    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
-    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
-    /// - Throws: 输入无效、凭证无效、上传失败或任务取消时抛出错误。
+    ///   - source: The data or local file to upload.
+    ///   - objectKey: The destination object key.
+    ///   - contentType: The upload MIME type.
+    ///   - configuration: The endpoint, bucket, and temporary credentials.
+    ///   - progress: The byte progress handler, or `nil` to omit notifications.
+    ///
+    /// - Returns: The uploaded URL, object key, and available ETag.
+    ///
+    /// - Throws: An error if input or credentials are invalid, uploading fails, or the task is
+    ///   cancelled.
     func upload(
         source: StorageUploadSource,
         objectKey: String,
@@ -31,14 +34,17 @@ protocol StorageManaging: Sendable {
         progress: StorageProgressListener?
     ) async throws -> StoredFile
 
-    /// 下载远端文件并写入指定本地位置。
+    /// Downloads a file to the specified local location.
     ///
     /// - Parameters:
-    ///   - remoteURL: 待下载文件的远端 URL。
-    ///   - destinationURL: 写入文件的本地目标 URL。
-    ///   - progress: 接收已传输字节数与总字节数的回调；`nil` 不接收进度。
-    /// - Returns: 写入完成的本地文件 URL 与字节数。
-    /// - Throws: 地址无效、下载或文件写入失败，以及任务取消时抛出错误。
+    ///   - remoteURL: The remote file URL.
+    ///   - destinationURL: The destination local file URL.
+    ///   - progress: The byte progress handler, or `nil` to omit notifications.
+    ///
+    /// - Returns: The completed local URL and byte count.
+    ///
+    /// - Throws: An error if a URL is invalid, downloading or writing fails, or the task is
+    ///   cancelled.
     func download(
         remoteURL: URL,
         destinationURL: URL,
@@ -48,15 +54,18 @@ protocol StorageManaging: Sendable {
 
 extension StorageManaging {
 
-    /// 上传数据或本地文件，不接收进度通知。
+    /// Uploads data or a local file.
     ///
     /// - Parameters:
-    ///   - source: 待上传的二进制数据或本地文件。
-    ///   - objectKey: 存储桶内的目标对象路径。
-    ///   - contentType: 上传内容的 MIME 类型。
-    ///   - configuration: 存储地址、桶和临时访问凭证。
-    /// - Returns: 包含访问 URL、对象路径与可用 ETag 的上传结果。
-    /// - Throws: 输入无效、凭证无效、上传失败或任务取消时抛出错误。
+    ///   - source: The data or local file to upload.
+    ///   - objectKey: The destination object key.
+    ///   - contentType: The upload MIME type.
+    ///   - configuration: The endpoint, bucket, and temporary credentials.
+    ///
+    /// - Returns: The uploaded URL, object key, and available ETag.
+    ///
+    /// - Throws: An error if input or credentials are invalid, uploading fails, or the task is
+    ///   cancelled.
     func upload(
         source: StorageUploadSource,
         objectKey: String,
@@ -72,13 +81,16 @@ extension StorageManaging {
         )
     }
 
-    /// 下载远端文件，不接收进度通知。
+    /// Downloads a remote file.
     ///
     /// - Parameters:
-    ///   - remoteURL: 待下载文件的远端 URL。
-    ///   - destinationURL: 写入文件的本地目标 URL。
-    /// - Returns: 写入完成的本地文件 URL 与字节数。
-    /// - Throws: 地址无效、下载或文件写入失败，以及任务取消时抛出错误。
+    ///   - remoteURL: The remote file URL.
+    ///   - destinationURL: The destination local file URL.
+    ///
+    /// - Returns: The completed local URL and byte count.
+    ///
+    /// - Throws: An error if a URL is invalid, downloading or writing fails, or the task is
+    ///   cancelled.
     func download(
         remoteURL: URL,
         destinationURL: URL

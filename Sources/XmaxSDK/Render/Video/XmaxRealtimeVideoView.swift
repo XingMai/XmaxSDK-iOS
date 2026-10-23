@@ -10,71 +10,87 @@
 
 import UIKit
 
-/// 在本地预览和远端生成画面之间自动切换的 UIKit 视频容器。
+/// A UIKit container switching between local preview and remote generation.
 @MainActor
 public final class XmaxRealtimeVideoView: UIView {
 
-    /// 当前显示的本地视频轨道。
+    /// Presentation configuration.
+
+    /// The local preview track.
     public var localTrack: RealtimeVideoTrack? {
         didSet {
-            guard oldValue !== localTrack else { return }
+            guard oldValue !== localTrack else {
+                return
+            }
             localVideoView.track = localTrack
         }
     }
 
-    /// 当前显示的远端生成视频轨道。
+    /// The remote generation track.
     ///
-    /// 设置新轨道后，容器会等待首帧实际提交显示再渐入远端画面；
-    /// 设置为 `nil` 时立即恢复本地预览。
+    /// A new remote track fades in after its first frame is submitted for display. Setting it to
+    /// `nil` immediately restores local preview.
     public var remoteTrack: RealtimeVideoTrack? {
         didSet {
-            guard oldValue !== remoteTrack else { return }
+            guard oldValue !== remoteTrack else {
+                return
+            }
             updateRemoteTrack()
         }
     }
 
-    /// 视频内容在容器中的显示模式。
+    /// The video content mode.
     public var videoContentMode: VideoContentMode = .fill {
         didSet {
-            guard oldValue != videoContentMode else { return }
+            guard oldValue != videoContentMode else {
+                return
+            }
             localVideoView.videoContentMode = videoContentMode
             remoteVideoView.videoContentMode = videoContentMode
         }
     }
 
-    /// 是否允许在远端视频上绘制并发送轨迹交互。
+    /// Whether remote trajectory interaction is enabled.
     public var isInteractionEnabled = true {
         didSet {
-            guard oldValue != isInteractionEnabled else { return }
+            guard oldValue != isInteractionEnabled else {
+                return
+            }
             remoteVideoView.isInteractionEnabled = isInteractionEnabled
         }
     }
 
-    /// 自定义远端轨迹视觉效果；设置为 `nil` 时恢复 SDK 内置效果。
+    /// The custom remote trajectory effect, or `nil` for the built-in effect.
     public var trajectoryRenderer: (any TrajectoryEffectRendering)? {
-        get { remoteVideoView.trajectoryRenderer }
-        set { remoteVideoView.trajectoryRenderer = newValue }
+        get {
+            remoteVideoView.trajectoryRenderer
+        }
+        set {
+            remoteVideoView.trajectoryRenderer = newValue
+        }
     }
 
-    /// 持续显示本地媒体的预览视图。
+    /// Video views.
+
+    /// The persistent local preview view.
     private lazy var localVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,
         isInteractionEnabled: false
     )
 
-    /// 显示生成结果的远端视频视图。
+    /// The remote generation view.
     private lazy var remoteVideoView = XmaxVideoView(
         videoContentMode: videoContentMode,
         isInteractionEnabled: isInteractionEnabled
     )
 
-    /// 创建实时视频容器。
+    /// Creates a realtime video container.
     ///
     /// - Parameters:
-    ///   - localTrack: 需要持续预览的本地视频轨道。
-    ///   - remoteTrack: 需要覆盖显示的远端生成视频轨道。
-    ///   - videoContentMode: 本地与远端视频的内容显示模式。
-    ///   - isInteractionEnabled: 是否允许在远端视频上进行轨迹交互。
+    ///   - localTrack: The local track to preview continuously.
+    ///   - remoteTrack: The remote track displayed over local preview.
+    ///   - videoContentMode: The content mode for both local and remote video.
+    ///   - isInteractionEnabled: Whether remote trajectory interaction is enabled.
     public init(
         localTrack: RealtimeVideoTrack? = nil,
         remoteTrack: RealtimeVideoTrack? = nil,
@@ -89,9 +105,9 @@ public final class XmaxRealtimeVideoView: UIView {
         configureView()
     }
 
-    /// 使用指定布局区域创建实时视频容器。
+    /// Creates a realtime video container with a frame.
     ///
-    /// - Parameter frame: 视图初始布局区域。
+    /// - Parameter frame: The initial view frame.
     public override init(
         frame: CGRect
     ) {
@@ -101,9 +117,9 @@ public final class XmaxRealtimeVideoView: UIView {
         configureView()
     }
 
-    /// 从 Interface Builder 归档恢复实时视频容器。
+    /// Creates a realtime video container from an archive.
     ///
-    /// - Parameter coder: 视图归档解码器。
+    /// - Parameter coder: The archive decoder.
     public required init?(
         coder: NSCoder
     ) {
@@ -113,7 +129,7 @@ public final class XmaxRealtimeVideoView: UIView {
         configureView()
     }
 
-    /// 使本地和远端视频视图填满容器。
+    /// Lays out both video views to fill the container.
     public override func layoutSubviews() {
         super.layoutSubviews()
         localVideoView.frame = bounds
@@ -123,7 +139,7 @@ public final class XmaxRealtimeVideoView: UIView {
 
 private extension XmaxRealtimeVideoView {
 
-    /// 建立本地预览与远端结果的叠层视图。
+    /// Configures the local and remote video layers.
     func configureView() {
         backgroundColor = .black
         clipsToBounds = true
@@ -133,7 +149,7 @@ private extension XmaxRealtimeVideoView {
         updateRemoteTrack()
     }
 
-    /// 重置远端画面，并等待新轨道首帧提交后显示。
+    /// Waits for a new remote track's first displayed frame.
     func updateRemoteTrack() {
         remoteVideoView.frameDisplayHandler = nil
         remoteVideoView.layer.removeAllAnimations()
@@ -141,10 +157,13 @@ private extension XmaxRealtimeVideoView {
         remoteVideoView.isHidden = true
         remoteVideoView.track = nil
 
-        guard let remoteTrack else { return }
+        guard let remoteTrack else {
+            return
+        }
         remoteVideoView.frameDisplayHandler = { [weak self, weak remoteTrack] in
             guard let self,
-                  self.remoteTrack === remoteTrack else {
+                self.remoteTrack === remoteTrack
+            else {
                 return
             }
             showRemoteVideo()
@@ -152,7 +171,7 @@ private extension XmaxRealtimeVideoView {
         remoteVideoView.track = remoteTrack
     }
 
-    /// 以渐入过渡显示已提交首帧的远端画面。
+    /// Fades in remote video after its first frame is submitted.
     func showRemoteVideo() {
         remoteVideoView.frameDisplayHandler = nil
         guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {

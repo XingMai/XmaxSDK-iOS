@@ -10,20 +10,20 @@
 
 import SwiftUI
 
-/// 在 SwiftUI 中显示本地或远端实时视频轨道。
+/// A SwiftUI view displaying a local or remote video track.
 @MainActor
 public struct XmaxVideo: UIViewRepresentable {
 
-    /// 当前显示的视频轨道；nil 时显示空白容器。
+    /// The displayed track, or `nil` for an empty container.
     public let track: RealtimeVideoTrack?
 
-    /// 视频内容在容器中的显示模式。
+    /// The video content mode.
     public let videoContentMode: VideoContentMode
 
-    /// 是否允许在远端视频上绘制并发送轨迹交互。
+    /// Whether remote trajectory interaction is enabled.
     public let isInteractionEnabled: Bool
 
-    /// 创建 SwiftUI 视频渲染组件。
+    /// Creates a SwiftUI video view.
     public init(
         track: RealtimeVideoTrack?,
         videoContentMode: VideoContentMode = .fill,
@@ -34,10 +34,11 @@ public struct XmaxVideo: UIViewRepresentable {
         self.isInteractionEnabled = isInteractionEnabled
     }
 
-    /// 创建承载 SwiftUI 视频内容的 UIKit 视图。
+    /// Creates the underlying UIKit video view.
     ///
-    /// - Parameter context: SwiftUI 提供的视图创建上下文。
-    /// - Returns: 配置当前轨道的 SDK 视频视图。
+    /// - Parameter context: The SwiftUI view creation context.
+    ///
+    /// - Returns: The SDK view configured for the current track.
     public func makeUIView(
         context: Context
     ) -> XmaxVideoView {
@@ -49,11 +50,11 @@ public struct XmaxVideo: UIViewRepresentable {
         return view
     }
 
-    /// 将最新轨道和显示配置同步到 UIKit 视图。
+    /// Updates the UIKit view's tracks and display settings.
     ///
     /// - Parameters:
-    ///   - view: 需要更新的 SDK 视频视图。
-    ///   - context: SwiftUI 提供的视图更新上下文。
+    ///   - view: The SDK video view to update.
+    ///   - context: The SwiftUI view update context.
     public func updateUIView(
         _ view: XmaxVideoView,
         context: Context
@@ -63,11 +64,11 @@ public struct XmaxVideo: UIViewRepresentable {
         view.track = track
     }
 
-    /// 在 SwiftUI 移除视图时解除视频轨道绑定。
+    /// Detaches video tracks when SwiftUI removes the view.
     ///
     /// - Parameters:
-    ///   - view: 即将移除的 SDK 视频视图。
-    ///   - coordinator: 无额外状态的 SwiftUI 协调对象。
+    ///   - view: The SDK view being removed.
+    ///   - coordinator: The SwiftUI coordinator, with no additional state.
     public static func dismantleUIView(
         _ view: XmaxVideoView,
         coordinator: Void

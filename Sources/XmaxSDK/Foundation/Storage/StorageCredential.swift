@@ -8,15 +8,15 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
-/// 对象存储单次请求使用的临时凭证。
+/// Temporary credentials for an object storage request.
 struct StorageCredential: Equatable, Sendable {
 
-    /// 临时访问密钥标识。
+    /// The temporary access key identifier.
     let accessKeyID: String
 
-    /// 临时访问密钥。
+    /// The temporary secret access key.
     let secretAccessKey: String
 
-    /// 临时访问凭证的会话令牌。
+    /// The temporary session token.
     let sessionToken: String
 }

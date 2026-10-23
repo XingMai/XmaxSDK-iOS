@@ -11,34 +11,38 @@
 import CoreGraphics
 import Foundation
 
-/// 协调本地图片解码、循环帧输出和预览资源。
+/// Coordinates image decoding, repeated frame delivery, and preview.
 final class ImageController: ImageControlling, @unchecked Sendable {
 
-    /// 图片本地视频轨道标识。
+    /// The local image track identifier.
     private static let localVideoTrackID = "video0"
 
-    /// 配置 RTC 外部视频源的组件。
+    /// Image stream dependencies.
+
+    /// The RTC external video adapter.
     private let rtcManager: any RtcManaging
 
-    /// 解码图片并生成指定尺寸的图像。
+    /// The image decoder and frame producer.
     private let imageManager: any ImageManaging
 
-    /// 提供模型默认帧率的服务。
+    /// The model default frame rate provider.
     private let mediaService: any MediaServicing
 
-    /// 接收图片视频帧的回调。
+    /// The image video frame handler.
     private let frameListener: MediaVideoFrameListener
 
-    /// 保护图片轨道和持续输出任务。
+    /// Stream state.
+
+    /// The lock protecting the track and frame task.
     private let stateLock = NSLock()
 
-    /// 当前图片对应的视频轨道。
+    /// The image video track.
     private var activeTrack: RealtimeVideoTrack?
 
-    /// 按目标帧率持续输出图片帧的任务。
+    /// The task repeatedly emitting image frames.
     private var outputTask: Task<Void, Never>?
 
-    /// 创建图片解码、预览和持续帧输出控制器。
+    /// Creates an image stream and preview controller.
     init(
         rtcManager: any RtcManaging,
         imageManager: any ImageManaging = ImageManager(),
@@ -51,45 +55,55 @@ final class ImageController: ImageControlling, @unchecked Sendable {
         self.frameListener = frameListener
     }
 
-    /// 当前可供预览和发送的图片轨道。
+    /// The image track available for preview and uplink.
     var currentTrack: RealtimeVideoTrack? {
-        stateLock.withLock { activeTrack }
+        stateLock.withLock {
+            activeTrack
+        }
     }
 
-    /// 从已解码的图片创建媒体流并开始持续输出视频帧。
+    /// Creates a stream of repeated frames from a decoded image.
     ///
-    /// - Parameter decodedImage: 已完成方向处理和像素解码的图片。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 已有活动图片流、格式无效、图片处理或帧输出启动失败时抛出错误。
+    /// - Parameter decodedImage: The orientation-corrected decoded image.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists, the format is invalid, or image processing or frame
+    ///   startup fails.
     func createLocalImageStream(
         decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
         try await createStream(input: .decoded(decodedImage))
     }
 
-    /// 从编码后的图片数据创建媒体流并开始持续输出视频帧。
+    /// Creates a stream of repeated frames from encoded image data.
     ///
-    /// - Parameter imageData: 非空的图片文件编码数据。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 已有活动图片流、数据或格式无效、图片解码或帧输出启动失败时抛出错误。
+    /// - Parameter imageData: The nonempty encoded image data.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists or data, format, decoding, or frame startup fails.
     func createLocalImageStream(
         imageData: Data
     ) async throws -> RealtimeMediaStream {
         try await createStream(input: .data(imageData))
     }
 
-    /// 从本地图片文件创建媒体流并开始持续输出视频帧。
+    /// Creates a stream of repeated frames from a local image file.
     ///
-    /// - Parameter fileURL: 可读取的本地图片文件地址。
-    /// - Returns: 包含本地图片视频轨道的媒体流。
-    /// - Throws: 已有活动图片流、文件读取、格式校验、图片解码或帧输出启动失败时抛出错误。
+    /// - Parameter fileURL: The URL of a readable local image file.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists or file reading, validation, decoding, or startup
+    ///   fails.
     func createLocalImageStream(
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await createStream(input: .file(fileURL))
     }
 
-    /// 停止并等待图片帧输出任务结束，释放当前轨道及预览绑定；无活动流时不执行操作。
+    /// Stops image frame delivery and releases its track and preview binding.
     func stopLocalImageStream() async {
         let (track, task) = stateLock.withLock {
             let resources = (activeTrack, outputTask)
@@ -107,8 +121,9 @@ final class ImageController: ImageControlling, @unchecked Sendable {
                     try VideoRenderRegistry.binding(for: track)?.detach()
                 } catch {
                     XmaxLogger.realtime.error(
-                        message: "解除本地图片预览绑定失败 (Failed to Detach Local Image Preview)\n" +
-                            "└─ \(XmaxLogger.localized("原因：", "Reason: "))" + (error as NSError).localizedDescription
+                        message: "解除本地图片预览绑定失败 (Failed to Detach Local Image Preview)\n"
+                            + "└─ \(XmaxLogger.localized("原因：", "Reason: "))"
+                            + (error as NSError).localizedDescription
                     )
                 }
 
@@ -120,24 +135,27 @@ final class ImageController: ImageControlling, @unchecked Sendable {
 
 private extension ImageController {
 
-    /// 统一表示编码数据、已解码图片和本地图片文件。
+    /// An encoded, decoded, or file-backed image source.
     enum ImageInput: Sendable {
 
-        /// 待解码的图片数据。
+        /// The encoded image data.
         case data(Data)
 
-        /// 已解码的图片，可直接参与图像处理。
+        /// A decoded image ready for processing.
         case decoded(any DecodedImage)
 
-        /// 本地图片文件。
+        /// A local image file.
         case file(URL)
     }
 
-    /// 解码图片并建立静态预览及周期视频帧输出。
+    /// Creates image preview and periodic frame delivery.
     ///
-    /// - Parameter input: 图片来源。
-    /// - Returns: 持有图片视频轨道的本地媒体流。
-    /// - Throws: 已有图片流、图片读取解码、帧处理或外部视频源配置失败时抛出错误。
+    /// - Parameter input: The image source.
+    ///
+    /// - Returns: The local image video stream.
+    ///
+    /// - Throws: An error if a stream exists or reading, decoding, processing, or RTC configuration
+    ///   fails.
     func createStream(
         input: ImageInput
     ) async throws -> RealtimeMediaStream {
@@ -174,7 +192,10 @@ private extension ImageController {
             }
 
             try emitFrame(frame)
-            let task = startFrameOutput(frame: frame, frameRate: resolvedFormat.fps)
+            let task = startFrameOutput(
+                frame: frame,
+                frameRate: resolvedFormat.fps
+            )
             stateLock.withLock {
                 activeTrack = localTrack
                 outputTask = task
@@ -195,11 +216,13 @@ private extension ImageController {
         }
     }
 
-    /// 将统一图片来源转换为已解码图片。
+    /// Decodes an image source.
     ///
-    /// - Parameter input: 编码数据、图片对象或文件来源。
-    /// - Returns: 可用于视频帧转换的图片。
-    /// - Throws: 文件地址或数据无效、文件读取或图片解码失败时抛出错误。
+    /// - Parameter input: The image data, decoded image, or file.
+    ///
+    /// - Returns: The decoded image.
+    ///
+    /// - Throws: An error if the URL or data is invalid or reading or decoding fails.
     func decode(
         _ input: ImageInput
     ) throws -> any DecodedImage {
@@ -218,7 +241,10 @@ private extension ImageController {
                 )
             }
 
-            data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+            data = try Data(
+                contentsOf: fileURL,
+                options: .mappedIfSafe
+            )
         }
 
         guard !data.isEmpty else {
@@ -231,15 +257,20 @@ private extension ImageController {
         return try imageManager.decode(data)
     }
 
-    /// 根据模型面积上限计算保持图片比例的视频输出规格。
+    /// Resolves image media dimensions within the model's area limit.
     ///
-    /// - Parameter sourceMediaSize: 图片的原始像素尺寸。
-    /// - Returns: 采用模型默认帧率的图片视频规格。
-    /// - Throws: 图片尺寸或输出格式无效时抛出错误。
+    /// - Parameter sourceMediaSize: The original image dimensions.
+    ///
+    /// - Returns: The image video format using the model's default frame rate.
+    ///
+    /// - Throws: An error if image dimensions or output format are invalid.
     func resolveVideoFormat(
         sourceMediaSize: CGSize
     ) throws -> RealtimeVideoFormat {
-        let resolvedMediaSize = try mediaService.resolveMediaSize(sourceMediaSize, source: .image)
+        let resolvedMediaSize = try mediaService.resolveMediaSize(
+            sourceMediaSize,
+            source: .image
+        )
         let resolvedFormat = RealtimeVideoFormat(
             width: Int(resolvedMediaSize.width),
             height: Int(resolvedMediaSize.height),
@@ -249,17 +280,21 @@ private extension ImageController {
         return resolvedFormat
     }
 
-    /// 按指定帧率重复输出相同图片的像素数据。
+    /// Repeats image pixels at the requested frame rate.
     ///
     /// - Parameters:
-    ///   - frame: 可复用像素数据的图片帧。
-    ///   - frameRate: 每秒输出帧数。
-    /// - Returns: 可取消的周期输出任务。
+    ///   - frame: The image frame with reusable pixels.
+    ///   - frameRate: The output frames per second.
+    ///
+    /// - Returns: The cancellable frame delivery task.
     func startFrameOutput(
         frame: VideoFrame,
         frameRate: Int
     ) -> Task<Void, Never> {
-        let interval = max(UInt64(1000000000 / frameRate), 1)
+        let interval = max(
+            UInt64(1000000000 / frameRate),
+            1
+        )
 
         return Task.detached { [weak self] in
             while !Task.isCancelled {
@@ -280,16 +315,20 @@ private extension ImageController {
                         return
                     }
 
-                    XmaxLogger.media.error(message: "图片帧推送失败 (Image Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)")
+                    XmaxLogger.media.error(
+                        message:
+                            "图片帧推送失败 (Image Frame Push Failed)\n└─ \(XmaxLogger.localized("原因：", "Reason: "))\(error.localizedDescription)"
+                    )
                 }
             }
         }
     }
 
-    /// 使用当前主机时间戳向监听器提交图片帧。
+    /// Delivers an image frame with the current host timestamp.
     ///
-    /// - Parameter frame: 提供像素数据和格式的图片帧。
-    /// - Throws: 帧更新或监听器处理失败时抛出错误。
+    /// - Parameter frame: The image pixels and format.
+    ///
+    /// - Throws: An error if frame preparation or delivery fails.
     func emitFrame(
         _ frame: VideoFrame
     ) throws {

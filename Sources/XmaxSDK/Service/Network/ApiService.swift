@@ -10,31 +10,31 @@
 
 import Foundation
 
-/// 负责发送 Xmax API 请求并统一处理响应、日志和错误。
+/// Sends Xmax API requests and handles responses, logging, and errors.
 final class ApiService: ApiServicing, Sendable {
 
-    /// HTTP 请求的默认超时时长，单位为秒。
+    /// The default HTTP timeout, in seconds.
     static let defaultTimeoutInterval: TimeInterval = 15
 
-    /// 请求 Xmax API 使用的访问密钥。
+    /// The API access key.
     private let apiKey: String
 
-    /// 当前 API 请求的基础地址。
+    /// The API base URL.
     private let baseURL: URL
 
-    /// HTTP 请求超时时长，单位为秒。
+    /// The HTTP request timeout, in seconds.
     private let timeoutInterval: TimeInterval
 
-    /// 执行 HTTP 请求的 URL 会话。
+    /// The HTTP URL session.
     private let session: URLSession
 
-    /// 创建使用指定地址、认证信息与网络会话的 API 服务。
+    /// Creates an API service.
     ///
     /// - Parameters:
-    ///   - apiKey: 访问 API 的凭证，保存前去除首尾空白。
-    ///   - baseURL: 服务端 API 根地址，必须使用 HTTPS。
-    ///   - timeoutInterval: 单次请求的超时时间，单位为秒。
-    ///   - session: 实际发送网络请求的会话。
+    ///   - apiKey: The API access key.
+    ///   - baseURL: The HTTPS API root URL.
+    ///   - timeoutInterval: The request timeout, in seconds.
+    ///   - session: The URL session performing requests.
     init(
         apiKey: String,
         baseURL: URL,
@@ -47,15 +47,18 @@ final class ApiService: ApiServicing, Sendable {
         self.session = session
     }
 
-    /// 发送 HTTP 请求并将响应数据解析为指定类型。
+    /// Sends an HTTP request and decodes its response.
     ///
     /// - Parameters:
-    ///   - method: 请求使用的 HTTP 方法。
-    ///   - path: 相对于 API 根地址的请求路径。
-    ///   - body: 已编码的请求体；`nil` 表示无请求体。
-    ///   - responseType: 响应数据需要解码为的类型。
-    /// - Returns: 从 API 响应中解析出的业务数据。
-    /// - Throws: 凭证或地址无效、请求失败、服务端返回错误或响应解析失败时抛出错误。
+    ///   - method: The request's HTTP method.
+    ///   - path: The path relative to the API root.
+    ///   - body: The encoded body, or `nil` for no body.
+    ///   - responseType: The response decoding type.
+    ///
+    /// - Returns: The decoded business response.
+    ///
+    /// - Throws: An error if credentials or URL are invalid, the request is rejected, or transport
+    ///   or decoding fails.
     func request<Response: Decodable & Sendable>(
         _ method: ApiMethod,
         path: String,
@@ -139,29 +142,29 @@ final class ApiService: ApiServicing, Sendable {
 
 private extension ApiService {
 
-    /// 表示 Xmax API 统一响应中的公共元数据。
+    /// The metadata shared by Xmax API responses.
     struct EnvelopeMetadata: Decodable {
 
-        /// 服务端返回的业务成功标记。
+        /// The API success indicator.
         let success: Bool?
 
-        /// 服务端返回的业务错误码。
+        /// The API business error code.
         let code: Int?
 
-        /// 服务端返回的业务错误说明。
+        /// The API business error message.
         let message: String?
     }
 
-    /// 表示 Xmax API 成功响应中的业务数据。
+    /// A successful Xmax API response.
     struct PayloadEnvelope<Response: Decodable>: Decodable {
 
-        /// 解码后的业务响应数据。
+        /// The decoded response data.
         let data: Response?
     }
 
-    /// 确认请求凭证、HTTPS 根地址和超时时间有效。
+    /// Validates credentials, HTTPS URL, and timeout.
     ///
-    /// - Throws: API Key 为空或网络配置无效时抛出错误。
+    /// - Throws: An error if the API key is empty or network configuration is invalid.
     func validateConfiguration() throws {
         guard !apiKey.isEmpty else {
             throw XmaxError(
@@ -170,8 +173,9 @@ private extension ApiService {
             )
         }
         guard baseURL.scheme?.lowercased() == "https",
-              baseURL.host != nil,
-              timeoutInterval > 0 else {
+            baseURL.host != nil,
+            timeoutInterval > 0
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: "API service configuration is invalid"
@@ -179,14 +183,16 @@ private extension ApiService {
         }
     }
 
-    /// 组合相对路径并构建带认证与运行环境信息的 HTTP 请求。
+    /// Creates an authenticated request with runtime information.
     ///
     /// - Parameters:
-    ///   - method: 请求的 HTTP 方法。
-    ///   - path: 相对 API 根地址的路径，不允许指定其他主机。
-    ///   - body: 已编码的请求体；`nil` 表示无请求体。
-    /// - Returns: 配置超时、请求头和正文后的 HTTP 请求。
-    /// - Throws: 路径为空、不合法或指向其他主机时抛出配置错误。
+    ///   - method: The HTTP method.
+    ///   - path: The path relative to the API root; other hosts are not allowed.
+    ///   - body: The encoded body, or `nil` for no body.
+    ///
+    /// - Returns: The configured HTTP request.
+    ///
+    /// - Throws: A configuration error if the path is empty, invalid, or targets another host.
     func makeRequest(
         method: ApiMethod,
         path: String,
@@ -196,23 +202,27 @@ private extension ApiService {
             in: .whitespacesAndNewlines
         )
         guard !normalizedPath.isEmpty,
-              !normalizedPath.contains("://"),
-              !normalizedPath.hasPrefix("//") else {
+            !normalizedPath.contains("://"),
+            !normalizedPath.hasPrefix("//")
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: "API request path is invalid"
             )
         }
 
-        let base = baseURL.absoluteString.hasSuffix("/")
+        let base =
+            baseURL.absoluteString.hasSuffix("/")
             ? String(baseURL.absoluteString.dropLast())
             : baseURL.absoluteString
-        let relativePath = normalizedPath.hasPrefix("/")
+        let relativePath =
+            normalizedPath.hasPrefix("/")
             ? normalizedPath
             : "/\(normalizedPath)"
         guard let url = URL(string: base + relativePath),
-              url.scheme?.lowercased() == baseURL.scheme?.lowercased(),
-              url.host?.lowercased() == baseURL.host?.lowercased() else {
+            url.scheme?.lowercased() == baseURL.scheme?.lowercased(),
+            url.host?.lowercased() == baseURL.host?.lowercased()
+        else {
             throw XmaxError(
                 code: .invalidConfiguration,
                 message: "API request path is invalid"
@@ -226,25 +236,48 @@ private extension ApiService {
         )
         request.httpMethod = method.rawValue
         request.httpBody = body
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "X-Api-Key")
+        request.setValue(
+            "application/json",
+            forHTTPHeaderField: "Accept"
+        )
+        request.setValue(
+            "application/json",
+            forHTTPHeaderField: "Content-Type"
+        )
+        request.setValue(
+            apiKey,
+            forHTTPHeaderField: "X-Api-Key"
+        )
         let runtime = RuntimeInfo.current
-        request.setValue(runtime.platform, forHTTPHeaderField: "X-Platform")
-        request.setValue(runtime.osVersion, forHTTPHeaderField: "X-OS-Version")
-        request.setValue(runtime.sdkVersion, forHTTPHeaderField: "X-SDK-Version")
-        request.setValue(runtime.deviceModel, forHTTPHeaderField: "X-Device-Model")
+        request.setValue(
+            runtime.platform,
+            forHTTPHeaderField: "X-Platform"
+        )
+        request.setValue(
+            runtime.osVersion,
+            forHTTPHeaderField: "X-OS-Version"
+        )
+        request.setValue(
+            runtime.sdkVersion,
+            forHTTPHeaderField: "X-SDK-Version"
+        )
+        request.setValue(
+            runtime.deviceModel,
+            forHTTPHeaderField: "X-Device-Model"
+        )
         return request
     }
 
-    /// 检查 HTTP 和业务状态，并解析统一响应中的数据字段。
+    /// Validates response status and decodes business data.
     ///
     /// - Parameters:
-    ///   - data: 服务端响应正文。
-    ///   - statusCode: HTTP 响应状态码。
-    ///   - as: 业务数据的目标解码类型。
-    /// - Returns: 解析完成的业务数据。
-    /// - Throws: 响应不是有效 JSON、请求未成功或数据缺失及类型不匹配时抛出 API 错误。
+    ///   - data: The response body.
+    ///   - statusCode: The HTTP response status.
+    ///   - as: The business data decoding type.
+    ///
+    /// - Returns: The decoded business data.
+    ///
+    /// - Throws: An API error if JSON, status, or response data is invalid.
     static func parseResponse<Response: Decodable>(
         _ data: Data,
         statusCode: Int,
@@ -265,7 +298,8 @@ private extension ApiService {
         }
 
         guard (200..<300).contains(statusCode),
-              metadata.success == true else {
+            metadata.success == true
+        else {
             let message = metadata.message?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let resolvedMessage: String
@@ -306,10 +340,11 @@ private extension ApiService {
         }
     }
 
-    /// 将网络层错误转换为 SDK 的取消或网络错误。
+    /// Converts transport failures to SDK network or cancellation errors.
     ///
-    /// - Parameter error: 网络请求产生的原始错误。
-    /// - Returns: 保留取消语义的 SDK 错误。
+    /// - Parameter error: The original network error.
+    ///
+    /// - Returns: The SDK error preserving cancellation semantics.
     static func transportError(
         _ error: any Error
     ) -> XmaxError {
@@ -322,7 +357,8 @@ private extension ApiService {
 
         let platformError = error as NSError
         if platformError.domain == NSURLErrorDomain,
-           platformError.code == NSURLErrorCancelled {
+            platformError.code == NSURLErrorCancelled
+        {
             return XmaxError(
                 code: .cancelled,
                 message: "API request was cancelled"
@@ -331,19 +367,20 @@ private extension ApiService {
 
         return XmaxError(
             code: .networkError,
-            message: "HTTP request failed: " +
-                ErrorMessageFormatter.format(error)
+            message: "HTTP request failed: " + ErrorMessageFormatter.format(error)
         )
     }
 
-    /// 计算从指定单调时钟时间到现在的耗时。
+    /// Returns elapsed time from a monotonic start timestamp.
     ///
-    /// - Parameter startedAt: 请求开始时的系统运行时间，单位为纳秒。
-    /// - Returns: 已过去的整数毫秒数。
+    /// - Parameter startedAt: The request's monotonic start time, in nanoseconds.
+    ///
+    /// - Returns: The elapsed whole milliseconds.
     static func durationMs(
         since startedAt: UInt64
     ) -> Int {
-        let elapsedNanoseconds = DispatchTime.now().uptimeNanoseconds
+        let elapsedNanoseconds =
+            DispatchTime.now().uptimeNanoseconds
             - startedAt
         return Int(elapsedNanoseconds / 1_000_000)
     }
