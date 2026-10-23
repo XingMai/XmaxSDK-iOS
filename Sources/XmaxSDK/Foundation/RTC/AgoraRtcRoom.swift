@@ -47,11 +47,8 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// The video publication state of remote users.
     private var publications: [UInt: Bool] = [:]
 
-    /// The decoded frame listeners keyed by remote UID.
-    private var frameListeners: [UInt: RtcRemoteVideoFrameListener] = [:]
-
-    /// The individual remote PCM listeners keyed by resolved UID.
-    private var audioFrameListeners: [UInt: RtcRemoteAudioFrameListener] = [:]
+    /// Independent callback snapshots; native media threads never acquire the engine lock.
+    private let mediaListeners: RtcRemoteFrameListeners
 
     /// Room signaling.
 
@@ -83,6 +80,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     ) {
         self.platform = platform
         self.roomID = roomID
+        mediaListeners = RtcRemoteFrameListeners(roomID: roomID)
         connection.channelId = roomID
         #if DEBUG
         RealtimeDebugCaptureBridge.shared.registerRoom(roomID)
@@ -124,13 +122,10 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             #endif
             self.bridge = bridge
 
-            let sink = RtcRemoteVideoSink { [weak self] uid, channelID, frame in
-                guard let self else {
-                    return
-                }
-                let callback = platform.lock.withLock {
-                    !isClosed && isJoined && channelID == roomID ? frameListeners[uid] : nil
-                }
+            let mediaListeners = self.mediaListeners
+            let roomID = self.roomID
+            let sink = RtcRemoteVideoSink { uid, channelID, frame in
+                let callback = mediaListeners.videoListener(for: uid, channelID: channelID)
                 #if DEBUG
                 if callback != nil {
                     RealtimeDebugCaptureBridge.shared.decodedVideo(frame, roomID: roomID, uid: uid)
@@ -146,11 +141,8 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                 )
             }
 
-            let audioSink = RtcRemoteAudioSink(roomID: roomID) { [weak self] uid, channelID in
-                guard let self else { return nil }
-                return platform.lock.withLock {
-                    !isClosed && isJoined && channelID == roomID ? audioFrameListeners[uid] : nil
-                }
+            let audioSink = RtcRemoteAudioSink(roomID: roomID) { uid, channelID in
+                mediaListeners.audioListener(for: uid, channelID: channelID)
             }
             self.audioSink = audioSink
             let preMixFormatResult = platform.engine.setPlaybackAudioFrameBeforeMixingParametersWithSampleRate(
@@ -226,8 +218,8 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             listener = nil
             sender?.close()
             sender = nil
-            frameListeners.removeAll()
-            audioFrameListeners.removeAll()
+            // Invalidate before unregistering: Agora may wait for an in-flight media callback.
+            mediaListeners.close()
             accounts.removeAll()
             publications.removeAll()
 
@@ -399,7 +391,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
         try platform.lock.withLock {
             try requireJoined()
             let uid = try resolveUID(userID)
-            frameListeners[uid] = listener
+            mediaListeners.setVideoListener(listener, for: uid)
             #if DEBUG
             if listener != nil {
                 RealtimeDebugCaptureBridge.shared.bindStream(
@@ -424,7 +416,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
         try platform.lock.withLock {
             try requireJoined()
             let uid = try resolveUID(userID)
-            audioFrameListeners[uid] = listener
+            mediaListeners.setAudioListener(listener, for: uid)
         }
     }
 
@@ -756,5 +748,65 @@ private extension AgoraRtcRoom {
             ),
             operation: operation
         )
+    }
+}
+
+/// Stores native callback snapshots separately from locks held across Agora engine calls.
+///
+/// The lock protects dictionaries only. Resolve a callback here, then invoke it after returning;
+/// never call the engine or application code under this lock. An in-flight snapshot may finish
+/// after close; downstream room/stream lifetime guards reject obsolete output.
+final class RtcRemoteFrameListeners: @unchecked Sendable {
+
+    private let lock = NSLock()
+    private let roomID: String
+    private var closed = false
+    private var video: [UInt: RtcRemoteVideoFrameListener] = [:]
+    private var audio: [UInt: RtcRemoteAudioFrameListener] = [:]
+
+    init(roomID: String) {
+        self.roomID = roomID
+    }
+
+    func setVideoListener(
+        _ listener: RtcRemoteVideoFrameListener?,
+        for uid: UInt
+    ) {
+        lock.withLock {
+            guard !closed else { return }
+            video[uid] = listener
+        }
+    }
+
+    func setAudioListener(
+        _ listener: RtcRemoteAudioFrameListener?,
+        for uid: UInt
+    ) {
+        lock.withLock {
+            guard !closed else { return }
+            audio[uid] = listener
+        }
+    }
+
+    func videoListener(
+        for uid: UInt,
+        channelID: String
+    ) -> RtcRemoteVideoFrameListener? {
+        lock.withLock { !closed && channelID == roomID ? video[uid] : nil }
+    }
+
+    func audioListener(
+        for uid: UInt,
+        channelID: String
+    ) -> RtcRemoteAudioFrameListener? {
+        lock.withLock { !closed && channelID == roomID ? audio[uid] : nil }
+    }
+
+    func close() {
+        lock.withLock {
+            closed = true
+            video.removeAll()
+            audio.removeAll()
+        }
     }
 }

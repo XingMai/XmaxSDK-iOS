@@ -17,6 +17,81 @@ import XCTest
 
 final class RemoteMediaFrameTests: XCTestCase {
 
+    func testNativeMediaCallbacksCompleteWhileEngineOperationWaits() throws {
+        let listeners = RtcRemoteFrameListeners(roomID: "room")
+        let received = NativeAudioRecorder()
+        let videoReceived = DispatchSemaphore(value: 0)
+        listeners.setAudioListener({ received.append($0) }, for: 7)
+        listeners.setVideoListener({ _ in videoReceived.signal() }, for: 7)
+        let sink = RtcRemoteAudioSink(roomID: "room") { uid, channel in
+            listeners.audioListener(for: uid, channelID: channel)
+        }
+        let frame = try videoPacket(1_000)
+        let completed = DispatchSemaphore(value: 0)
+        // Model an engine operation holding its lock while waiting for its media worker.
+        // The native worker must resolve both listeners without acquiring that lock.
+        let engineLock = NSRecursiveLock()
+        engineLock.lock()
+        DispatchQueue.global().async {
+            Data(repeating: 0x35, count: 960).withUnsafeBytes { bytes in
+                sink.capturePCM(bytes.baseAddress, channelID: "room", uid: 7,
+                    samplesPerChannel: 480, sampleRate: 48_000, channels: 1,
+                    bytesPerSample: 2, renderTimeMs: 1_000)
+            }
+            listeners.videoListener(for: 7, channelID: "room")?(frame)
+            completed.signal()
+        }
+        let result = completed.wait(timeout: .now() + 2)
+        engineLock.unlock()
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(received.frames.count, 1)
+        XCTAssertEqual(videoReceived.wait(timeout: .now()), .success)
+    }
+
+    func testClosingListenersDoesNotWaitForRunningNativeCallback() {
+        let listeners = RtcRemoteFrameListeners(roomID: "room")
+        let entered = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0)
+        listeners.setAudioListener({ _ in
+            entered.signal()
+            _ = release.wait(timeout: .now() + 3)
+        }, for: 7)
+        DispatchQueue.global().async {
+            listeners.audioListener(for: 7, channelID: "room")?(audioPacket(1_000))
+            finished.signal()
+        }
+        XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+        let closed = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            listeners.close()
+            closed.signal()
+        }
+        let result = closed.wait(timeout: .now() + 1)
+        release.signal()
+        XCTAssertEqual(result, .success)
+        XCTAssertEqual(finished.wait(timeout: .now() + 2), .success)
+        XCTAssertNil(listeners.audioListener(for: 7, channelID: "room"))
+        listeners.setAudioListener({ _ in XCTFail("Closed room must reject registration") }, for: 7)
+        XCTAssertNil(listeners.audioListener(for: 7, channelID: "room"))
+    }
+
+    func testNativeListenerSnapshotsFilterRoomAndUserAndAllowRemoval() {
+        let listeners = RtcRemoteFrameListeners(roomID: "room")
+        listeners.setAudioListener({ _ in }, for: 7)
+        listeners.setVideoListener({ _ in }, for: 7)
+        XCTAssertNil(listeners.audioListener(for: 7, channelID: "other"))
+        XCTAssertNil(listeners.audioListener(for: 8, channelID: "room"))
+        XCTAssertNil(listeners.videoListener(for: 7, channelID: "other"))
+        XCTAssertNil(listeners.videoListener(for: 8, channelID: "room"))
+        XCTAssertNotNil(listeners.audioListener(for: 7, channelID: "room"))
+        XCTAssertNotNil(listeners.videoListener(for: 7, channelID: "room"))
+        listeners.setAudioListener(nil, for: 7)
+        listeners.setVideoListener(nil, for: 7)
+        XCTAssertNil(listeners.audioListener(for: 7, channelID: "room"))
+        XCTAssertNil(listeners.videoListener(for: 7, channelID: "room"))
+    }
+
     func testBatchedNativeTimesAdvanceBySamplesWithoutLosingVideoOffset() throws {
         let queue = DispatchQueue(label: "test.media.offset")
         let output = RealtimeMediaFrameDispatcher(deliveryQueue: queue)
