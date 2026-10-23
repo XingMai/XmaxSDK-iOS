@@ -36,7 +36,7 @@ final class ImageControllerTests: XCTestCase {
     func testImageUsesModelDefaultFrameRate() async throws {
         let controller = ImageController(
             rtcManager: RtcManagingStub(),
-            imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 800)),
+            imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 1600)),
             mediaService: MediaServicingStub(
                 resolvedSize: CGSize(width: 832, height: 1_472), model: .x2_1
             ),
@@ -51,7 +51,7 @@ final class ImageControllerTests: XCTestCase {
 
     func testCreateAcceptsEncodedImageDataDirectly() async throws {
         let imageData = Data("encoded-image".utf8)
-        let decodedImage = DecodedImageStub(width: 400, height: 800)
+        let decodedImage = DecodedImageStub(width: 400, height: 1600)
         let controller = ImageController(
             rtcManager: RtcManagingStub(),
             imageManager: ImageManagingStub(decodedImage: decodedImage),
@@ -68,11 +68,11 @@ final class ImageControllerTests: XCTestCase {
 
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,
-            RealtimeVideoFormat(width: 400, height: 800, fps: 30)
+            RealtimeVideoFormat(width: 400, height: 1600, fps: 30)
         )
         XCTAssertEqual(
             decodedImage.frameSizes,
-            [CGSize(width: 400, height: 800)]
+            [CGSize(width: 400, height: 1600)]
         )
     }
 
@@ -81,8 +81,8 @@ final class ImageControllerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
         let decodedImage = DecodedImageStub(
-            width: 640,
-            height: 480
+            width: 1024,
+            height: 768
         )
         let recorder = ImageFrameRecorder()
         let controller = ImageController(
@@ -103,18 +103,18 @@ final class ImageControllerTests: XCTestCase {
 
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,
-            RealtimeVideoFormat(width: 640, height: 480, fps: 30)
+            RealtimeVideoFormat(width: 1024, height: 768, fps: 30)
         )
         XCTAssertEqual(
             decodedImage.frameSizes,
-            [CGSize(width: 640, height: 480)]
+            [CGSize(width: 1024, height: 768)]
         )
         let frame = try XCTUnwrap(recorder.frames.first)
         XCTAssertEqual(
             frame.format,
-            try VideoFormat(width: 640, height: 480, pixelFormat: .bgra)
+            try VideoFormat(width: 1024, height: 768, pixelFormat: .bgra)
         )
-        XCTAssertEqual(frame.planes.first?.stride, 640 * 4)
+        XCTAssertEqual(frame.planes.first?.stride, 1024 * 4)
         XCTAssertNotNil(frame.bufferReuseID)
         XCTAssertGreaterThan(frame.timestampUs, 0)
     }
@@ -128,7 +128,7 @@ final class ImageControllerTests: XCTestCase {
         let controller = ImageController(
             rtcManager: RtcManagingStub(),
             imageManager: ImageManagingStub(
-                decodedImage: DecodedImageStub(width: 400, height: 800)
+                decodedImage: DecodedImageStub(width: 400, height: 1600)
             ),
             mediaService: mediaService,
             frameListener: { _ in }
@@ -141,12 +141,12 @@ final class ImageControllerTests: XCTestCase {
 
         XCTAssertEqual(
             mediaService.requestedSizes,
-            [CGSize(width: 400, height: 800)]
+            [CGSize(width: 400, height: 1600)]
         )
         XCTAssertEqual(
             prepared.videoTrack?.videoFormat,
             RealtimeVideoFormat(
-                width: 400, height: 800, fps: 30
+                width: 400, height: 1600, fps: 30
             )
         )
     }
@@ -268,7 +268,7 @@ final class ImageControllerTests: XCTestCase {
     }
 
     func testDecodedInputBypassesDecoder() async throws {
-        let decodedImage = DecodedImageStub(width: 400, height: 800)
+        let decodedImage = DecodedImageStub(width: 400, height: 1600)
         let controller = ImageController(
             rtcManager: RtcManagingStub(),
             imageManager: FailingImageManager(),
@@ -281,7 +281,7 @@ final class ImageControllerTests: XCTestCase {
         )
 
         XCTAssertEqual(stream.videoTrack?.videoFormat?.width, 400)
-        XCTAssertEqual(decodedImage.frameSizes, [CGSize(width: 400, height: 800)])
+        XCTAssertEqual(decodedImage.frameSizes, [CGSize(width: 400, height: 1600)])
         await controller.stopLocalImageStream()
     }
 
@@ -321,7 +321,7 @@ final class ImageControllerTests: XCTestCase {
     }
 
     func testRepeatedFramesReusePixelsAndStopAfterCleanup() async throws {
-        let decodedImage = DecodedImageStub(width: 400, height: 800)
+        let decodedImage = DecodedImageStub(width: 400, height: 1600)
         let recorder = ImageFrameRecorder()
         let receivedFrames = expectation(description: "Received three frames")
         receivedFrames.expectedFulfillmentCount = 3
@@ -382,7 +382,7 @@ private extension ImageControllerTests {
     ) -> ImageController {
         ImageController(
             rtcManager: rtcManager,
-            imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 800)),
+            imageManager: ImageManagingStub(decodedImage: DecodedImageStub(width: 400, height: 1600)),
             mediaService: MediaServicingStub(resolvedSize: CGSize(width: 832, height: 1472)),
             frameListener: frameListener
         )

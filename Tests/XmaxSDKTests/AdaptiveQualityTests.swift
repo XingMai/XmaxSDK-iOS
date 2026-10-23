@@ -16,7 +16,7 @@ final class AdaptiveQualityTests: XCTestCase {
     private let baseline = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
 
     func testTiersAlwaysDeriveFromMediaBaseline() {
-        let expected = [(1024, 1920, 30), (816, 1530, 24), (656, 1230, 24), (512, 960, 20), (512, 960, 16)]
+        let expected = [(1024, 1920, 30), (912, 1710, 24), (768, 1440, 24), (608, 1140, 20), (400, 750, 16)]
         for (index, value) in expected.enumerated() {
             let format = QualityVideoFormat.resolve(baseline, level: RealtimeQualityLevel.allCases[index], downlink: false)
             XCTAssertEqual(format.width, value.0)
@@ -34,6 +34,42 @@ final class AdaptiveQualityTests: XCTestCase {
             XCTAssertEqual(format.size, small.size)
             XCTAssertEqual(format.fps, 12)
         }
+    }
+
+    func testUplinkMinimumAppliesAfterAlignmentWithoutChangingDownlink() {
+        let minimum = RealtimeModel.x2_1.minimumInputPixels
+        let uplink = QualityVideoFormat.resolve(baseline, level: .l5, downlink: false, minimumInputPixels: minimum)
+        XCTAssertEqual(uplink.size, CGSize(width: 528, height: 990))
+        XCTAssertEqual(uplink.fps, 16)
+        XCTAssertEqual(
+            QualityVideoFormat.resolve(baseline, level: .l5, downlink: true, minimumInputPixels: minimum).size,
+            CGSize(width: 400, height: 750)
+        )
+        for (width, height) in [(1024, 1920), (1920, 1024), (1080, 1920), (1000, 600), (1000, 500), (400, 1600)] {
+            let format = RealtimeVideoFormat(width: width, height: height, fps: 30)
+            for level in RealtimeQualityLevel.allCases {
+                let resolved = QualityVideoFormat.resolve(format, level: level, downlink: false, minimumInputPixels: minimum)
+                XCTAssertGreaterThanOrEqual(resolved.width * resolved.height, minimum)
+                XCTAssertLessThanOrEqual(resolved.width, width)
+                XCTAssertLessThanOrEqual(resolved.height, height)
+                XCTAssertTrue(resolved.width.isMultiple(of: 2))
+                XCTAssertTrue(resolved.height.isMultiple(of: 2))
+            }
+        }
+    }
+
+    func testQualityConfigurationRetainsModelMinimumAcrossLevelChanges() {
+        let controller = QualityController(rtcManager: RtcManagingStub())
+        let minimum = RealtimeModel.x2_1.minimumInputPixels
+        _ = controller.prepareQuality(
+            baseline: baseline,
+            model: RealtimeModel.x2_1.rawValue,
+            minimumInputPixels: minimum,
+            isAdaptiveQualityEnabled: false
+        )
+        controller.completeQuality(downlink: false, level: .l5, success: true)
+        XCTAssertEqual(controller.qualityConfiguration?.minimumInputPixels, minimum)
+        XCTAssertEqual(controller.qualityConfiguration?.uplink.size, CGSize(width: 528, height: 990))
     }
 
     func testExplicitUplinkBitratesAreNotAppliedToDownlink() {
@@ -101,13 +137,22 @@ final class AdaptiveQualityTests: XCTestCase {
         XCTAssertEqual(direction.observe(.bad, sampledAt: 22, now: 22), .l3)
     }
 
-    func testDownlinkSkipsIdenticalLastTierAndDirectionsStayIndependent() {
+    func testUplinkAndDownlinkCanIndependentlyReachL5() {
         var down = QualityDirection(baseline: baseline, level: .l4, downlink: true)
         var up = QualityDirection(baseline: baseline, level: .l4, downlink: false)
         for time in 1...3 {
-            XCTAssertNil(down.observe(.bad, sampledAt: Double(time), now: Double(time)))
+            let downlinkCandidate = down.observe(.bad, sampledAt: Double(time), now: Double(time))
+            XCTAssertEqual(downlinkCandidate, time == 3 ? .l5 : nil)
             let candidate = up.observe(.bad, sampledAt: Double(time), now: Double(time))
             XCTAssertEqual(candidate, time == 3 ? .l5 : nil)
+        }
+    }
+
+    func testDownlinkSkipsIdenticalDimensionsAtMinimumShortEdge() {
+        let small = RealtimeVideoFormat(width: 320, height: 240, fps: 30)
+        var down = QualityDirection(baseline: small, level: .l4, downlink: true)
+        for time in 1...3 {
+            XCTAssertNil(down.observe(.bad, sampledAt: Double(time), now: Double(time)))
         }
     }
 

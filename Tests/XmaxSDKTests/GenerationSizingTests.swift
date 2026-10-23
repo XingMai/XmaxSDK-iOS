@@ -20,8 +20,8 @@ final class GenerationSizingTests: XCTestCase {
         let baseline = RealtimeVideoFormat(width: Int(resolvedMediaSize.width), height: Int(resolvedMediaSize.height), fps: 30)
 
         XCTAssertEqual(resolvedMediaSize, CGSize(width: 1920, height: 1080))
-        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: .l2, downlink: false).size, CGSize(width: 1536, height: 864))
-        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: .l5, downlink: false).size, CGSize(width: 960, height: 540))
+        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: .l2, downlink: false).size, CGSize(width: 1728, height: 972))
+        XCTAssertEqual(QualityVideoFormat.resolve(baseline, level: .l5, downlink: false).size, CGSize(width: 768, height: 432))
         XCTAssertEqual(try service.resolveGenerationSize(resolvedMediaSize), CGSize(width: 1920, height: 1080))
     }
 
@@ -40,7 +40,7 @@ final class GenerationSizingTests: XCTestCase {
         let baseline = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
         let limit = try targetFormat(baseline, level: .l1, interpolation: true).size
         XCTAssertEqual(limit, CGSize(width: 672, height: 1260))
-        let expected = [limit, limit, CGSize(width: 640, height: 1200), CGSize(width: 512, height: 960), CGSize(width: 512, height: 960)]
+        let expected = [limit, limit, limit, CGSize(width: 608, height: 1140), CGSize(width: 384, height: 720)]
         for level in RealtimeQualityLevel.allCases {
             let format = try targetFormat(baseline, level: level, interpolation: true)
             XCTAssertEqual(format.size, expected[level.rawValue - 1])
@@ -48,7 +48,7 @@ final class GenerationSizingTests: XCTestCase {
             XCTAssertEqual(format.width * baseline.height, format.height * baseline.width)
         }
         let disabled = try targetFormat(baseline, level: .l4, interpolation: false)
-        XCTAssertEqual(disabled.size, CGSize(width: 512, height: 960))
+        XCTAssertEqual(disabled.size, CGSize(width: 608, height: 1140))
         XCTAssertEqual(try targetFormat(baseline, level: .l1, interpolation: false).size, baseline.size)
     }
 
@@ -58,10 +58,30 @@ final class GenerationSizingTests: XCTestCase {
         let canvas = try service.resolveGenerationSize(source.size)
         XCTAssertEqual(canvas, CGSize(width: 1080, height: 1920))
         let normal = try targetFormat(source, level: .l2, interpolation: false)
-        XCTAssertEqual(normal.size, CGSize(width: 576, height: 1024))
+        XCTAssertEqual(normal.size, CGSize(width: 648, height: 1152))
         let interpolated = try targetFormat(source, level: .l1, interpolation: true)
         XCTAssertEqual(interpolated.size, CGSize(width: 684, height: 1216))
         XCTAssertEqual(interpolated.width * 16, interpolated.height * 9)
+    }
+
+    func testL5UsesFortyPercentDimensionsAndRetainsFrameRatePolicy() throws {
+        let source = RealtimeVideoFormat(width: 1920, height: 1080, fps: 30)
+        let uplink = QualityVideoFormat.resolve(source, level: .l5, downlink: false)
+        XCTAssertEqual(uplink.size, CGSize(width: 768, height: 432))
+        XCTAssertEqual(uplink.fps, 16)
+        XCTAssertEqual(
+            QualityVideoFormat.resolveDownlinkMaximumSize(source, level: .l5),
+            CGSize(width: 768, height: 432)
+        )
+        for interpolation in [false, true] {
+            let downlink = try targetFormat(source, level: .l5, interpolation: interpolation)
+            XCTAssertEqual(downlink.size, CGSize(width: 768, height: 432))
+            XCTAssertEqual(downlink.fps, 24)
+        }
+        XCTAssertEqual(
+            QualityVideoFormat.resolve(source, level: .l4, downlink: false).size,
+            CGSize(width: 1152, height: 648)
+        )
     }
 
     func testReturnSizeFallsBackToFourAlignmentWithoutChangingUplink() throws {
@@ -109,7 +129,7 @@ final class GenerationSizingTests: XCTestCase {
     }
     func testLowerTierWithinBudgetDoesNotShrinkForInterpolation() throws {
         let source = RealtimeVideoFormat(width: 1922, height: 1080, fps: 30)
-        for level in [RealtimeQualityLevel.l3, .l4, .l5] {
+        for level in [RealtimeQualityLevel.l4, .l5] {
             let plain = try targetFormat(source, level: level, interpolation: false)
             let interpolated = try targetFormat(source, level: level, interpolation: true)
             XCTAssertEqual(plain.size, interpolated.size)
@@ -119,9 +139,9 @@ final class GenerationSizingTests: XCTestCase {
     func testDownlinkBoundsRemainUnalignedUntilTargetSizeResolution() throws {
         let source = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
         let bounds = QualityVideoFormat.resolveDownlinkMaximumSize(source, level: .l2)
-        XCTAssertEqual(bounds.width, 819.2, accuracy: 0.0001)
-        XCTAssertEqual(bounds.height, 1536, accuracy: 0.0001)
-        XCTAssertEqual(try targetFormat(source, level: .l2, interpolation: false).size, CGSize(width: 800, height: 1500))
+        XCTAssertEqual(bounds.width, 921.6, accuracy: 0.0001)
+        XCTAssertEqual(bounds.height, 1728, accuracy: 0.0001)
+        XCTAssertEqual(try targetFormat(source, level: .l2, interpolation: false).size, CGSize(width: 896, height: 1680))
     }
 
     private func targetFormat(_ baseline: RealtimeVideoFormat, level: RealtimeQualityLevel, interpolation: Bool) throws -> RealtimeVideoFormat {

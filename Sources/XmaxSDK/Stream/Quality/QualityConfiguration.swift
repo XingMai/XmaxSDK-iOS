@@ -22,12 +22,16 @@ struct QualityConfiguration: Sendable {
     /// The target downlink quality level.
     let downlinkLevel: RealtimeQualityLevel
 
+    /// The minimum uplink area, in pixels.
+    let minimumInputPixels: Int
+
     /// The encoding format for the current uplink level.
     var uplink: RealtimeVideoFormat {
         QualityVideoFormat.resolve(
             baseline,
             level: uplinkLevel,
-            downlink: false
+            downlink: false,
+            minimumInputPixels: minimumInputPixels
         )
     }
 

@@ -1361,7 +1361,8 @@ private extension XmaxRealtimeManager {
                 format = QualityVideoFormat.resolve(
                     configuration.baseline,
                     level: level,
-                    downlink: false
+                    downlink: false,
+                    minimumInputPixels: configuration.minimumInputPixels
                 )
                 try streamController.setVideoEncoderConfig(format)
             }
@@ -1443,6 +1444,7 @@ private extension XmaxRealtimeManager {
         let quality = streamController.prepareQuality(
             baseline: videoFormat,
             model: options.model.rawValue,
+            minimumInputPixels: options.model.minimumInputPixels,
             isAdaptiveQualityEnabled: options.isAdaptiveQualityEnabled
         )
         try streamController.setVideoEncoderConfig(quality.uplink)

@@ -82,6 +82,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
     /// - Parameters:
     ///   - baseline: The resolved local media baseline, unchanged by adaptation.
     ///   - model: The model identifier isolating quality history.
+    ///   - minimumInputPixels: The model's minimum uplink area, in pixels.
     ///   - isAdaptiveQualityEnabled: Whether to adapt quality. Disabled connections start at L1
     ///     without using history.
     ///
@@ -89,6 +90,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
     func prepareQuality(
         baseline: RealtimeVideoFormat,
         model: String,
+        minimumInputPixels: Int = 0,
         isAdaptiveQualityEnabled: Bool
     ) -> QualityConfiguration {
         listenerLock.withLock {
@@ -103,7 +105,8 @@ final class QualityController: QualityControlling, RtcQualityListener,
             uplinkQuality = QualityDirection(
                 baseline: baseline,
                 level: history?.read(downlink: false) ?? .l1,
-                downlink: false
+                downlink: false,
+                minimumInputPixels: minimumInputPixels
             )
             downlinkQuality = QualityDirection(
                 baseline: baseline,
@@ -216,7 +219,8 @@ final class QualityController: QualityControlling, RtcQualityListener,
         return QualityConfiguration(
             baseline: uplinkQuality.baseline,
             uplinkLevel: uplinkQuality.level,
-            downlinkLevel: downlinkQuality.level
+            downlinkLevel: downlinkQuality.level,
+            minimumInputPixels: uplinkQuality.minimumInputPixels
         )
     }
 

@@ -28,8 +28,8 @@ public protocol MediaServicing: Sendable {
     /// - Returns: Dimensions aligned to 4 within the model limit, without upscaling and preserving
     ///   exact aspect ratio when possible.
     ///
-    /// - Throws: An error if dimensions are invalid, a camera bucket does not match, or output
-    ///   cannot be resolved.
+    /// - Throws: An error if dimensions are invalid, a camera bucket does not match, or aligned
+    ///   output falls below the model's minimum input area.
     func resolveMediaSize(
         _ sourceMediaSize: CGSize,
         source: RealtimeMediaSource

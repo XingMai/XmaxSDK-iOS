@@ -23,6 +23,7 @@ protocol QualityControlling: Sendable {
     /// - Parameters:
     ///   - baseline: The resolved local media baseline, unchanged by adaptation.
     ///   - model: The model identifier isolating quality history.
+    ///   - minimumInputPixels: The model's minimum uplink area, in pixels.
     ///   - isAdaptiveQualityEnabled: Whether to adapt quality. Disabled connections start at L1
     ///     without using history.
     ///
@@ -30,6 +31,7 @@ protocol QualityControlling: Sendable {
     func prepareQuality(
         baseline: RealtimeVideoFormat,
         model: String,
+        minimumInputPixels: Int,
         isAdaptiveQualityEnabled: Bool
     ) -> QualityConfiguration
 

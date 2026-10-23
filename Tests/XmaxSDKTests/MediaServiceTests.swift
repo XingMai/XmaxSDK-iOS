@@ -34,10 +34,10 @@ final class MediaServiceTests: XCTestCase {
         }
     }
 
-    func testMediaSizeDoesNotApplyMinimumAreaOrModelAlignment() throws {
+    func testMediaSizePreservesValidInputsWithoutApplyingCanvasAlignment() throws {
         let service = MediaService()
         for source in [RealtimeMediaSource.image, .video] {
-            for size in [CGSize(width: 320, height: 180), CGSize(width: 804, height: 600)] {
+            for size in [CGSize(width: 1000, height: 500), CGSize(width: 1004, height: 600)] {
                 XCTAssertEqual(try service.resolveMediaSize(size, source: source), size)
             }
             XCTAssertEqual(
@@ -45,9 +45,31 @@ final class MediaServiceTests: XCTestCase {
                 CGSize(width: 1000, height: 1000)
             )
             XCTAssertEqual(
-                try service.resolveMediaSize(CGSize(width: 802, height: 600), source: source),
-                CGSize(width: 800, height: 600)
+                try service.resolveMediaSize(CGSize(width: 1001, height: 600), source: source),
+                CGSize(width: 1000, height: 600)
             )
+        }
+    }
+
+    func testMediaMinimumAppliesAfterAlignmentForEveryNonCameraSource() throws {
+        for model in RealtimeModel.allCases {
+            let service = MediaService(model: model)
+            XCTAssertEqual(model.minimumInputPixels, 500000)
+            for source in [RealtimeMediaSource.image, .video, .external] {
+                for size in [CGSize(width: 400, height: 752), CGSize(width: 752, height: 400), CGSize(width: 512, height: 960), CGSize(width: 999, height: 501)] {
+                    XCTAssertThrowsError(try service.resolveMediaSize(size, source: source)) { error in
+                        XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+                    }
+                }
+                XCTAssertEqual(
+                    try service.resolveMediaSize(CGSize(width: 1001, height: 500), source: source),
+                    CGSize(width: 1000, height: 500)
+                )
+                XCTAssertEqual(
+                    try service.resolveMediaSize(CGSize(width: 512, height: 1000), source: source),
+                    CGSize(width: 512, height: 1000)
+                )
+            }
         }
     }
 

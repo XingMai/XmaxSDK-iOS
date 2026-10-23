@@ -164,6 +164,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     /// - Parameters:
     ///   - baseline: The resolved local media baseline, unchanged by adaptation.
     ///   - model: The model identifier isolating quality history.
+    ///   - minimumInputPixels: The model's minimum uplink area, in pixels.
     ///   - isAdaptiveQualityEnabled: Whether to adapt quality. Disabled connections start at L1
     ///     without using history.
     ///
@@ -171,11 +172,13 @@ final class StreamController: StreamControlling, RtcEventListener,
     func prepareQuality(
         baseline: RealtimeVideoFormat,
         model: String,
+        minimumInputPixels: Int,
         isAdaptiveQualityEnabled: Bool
     ) -> QualityConfiguration {
         qualityController.prepareQuality(
             baseline: baseline,
             model: model,
+            minimumInputPixels: minimumInputPixels,
             isAdaptiveQualityEnabled: isAdaptiveQualityEnabled
         )
     }

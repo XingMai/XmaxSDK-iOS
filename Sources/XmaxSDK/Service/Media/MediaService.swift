@@ -36,8 +36,8 @@ final class MediaService: MediaServicing, Sendable {
     /// - Returns: Dimensions aligned to 4 within the model limit, without upscaling and preserving
     ///   exact aspect ratio when possible.
     ///
-    /// - Throws: An error if dimensions are invalid, a camera bucket does not match, or output
-    ///   cannot be resolved.
+    /// - Throws: An error if dimensions are invalid, a camera bucket does not match, or aligned
+    ///   output falls below the model's minimum input area.
     func resolveMediaSize(
         _ sourceMediaSize: CGSize,
         source: RealtimeMediaSource
@@ -68,12 +68,19 @@ final class MediaService: MediaServicing, Sendable {
             1,
             sqrt(Double(model.maximumInputPixels) / pixels)
         )
-        return try alignedSize(
+        let size = try alignedSize(
             width: width,
             height: height,
             scale: scale,
             alignment: 4
         )
+        guard size.width * size.height >= CGFloat(model.minimumInputPixels) else {
+            throw XmaxError(
+                code: .invalidConfiguration,
+                message: "Media resolution must contain at least \(model.minimumInputPixels) pixels"
+            )
+        }
+        return size
     }
 
     /// Resolves returned dimensions within quality and optional interpolation limits.

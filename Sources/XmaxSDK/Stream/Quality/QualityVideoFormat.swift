@@ -14,7 +14,7 @@ import Foundation
 enum QualityVideoFormat {
 
     /// The per-level dimension scale factors.
-    static let scales: [Double] = [1, 0.8, 0.65, 0.5, 0.5]
+    static let scales: [Double] = [1, 0.9, 0.75, 0.6, 0.4]
 
     /// The per-level target frame rates.
     static let frameRates = [30, 24, 24, 20, 16]
@@ -47,12 +47,14 @@ enum QualityVideoFormat {
     ///   - level: The target quality level.
     ///   - downlink: Whether this is downlink. Downlink uses 24 fps; uplink does not exceed the
     ///     baseline rate.
+    ///   - minimumInputPixels: The minimum uplink area, in pixels; ignored for downlink.
     ///
     /// - Returns: The resolved transport dimensions, frame rate, and encoding settings.
     static func resolve(
         _ baseline: RealtimeVideoFormat,
         level: RealtimeQualityLevel,
-        downlink: Bool
+        downlink: Bool,
+        minimumInputPixels: Int = 0
     ) -> RealtimeVideoFormat {
         let index = level.rawValue - 1
         let scale = sizeScale(
@@ -61,7 +63,8 @@ enum QualityVideoFormat {
         )
         let size = scaledSize(
             baseline.size,
-            scale: scale
+            scale: scale,
+            minimumPixels: downlink ? 0 : minimumInputPixels
         )
         return RealtimeVideoFormat(
             width: Int(size.width),
@@ -83,11 +86,14 @@ enum QualityVideoFormat {
     /// - Parameters:
     ///   - size: The original integer pixel dimensions.
     ///   - scale: The requested dimension scale.
+    ///   - minimumPixels: The minimum output area, capped at the source area to prevent upscaling.
     ///
-    /// - Returns: Even dimensions, rounded down if exact aspect ratio cannot be retained.
+    /// - Returns: Even dimensions respecting the minimum area without upscaling, preferring exact
+    ///   aspect ratio.
     static func scaledSize(
         _ size: CGSize,
-        scale: Double
+        scale: Double,
+        minimumPixels: Int = 0
     ) -> CGSize {
         let width = Int(size.width)
         let height = Int(size.height)
@@ -96,21 +102,31 @@ enum QualityVideoFormat {
         while remainder != 0 {
             (divisor, remainder) = (remainder, divisor % remainder)
         }
+        let pixels = Double(width) * Double(height)
+        let minimumScale = sqrt(min(Double(max(0, minimumPixels)), pixels) / pixels)
+        let minimumUnits = Int(ceil(Double(divisor) * minimumScale / 2)) * 2
         let units = Int(floor(Double(divisor) * scale + 0.0000001)) / 2 * 2
         if units >= 2 {
+            let resolvedUnits = max(units, minimumUnits)
             return CGSize(
-                width: width / divisor * units,
-                height: height / divisor * units
+                width: width / divisor * resolvedUnits,
+                height: height / divisor * resolvedUnits
             )
         }
         return CGSize(
             width: max(
                 2,
-                Int(floor(Double(width) * scale / 2)) * 2
+                max(
+                    Int(floor(Double(width) * scale / 2)) * 2,
+                    Int(ceil(Double(width) * minimumScale / 2)) * 2
+                )
             ),
             height: max(
                 2,
-                Int(floor(Double(height) * scale / 2)) * 2
+                max(
+                    Int(floor(Double(height) * scale / 2)) * 2,
+                    Int(ceil(Double(height) * minimumScale / 2)) * 2
+                )
             )
         )
     }

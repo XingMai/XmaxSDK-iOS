@@ -19,6 +19,9 @@ struct QualityDirection: Sendable {
     /// Whether this policy governs downlink rather than uplink.
     let downlink: Bool
 
+    /// The minimum uplink area, in pixels; ignored for downlink.
+    let minimumInputPixels: Int
+
     /// The current quality level.
     private(set) var level: RealtimeQualityLevel
 
@@ -47,13 +50,16 @@ struct QualityDirection: Sendable {
     ///   - level: The initial level. Uplink levels increase in quality until the bitrate budget is
     ///     supported.
     ///   - downlink: Whether this is the downlink direction.
+    ///   - minimumInputPixels: The minimum uplink area, in pixels; ignored for downlink.
     init(
         baseline: RealtimeVideoFormat,
         level: RealtimeQualityLevel,
-        downlink: Bool
+        downlink: Bool,
+        minimumInputPixels: Int = 0
     ) {
         self.baseline = baseline
         self.downlink = downlink
+        self.minimumInputPixels = minimumInputPixels
         self.level = level
         while !supports(self.level),
             let higher = RealtimeQualityLevel(rawValue: self.level.rawValue - 1)
@@ -78,7 +84,8 @@ struct QualityDirection: Sendable {
         QualityVideoFormat.resolve(
             baseline,
             level: level,
-            downlink: downlink
+            downlink: downlink,
+            minimumInputPixels: minimumInputPixels
         )
     }
 

@@ -86,10 +86,9 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
         }
     }
 
-    /// The minimum generation canvas area when no fixed formats are specified; does not upscale
-    /// local media.
+    /// The minimum local media and uplink area, in pixels; also limits variable generation canvases.
     public var minimumInputPixels: Int {
-        600000
+        500000
     }
 
     /// The maximum local media area, in pixels; also limits variable generation canvases.
