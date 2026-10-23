@@ -446,6 +446,43 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         }
     }
 
+    /// Sets a remote PCM listener guarded by the current room's connection lifetime.
+    ///
+    /// - Parameters:
+    ///   - listener: The owned audio handler, or `nil` to remove it.
+    ///   - stream: The remote result stream.
+    /// - Throws: An error if the room or remote account is unavailable.
+    func setRemoteAudioFrameListener(
+        _ listener: RtcRemoteAudioFrameListener?,
+        for stream: RemoteStream
+    ) throws {
+        try operationLock.withLock {
+            guard let context = stateLock.withLock({ activeRoom }),
+                  context.roomID == stream.roomID
+            else {
+                if listener == nil { return }
+                throw XmaxError(
+                    code: .rtcError,
+                    message: "Remote audio stream is unavailable"
+                )
+            }
+            let id = context.id
+            let guardedListener: RtcRemoteAudioFrameListener?
+            if let listener {
+                guardedListener = { [weak self] frame in
+                    guard let self, stateLock.withLock({ activeRoom?.id == id }) else { return }
+                    listener(frame)
+                }
+            } else {
+                guardedListener = nil
+            }
+            try context.room.setRemoteAudioFrameListener(
+                guardedListener,
+                for: stream.userID
+            )
+        }
+    }
+
     /// Sends a message to the active RTC room.
     ///
     /// - Parameters:

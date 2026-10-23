@@ -55,6 +55,15 @@ final class RenderController: RenderControlling {
     /// The final remote frame dispatcher.
     private let remoteVideoFrameDispatcher = RealtimeVideoFrameDispatcher()
 
+    /// The bounded, shared audio/video output queue and sample timeline.
+    private let remoteMediaFrameDispatcher = RealtimeMediaFrameDispatcher()
+
+    /// The token rejecting packets from previous result-stream bindings.
+    private var remoteMediaStreamID: UUID?
+
+    /// The result stream whose native PCM listener is installed.
+    private var activeRemoteAudioStream: RemoteStream?
+
     /// The current rendering revision.
     private var renderingToken: UInt64 = 0
 
@@ -143,17 +152,29 @@ final class RenderController: RenderControlling {
         _ stream: RemoteStream?
     ) throws {
         let previousStream = remoteStream
-        if let previousStream, previousStream != stream {
+        guard previousStream != stream else {
+            try activateRemoteFramesIfReady(reportsError: false)
+            if remoteMediaFrameDispatcher.hasListener {
+                try activateRemoteAudioIfReady()
+            }
+            return
+        }
+        if let previousStream {
             try deactivateRemoteFrames(for: previousStream)
+            try deactivateRemoteAudio(for: previousStream)
         }
 
         remoteStream = stream
+        remoteMediaStreamID = remoteMediaFrameDispatcher.setStream(active: stream != nil)
         refreshRenderingToken()
         guard stream != nil else {
             remoteView?.clearDecodedVideoPreview()
             return
         }
         try activateRemoteFramesIfReady(reportsError: false)
+        if remoteMediaFrameDispatcher.hasListener {
+            try activateRemoteAudioIfReady()
+        }
     }
 
     /// Sets the final remote video frame listener.
@@ -163,6 +184,24 @@ final class RenderController: RenderControlling {
         _ listener: RealtimeVideoFrameListener?
     ) {
         remoteVideoFrameDispatcher.setListener(listener)
+    }
+
+    /// Sets shared media output and attaches PCM only while an application requests it.
+    ///
+    /// - Parameter listener: The output handler, or `nil` to stop queued output immediately.
+    /// - Throws: An error if the current remote PCM listener cannot be configured.
+    func setRemoteMediaFrameListener(
+        _ listener: RealtimeMediaFrameListener?
+    ) throws {
+        guard let listener else {
+            remoteMediaFrameDispatcher.setListener(nil)
+            if let activeRemoteAudioStream {
+                try deactivateRemoteAudio(for: activeRemoteAudioStream)
+            }
+            return
+        }
+        try activateRemoteAudioIfReady()
+        remoteMediaFrameDispatcher.setListener(listener)
     }
 
     /// Registers remote rendering and trajectory interactions.
@@ -369,17 +408,49 @@ private extension RenderController {
     func resetRemoteVideo() throws {
         let stream = remoteStream
         remoteStream = nil
+        remoteMediaStreamID = remoteMediaFrameDispatcher.setStream(active: false)
         remoteContentMode = .fill
 
         defer {
+            activeRemoteFrameStream = nil
+            activeRemoteAudioStream = nil
             remoteView?.clearDecodedVideoPreview()
             remoteView = nil
             refreshRenderingToken()
         }
 
         if let stream {
-            try deactivateRemoteFrames(for: stream)
+            var failure: (any Error)?
+            do { try deactivateRemoteFrames(for: stream) } catch { failure = error }
+            do { try deactivateRemoteAudio(for: stream) } catch { failure = failure ?? error }
+            if let failure { throw failure }
         }
+    }
+
+    /// Attaches PCM without hopping each native audio callback through the main actor.
+    ///
+    /// - Throws: An error if the current result user's PCM listener cannot be attached.
+    func activateRemoteAudioIfReady() throws {
+        guard let remoteStream, let streamID = remoteMediaStreamID,
+              activeRemoteAudioStream != remoteStream else { return }
+        let dispatcher = remoteMediaFrameDispatcher
+        try rtcManager.setRemoteAudioFrameListener(
+            { frame in dispatcher.dispatchAudio(frame, streamID: streamID) },
+            for: remoteStream
+        )
+        activeRemoteAudioStream = remoteStream
+    }
+
+    /// Removes one binding's PCM listener; stale captured callbacks remain token-guarded.
+    func deactivateRemoteAudio(
+        for stream: RemoteStream
+    ) throws {
+        guard activeRemoteAudioStream == stream else { return }
+        defer { activeRemoteAudioStream = nil }
+        try rtcManager.setRemoteAudioFrameListener(
+            nil,
+            for: stream
+        )
     }
 
     /// Installs a decoded frame listener for the current remote stream.
@@ -462,9 +533,20 @@ private extension RenderController {
         guard outputToken == renderingToken else {
             return
         }
+        #if DEBUG
+        if let remoteStream {
+            RealtimeDebugCaptureBridge.shared.finalVideo(frame, stream: remoteStream)
+        }
+        #endif
         latestRemoteFrame = frame
         finishAllRemoteFrameReadyWaiters()
         remoteVideoFrameDispatcher.dispatch(frame)
+        if let remoteMediaStreamID {
+            remoteMediaFrameDispatcher.dispatchVideo(
+                frame,
+                streamID: remoteMediaStreamID
+            )
+        }
         if let remoteView {
             remoteView.displayRemoteVideoFrame(
                 frame,

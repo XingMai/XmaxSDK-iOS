@@ -373,6 +373,16 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await renderController.setRemoteVideoFrameListener(listener)
     }
 
+    /// Sets serialized remote PCM and processed video output without changing playback.
+    ///
+    /// - Parameter listener: The output handler, or `nil` to stop output.
+    /// - Throws: An error if the current remote audio listener cannot be configured.
+    func setRemoteMediaFrameListener(
+        _ listener: RealtimeMediaFrameListener?
+    ) async throws {
+        try await renderController.setRemoteMediaFrameListener(listener)
+    }
+
     /// Sets the uplink video statistics listener.
     ///
     /// - Parameter listener: A main-actor handler that receives `nil` when unpublished or

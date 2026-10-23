@@ -124,6 +124,17 @@ protocol RtcRoom: AnyObject, Sendable {
     )
         throws
 
+    /// Sets a listener for one remote user's owned PCM before remote-user mixing.
+    ///
+    /// - Parameters:
+    ///   - listener: The audio handler, or `nil` to remove it.
+    ///   - userID: The remote RTC user account.
+    /// - Throws: An error if the room or remote account is unavailable.
+    func setRemoteAudioFrameListener(
+        _ listener: RtcRemoteAudioFrameListener?,
+        for userID: String
+    ) throws
+
     /// Enqueues room signaling.
     ///
     /// - Parameters:

@@ -16,7 +16,7 @@ actor.
 - [SwiftUI](#swiftui)
 - [Touch interaction](#touch-interaction)
 - [Lifecycle and errors](#lifecycle-and-errors)
-- [Generated video frames](#generated-video-frames)
+- [Generated audio and video frames](#generated-audio-and-video-frames)
 - [Frame interpolation](#frame-interpolation)
 - [Logging](#logging)
 
@@ -406,7 +406,79 @@ when it has been released. Normal disconnection reports `.normal`.
 
 <br>
 
-## Generated video frames
+## Generated audio and video frames
+
+Use one media listener to receive PCM from the result stream's remote user and
+video after optional frame interpolation. Register before starting generation:
+
+```swift
+try await realtime.setRemoteMediaFrameListener { event in
+    // recorder represents your own thread-safe output pipeline.
+    recorder.beginStreamIfNeeded(event.streamID)
+    switch event.content {
+    case .audio(let audio):
+        recorder.appendPCM(
+            audio.data,
+            sampleRate: audio.sampleRate,
+            channels: audio.channels,
+            presentationTimeStamp: audio.presentationTimeStamp,
+            duration: audio.duration,
+            isDiscontinuous: event.isDiscontinuous
+        )
+    case .video(let video):
+        recorder.appendVideo(
+            video.pixelBuffer,
+            presentationTimeStamp: video.presentationTimeStamp,
+            duration: video.duration,
+            isDiscontinuous: event.isDiscontinuous
+        )
+    }
+}
+
+// Stop receiving both tracks and invalidate output still queued for this listener.
+try await realtime.setRemoteMediaFrameListener(nil)
+```
+
+PCM bytes are copied signed 16-bit little-endian samples, interleaved for multiple
+channels. The SDK requests 48 kHz mono packets of 480 samples (10 ms); use each
+packet's actual format and sample count. Audio belongs to the result user before
+remote-user mixing. The API does not export local microphone/input audio or the
+aggregate playback comparison used by the debug probe. It does not change remote
+audio subscription or playback volume; audio is available only while subscribed.
+
+Audio and video use the same receiver rendering time basis. Keep their original
+offset: choose **one origin for both tracks**, not a separate zero for each. Audio
+is anchored to its first native render time and then advances by exact sample
+durations. Repeated native timestamps do not produce repeated output audio PTS.
+Format changes or a native clock deviation greater than 100 ms re-anchor audio
+and mark it discontinuous. Invalid clocks or layouts are discarded, and the next
+valid packet is marked discontinuous.
+
+`streamID` is shared by both tracks and changes when the result stream is replaced
+or the connection is recreated. `isDiscontinuous` is true for the first event of
+each track and after clock/format changes or output queue loss. Handle later
+discontinuities as a gap or start another recording segment. A stream ID is an
+opaque binding identity, not an RTC account or a server task identifier.
+
+Callbacks run serially on a background queue. Video processing can make a video
+event arrive after audio with a later PTS; callbacks are **not sorted by PTS across
+tracks**, and one event is not an audio/video pair. Buffer and schedule using PTS.
+The pending queue is capped at 256 packets and 32 MiB, including any callback
+currently running. Forward events promptly; a slow listener can cause output loss.
+Removing or replacing a listener discards queued callbacks; one already running
+may finish. Retain audio data and pixel buffers until your asynchronous work ends.
+
+This contract provides receiver-side timing for recording and processing. It does
+not correct an audio/video content offset introduced by the source or server.
+Content synchronization still requires validation with simultaneous visible and
+audible source markers, including runs with interpolation enabled.
+
+XLab's UIKit realtime page uses this media listener for its Record button. It
+encodes processed video as H.264 and remote PCM as AAC, then combines the tracks
+into one MP4 while preserving their original timing offset. The movie is saved
+to Photos. A session without remote audio still produces a video-only movie.
+
+### Video-only output
 
 To record or process output outside the SDK, register a final-frame listener before
 starting generation. Here, `recorder` represents your app's recording pipeline,
@@ -426,14 +498,17 @@ The listener receives frames accepted by the final render pipeline, after option
 frame interpolation, on a dedicated serial background queue. Frame timestamps do
 not necessarily start at zero; rebase the recording timeline to the first received
 frame. Transfer frames to a thread-safe recording pipeline quickly and avoid
-synchronous encoding in the callback. This API exposes video frames only, not
-generated audio.
+synchronous encoding in the callback. This video-only listener remains available
+independently of the media listener.
 
 Clear the listener when frame delivery is no longer needed:
 
 ```swift
 await realtime.setRemoteVideoFrameListener(nil)
 ```
+
+For Debug-only PCM, video timing, and media capture in XLab, see the
+[remote media debug capture guide](./debug-capture.md).
 
 <br>
 

@@ -223,6 +223,38 @@ final class RtcRoomLifecycleTests: XCTestCase {
         await manager.destroy()
     }
 
+    func testOldRoomAudioCannotReachListenerAfterRejoiningSameRoomName() async throws {
+        let firstStarted = expectation(description: "First room")
+        let secondStarted = expectation(description: "Second room")
+        let first = RtcRoomStub(onJoin: { firstStarted.fulfill() })
+        let second = RtcRoomStub(onJoin: { secondStarted.fulfill() })
+        let rooms = AudioRoomSequence(first: first, second: second)
+        let manager = makeManager { _ in rooms.next() }
+        try await manager.initialize()
+        let firstJoin = Task { try await manager.joinRoom(configuration: config("same-room")) }
+        await fulfillment(of: [firstStarted], timeout: 2)
+        first.emit(.joined)
+        try await firstJoin.value
+        let stream = RemoteStream(roomID: "same-room", userID: "bot")
+        let old = expectation(description: "Old listener rejected")
+        old.isInverted = true
+        try manager.setRemoteAudioFrameListener({ _ in old.fulfill() }, for: stream)
+        await manager.leaveRoom()
+
+        let secondJoin = Task { try await manager.joinRoom(configuration: config("same-room")) }
+        await fulfillment(of: [secondStarted], timeout: 2)
+        second.emit(.joined)
+        try await secondJoin.value
+        let current = expectation(description: "Current room audio")
+        try manager.setRemoteAudioFrameListener({ _ in current.fulfill() }, for: stream)
+        first.emitAudioFrame(audioPacket(1_000), late: true)
+        second.emitAudioFrame(audioPacket(2_000))
+        await fulfillment(of: [current, old], timeout: 0.2)
+        await manager.destroy()
+        XCTAssertNoThrow(try manager.setRemoteAudioFrameListener(nil, for: stream))
+        XCTAssertThrowsError(try manager.setRemoteAudioFrameListener({ _ in }, for: stream))
+    }
+
     private func makeManager(
         timeout: UInt64 = RtcManager.joinTimeoutNanoseconds,
         makeRoom: @escaping @Sendable (String) throws -> any RtcRoom
@@ -246,6 +278,25 @@ final class RtcRoomLifecycleTests: XCTestCase {
 
 private func config(_ roomID: String) -> RoomJoinConfiguration {
     RoomJoinConfiguration(roomID: roomID, userID: "string-account", token: "token")
+}
+
+private final class AudioRoomSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private let first: RtcRoomStub
+    private let second: RtcRoomStub
+    private var usedFirst = false
+
+    init(first: RtcRoomStub, second: RtcRoomStub) {
+        self.first = first
+        self.second = second
+    }
+
+    func next() -> RtcRoomStub {
+        lock.withLock {
+            defer { usedFirst = true }
+            return usedFirst ? second : first
+        }
+    }
 }
 
 @MainActor

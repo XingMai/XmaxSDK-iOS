@@ -1623,6 +1623,23 @@
         }
       }
     },
+    "record.bufferFull" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording could not keep up. Please start a new recording."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录制处理不及时，请重新开始录制。"
+          }
+        }
+      }
+    },
     "record.failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1959,6 +1976,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "录制"
+          }
+        }
+      }
+    },
+    "record.timelineChanged" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The generated media changed. Please start a new recording."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成音视频发生变化，请重新开始录制。"
           }
         }
       }

@@ -7,16 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-        A12B3C4D5E6F789012345601 /* RealtimeStatisticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12B3C4D5E6F789012345602 /* RealtimeStatisticsPanel.swift */; };
-		D10000000000000000000005 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000005 /* InfoPlist.xcstrings */; };
-		C10000000000000000000002 /* XLLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000002 /* XLLocalization.swift */; };
-		D10000000000000000000004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* Localizable.xcstrings */; };
 		100000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000001 /* AppDelegate.swift */; };
+		28F1950EE5506A70641AFF05 /* XLLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000002 /* XLLocalization.swift */; };
+		3193C81D3AC3D7AA2D0D381D /* RealtimeVideoRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21000000000000000000013 /* RealtimeVideoRecorder.swift */; };
+		6339E3C52B5D619785122244 /* Pods_XLabTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD23CB91174D487EC648B14D /* Pods_XLabTests.framework */; };
+		65CB29886238ED2DD546E818 /* RealtimeVideoRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03208F0C1BE42E84BAFD2388 /* RealtimeVideoRecorderTests.swift */; };
+		A12B3C4D5E6F789012345601 /* RealtimeStatisticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12B3C4D5E6F789012345602 /* RealtimeStatisticsPanel.swift */; };
+		B0F7A7D65564308BF4BC53E5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C7DBE635BE15FE4FE2430799 /* Foundation.framework */; };
 		B10000000000000000000001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* SceneDelegate.swift */; };
 		C10000000000000000000001 /* XLToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* XLToast.swift */; };
+		C10000000000000000000002 /* XLLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000002 /* XLLocalization.swift */; };
 		D10000000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* Assets.xcassets */; };
 		D10000000000000000000002 /* FeedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* FeedViewController.swift */; };
 		D10000000000000000000003 /* FeedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000003 /* FeedComponents.swift */; };
+		D10000000000000000000004 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000004 /* Localizable.xcstrings */; };
+		D10000000000000000000005 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000005 /* InfoPlist.xcstrings */; };
 		E10000000000000000000001 /* StorageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* StorageViewController.swift */; };
 		F01D3860A57CC15F489DE622 /* Pods_XLab.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */; };
 		F10000000000000000000001 /* RealtimeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* RealtimeViewController.swift */; };
@@ -47,20 +52,26 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-        A12B3C4D5E6F789012345602 /* RealtimeStatisticsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeStatisticsPanel.swift; sourceTree = "<group>"; };
-		D20000000000000000000005 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
-		C20000000000000000000002 /* XLLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLLocalization.swift; sourceTree = "<group>"; };
-		D20000000000000000000004 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		03208F0C1BE42E84BAFD2388 /* RealtimeVideoRecorderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RealtimeVideoRecorderTests.swift; sourceTree = "<group>"; };
 		200000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		200000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		200000000000000000000004 /* XLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		510BC7EEA73BB5606BE83BEA /* XLabTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XLabTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6895322A4D9DAFC8F903BFE9 /* Pods-XLabTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLabTests.debug.xcconfig"; path = "Target Support Files/Pods-XLabTests/Pods-XLabTests.debug.xcconfig"; sourceTree = "<group>"; };
+		A12B3C4D5E6F789012345602 /* RealtimeStatisticsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeStatisticsPanel.swift; sourceTree = "<group>"; };
 		B20000000000000000000001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLab.release.xcconfig"; path = "Target Support Files/Pods-XLab/Pods-XLab.release.xcconfig"; sourceTree = "<group>"; };
 		C20000000000000000000001 /* XLToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLToast.swift; sourceTree = "<group>"; };
+		C20000000000000000000002 /* XLLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLLocalization.swift; sourceTree = "<group>"; };
+		C7DBE635BE15FE4FE2430799 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		CD23CB91174D487EC648B14D /* Pods_XLabTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_XLabTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D20000000000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D20000000000000000000002 /* FeedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewController.swift; sourceTree = "<group>"; };
 		D20000000000000000000003 /* FeedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedComponents.swift; sourceTree = "<group>"; };
+		D20000000000000000000004 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		D20000000000000000000005 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLab.debug.xcconfig"; path = "Target Support Files/Pods-XLab/Pods-XLab.debug.xcconfig"; sourceTree = "<group>"; };
+		DF900EBA74A6E742DC2AD7C5 /* Pods-XLabTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XLabTests.release.xcconfig"; path = "Target Support Files/Pods-XLabTests/Pods-XLabTests.release.xcconfig"; sourceTree = "<group>"; };
 		E20000000000000000000001 /* StorageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageViewController.swift; sourceTree = "<group>"; };
 		EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_XLab.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F20000000000000000000001 /* RealtimeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeViewController.swift; sourceTree = "<group>"; };
@@ -99,9 +110,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D50548281D8F8049A61D8217 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0F7A7D65564308BF4BC53E5 /* Foundation.framework in Frameworks */,
+				6339E3C52B5D619785122244 /* Pods_XLabTests.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3DA74101C805BC8303DAB27B /* XLabTests */ = {
+			isa = PBXGroup;
+			children = (
+				03208F0C1BE42E84BAFD2388 /* RealtimeVideoRecorderTests.swift */,
+			);
+			name = XLabTests;
+			path = XLabTests;
+			sourceTree = "<group>";
+		};
 		400000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -109,6 +138,7 @@
 				400000000000000000000003 /* Products */,
 				A556804D3D23FF78A0CA9B77 /* Pods */,
 				690C6DA96B3BD327674A6601 /* Frameworks */,
+				3DA74101C805BC8303DAB27B /* XLabTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -129,14 +159,25 @@
 			isa = PBXGroup;
 			children = (
 				200000000000000000000004 /* XLab.app */,
+				510BC7EEA73BB5606BE83BEA /* XLabTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		56AB2F708887079A82AF900D /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				C7DBE635BE15FE4FE2430799 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		690C6DA96B3BD327674A6601 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				EBAA2913445C4F5CC88E3DD8 /* Pods_XLab.framework */,
+				56AB2F708887079A82AF900D /* iOS */,
+				CD23CB91174D487EC648B14D /* Pods_XLabTests.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -146,6 +187,8 @@
 			children = (
 				D5E3D72FF7E497A643EBD858 /* Pods-XLab.debug.xcconfig */,
 				BA64761B3F0C5E70C3CD0A2F /* Pods-XLab.release.xcconfig */,
+				DF900EBA74A6E742DC2AD7C5 /* Pods-XLabTests.release.xcconfig */,
+				6895322A4D9DAFC8F903BFE9 /* Pods-XLabTests.debug.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -284,6 +327,25 @@
 			productReference = 200000000000000000000004 /* XLab.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AB121D0394142F36B35F3C72 /* XLabTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5834602D664AADFB1A67DC90 /* Build configuration list for PBXNativeTarget "XLabTests" */;
+			buildPhases = (
+				EA1BAFE50C59F93B08123808 /* [CP] Check Pods Manifest.lock */,
+				0563DF7A3766F25EF339812A /* Sources */,
+				D50548281D8F8049A61D8217 /* Frameworks */,
+				9E7DBF2399A4602A9E08DE54 /* Resources */,
+				DFCE9A0F8B88243838B7FE0E /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = XLabTests;
+			productName = XLabTests;
+			productReference = 510BC7EEA73BB5606BE83BEA /* XLabTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -314,11 +376,19 @@
 			projectRoot = "";
 			targets = (
 				500000000000000000000001 /* XLab */,
+				AB121D0394142F36B35F3C72 /* XLabTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		9E7DBF2399A4602A9E08DE54 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D40000000000000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -388,9 +458,58 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		DFCE9A0F8B88243838B7FE0E /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-XLabTests/Pods-XLabTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-XLabTests/Pods-XLabTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-XLabTests/Pods-XLabTests-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		EA1BAFE50C59F93B08123808 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-XLabTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0563DF7A3766F25EF339812A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65CB29886238ED2DD546E818 /* RealtimeVideoRecorderTests.swift in Sources */,
+				3193C81D3AC3D7AA2D0D381D /* RealtimeVideoRecorder.swift in Sources */,
+				28F1950EE5506A70641AFF05 /* XLLocalization.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		700000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -434,13 +553,38 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		5627DC33E1FEB825C79D2CCB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6895322A4D9DAFC8F903BFE9 /* Pods-XLabTests.debug.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6699VXB63W;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		A00000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
@@ -498,9 +642,42 @@
 			};
 			name = Release;
 		};
+		DC847694BD56FCE1E6A970E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = DF900EBA74A6E742DC2AD7C5 /* Pods-XLabTests.release.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6699VXB63W;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.xmax.xlab.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		5834602D664AADFB1A67DC90 /* Build configuration list for PBXNativeTarget "XLabTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC847694BD56FCE1E6A970E1 /* Release */,
+				5627DC33E1FEB825C79D2CCB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		800000000000000000000001 /* Build configuration list for PBXProject "XLab" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

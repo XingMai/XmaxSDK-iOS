@@ -37,6 +37,7 @@ enum RtcManagingCall: Equatable {
     case leaveRoom
     case sendRoomMessage(String)
     case setRemoteVideoFrameListener(RemoteStream, enabled: Bool)
+    case setRemoteAudioFrameListener(RemoteStream, enabled: Bool)
 }
 
 final class RtcManagingStub: RtcManaging, @unchecked Sendable {
@@ -65,6 +66,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private let joinRoomHandler: JoinRoomHandler?
     private let leaveRoomHandler: LeaveRoomHandler?
     private let setRemoteVideoFrameListenerError: (any Error)?
+    private let setRemoteAudioFrameListenerError: (any Error)?
     var flushHandler: (@Sendable () async throws -> Void)?
 
     // 并发状态
@@ -77,6 +79,9 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
     private var storedRemoteVideoFrameStream: RemoteStream?
     private var storedRemoteVideoFrameListener:
         RtcRemoteVideoFrameListener?
+    private var storedRemoteAudioFrameStream: RemoteStream?
+    private var storedRemoteAudioFrameListener: RtcRemoteAudioFrameListener?
+    private var nextAudioRemovalError: (any Error)?
 
     init(
         initializationError: (any Error)? = nil,
@@ -96,7 +101,8 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         sendRoomMessageError: (any Error)? = nil,
         joinRoomHandler: JoinRoomHandler? = nil,
         leaveRoomHandler: LeaveRoomHandler? = nil,
-        setRemoteVideoFrameListenerError: (any Error)? = nil
+        setRemoteVideoFrameListenerError: (any Error)? = nil,
+        setRemoteAudioFrameListenerError: (any Error)? = nil
     ) {
         self.initializationError = initializationError
         self.initializationHandler = initializationHandler
@@ -117,6 +123,7 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
         self.leaveRoomHandler = leaveRoomHandler
         self.setRemoteVideoFrameListenerError =
             setRemoteVideoFrameListenerError
+        self.setRemoteAudioFrameListenerError = setRemoteAudioFrameListenerError
     }
 
     var calls: [RtcManagingCall] {
@@ -286,6 +293,40 @@ final class RtcManagingStub: RtcManaging, @unchecked Sendable {
                 storedRemoteVideoFrameListener = nil
             }
         }
+    }
+
+    func setRemoteAudioFrameListener(
+        _ listener: RtcRemoteAudioFrameListener?,
+        for stream: RemoteStream
+    ) throws {
+        try lock.withLock {
+            storedCalls.append(.setRemoteAudioFrameListener(stream, enabled: listener != nil))
+            if listener == nil, let error = nextAudioRemovalError {
+                nextAudioRemovalError = nil
+                throw error
+            }
+            if let setRemoteAudioFrameListenerError { throw setRemoteAudioFrameListenerError }
+            if let listener {
+                storedRemoteAudioFrameStream = stream
+                storedRemoteAudioFrameListener = listener
+            } else if storedRemoteAudioFrameStream == stream {
+                storedRemoteAudioFrameStream = nil
+                storedRemoteAudioFrameListener = nil
+            }
+        }
+    }
+
+    func emitRemoteAudioFrame(
+        _ frame: RtcRemoteAudioFrame
+    ) {
+        let callback = lock.withLock { storedRemoteAudioFrameListener }
+        callback?(frame)
+    }
+
+    func failNextAudioListenerRemoval(
+        _ error: any Error
+    ) {
+        lock.withLock { nextAudioRemovalError = error }
     }
 
     @discardableResult

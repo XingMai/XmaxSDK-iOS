@@ -41,6 +41,14 @@ protocol RenderControlling: AnyObject, Sendable {
         _ listener: RealtimeVideoFrameListener?
     )
 
+    /// Sets serialized remote audio and processed video output.
+    ///
+    /// - Parameter listener: The output handler, or `nil` to stop output.
+    /// - Throws: An error if the current remote audio listener cannot be configured.
+    func setRemoteMediaFrameListener(
+        _ listener: RealtimeMediaFrameListener?
+    ) throws
+
     /// Registers remote rendering and trajectory interactions.
     ///
     /// - Parameters:

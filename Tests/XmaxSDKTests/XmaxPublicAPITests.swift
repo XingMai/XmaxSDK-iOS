@@ -65,6 +65,31 @@ final class XmaxPublicAPITests: XCTestCase {
         XCTAssertNotNil(listener)
     }
 
+    @MainActor
+    func testPublicRemoteMediaListenerIsAvailable() async throws {
+        let manager = XmaxClient(configuration: XmaxConfiguration(apiKey: "test-key"))
+            .createRealtimeManager(options: RealtimeConfiguration(model: .x2_1))
+        let listener: RealtimeMediaFrameListener = { event in
+            _ = event.streamID
+            _ = event.isDiscontinuous
+            _ = event.presentationTimeStamp
+            _ = event.duration
+            switch event.content {
+            case .audio(let frame):
+                _ = frame.data
+                _ = frame.sampleRate
+                _ = frame.channels
+                _ = frame.samplesPerChannel
+                _ = frame.presentationTimeStamp
+                _ = frame.duration
+            case .video(let frame):
+                _ = frame.pixelBuffer
+            }
+        }
+        try await manager.setRemoteMediaFrameListener(listener)
+        try await manager.setRemoteMediaFrameListener(nil)
+    }
+
     func testPublicRealtimeCameraModelsAreConstructible() throws {
         let format = RealtimeVideoFormat(
             width: 1_024,

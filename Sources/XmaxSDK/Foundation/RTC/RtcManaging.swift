@@ -165,6 +165,17 @@ protocol RtcManaging: Sendable {
         for stream: RemoteStream
     ) throws
 
+    /// Sets a current-room listener for one remote user's owned PCM.
+    ///
+    /// - Parameters:
+    ///   - listener: The audio handler, or `nil` to remove it.
+    ///   - stream: The remote result stream.
+    /// - Throws: An error if the room or remote user is unavailable.
+    func setRemoteAudioFrameListener(
+        _ listener: RtcRemoteAudioFrameListener?,
+        for stream: RemoteStream
+    ) throws
+
     /// Sends a message to the active RTC room.
     ///
     /// - Parameters:

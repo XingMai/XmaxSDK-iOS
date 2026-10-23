@@ -33,6 +33,9 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// The decoded frame receiver.
     private var videoSink: RtcRemoteVideoSink?
 
+    /// The room-scoped remote PCM observer, installed before joining the room.
+    private var audioSink: RtcRemoteAudioSink?
+
     /// The listener for connection, publication, and quality events.
     private var listener: (@Sendable (RtcRoomEvent) -> Void)?
 
@@ -46,6 +49,9 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
 
     /// The decoded frame listeners keyed by remote UID.
     private var frameListeners: [UInt: RtcRemoteVideoFrameListener] = [:]
+
+    /// The individual remote PCM listeners keyed by resolved UID.
+    private var audioFrameListeners: [UInt: RtcRemoteAudioFrameListener] = [:]
 
     /// Room signaling.
 
@@ -78,6 +84,9 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
         self.platform = platform
         self.roomID = roomID
         connection.channelId = roomID
+        #if DEBUG
+        RealtimeDebugCaptureBridge.shared.registerRoom(roomID)
+        #endif
     }
 
     /// Sets the room event listener.
@@ -110,6 +119,9 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             let bridge = RtcRoomEventBridge { [weak self] event in
                 self?.handle(event)
             }
+            #if DEBUG
+            bridge.debugRoomID = roomID
+            #endif
             self.bridge = bridge
 
             let sink = RtcRemoteVideoSink { [weak self] uid, channelID, frame in
@@ -119,6 +131,11 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                 let callback = platform.lock.withLock {
                     !isClosed && isJoined && channelID == roomID ? frameListeners[uid] : nil
                 }
+                #if DEBUG
+                if callback != nil {
+                    RealtimeDebugCaptureBridge.shared.decodedVideo(frame, roomID: roomID, uid: uid)
+                }
+                #endif
                 callback?(frame)
             }
             videoSink = sink
@@ -128,6 +145,52 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                     message: "Failed to register RTC video frame observer"
                 )
             }
+
+            let audioSink = RtcRemoteAudioSink(roomID: roomID) { [weak self] uid, channelID in
+                guard let self else { return nil }
+                return platform.lock.withLock {
+                    !isClosed && isJoined && channelID == roomID ? audioFrameListeners[uid] : nil
+                }
+            }
+            self.audioSink = audioSink
+            let preMixFormatResult = platform.engine.setPlaybackAudioFrameBeforeMixingParametersWithSampleRate(
+                48_000,
+                channel: 1,
+                samplesPerCall: 480
+            )
+            try AgoraRtcPlatform.checkResult(
+                preMixFormatResult,
+                operation: "configureRemoteAudioFrames"
+            )
+            #if DEBUG
+            let playbackFormatResult = platform.engine.setPlaybackAudioFrameParametersWithSampleRate(
+                48_000,
+                channel: 1,
+                mode: .readOnly,
+                samplesPerCall: 480
+            )
+            #endif
+            let observerRegistered = platform.engine.setAudioFrameDelegate(audioSink)
+            guard observerRegistered else {
+                throw XmaxError(
+                    code: .rtcError,
+                    message: "Failed to register RTC audio frame observer"
+                )
+            }
+            #if DEBUG
+            RealtimeDebugCaptureBridge.shared.event(
+                "audio_observer",
+                roomID: roomID,
+                fields: [
+                    "registered": String(observerRegistered),
+                    "pre_mix_format_result": String(preMixFormatResult),
+                    "playback_format_result": String(playbackFormatResult),
+                    "positions": String(audioSink.getObservedAudioFramePosition().rawValue),
+                    "before_mixing_selector": String(audioSink.responds(to: NSSelectorFromString("onPlaybackAudioFrameBeforeMixing:channelId:uid:"))),
+                    "playback_selector": String(audioSink.responds(to: NSSelectorFromString("onPlaybackAudioFrame:channelId:")))
+                ]
+            )
+            #endif
 
             let options = AgoraRtcChannelMediaOptions()
             options.channelProfile = .liveBroadcasting
@@ -164,11 +227,13 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             sender?.close()
             sender = nil
             frameListeners.removeAll()
+            audioFrameListeners.removeAll()
             accounts.removeAll()
             publications.removeAll()
 
             if let account {
                 platform.engine.setVideoFrameDelegate(nil)
+                platform.engine.setAudioFrameDelegate(nil)
                 _ = platform.engine.leaveChannelEx(
                     roomID,
                     userAccount: account,
@@ -177,6 +242,10 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             }
             bridge = nil
             videoSink = nil
+            audioSink = nil
+            #if DEBUG
+            RealtimeDebugCaptureBridge.shared.unregisterRoom(roomID)
+            #endif
         }
     }
 
@@ -264,14 +333,22 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     ) throws {
         try platform.lock.withLock {
             try requireJoined()
+            let uid = try resolveUID(userID)
             try AgoraRtcPlatform.checkResult(
                 platform.engine.muteRemoteAudioStreamEx(
-                    try resolveUID(userID),
+                    uid,
                     mute: !subscribe,
                     connection: connection
                 ),
                 operation: "subscribeRemoteAudio"
             )
+            #if DEBUG
+            RealtimeDebugCaptureBridge.shared.event(
+                "audio_subscription",
+                roomID: roomID,
+                fields: ["uid": String(uid), "subscribed": String(subscribe)]
+            )
+            #endif
         }
     }
 
@@ -296,6 +373,13 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                 ),
                 operation: "setRemoteAudioVolume"
             )
+            #if DEBUG
+            RealtimeDebugCaptureBridge.shared.event(
+                "audio_volume",
+                roomID: roomID,
+                fields: ["uid": String(try resolveUID(userID)), "volume": String(volume)]
+            )
+            #endif
         }
     }
 
@@ -314,7 +398,33 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     {
         try platform.lock.withLock {
             try requireJoined()
-            frameListeners[try resolveUID(userID)] = listener
+            let uid = try resolveUID(userID)
+            frameListeners[uid] = listener
+            #if DEBUG
+            if listener != nil {
+                RealtimeDebugCaptureBridge.shared.bindStream(
+                    RemoteStream(roomID: roomID, userID: userID),
+                    uid: uid
+                )
+            }
+            #endif
+        }
+    }
+
+    /// Sets a PCM listener for the resolved remote user without changing playback volume.
+    ///
+    /// - Parameters:
+    ///   - listener: The owned audio handler, or `nil` to remove it.
+    ///   - userID: The remote RTC user account.
+    /// - Throws: An error if the room or remote account is unavailable.
+    func setRemoteAudioFrameListener(
+        _ listener: RtcRemoteAudioFrameListener?,
+        for userID: String
+    ) throws {
+        try platform.lock.withLock {
+            try requireJoined()
+            let uid = try resolveUID(userID)
+            audioFrameListeners[uid] = listener
         }
     }
 

@@ -84,6 +84,15 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var recordingOperationTask: Task<Void, Never>?
     private var referenceUploadTasks: [String: Task<Void, Never>] = [:]
 
+    #if DEBUG
+    // Debug-only remote media diagnostics.
+    private var debugCaptureBusy = false
+    private var debugCaptureStartedHere = false
+    private var debugCaptureClosing = false
+    private var debugArchiveURL: URL?
+    private lazy var debugCaptureButton = UIButton(type: .system)
+    #endif
+
     // 布局约束
     private var promptKeyboardBottomConstraint: Constraint?
 
@@ -525,18 +534,31 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         controlPanelView.isUserInteractionEnabled = false
         observeRealtimeEvents()
         startLocalMedia()
+        #if DEBUG
+        configureDebugCapture()
+        #endif
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
         resumeRealtimeAfterBackgroundIfNeeded()
+        #if DEBUG
+        debugCaptureClosing = false
+        refreshDebugCaptureMenu()
+        #endif
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if isMovingFromParent || navigationController?.isBeingDismissed == true {
             closeRealtime()
+            #if DEBUG
+            debugCaptureClosing = true
+            if debugCaptureStartedHere, !debugCaptureBusy {
+                stopDebugCapture(share: false)
+            }
+            #endif
         }
     }
 
@@ -600,6 +622,104 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             make.trailing.equalTo(view.safeAreaLayoutGuide).inset(12)
         }
     }
+
+    #if DEBUG
+    private func configureDebugCapture() {
+        debugCaptureButton.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        debugCaptureButton.tintColor = .white
+        debugCaptureButton.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+        debugCaptureButton.layer.cornerRadius = 12
+        debugCaptureButton.showsMenuAsPrimaryAction = true
+        debugCaptureButton.accessibilityLabel = "远端音视频 Debug 采集"
+        view.addSubview(debugCaptureButton)
+        debugCaptureButton.snp.makeConstraints { make in
+            make.leading.equalTo(view.safeAreaLayoutGuide).offset(12)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(62)
+            make.width.equalTo(142)
+            make.height.equalTo(32)
+        }
+        refreshDebugCaptureMenu()
+    }
+
+    private func refreshDebugCaptureMenu() {
+        Task { @MainActor [weak self] in
+            let active = await XmaxDebugCapture.shared.isCapturing
+            let latestArchive = await XmaxDebugCapture.shared.latestArchiveURL
+            guard let self else { return }
+            if let latestArchive { debugArchiveURL = latestArchive }
+            debugCaptureButton.isEnabled = !debugCaptureBusy
+            debugCaptureButton.setTitle(active ? "● AV 采集中（90s）" : "AV Debug 探针", for: .normal)
+            var actions: [UIAction] = []
+            if active {
+                actions.append(UIAction(title: "停止采集并导出 ZIP", image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
+                    self?.stopDebugCapture(share: true)
+                })
+            } else {
+                actions.append(UIAction(title: "开始采集（最多 90 秒）", image: UIImage(systemName: "record.circle")) { [weak self] _ in
+                    self?.startDebugCapture()
+                })
+            }
+            if let debugArchiveURL {
+                actions.append(UIAction(title: "分享上次诊断包", image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
+                    self?.shareDebugArchive(debugArchiveURL)
+                })
+            }
+            debugCaptureButton.menu = UIMenu(title: "保存远端音视频到本机", children: actions)
+        }
+    }
+
+    private func startDebugCapture() {
+        guard !debugCaptureBusy else { return }
+        debugCaptureBusy = true
+        debugCaptureButton.isEnabled = false
+        Task { @MainActor [weak self] in
+            do {
+                let directory = try await XmaxDebugCapture.shared.start()
+                print("[XmaxAVProbe] Capture directory: \(directory.path)")
+                if let self, !debugCaptureClosing {
+                    debugCaptureStartedHere = true
+                    XLToast.show("已开始采集。请启动远端生成，30–60 秒后停止并导出。", in: view)
+                } else {
+                    let archive = try await XmaxDebugCapture.shared.stopAndExport()
+                    print("[XmaxAVProbe] Exported after leaving screen: \(archive.path)")
+                }
+            } catch {
+                if let self { XLToast.show(error.localizedDescription, in: view) }
+            }
+            self?.debugCaptureBusy = false
+            self?.refreshDebugCaptureMenu()
+        }
+    }
+
+    private func stopDebugCapture(share: Bool) {
+        guard !debugCaptureBusy else { return }
+        debugCaptureBusy = true
+        debugCaptureButton.isEnabled = false
+        debugCaptureButton.setTitle("正在导出…", for: .normal)
+        Task { @MainActor [weak self] in
+            do {
+                let archive = try await XmaxDebugCapture.shared.stopAndExport()
+                print("[XmaxAVProbe] Exported archive: \(archive.path)")
+                self?.debugArchiveURL = archive
+                self?.debugCaptureStartedHere = false
+                if share { self?.shareDebugArchive(archive) }
+            } catch {
+                print("[XmaxAVProbe] Export failed: \(error.localizedDescription)")
+                if let self { XLToast.show(error.localizedDescription, in: view) }
+            }
+            self?.debugCaptureBusy = false
+            self?.refreshDebugCaptureMenu()
+        }
+    }
+
+    private func shareDebugArchive(_ archive: URL) {
+        guard viewIfLoaded?.window != nil, presentedViewController == nil else { return }
+        let controller = UIActivityViewController(activityItems: [archive], applicationActivities: nil)
+        controller.popoverPresentationController?.sourceView = debugCaptureButton
+        controller.popoverPresentationController?.sourceRect = debugCaptureButton.bounds
+        present(controller, animated: true)
+    }
+    #endif
 
     private func configureControlPanel() {
         controlPanelView.translatesAutoresizingMaskIntoConstraints = false
@@ -682,8 +802,12 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 self?.renderRealtimeState(state)
             }
             await statistics.observe(realtimeManager)
-            await realtimeManager.setRemoteVideoFrameListener { frame in
-                videoRecorder.append(frame)
+            do {
+                try await realtimeManager.setRemoteMediaFrameListener { frame in
+                    videoRecorder.append(frame)
+                }
+            } catch {
+                XLToast.show(error.localizedDescription, in: view)
             }
         }
     }
@@ -1302,7 +1426,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             await realtimeManager.setNetworkQualityListener(nil)
             statistics.clear()
             await realtimeManager.setStateListener(nil)
-            await realtimeManager.setRemoteVideoFrameListener(nil)
+            try? await realtimeManager.setRemoteMediaFrameListener(nil)
 
             await pendingLocalMediaOperation?.value
             await pendingGenerationOperation?.value

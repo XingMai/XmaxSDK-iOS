@@ -8,6 +8,11 @@ target 'XLab' do
   pod 'XmaxSDK', path: '../..', testspecs: ['Tests']
   pod 'SnapKit', '5.7.1'
   pod 'Kingfisher', '8.10.0'
+
+  target 'XLabTests' do
+    inherit! :search_paths
+    pod 'XmaxSDK', path: '../..'
+  end
 end
 
 post_install do |installer|
