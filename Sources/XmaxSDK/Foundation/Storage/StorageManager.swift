@@ -106,35 +106,11 @@ final class StorageManager: StorageManaging, Sendable {
         }
 
         do {
-            let (data, response) = try await session.data(from: remoteURL)
-            try Task.checkCancellation()
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                (200..<300).contains(httpResponse.statusCode)
-            else {
-                let statusCode = (response as? HTTPURLResponse)?.statusCode
-                throw XmaxError(
-                    code: .downloadError,
-                    message: statusCode.map {
-                        "Storage download failed with HTTP \($0)"
-                    } ?? "Storage download returned a non-HTTP response",
-                    httpStatus: statusCode
-                )
-            }
-
-            try data.write(
-                to: destinationURL,
-                options: .atomic
-            )
-            let byteCount = Int64(data.count)
-            progress?(
-                byteCount,
-                byteCount
-            )
-
-            return DownloadedFile(
-                fileURL: destinationURL,
-                byteCount: byteCount
+            let operation = StorageDownloadOperation(progress: progress)
+            return try await operation.value(
+                session: session,
+                remoteURL: remoteURL,
+                destinationURL: destinationURL
             )
         } catch let error as XmaxError {
             throw error

@@ -9,6 +9,8 @@
 //
 
 /// A handler for completed and total transfer byte counts.
+///
+/// The total is zero while a download's content length is unknown and is resolved on completion.
 typealias StorageProgressListener =
     @Sendable (
         _ completedBytes: Int64,

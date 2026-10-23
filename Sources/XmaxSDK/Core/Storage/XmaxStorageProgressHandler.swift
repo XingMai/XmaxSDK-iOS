@@ -12,5 +12,7 @@ import Foundation
 
 /// A handler for file upload or download progress.
 ///
+/// Downloads with an unknown content length report a zero `totalUnitCount` until completion.
+///
 /// - Parameter progress: The completed and total transfer byte counts.
 public typealias XmaxStorageProgressHandler = @Sendable (Progress) -> Void
