@@ -49,9 +49,7 @@ struct VideoFramePlane: Equatable, Sendable {
         }
 
         let resolvedByteLength = byteLength ?? data.count - byteOffset
-        guard resolvedByteLength > 0,
-            resolvedByteLength <= data.count - byteOffset
-        else {
+        guard resolvedByteLength > 0, resolvedByteLength <= data.count - byteOffset else {
             throw Self.invalidRangeError
         }
         guard stride > 0 else {

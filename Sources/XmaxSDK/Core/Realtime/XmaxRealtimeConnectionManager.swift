@@ -29,6 +29,8 @@ typealias RealtimeConnectionHeartbeatFailureHandler =
 /// Manages server sessions, RTC connections, and remote media resources.
 actor XmaxRealtimeConnectionManager {
 
+    // MARK: - Dependencies
+
     /// Reports recoverable output-configuration failures.
     private let errorManager: XmaxRealtimeErrorManager
 
@@ -49,6 +51,8 @@ actor XmaxRealtimeConnectionManager {
 
     /// Model sizing and capability rules for transport and remote output.
     private nonisolated let mediaService: any MediaServicing
+
+    // MARK: - State
 
     /// The remote video track for the current connection.
     private var activeRemoteTrack: RealtimeVideoTrack?
@@ -162,12 +166,10 @@ actor XmaxRealtimeConnectionManager {
             session = try await sessionService.createSession(model: model)
             timingManager.finishSessionCreation()
             try Self.ensureCurrent(isCurrent)
-            guard let session,
-                let connection = session.connection
-            else {
+            guard let session, let connection = session.connection else {
                 throw XmaxError(
                     code: .sessionError,
-                    message: "Session does not contain complete RTC join " + "information"
+                    message: "Session does not contain complete RTC join information"
                 )
             }
 
@@ -243,7 +245,18 @@ actor XmaxRealtimeConnectionManager {
         }
         return sessionID
     }
+
     /// Prepares the initial encoder and remote dimensions for a connection.
+    ///
+    /// - Parameters:
+    ///   - baseline: The resolved local media format used as the quality baseline.
+    ///   - options: The model and adaptive quality settings for this connection.
+    ///   - ensureCurrent: The validity check for the current lifecycle operation.
+    ///
+    /// - Returns: The initial return dimensions, constrained by quality and interpolation limits.
+    ///
+    /// - Throws: An error if the operation is invalidated or encoding or target-size resolution
+    ///   fails.
     func prepareQuality(
         baseline: RealtimeVideoFormat,
         options: RealtimeConfiguration,
@@ -266,9 +279,19 @@ actor XmaxRealtimeConnectionManager {
 
     /// Records the successfully applied initial quality after generation becomes ready.
     func completeInitialQuality() {
-        guard let quality = streamController.qualityConfiguration else { return }
-        streamController.completeQuality(downlink: false, level: quality.uplinkLevel, success: true)
-        streamController.completeQuality(downlink: true, level: quality.downlinkLevel, success: true)
+        guard let quality = streamController.qualityConfiguration else {
+            return
+        }
+        streamController.completeQuality(
+            downlink: false,
+            level: quality.uplinkLevel,
+            success: true
+        )
+        streamController.completeQuality(
+            downlink: true,
+            level: quality.downlinkLevel,
+            success: true
+        )
     }
 
     /// Resolves the returned video format using the quality level and interpolation limits.
@@ -402,6 +425,15 @@ actor XmaxRealtimeConnectionManager {
     }
 
     /// Applies output dimensions and the requested interpolation mode within an admitted operation.
+    ///
+    /// - Parameters:
+    ///   - enabled: Whether to enable remote frame interpolation.
+    ///   - mediaFormat: The resolved local media format, if a local stream exists.
+    ///   - taskID: The active generation task, or `nil` before generation starts.
+    ///   - ensureCurrent: The validity check for the current lifecycle operation.
+    ///
+    /// - Throws: An error if the operation is invalidated, interpolation is unsupported, or
+    ///   signaling or rendering configuration fails.
     func setFrameInterpolationEnabled(
         _ enabled: Bool,
         mediaFormat: RealtimeVideoFormat?,

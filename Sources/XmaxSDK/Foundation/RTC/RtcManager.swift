@@ -447,6 +447,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
     /// - Parameters:
     ///   - listener: The owned audio handler, or `nil` to remove it.
     ///   - stream: The remote result stream.
+    ///
     /// - Throws: An error if the room or remote account is unavailable.
     func setRemoteAudioFrameListener(
         _ listener: RtcRemoteAudioFrameListener?,
@@ -456,7 +457,9 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             guard let context = stateLock.withLock({ activeRoom }),
                   context.roomID == stream.roomID
             else {
-                if listener == nil { return }
+                if listener == nil {
+                    return
+                }
                 throw XmaxError(
                     code: .rtcError,
                     message: "Remote audio stream is unavailable"
@@ -466,7 +469,9 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             let guardedListener: RtcRemoteAudioFrameListener?
             if let listener {
                 guardedListener = { [weak self] frame in
-                    guard let self, stateLock.withLock({ activeRoom?.id == id }) else { return }
+                    guard let self, stateLock.withLock({ activeRoom?.id == id }) else {
+                        return
+                    }
                     listener(frame)
                 }
             } else {

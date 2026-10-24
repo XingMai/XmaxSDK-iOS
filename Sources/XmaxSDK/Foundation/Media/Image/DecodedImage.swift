@@ -74,7 +74,7 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         guard width > 0, height > 0 else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Image width and height must be finite numbers " + "greater than zero"
+                message: "Image width and height must be finite numbers greater than zero"
             )
         }
 

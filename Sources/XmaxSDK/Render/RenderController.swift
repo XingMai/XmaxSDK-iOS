@@ -175,6 +175,7 @@ final class RenderController: RenderControlling {
     /// Sets shared media output and attaches PCM only while an application requests it.
     ///
     /// - Parameter listener: The output handler, or `nil` to stop queued output immediately.
+    ///
     /// - Throws: An error if the current remote PCM listener cannot be configured.
     func setRemoteMediaFrameListener(
         _ listener: RealtimeMediaFrameListener?
@@ -300,9 +301,7 @@ final class RenderController: RenderControlling {
         }
 
         try await withTaskCancellationHandler {
-            guard activeToken == renderingToken,
-                remoteStream != nil
-            else {
+            guard activeToken == renderingToken, remoteStream != nil else {
                 finishRemoteFrameReadyWaiter(
                     waiterID,
                     error: Self.remoteFrameWaitCancelledError()
@@ -407,9 +406,21 @@ private extension RenderController {
 
         if let stream {
             var failure: (any Error)?
-            do { try deactivateRemoteFrames(for: stream) } catch { failure = error }
-            do { try deactivateRemoteAudio(for: stream) } catch { failure = failure ?? error }
-            if let failure { throw failure }
+            do {
+                try deactivateRemoteFrames(for: stream)
+            } catch {
+                failure = error
+            }
+
+            do {
+                try deactivateRemoteAudio(for: stream)
+            } catch {
+                failure = failure ?? error
+            }
+
+            if let failure {
+                throw failure
+            }
         }
     }
 
@@ -417,22 +428,41 @@ private extension RenderController {
     ///
     /// - Throws: An error if the current result user's PCM listener cannot be attached.
     func activateRemoteAudioIfReady() throws {
-        guard let remoteStream, let streamID = remoteMediaStreamID,
-              activeRemoteAudioStream != remoteStream else { return }
+        guard let remoteStream,
+            let streamID = remoteMediaStreamID,
+            activeRemoteAudioStream != remoteStream
+        else {
+            return
+        }
+
         let dispatcher = remoteMediaFrameDispatcher
         try rtcManager.setRemoteAudioFrameListener(
-            { frame in dispatcher.dispatchAudio(frame, streamID: streamID) },
+            { frame in
+                dispatcher.dispatchAudio(
+                    frame,
+                    streamID: streamID
+                )
+            },
             for: remoteStream
         )
         activeRemoteAudioStream = remoteStream
     }
 
     /// Removes one binding's PCM listener; stale captured callbacks remain token-guarded.
+    ///
+    /// - Parameter stream: The remote stream whose audio callback should be removed.
+    ///
+    /// - Throws: An error if the RTC audio callback cannot be removed.
     func deactivateRemoteAudio(
         for stream: RemoteStream
     ) throws {
-        guard activeRemoteAudioStream == stream else { return }
-        defer { activeRemoteAudioStream = nil }
+        guard activeRemoteAudioStream == stream else {
+            return
+        }
+
+        defer {
+            activeRemoteAudioStream = nil
+        }
         try rtcManager.setRemoteAudioFrameListener(
             nil,
             for: stream

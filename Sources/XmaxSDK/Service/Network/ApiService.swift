@@ -356,9 +356,7 @@ private extension ApiService {
         }
 
         let platformError = error as NSError
-        if platformError.domain == NSURLErrorDomain,
-            platformError.code == NSURLErrorCancelled
-        {
+        if platformError.domain == NSURLErrorDomain, platformError.code == NSURLErrorCancelled {
             return XmaxError(
                 code: .cancelled,
                 message: "API request was cancelled"

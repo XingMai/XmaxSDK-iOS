@@ -103,9 +103,7 @@ final class XmaxRealtimeTimingManager: @unchecked Sendable {
         taskID: String
     ) {
         let snapshot = lock.withLock { () -> State? in
-            guard state.taskID == taskID,
-                state.startedAt != nil
-            else {
+            guard state.taskID == taskID, state.startedAt != nil else {
                 return nil
             }
             state.readyAt = Self.now
@@ -209,7 +207,7 @@ extension XmaxRealtimeTimingManager {
             state.firstFrameAt != nil,
             let readyAt = state.readyAt
         else {
-            return "实时生成启动耗时不可用 " + "(Realtime Generation Startup Timing Unavailable)"
+            return "实时生成启动耗时不可用 (Realtime Generation Startup Timing Unavailable)"
         }
 
         let lines =
@@ -231,10 +229,8 @@ extension XmaxRealtimeTimingManager {
         _ state: State,
         error: XmaxError
     ) -> String {
-        guard let startedAt = state.startedAt,
-            let failureAt = state.failureAt
-        else {
-            return "实时生成启动失败耗时不可用 " + "(Realtime Generation Startup Failure Timing Unavailable)"
+        guard let startedAt = state.startedAt, let failureAt = state.failureAt else {
+            return "实时生成启动失败耗时不可用 (Realtime Generation Startup Failure Timing Unavailable)"
         }
 
         let lines =

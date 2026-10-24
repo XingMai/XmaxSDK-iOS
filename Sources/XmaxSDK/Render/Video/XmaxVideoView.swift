@@ -241,9 +241,7 @@ extension XmaxVideoView {
 
     /// Synchronizes window orientation outside rotation transitions.
     func updateWindowOrientation() {
-        guard orientationObserver?.isTransitioning != true,
-            let scene = window?.windowScene
-        else {
+        guard orientationObserver?.isTransitioning != true, let scene = window?.windowScene else {
             return
         }
         if #available(iOS 26.0, *) {
@@ -404,9 +402,7 @@ extension XmaxVideoView {
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }
-        guard let decodedVideoLayer,
-            let decodedVideoTimebase
-        else {
+        guard let decodedVideoLayer, let decodedVideoTimebase else {
             return
         }
         decodedVideoLayer.videoGravity = contentMode == .fit ? .resizeAspect : .resizeAspectFill
@@ -464,9 +460,7 @@ extension XmaxVideoView {
         if decodedVideoLayer == nil {
             prepareDecodedVideoPreview(contentMode: contentMode)
         }
-        guard let decodedVideoLayer,
-            let decodedVideoTimebase
-        else {
+        guard let decodedVideoLayer, let decodedVideoTimebase else {
             return
         }
         decodedVideoLayer.videoGravity = contentMode == .fit ? .resizeAspect : .resizeAspectFill
@@ -489,9 +483,7 @@ extension XmaxVideoView {
 
         let currentTime = CMTimebaseGetTime(decodedVideoTimebase)
         let presentationTime: CMTime
-        if nextDecodedVideoPresentationTime.isValid,
-            nextDecodedVideoPresentationTime >= currentTime
-        {
+        if nextDecodedVideoPresentationTime.isValid, nextDecodedVideoPresentationTime >= currentTime {
             presentationTime = nextDecodedVideoPresentationTime
         } else {
             presentationTime = currentTime

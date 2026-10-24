@@ -112,7 +112,10 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
 
             let mediaListeners = self.mediaListeners
             let sink = RtcRemoteVideoSink { uid, channelID, frame in
-                let callback = mediaListeners.videoListener(for: uid, channelID: channelID)
+                let callback = mediaListeners.videoListener(
+                    for: uid,
+                    channelID: channelID
+                )
                 callback?(frame)
             }
             videoSink = sink
@@ -124,7 +127,10 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             }
 
             let audioSink = RtcRemoteAudioSink { uid, channelID in
-                mediaListeners.audioListener(for: uid, channelID: channelID)
+                mediaListeners.audioListener(
+                    for: uid,
+                    channelID: channelID
+                )
             }
             self.audioSink = audioSink
             let preMixFormatResult = platform.engine.setPlaybackAudioFrameBeforeMixingParametersWithSampleRate(
@@ -334,7 +340,10 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
         try platform.lock.withLock {
             try requireJoined()
             let uid = try resolveUID(userID)
-            mediaListeners.setVideoListener(listener, for: uid)
+            mediaListeners.setVideoListener(
+                listener,
+                for: uid
+            )
         }
     }
 
@@ -343,6 +352,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
     /// - Parameters:
     ///   - listener: The owned audio handler, or `nil` to remove it.
     ///   - userID: The remote RTC user account.
+    ///
     /// - Throws: An error if the room or remote account is unavailable.
     func setRemoteAudioFrameListener(
         _ listener: RtcRemoteAudioFrameListener?,
@@ -351,7 +361,10 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
         try platform.lock.withLock {
             try requireJoined()
             let uid = try resolveUID(userID)
-            mediaListeners.setAudioListener(listener, for: uid)
+            mediaListeners.setAudioListener(
+                listener,
+                for: uid
+            )
         }
     }
 
@@ -693,36 +706,71 @@ private extension AgoraRtcRoom {
 /// after close; downstream room/stream lifetime guards reject obsolete output.
 final class RtcRemoteFrameListeners: @unchecked Sendable {
 
+    /// The lock protecting listener bindings and the closed state.
     private let lock = NSLock()
+
+    /// The room identifier accepted by listener lookups.
     private let roomID: String
+
+    /// Whether this registry has stopped accepting listener changes and lookups.
     private var closed = false
+
+    /// The video callbacks keyed by remote user identifier.
     private var video: [UInt: RtcRemoteVideoFrameListener] = [:]
+
+    /// The audio callbacks keyed by remote user identifier.
     private var audio: [UInt: RtcRemoteAudioFrameListener] = [:]
 
-    init(roomID: String) {
+    /// Creates a listener registry for a room.
+    init(
+        roomID: String
+    ) {
         self.roomID = roomID
     }
 
+    /// Sets or removes a remote user's video callback while the registry is open.
+    ///
+    /// - Parameters:
+    ///   - listener: The video callback, or `nil` to remove it.
+    ///   - uid: The remote user identifier.
     func setVideoListener(
         _ listener: RtcRemoteVideoFrameListener?,
         for uid: UInt
     ) {
         lock.withLock {
-            guard !closed else { return }
+            guard !closed else {
+                return
+            }
+
             video[uid] = listener
         }
     }
 
+    /// Sets or removes a remote user's audio callback while the registry is open.
+    ///
+    /// - Parameters:
+    ///   - listener: The audio callback, or `nil` to remove it.
+    ///   - uid: The remote user identifier.
     func setAudioListener(
         _ listener: RtcRemoteAudioFrameListener?,
         for uid: UInt
     ) {
         lock.withLock {
-            guard !closed else { return }
+            guard !closed else {
+                return
+            }
+
             audio[uid] = listener
         }
     }
 
+    /// Resolves a video callback for an open, matching room.
+    ///
+    /// - Parameters:
+    ///   - uid: The remote user identifier.
+    ///   - channelID: The room identifier reported by the native callback.
+    ///
+    /// - Returns: The registered video callback, or `nil` if the binding is unavailable.
     func videoListener(
         for uid: UInt,
         channelID: String
@@ -730,6 +778,13 @@ final class RtcRemoteFrameListeners: @unchecked Sendable {
         lock.withLock { !closed && channelID == roomID ? video[uid] : nil }
     }
 
+    /// Resolves an audio callback for an open, matching room.
+    ///
+    /// - Parameters:
+    ///   - uid: The remote user identifier.
+    ///   - channelID: The room identifier reported by the native callback.
+    ///
+    /// - Returns: The registered audio callback, or `nil` if the binding is unavailable.
     func audioListener(
         for uid: UInt,
         channelID: String
@@ -737,6 +792,7 @@ final class RtcRemoteFrameListeners: @unchecked Sendable {
         lock.withLock { !closed && channelID == roomID ? audio[uid] : nil }
     }
 
+    /// Rejects future lookups and releases all registered callbacks.
     func close() {
         lock.withLock {
             closed = true

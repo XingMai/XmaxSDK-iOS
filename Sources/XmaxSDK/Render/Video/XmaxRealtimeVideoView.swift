@@ -157,9 +157,7 @@ private extension XmaxRealtimeVideoView {
             return
         }
         remoteVideoView.frameDisplayHandler = { [weak self, weak remoteTrack] in
-            guard let self,
-                self.remoteTrack === remoteTrack
-            else {
+            guard let self, self.remoteTrack === remoteTrack else {
                 return
             }
             showRemoteVideo()

@@ -264,11 +264,7 @@ private extension DefaultTrajectoryEffectRenderer {
             width: pixelWidth,
             height: pixelHeight
         )
-        guard
-            trailBitmapContext == nil
-                || trailBitmapSize != bitmapSize
-                || trailBitmapScale != scale
-        else {
+        guard trailBitmapContext == nil || trailBitmapSize != bitmapSize || trailBitmapScale != scale else {
             return
         }
 

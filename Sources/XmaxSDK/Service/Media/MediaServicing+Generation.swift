@@ -157,7 +157,7 @@ private extension MediaServicing {
         else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Image width and height must be finite numbers " + "greater than zero"
+                message: "Image width and height must be finite numbers greater than zero"
             )
         }
         return CGSize(

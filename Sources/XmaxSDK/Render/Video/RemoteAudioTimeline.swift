@@ -35,14 +35,18 @@ struct RemoteAudioTimeline {
     ///
     /// Native render times can repeat for batched packets. Differences over 100 ms and format
     /// changes re-anchor at the native clock and explicitly break continuity instead of hiding gaps.
+    ///
+    /// - Parameter frame: The remote PCM packet and its native rendering timestamp.
+    ///
+    /// - Returns: The timestamped audio frame and continuity flag, or `nil` for an invalid packet.
     mutating func resolve(
         _ frame: RtcRemoteAudioFrame
     ) -> (frame: RealtimeAudioFrame, discontinuous: Bool)? {
         guard frame.renderTimeMs > 0,
-              (8_000...192_000).contains(frame.sampleRate),
-              (1...2).contains(frame.channels),
-              (1...192_000).contains(frame.samplesPerChannel),
-              frame.data.count == frame.samplesPerChannel * frame.channels * 2
+            (8_000...192_000).contains(frame.sampleRate),
+            (1...2).contains(frame.channels),
+            (1...192_000).contains(frame.samplesPerChannel),
+            frame.data.count == frame.samplesPerChannel * frame.channels * 2
         else {
             reset()
             return nil
@@ -58,7 +62,12 @@ struct RemoteAudioTimeline {
         if format != currentFormat {
             pts = nativePTS
         } else if let nextPTS {
-            let difference = CMTimeAbsoluteValue(CMTimeSubtract(nativePTS, nextPTS))
+            let difference = CMTimeAbsoluteValue(
+                CMTimeSubtract(
+                    nativePTS,
+                    nextPTS
+                )
+            )
             if difference > maximumClockDifference {
                 pts = nativePTS
                 discontinuous = true
@@ -71,7 +80,10 @@ struct RemoteAudioTimeline {
             samplesPerChannel: frame.samplesPerChannel,
             presentationTimeStamp: pts
         )
-        nextPTS = CMTimeAdd(pts, output.duration)
+        nextPTS = CMTimeAdd(
+            pts,
+            output.duration
+        )
         format = currentFormat
         return (output, discontinuous)
     }

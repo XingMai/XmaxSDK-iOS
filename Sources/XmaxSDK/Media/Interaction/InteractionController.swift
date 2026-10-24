@@ -86,9 +86,7 @@ actor InteractionController: InteractionControlling {
     func submitInteraction(
         _ frame: InteractionFrame
     ) {
-        guard let activeInteraction,
-            !frame.points.isEmpty
-        else {
+        guard let activeInteraction, !frame.points.isEmpty else {
             return
         }
 

@@ -21,17 +21,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     // MARK: - Dependencies
 
-    /// The controller that manages remote tracks, first-frame readiness, and rendering.
-    private let renderController: any RenderControlling
-
-    /// The controller that manages RTC connections, signaling, and transport quality.
-    private let streamController: any StreamControlling
-
-    /// The controller that manages local media, preview, and interactions.
-    private let mediaController: any MediaControlling
-
-    /// The service that resolves media dimensions and model input constraints.
-    private let mediaService: any MediaServicing
+    /// The lifecycle owner that admits operations and merges termination requests.
+    private let lifecycleManager: XmaxRealtimeLifecycleManager
 
     /// The manager that owns the server session and RTC connection.
     private let connectionManager: XmaxRealtimeConnectionManager
@@ -39,42 +30,59 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// The manager that sends generation requests and confirms result streams.
     private let generationManager: XmaxRealtimeGenerationManager
 
-    /// The handler that logs and forwards media and connection failures.
+    /// The manager that logs and forwards media and connection failures.
     private let errorManager: XmaxRealtimeErrorManager
 
     /// The recorder for generation startup stage durations.
     private let timingManager: XmaxRealtimeTimingManager
 
-    /// The lifecycle owner that admits operations and merges termination requests.
-    private let lifecycleManager: XmaxRealtimeLifecycleManager
+    /// The controller that manages local media, preview, and interactions.
+    private let mediaController: any MediaControlling
 
-    /// Whether an adaptive quality request is already pending.
-    private var qualityPending = false
+    /// The controller that manages remote tracks, first-frame readiness, and rendering.
+    private let renderController: any RenderControlling
+
+    /// The controller that manages RTC connections, signaling, and transport quality.
+    private let streamController: any StreamControlling
+
+    /// The service that resolves media dimensions and model input constraints.
+    private let mediaService: any MediaServicing
+
+    // MARK: - Initialization
 
     /// Creates a realtime manager using the default SDK components.
     @MainActor
-    init(options: RealtimeConfiguration, apiService: any ApiServicing) {
+    init(
+        options: RealtimeConfiguration,
+        apiService: any ApiServicing
+    ) {
         self.init(
             options: options,
-            components: XmaxRealtimeFactory.make(options: options, apiService: apiService)
+            components: XmaxRealtimeFactory.make(
+                options: options,
+                apiService: apiService
+            )
         )
     }
 
-    /// Creates a facade over a fully wired set of components.
-    init(options: RealtimeConfiguration, components: XmaxRealtimeComponents) {
+    /// Creates a realtime manager with the supplied components.
+    init(
+        options: RealtimeConfiguration,
+        components: XmaxRealtimeComponents
+    ) {
         self.options = options
-        self.renderController = components.renderController
-        self.streamController = components.streamController
-        self.mediaController = components.mediaController
-        self.mediaService = components.mediaService
+        self.lifecycleManager = components.lifecycleManager
         self.connectionManager = components.connectionManager
         self.generationManager = components.generationManager
         self.errorManager = components.errorManager
         self.timingManager = components.timingManager
-        self.lifecycleManager = components.lifecycleManager
+        self.mediaController = components.mediaController
+        self.renderController = components.renderController
+        self.streamController = components.streamController
+        self.mediaService = components.mediaService
     }
 
-    /// Creates a realtime manager with injected components and shared lifecycle wiring.
+    /// Creates a realtime manager with shared lifecycle management for the supplied components.
     init(
         options: RealtimeConfiguration,
         streamController: any StreamControlling,
@@ -101,6 +109,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         )
     }
 
+    // MARK: - State
+
+    /// Whether an adaptive quality request is already pending.
+    private var qualityPending = false
+
     /// The current connection and generation state.
     var currentState: RealtimeState {
         get async {
@@ -115,29 +128,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             guard state == .connected || state == .generating else {
                 return nil
             }
+
             return streamController.qualityConfiguration?.uplinkLevel
-        }
-    }
-
-    /// The camera's resolved media format, or `nil` for other input sources.
-    var currentCameraVideoFormat: RealtimeVideoFormat? {
-        get async {
-            guard let track = await mediaController.currentTrack, track.position != nil else {
-                return nil
-            }
-            return track.videoFormat
-        }
-    }
-
-    /// The preset matching current camera dimensions, independent of frame rate or encoding level.
-    var currentCameraPreset: RealtimeCameraPreset? {
-        get async {
-            guard let format = await currentCameraVideoFormat else {
-                return nil
-            }
-            return RealtimeCameraPreset.allCases.first {
-                $0.size == format.size
-            }
         }
     }
 
@@ -148,9 +140,55 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             guard state == .connected || state == .generating else {
                 return nil
             }
+
             return streamController.qualityConfiguration?.downlinkLevel
         }
     }
+
+    /// The camera's resolved media format, or `nil` for other input sources.
+    var currentCameraVideoFormat: RealtimeVideoFormat? {
+        get async {
+            guard let track = await mediaController.currentTrack, track.position != nil else {
+                return nil
+            }
+
+            return track.videoFormat
+        }
+    }
+
+    /// The preset matching current camera dimensions, independent of frame rate or encoding level.
+    var currentCameraPreset: RealtimeCameraPreset? {
+        get async {
+            guard let format = await currentCameraVideoFormat else {
+                return nil
+            }
+
+            return RealtimeCameraPreset.allCases.first {
+                $0.size == format.size
+            }
+        }
+    }
+
+    /// Whether remote frame interpolation is currently enabled.
+    var isFrameInterpolationEnabled: Bool {
+        get async {
+            await renderController.isFrameInterpolationEnabled
+        }
+    }
+
+    /// The local preview volume, in the range `0...1`.
+    var localAudioVolume: Float {
+        get async {
+            await mediaController.localAudioVolume
+        }
+    }
+
+    /// The remote generated audio volume, in the range `0...1`.
+    var remoteAudioVolume: Float {
+        streamController.remoteAudioVolume
+    }
+
+    // MARK: - Quality
 
     /// Changes the uplink encoding level while allowing subsequent automatic adaptation.
     ///
@@ -197,7 +235,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         try await lifecycleManager.run(kind: .configuration) { [self] token in
             let state = await lifecycleManager.currentState
             try token.ensureCurrent()
-            guard state.connectionState == .generating, let taskID = state.taskID,
+
+            guard state.connectionState == .generating,
+                let taskID = state.taskID,
                 streamController.qualityConfiguration != nil
             else {
                 throw XmaxError(
@@ -210,29 +250,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 level,
                 downlink: downlink,
                 taskID: taskID,
-                ensureCurrent: { try token.ensureCurrent() }
+                ensureCurrent: {
+                    try token.ensureCurrent()
+                }
             )
         }
     }
 
-    /// Whether remote frame interpolation is currently enabled.
-    var isFrameInterpolationEnabled: Bool {
-        get async {
-            await renderController.isFrameInterpolationEnabled
-        }
-    }
-
-    /// The local preview volume, in the range `0...1`.
-    var localAudioVolume: Float {
-        get async {
-            await mediaController.localAudioVolume
-        }
-    }
-
-    /// The remote generated audio volume, in the range `0...1`.
-    var remoteAudioVolume: Float {
-        streamController.remoteAudioVolume
-    }
+    // MARK: - Listeners
 
     /// Sets the realtime state listener.
     ///
@@ -246,6 +271,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// Sets serialized remote PCM and processed video output without changing playback.
     ///
     /// - Parameter listener: The output handler, or `nil` to stop output.
+    ///
     /// - Throws: An error if the current remote audio listener cannot be configured.
     func setRemoteMediaFrameListener(
         _ listener: RealtimeMediaFrameListener?
@@ -291,6 +317,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         streamController.setPerformanceAlarmListener(listener)
     }
 
+    // MARK: - Playback
+
     /// Sets the local media preview volume.
     ///
     /// - Parameter volume: The preview volume, in the range `0...1`.
@@ -322,26 +350,36 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try Self.validateAudioVolume(volume)
             try streamController.setRemoteAudioVolume(volume)
         } catch {
-            throw await reportError(
-                XmaxError.from(error)
-            )
+            throw await reportError(XmaxError.from(error))
         }
     }
 
-    /// Updates interpolation and output dimensions within one lifecycle operation.
-    func setFrameInterpolationEnabled(_ enabled: Bool) async throws {
+    /// Enables or disables remote frame interpolation and updates the return dimensions.
+    ///
+    /// - Parameter enabled: Whether to enable remote frame interpolation.
+    ///
+    /// - Throws: An error if interpolation is unsupported, an operation conflicts or is cancelled,
+    ///   or signaling or rendering configuration fails.
+    func setFrameInterpolationEnabled(
+        _ enabled: Bool
+    ) async throws {
         try await lifecycleManager.run(kind: .configuration) { [self] token in
             let state = await lifecycleManager.currentState
             let format = await mediaController.currentVideoFormat
             try token.ensureCurrent()
+
             try await connectionManager.setFrameInterpolationEnabled(
                 enabled,
                 mediaFormat: format,
                 taskID: state.taskID,
-                ensureCurrent: { try token.ensureCurrent() }
+                ensureCurrent: {
+                    try token.ensureCurrent()
+                }
             )
         }
     }
+
+    // MARK: - Local Media
 
     /// Creates a local camera stream and starts its preview.
     ///
@@ -418,6 +456,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before updating the camera format"
             )
+
             guard await lifecycleManager.currentState.connectionState == .ready,
                 let current = await currentCameraVideoFormat
             else {
@@ -427,6 +466,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             }
             try token.ensureCurrent()
+
             try await mediaController.updateCameraFormat(resolve(current))
             try token.ensureCurrent()
         }
@@ -437,15 +477,15 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalCameraStream() async throws {
-        try await lifecycleManager.run(
-            kind: .media
-        ) { [self] token in
+        try await lifecycleManager.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local " + "camera stream"
+                message: "Disconnect realtime before stopping the local camera stream"
             )
+
             token.setFailureScope(.all)
             await mediaController.stopLocalCameraStream()
             try token.ensureCurrent()
+
             errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
@@ -467,36 +507,30 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     ///   switching or generation restart fails.
     func switchCamera() async throws -> RealtimeMediaStream {
         let current = await lifecycleManager.currentState
-        guard current.connectionState != .connecting,
-            current.connectionState != .disconnecting
-        else {
+        guard current.connectionState != .connecting, current.connectionState != .disconnecting else {
             throw await reportError(
                 XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while realtime " + "is transitioning"
-                )
-            )
-        }
-        guard current.connectionState == .generating || !streamController.hasGenerationTask else {
-            throw await reportError(
-                XmaxError(
-                    code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while "
-                        + "realtime generation is starting"
+                    message: "Camera switching is unavailable while realtime is transitioning"
                 )
             )
         }
 
-        return try await lifecycleManager.run(
-            kind: .cameraSwitch
-        ) { [self] token in
+        guard current.connectionState == .generating || !streamController.hasGenerationTask else {
+            throw await reportError(
+                XmaxError(
+                    code: .invalidConfiguration,
+                    message: "Camera switching is unavailable while realtime generation is starting"
+                )
+            )
+        }
+
+        return try await lifecycleManager.run(kind: .cameraSwitch) { [self] token in
             let current = await lifecycleManager.currentState
-            guard current.connectionState != .connecting,
-                current.connectionState != .disconnecting
-            else {
+            guard current.connectionState != .connecting, current.connectionState != .disconnecting else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while realtime " + "is transitioning"
+                    message: "Camera switching is unavailable while realtime is transitioning"
                 )
             }
 
@@ -504,16 +538,13 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             guard wasGenerating || !streamController.hasGenerationTask else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "Camera switching is unavailable while "
-                        + "realtime generation is starting"
+                    message: "Camera switching is unavailable while realtime generation is starting"
                 )
             }
 
             if wasGenerating {
                 token.setFailureScope(.connection)
-                try await generationManager.stop(
-                    taskID: current.taskID ?? ""
-                )
+                try await generationManager.stop(taskID: current.taskID ?? "")
                 await mediaController.setLocalAudioPreviewMuted(false)
                 try await lifecycleManager.commit(
                     RealtimeState(
@@ -526,7 +557,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
             let stream = try await mediaController.switchCamera()
             try token.ensureCurrent()
-            try await connectionManager.reconcileFrameInterpolation(for: stream.videoTrack?.videoFormat)
+            try await connectionManager.reconcileFrameInterpolation(
+                for: stream.videoTrack?.videoFormat
+            )
+
             if wasGenerating {
                 try await Task.sleep(nanoseconds: 500_000_000)
                 try await performStartGeneration(
@@ -535,6 +569,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     token: token
                 )
             }
+
             return stream
         }
     }
@@ -554,9 +589,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         imageData: Data
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .image) { [self] token in
-            let stream = try await mediaController.createLocalImageStream(
-                imageData: imageData
-            )
+            let stream = try await mediaController.createLocalImageStream(imageData: imageData)
             try token.ensureCurrent()
             return stream
         }
@@ -579,10 +612,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         image: UIImage
     ) async throws -> RealtimeMediaStream {
         let decodedImage = try ImageManager().decode(image)
-        return try await createLocalImageStream(
-            decodedImage: decodedImage
-        )
+        return try await createLocalImageStream(decodedImage: decodedImage)
     }
+
     #endif
 
     /// Creates a continuous local frame stream from a decoded image.
@@ -597,9 +629,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         decodedImage: any DecodedImage
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .image) { [self] token in
-            let stream = try await mediaController.createLocalImageStream(
-                decodedImage: decodedImage
-            )
+            let stream = try await mediaController.createLocalImageStream(decodedImage: decodedImage)
             try token.ensureCurrent()
             return stream
         }
@@ -620,9 +650,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .image) { [self] token in
-            let stream = try await mediaController.createLocalImageStream(
-                fileURL: fileURL
-            )
+            let stream = try await mediaController.createLocalImageStream(fileURL: fileURL)
             try token.ensureCurrent()
             return stream
         }
@@ -633,15 +661,15 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalImageStream() async throws {
-        try await lifecycleManager.run(
-            kind: .media
-        ) { [self] token in
+        try await lifecycleManager.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local " + "image stream"
+                message: "Disconnect realtime before stopping the local image stream"
             )
+
             token.setFailureScope(.all)
             await mediaController.stopLocalImageStream()
             try token.ensureCurrent()
+
             errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
@@ -666,9 +694,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         fileURL: URL
     ) async throws -> RealtimeMediaStream {
         try await createLocalMediaStream(source: .video) { [self] token in
-            let stream = try await mediaController.createLocalVideoStream(
-                fileURL: fileURL
-            )
+            let stream = try await mediaController.createLocalVideoStream(fileURL: fileURL)
             try token.ensureCurrent()
             return stream
         }
@@ -679,15 +705,15 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalVideoStream() async throws {
-        try await lifecycleManager.run(
-            kind: .media
-        ) { [self] token in
+        try await lifecycleManager.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local " + "video stream"
+                message: "Disconnect realtime before stopping the local video stream"
             )
+
             token.setFailureScope(.all)
             await mediaController.stopLocalVideoStream()
             try token.ensureCurrent()
+
             errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
@@ -699,7 +725,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     /// Binds an external video source, preserving its frame rate and resolving media dimensions.
     ///
-    /// - Parameter source: The video source owned by your app.
+    /// - Parameter source: The external source owned by your app.
     ///
     /// - Returns: A local stream for SDK preview and generation.
     ///
@@ -724,9 +750,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try await ensureLocalMediaCanChange(
                 message: "Disconnect realtime before stopping the external video stream"
             )
+
             token.setFailureScope(.all)
             await mediaController.stopExternalVideoStream()
             try token.ensureCurrent()
+
             errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
@@ -735,6 +763,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         }
     }
+
+    // MARK: - Connection
 
     /// Establishes a realtime connection using a local stream created by this manager.
     ///
@@ -747,9 +777,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     func connect(
         localStream: RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
-        try await lifecycleManager.run(
-            kind: .connection
-        ) { [self] token in
+        try await lifecycleManager.run(kind: .connection) { [self] token in
             try await performConnect(
                 localStream: localStream,
                 token: token,
@@ -777,32 +805,32 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// Concurrent calls await the same cleanup task. Local streams can be created again after
     /// closing completes.
     func close() async {
-        await lifecycleManager.terminate(
-            .all
-        )
+        await lifecycleManager.terminate(.all)
     }
+
+    // MARK: - Generation
 
     /// Starts generation or updates conditions for the active task.
     ///
     /// - Parameters:
     ///   - context: The generation conditions. Required for the first request; `nil` reuses cached
     ///     conditions thereafter.
-    ///   - faceRestoration: Whether to restore the original face. Sent with each request.
+    ///   - faceRestoration: Whether to restore the original face.
     ///
     /// - Throws: An error if conditions are invalid or generation startup or an update fails.
     func startGeneration(
         context: RealtimeContext?,
         faceRestoration: Bool = false
     ) async throws {
-        try await lifecycleManager.run(
-            kind: .generation
-        ) { [self] token in
+        try await lifecycleManager.run(kind: .generation) { [self] token in
             let current = await lifecycleManager.currentState
             try token.ensureCurrent()
+
             let measuresStartup = current.connectionState == .connected
             if measuresStartup {
                 timingManager.begin()
             }
+
             do {
                 try await performStartGeneration(
                     context: context,
@@ -826,7 +854,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Parameters:
     ///   - localStream: The active local media stream owned by this manager.
     ///   - context: The generation conditions. Required for the first request.
-    ///   - faceRestoration: Whether to restore the original face. Sent with each request.
+    ///   - faceRestoration: Whether to restore the original face.
     ///
     /// - Returns: The remote media stream for the current RTC connection.
     ///
@@ -836,41 +864,38 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         context: RealtimeContext?,
         faceRestoration: Bool = false
     ) async throws -> RealtimeMediaStream {
-        try await lifecycleManager.run(
-            kind: .generation
-        ) { [self] token in
+        try await lifecycleManager.run(kind: .generation) { [self] token in
             let initialState = await lifecycleManager.currentState
             let hasConnection = await connectionManager.currentSessionID != ""
             try token.ensureCurrent()
-            let measuresStartup =
-                initialState.connectionState != .connecting
+
+            let measuresStartup = initialState.connectionState != .connecting
                 && initialState.connectionState != .disconnecting
             if measuresStartup {
                 timingManager.begin()
             }
+
             do {
                 guard await mediaController.owns(localStream) else {
                     throw XmaxError(
                         code: .invalidConfiguration,
-                        message: "The local stream must be created and "
-                            + "started by this realtime manager"
+                        message: "The local stream must be created and started by this realtime manager"
                     )
                 }
                 try token.ensureCurrent()
 
                 try await generationManager.validateContext(context)
                 try token.ensureCurrent()
+
                 let remoteStream: RealtimeMediaStream
                 if hasConnection {
-                    guard
-                        let activeRemoteStream =
-                            await connectionManager.currentRemoteStream
-                    else {
+                    guard let activeRemoteStream = await connectionManager.currentRemoteStream else {
                         throw XmaxError(
                             code: .rtcError,
                             message: "Realtime connection has no remote stream"
                         )
                     }
+
                     remoteStream = activeRemoteStream
                 } else {
                     await mediaController.setLocalAudioPreviewMuted(true)
@@ -913,6 +938,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         try token.ensureCurrent()
         let sessionID = await connectionManager.currentSessionID
         let current = await lifecycleManager.currentState
+
         guard !sessionID.isEmpty,
             current.connectionState == .connected || current.connectionState == .generating,
             let videoFormat = await mediaController.currentVideoFormat
@@ -924,18 +950,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         }
 
         let generationSize = try mediaService.resolveGenerationSize(videoFormat.size)
-        let paddingContain =
-            videoFormat.width * Int(generationSize.height)
-            != videoFormat.height * Int(generationSize.width)
         let generationFormat = videoFormat.resized(
             width: Int(generationSize.width),
             height: Int(generationSize.height)
         )
+        let paddingContain = videoFormat.width * generationFormat.height != videoFormat.height * generationFormat.width
         try token.ensureCurrent()
 
-        if current.connectionState == .generating,
-            let taskID = current.taskID
-        {
+        if current.connectionState == .generating, let taskID = current.taskID {
             try await generationManager.update(
                 taskID: taskID,
                 videoFormat: videoFormat,
@@ -955,6 +977,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         try await generationManager.validateContext(context)
         try token.ensureCurrent()
         token.setFailureScope(.connection)
+
         do {
             await mediaController.setLocalAudioPreviewMuted(true)
             let taskID = try await generationManager.start(
@@ -969,12 +992,14 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 }
             )
             try token.ensureCurrent()
+
             guard await connectionManager.currentSessionID == sessionID else {
                 throw XmaxError(
                     code: .cancelled,
                     message: "Realtime connection was cancelled"
                 )
             }
+
             await connectionManager.completeInitialQuality()
             if options.isAdaptiveQualityEnabled {
                 streamController.setAdaptiveQualityListener { [weak self] quality, time in
@@ -987,6 +1012,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                     }
                 }
             }
+
             try await lifecycleManager.complete(
                 RealtimeState(
                     connectionState: .generating,
@@ -1019,17 +1045,21 @@ private extension XmaxRealtimeManager {
         guard !qualityPending else {
             return
         }
+
         qualityPending = true
         defer {
             qualityPending = false
         }
+
         do {
             let accepted = try await lifecycleManager.runAdaptiveConfiguration { [self] token in
                 let state = await lifecycleManager.currentState
                 try token.ensureCurrent()
+
                 guard state.taskID == taskID, state.connectionState == .generating else {
                     return
                 }
+
                 let change = streamController.proposeQuality(
                     sample,
                     sampledAt: sampledAt
@@ -1039,19 +1069,25 @@ private extension XmaxRealtimeManager {
                         level,
                         downlink: false,
                         taskID: taskID,
-                        ensureCurrent: { try token.ensureCurrent() }
+                        ensureCurrent: {
+                            try token.ensureCurrent()
+                        }
                     )
                 }
                 try token.ensureCurrent()
+
                 if let level = change.downlink {
                     try? await connectionManager.applyQualityLevel(
                         level,
                         downlink: true,
                         taskID: taskID,
-                        ensureCurrent: { try token.ensureCurrent() }
+                        ensureCurrent: {
+                            try token.ensureCurrent()
+                        }
                     )
                 }
             }
+
             if !accepted {
                 streamController.resetQualitySamples()
             }
@@ -1068,6 +1104,8 @@ private extension XmaxRealtimeManager {
     /// - Parameters:
     ///   - localStream: The active local stream created by this manager.
     ///   - token: The validity token for the connection operation.
+    ///   - completesOperation: Whether to complete the operation when connected or leave it active
+    ///     for generation startup.
     ///
     /// - Returns: The remote media stream for the session.
     ///
@@ -1088,16 +1126,17 @@ private extension XmaxRealtimeManager {
                 message: "Realtime connection is already open"
             )
         }
+
         guard await mediaController.owns(localStream) else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "The local stream must be created and started "
-                    + "by this realtime manager"
+                message: "The local stream must be created and started by this realtime manager"
             )
         }
 
         try await mediaController.updateCameraOrientation()
         try token.ensureCurrent()
+
         guard let videoFormat = localStream.videoTrack?.videoFormat else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -1115,11 +1154,15 @@ private extension XmaxRealtimeManager {
         let targetSize = try await connectionManager.prepareQuality(
             baseline: videoFormat,
             options: options,
-            ensureCurrent: { try token.ensureCurrent() }
+            ensureCurrent: {
+                try token.ensureCurrent()
+            }
         )
         try token.ensureCurrent()
+
         try await mediaController.startMicrophoneCapture()
         try token.ensureCurrent()
+
         let remoteStream = try await connectionManager.connect(
             model: options.model,
             videoFormat: videoFormat,
@@ -1136,6 +1179,7 @@ private extension XmaxRealtimeManager {
             }
         )
         try token.ensureCurrent()
+
         let sessionID = await connectionManager.currentSessionID
         guard !sessionID.isEmpty else {
             throw XmaxError(
@@ -1144,39 +1188,46 @@ private extension XmaxRealtimeManager {
             )
         }
 
-        let connectedState = RealtimeState(connectionState: .connected, sessionID: sessionID)
+        let connectedState = RealtimeState(
+            connectionState: .connected,
+            sessionID: sessionID
+        )
         if completesOperation {
-            try await lifecycleManager.complete(connectedState, token: token)
+            try await lifecycleManager.complete(
+                connectedState,
+                token: token
+            )
         } else {
-            try await lifecycleManager.commit(connectedState, token: token)
+            try await lifecycleManager.commit(
+                connectedState,
+                token: token
+            )
         }
+
         return remoteStream
     }
 
     /// Prepares a local stream for preview and generation.
     ///
+    /// Camera readiness is updated after the first valid preview frame.
+    ///
     /// - Parameters:
     ///   - source: The kind of local media being created.
     ///   - prepare: The asynchronous media creation operation receiving the current validity token.
     ///
-    /// - Returns: The prepared local stream. Camera readiness is updated by the first preview frame
-    ///   notification.
+    /// - Returns: The prepared local stream.
     ///
     /// - Throws: An error if a local stream exists, realtime is connected, the operation is
     ///   cancelled, or media preparation fails.
     func createLocalMediaStream(
         source: RealtimeMediaSource,
-        prepare:
-            @escaping @Sendable (XmaxRealtimeLifecycleManager.Token) async throws
-            -> RealtimeMediaStream
+        prepare: @escaping @Sendable (XmaxRealtimeLifecycleManager.Token) async throws -> RealtimeMediaStream
     ) async throws -> RealtimeMediaStream {
-        return try await lifecycleManager.run(
-            kind: .media
-        ) { [self] token in
+        return try await lifecycleManager.run(kind: .media) { [self] token in
             try await ensureLocalMediaCanChange(
-                message: "Local \(source.rawValue) stream is unavailable during "
-                    + "a realtime connection"
+                message: "Local \(source.rawValue) stream is unavailable during a realtime connection"
             )
+
             guard await mediaController.currentTrack == nil else {
                 throw XmaxError(
                     code: .invalidConfiguration,
@@ -1184,6 +1235,7 @@ private extension XmaxRealtimeManager {
                 )
             }
             try token.ensureCurrent()
+
             errorManager.invalidatePendingFailures()
             try await lifecycleManager.commit(
                 RealtimeState(connectionState: .preparing),
@@ -1194,6 +1246,7 @@ private extension XmaxRealtimeManager {
             let stream = try await prepare(token)
             try token.ensureCurrent()
             token.setFailureScope(.all)
+
             if let track = stream.videoTrack {
                 await MainActor.run {
                     track.orientationChangeHandler = { [weak self, weak track] changedAxis in
@@ -1210,9 +1263,13 @@ private extension XmaxRealtimeManager {
                 }
                 try token.ensureCurrent()
             }
-            try await connectionManager.reconcileFrameInterpolation(for: stream.videoTrack?.videoFormat)
+
+            try await connectionManager.reconcileFrameInterpolation(
+                for: stream.videoTrack?.videoFormat
+            )
             try token.ensureCurrent()
             try streamController.setRemoteAudioVolume(source == .video ? 1 : 0)
+
             if source == .camera {
                 await mediaController.setCameraPreviewReadyHandler { [lifecycleManager] isCurrent in
                     Task {
@@ -1225,6 +1282,7 @@ private extension XmaxRealtimeManager {
                     token: token
                 )
             }
+
             return stream
         }
     }
@@ -1261,8 +1319,8 @@ private extension XmaxRealtimeManager {
         guard await mediaController.currentTrack === track else {
             return
         }
-        let disconnection =
-            changedAxis
+
+        let disconnection = changedAxis
             ? await lifecycleManager.beginDisconnect(reason: .orientationChanged)
             : nil
 
@@ -1278,6 +1336,7 @@ private extension XmaxRealtimeManager {
                 }
             }
         }
+
         await disconnection?.value
     }
 
@@ -1294,13 +1353,14 @@ private extension XmaxRealtimeManager {
         guard await connectionManager.currentSessionID == sessionID else {
             return
         }
+
         await lifecycleManager.terminate(
             with: error,
             target: .connection
         )
     }
 
-    /// Logs an error as an `XmaxError`.
+    /// Converts and logs an error.
     ///
     /// - Parameter error: The original error to log and convert.
     ///
@@ -1329,5 +1389,4 @@ private extension XmaxRealtimeManager {
             )
         }
     }
-
 }

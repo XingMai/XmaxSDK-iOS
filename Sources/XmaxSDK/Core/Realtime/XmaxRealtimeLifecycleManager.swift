@@ -124,7 +124,7 @@ actor XmaxRealtimeLifecycleManager {
 
     // MARK: - Dependencies
 
-    /// The handler that logs errors and forwards runtime failures.
+    /// The manager that logs errors and forwards runtime failures.
     private let errorManager: XmaxRealtimeErrorManager
 
     /// The handler that releases resources for a termination scope.
@@ -203,7 +203,7 @@ actor XmaxRealtimeLifecycleManager {
         guard termination == nil, activeOperation == nil else {
             let error = XmaxError(
                 code: .invalidConfiguration,
-                message: "Another realtime operation is in progress; " + "wait for it to finish"
+                message: "Another realtime operation is in progress; wait for it to finish"
             )
             await errorManager.report(error)
             throw error
@@ -322,6 +322,12 @@ actor XmaxRealtimeLifecycleManager {
     ///
     /// Callers finish their resource work before staging completion. Unlike an intermediate
     /// commit, the listener can immediately submit the next operation when it receives this state.
+    ///
+    /// - Parameters:
+    ///   - nextState: The state to publish after the operation releases admission.
+    ///   - token: The token identifying the operation being completed.
+    ///
+    /// - Throws: An error if the token is cancelled or no longer identifies the active operation.
     func complete(
         _ nextState: RealtimeState,
         token: Token
@@ -771,9 +777,7 @@ private extension XmaxRealtimeLifecycleManager {
                 pending.sessionID = sessionID
             }
 
-            guard pending.target == requestedTarget,
-                pending.waitForOperations.isEmpty
-            else {
+            guard pending.target == requestedTarget, pending.waitForOperations.isEmpty else {
                 continue
             }
 

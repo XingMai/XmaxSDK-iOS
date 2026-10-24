@@ -23,9 +23,7 @@ extension ImageManager {
     func decode(
         _ image: UIImage
     ) throws -> any DecodedImage {
-        if image.imageOrientation == .up,
-            let cgImage = image.cgImage
-        {
+        if image.imageOrientation == .up, let cgImage = image.cgImage {
             return CoreGraphicsDecodedImage(image: cgImage)
         }
 

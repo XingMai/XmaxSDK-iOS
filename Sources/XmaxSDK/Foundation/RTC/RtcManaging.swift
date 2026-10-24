@@ -170,6 +170,7 @@ protocol RtcManaging: Sendable {
     /// - Parameters:
     ///   - listener: The audio handler, or `nil` to remove it.
     ///   - stream: The remote result stream.
+    ///
     /// - Throws: An error if the room or remote user is unavailable.
     func setRemoteAudioFrameListener(
         _ listener: RtcRemoteAudioFrameListener?,

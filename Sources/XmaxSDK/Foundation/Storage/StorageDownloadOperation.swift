@@ -50,7 +50,9 @@ final class StorageDownloadOperation: NSObject, URLSessionDownloadDelegate, @unc
             session: session,
             remoteURL: remoteURL
         )
-        defer { try? FileManager.default.removeItem(at: temporaryURL) }
+        defer {
+            try? FileManager.default.removeItem(at: temporaryURL)
+        }
         try Task.checkCancellation()
 
         guard let httpResponse = response as? HTTPURLResponse,
@@ -126,7 +128,9 @@ final class StorageDownloadOperation: NSObject, URLSessionDownloadDelegate, @unc
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        guard let continuation = takeContinuation() else { return }
+        guard let continuation = takeContinuation() else {
+            return
+        }
 
         do {
             guard let response = downloadTask.response else {
@@ -158,7 +162,9 @@ final class StorageDownloadOperation: NSObject, URLSessionDownloadDelegate, @unc
         task: URLSessionTask,
         didCompleteWithError error: (any Error)?
     ) {
-        guard let error else { return }
+        guard let error else {
+            return
+        }
         takeContinuation()?.resume(throwing: error)
     }
 }
@@ -184,7 +190,9 @@ private extension StorageDownloadOperation {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 let cancelled = lock.withLock {
-                    guard !Task.isCancelled else { return true }
+                    guard !Task.isCancelled else {
+                        return true
+                    }
                     self.continuation = continuation
                     task.resume()
                     return false
@@ -203,7 +211,9 @@ private extension StorageDownloadOperation {
     /// - Returns: The pending continuation, or `nil` if it has already completed.
     func takeContinuation() -> CheckedContinuation<(URL, URLResponse), any Error>? {
         lock.withLock {
-            defer { continuation = nil }
+            defer {
+                continuation = nil
+            }
             return continuation
         }
     }
@@ -238,7 +248,9 @@ private extension StorageDownloadOperation {
             appropriateFor: destinationURL,
             create: true
         )
-        defer { try? fileManager.removeItem(at: stagingDirectory) }
+        defer {
+            try? fileManager.removeItem(at: stagingDirectory)
+        }
         let stagedURL = stagingDirectory.appendingPathComponent("download")
         try fileManager.moveItem(
             at: temporaryURL,

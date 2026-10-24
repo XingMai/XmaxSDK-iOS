@@ -465,9 +465,7 @@ enum VideoFrameConverter {
 
         try data.withUnsafeBytes { sourceBytes in
             try output.withUnsafeMutableBytes { outputBytes in
-                guard let source = sourceBytes.baseAddress,
-                    let destination = outputBytes.baseAddress
-                else {
+                guard let source = sourceBytes.baseAddress, let destination = outputBytes.baseAddress else {
                     throw mediaError(
                         "Failed to allocate rotated NV12 video data"
                     )

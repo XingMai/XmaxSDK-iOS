@@ -2,6 +2,9 @@
 //  XmaxRealtimeFactory.swift
 //  XmaxSDK
 //
+//  Author: 翁跃庭 (Yueting Weng)
+//  GitHub: https://github.com/Xmax-AI/XmaxSDK-iOS
+//
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
@@ -9,19 +12,45 @@ import Foundation
 
 /// The shared components used by the public facade and its lifecycle manager.
 struct XmaxRealtimeComponents: Sendable {
+
+    /// The controller that owns remote rendering and processed output.
     let renderController: any RenderControlling
+
+    /// The controller that manages RTC publishing and signaling.
     let streamController: any StreamControlling
+
+    /// The controller that owns local media and interactions.
     let mediaController: any MediaControlling
+
+    /// The service that resolves media dimensions and model constraints.
     let mediaService: any MediaServicing
+
+    /// The manager that owns the server session and RTC connection.
     let connectionManager: XmaxRealtimeConnectionManager
+
+    /// The manager that starts generation and updates conditions.
     let generationManager: XmaxRealtimeGenerationManager
+
+    /// The manager that logs and routes runtime failures.
     let errorManager: XmaxRealtimeErrorManager
+
+    /// The recorder for generation startup durations.
     let timingManager: XmaxRealtimeTimingManager
+
+    /// The manager that coordinates operation admission and resource cleanup.
     let lifecycleManager: XmaxRealtimeLifecycleManager
 }
 
 /// Creates realtime components and wires their frame, failure, and cleanup callbacks.
 enum XmaxRealtimeFactory {
+
+    /// Creates the components for a realtime manager.
+    ///
+    /// - Parameters:
+    ///   - options: The model, interpolation, and adaptive quality settings.
+    ///   - apiService: The service used to create and maintain server sessions.
+    ///
+    /// - Returns: The configured components and their shared lifecycle manager.
     @MainActor
     static func make(
         options: RealtimeConfiguration,
@@ -111,7 +140,19 @@ enum XmaxRealtimeFactory {
         )
     }
 
-    /// Wires the same lifecycle behavior for production and injected test components.
+    /// Connects realtime components to shared failure handling and resource cleanup.
+    ///
+    /// - Parameters:
+    ///   - streamController: The RTC publishing and signaling controller.
+    ///   - mediaController: The local media and interaction controller.
+    ///   - renderController: The remote rendering and output controller.
+    ///   - mediaService: The model sizing and capability service.
+    ///   - connectionManager: The server session and RTC connection manager.
+    ///   - generationManager: The generation request and confirmation manager.
+    ///   - errorManager: The shared runtime failure manager.
+    ///   - timingManager: The shared startup duration recorder.
+    ///
+    /// - Returns: The components with lifecycle admission and cleanup configured.
     static func assemble(
         streamController: any StreamControlling,
         mediaController: any MediaControlling,

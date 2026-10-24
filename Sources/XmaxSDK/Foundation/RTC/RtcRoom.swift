@@ -129,6 +129,7 @@ protocol RtcRoom: AnyObject, Sendable {
     /// - Parameters:
     ///   - listener: The audio handler, or `nil` to remove it.
     ///   - userID: The remote RTC user account.
+    ///
     /// - Throws: An error if the room or remote account is unavailable.
     func setRemoteAudioFrameListener(
         _ listener: RtcRemoteAudioFrameListener?,

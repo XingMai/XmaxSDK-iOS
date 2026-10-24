@@ -503,7 +503,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 else {
                     throw XmaxError(
                         code: .invalidConfiguration,
-                        message: "Reset the current RTC room before " + "configuring another one"
+                        message: "Reset the current RTC room before configuring another one"
                     )
                 }
                 state.roomID = roomID
@@ -527,7 +527,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             guard !currentState.roomID.isEmpty else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "Configure an RTC room before publishing " + "the local stream"
+                    message: "Configure an RTC room before publishing the local stream"
                 )
             }
 
@@ -1146,9 +1146,7 @@ private extension StreamController {
     ) {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
-                guard state.generationTask?.id == taskID,
-                    state.generationWaiter?.taskID == taskID
-                else {
+                guard state.generationTask?.id == taskID, state.generationWaiter?.taskID == taskID else {
                     return nil
                 }
                 let waiter = state.generationWaiter
@@ -1175,9 +1173,7 @@ private extension StreamController {
     ) {
         let waiter = operationLock.withLock { () -> GenerationWaiter? in
             stateLock.withLock {
-                guard state.generationTask?.id == taskID,
-                    state.generationWaiter?.taskID == taskID
-                else {
+                guard state.generationTask?.id == taskID, state.generationWaiter?.taskID == taskID else {
                     return nil
                 }
                 let waiter = state.generationWaiter

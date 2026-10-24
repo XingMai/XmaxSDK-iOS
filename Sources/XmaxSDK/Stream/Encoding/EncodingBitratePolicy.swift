@@ -24,9 +24,7 @@ enum EncodingBitratePolicy {
         try videoFormat.validate()
         let minimum: Int
         let maximum: Int
-        if let minimumBitrate = videoFormat.minimumBitrate,
-            let maximumBitrate = videoFormat.maximumBitrate
-        {
+        if let minimumBitrate = videoFormat.minimumBitrate, let maximumBitrate = videoFormat.maximumBitrate {
             minimum = minimumBitrate
             maximum = maximumBitrate
         } else {

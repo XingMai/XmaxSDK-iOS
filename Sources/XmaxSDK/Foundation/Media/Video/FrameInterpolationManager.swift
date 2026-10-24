@@ -71,7 +71,7 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
         else {
             throw XmaxError(
                 code: .frameInterpolationUnsupported,
-                message: "Frame interpolation is unavailable for the " + "remote video dimensions"
+                message: "Frame interpolation is unavailable for the remote video dimensions"
             )
         }
 
@@ -272,7 +272,7 @@ private extension FrameInterpolationManager {
             )
         else {
             throw Self.mediaError(
-                "Failed to allocate an interpolation output buffer: " + "\(status)"
+                "Failed to allocate an interpolation output buffer: \(status)"
             )
         }
         return frame
@@ -296,7 +296,7 @@ private extension FrameInterpolationManager {
         )
         guard status == kCVReturnSuccess, let sourcePixelBuffer else {
             throw Self.mediaError(
-                "Failed to allocate an interpolation source buffer: " + "\(status)"
+                "Failed to allocate an interpolation source buffer: \(status)"
             )
         }
 
@@ -397,7 +397,7 @@ private extension FrameInterpolationManager {
         )
         guard status == kCVReturnSuccess, let pool else {
             throw mediaError(
-                "Failed to create an interpolation pixel buffer pool: " + "\(status)"
+                "Failed to create an interpolation pixel buffer pool: \(status)"
             )
         }
         return pool
@@ -438,7 +438,7 @@ private extension FrameInterpolationManager {
         )
         guard status == kCVReturnSuccess, let resolvedAttributes else {
             throw mediaError(
-                "Failed to resolve interpolation buffer attributes: " + "\(status)"
+                "Failed to resolve interpolation buffer attributes: \(status)"
             )
         }
         return try makePixelBufferPool(attributes: resolvedAttributes)

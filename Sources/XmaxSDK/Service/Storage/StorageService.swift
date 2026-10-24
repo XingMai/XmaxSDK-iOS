@@ -673,8 +673,7 @@ private extension StorageService {
             else {
                 throw XmaxError(
                     code: .invalidConfiguration,
-                    message: "\(mediaType.displayName) file URL must reference "
-                        + "an existing file"
+                    message: "\(mediaType.displayName) file URL must reference an existing file"
                 )
             }
         }
@@ -686,8 +685,7 @@ private extension StorageService {
         guard normalizedContentType.hasPrefix("\(mediaType.rawValue)/") else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "\(mediaType.displayName) content type must begin "
-                    + "with \(mediaType.rawValue)/"
+                message: "\(mediaType.displayName) content type must begin with \(mediaType.rawValue)/"
             )
         }
 
@@ -805,7 +803,7 @@ private extension StorageService {
         guard let contentType = types[fileExtension] else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Unable to infer \(mediaType) content type from " + "file extension"
+                message: "Unable to infer \(mediaType) content type from file extension"
             )
         }
         return contentType

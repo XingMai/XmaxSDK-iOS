@@ -30,6 +30,13 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
     }
 
     /// Copies a remote user's audio without changing RTC playback or mixing local input.
+    ///
+    /// - Parameters:
+    ///   - frame: The PCM frame borrowed from Agora for this callback.
+    ///   - channelId: The room identifier associated with the frame.
+    ///   - uid: The remote user identifier.
+    ///
+    /// - Returns: `true` to preserve native audio playback.
     func onPlaybackAudioFrame(
         beforeMixing frame: AgoraAudioFrame,
         channelId: String,
@@ -49,6 +56,16 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
     }
 
     /// Validates and owns callback-borrowed bytes before asynchronous delivery.
+    ///
+    /// - Parameters:
+    ///   - buffer: The borrowed interleaved PCM bytes.
+    ///   - channelID: The room identifier associated with the frame.
+    ///   - uid: The remote user identifier.
+    ///   - samplesPerChannel: The number of samples in each channel.
+    ///   - sampleRate: The audio sample rate, in hertz.
+    ///   - channels: The number of interleaved channels.
+    ///   - bytesPerSample: The number of bytes per sample; only 16-bit PCM is accepted.
+    ///   - renderTimeMs: The native rendering timestamp, in milliseconds.
     func capturePCM(
         _ buffer: UnsafeRawPointer?,
         channelID: String,
@@ -59,12 +76,18 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
         bytesPerSample: Int,
         renderTimeMs: Int64
     ) {
-        guard let listener = listenerProvider(uid, channelID) else { return }
+        guard let listener = listenerProvider(
+            uid,
+            channelID
+        ) else {
+            return
+        }
+
         guard let buffer,
-              bytesPerSample == 2,
-              (8_000...192_000).contains(sampleRate),
-              (1...2).contains(channels),
-              (1...192_000).contains(samplesPerChannel)
+            bytesPerSample == 2,
+            (8_000...192_000).contains(sampleRate),
+            (1...2).contains(channels),
+            (1...192_000).contains(samplesPerChannel)
         else {
             listener(
                 RtcRemoteAudioFrame(
@@ -77,6 +100,7 @@ final class RtcRemoteAudioSink: NSObject, AgoraAudioFrameDelegate, @unchecked Se
             )
             return
         }
+
         listener(
             RtcRemoteAudioFrame(
                 data: Data(

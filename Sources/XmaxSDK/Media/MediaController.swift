@@ -539,7 +539,7 @@ private extension MediaController {
         guard activeSource == nil else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Stop the current local media stream before " + "creating another one"
+                message: "Stop the current local media stream before creating another one"
             )
         }
 
@@ -566,9 +566,7 @@ private extension MediaController {
             return stream
         } catch {
             clearMediaOperation(id: operation.id)
-            if activeSource?.id == sourceID,
-                stopOperation?.sourceID != sourceID
-            {
+            if activeSource?.id == sourceID, stopOperation?.sourceID != sourceID {
                 await rtcManager.destroy()
                 activeSource = nil
             }
@@ -618,9 +616,7 @@ private extension MediaController {
         sourceID: UUID,
         operationID: UUID
     ) async {
-        if let mediaOperation,
-            mediaOperation.sourceID == sourceID
-        {
+        if let mediaOperation, mediaOperation.sourceID == sourceID {
             do {
                 _ = try await mediaOperation.task.value
             } catch {
@@ -739,9 +735,7 @@ private extension MediaController {
     func ensureCreationActive(
         sourceID: UUID
     ) throws {
-        guard activeSource?.id == sourceID,
-            stopOperation?.sourceID != sourceID
-        else {
+        guard activeSource?.id == sourceID, stopOperation?.sourceID != sourceID else {
             throw XmaxError(
                 code: .cancelled,
                 message: "Local media stream creation was cancelled"

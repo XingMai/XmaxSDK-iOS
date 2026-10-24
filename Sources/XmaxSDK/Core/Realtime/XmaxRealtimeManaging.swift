@@ -134,6 +134,7 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// next event of that track as discontinuous. A callback already running may finish after removal.
     ///
     /// - Parameter listener: The remote output handler, or `nil` to remove it and queued output.
+    ///
     /// - Throws: An error if observation of an already-bound remote user cannot be configured.
     func setRemoteMediaFrameListener(
         _ listener: RealtimeMediaFrameListener?

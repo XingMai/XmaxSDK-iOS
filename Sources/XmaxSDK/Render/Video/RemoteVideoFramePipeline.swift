@@ -278,15 +278,11 @@ private extension RemoteVideoFramePipeline {
                 sourceDuration: sourceDuration,
                 generation: activeGeneration
             )
-            guard !Task.isCancelled,
-                generation == activeGeneration
-            else {
+            guard !Task.isCancelled, generation == activeGeneration else {
                 break
             }
             for outputFrame in outputFrames {
-                guard !Task.isCancelled,
-                    generation == activeGeneration
-                else {
+                guard !Task.isCancelled, generation == activeGeneration else {
                     break
                 }
                 await outputListener(
@@ -351,9 +347,7 @@ private extension RemoteVideoFramePipeline {
                 interpolationManager = nil
                 await previousManager?.close()
 
-                guard !Task.isCancelled,
-                    generation == activeGeneration
-                else {
+                guard !Task.isCancelled, generation == activeGeneration else {
                     return []
                 }
                 interpolationManager = try interpolationManagerFactory(frame)
@@ -366,9 +360,7 @@ private extension RemoteVideoFramePipeline {
                 sourceDuration: sourceDuration
             )
         } catch {
-            guard !Task.isCancelled,
-                generation == activeGeneration
-            else {
+            guard !Task.isCancelled, generation == activeGeneration else {
                 return []
             }
             let resolvedError: XmaxError

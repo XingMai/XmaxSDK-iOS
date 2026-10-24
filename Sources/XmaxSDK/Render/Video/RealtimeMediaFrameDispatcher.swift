@@ -77,6 +77,8 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
     }
 
     /// Replaces the listener and rejects queued output from the previous listener.
+    ///
+    /// - Parameter listener: The media callback, or `nil` to stop delivery.
     func setListener(
         _ listener: RealtimeMediaFrameListener?
     ) {
@@ -90,6 +92,7 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
     /// Starts a new binding, invalidating packets from all previous producers.
     ///
     /// - Parameter active: Whether a remote result stream is bound.
+    ///
     /// - Returns: The new stream identity, or `nil` after unbinding.
     @discardableResult
     func setStream(
@@ -104,12 +107,18 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
     }
 
     /// Normalizes audio on the producer thread and enqueues only a current binding's packets.
+    ///
+    /// - Parameters:
+    ///   - frame: The copied PCM packet and native rendering timestamp.
+    ///   - streamID: The token identifying the producer's result-stream binding.
     func dispatchAudio(
         _ frame: RtcRemoteAudioFrame,
         streamID: UUID
     ) {
         lock.withLock {
-            guard self.streamID == streamID, listener != nil else { return }
+            guard self.streamID == streamID, listener != nil else {
+                return
+            }
             guard let resolved = audioTimeline.resolve(frame) else {
                 audioDiscontinuous = true
                 return
@@ -119,17 +128,26 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                 isDiscontinuous: audioDiscontinuous || resolved.discontinuous,
                 content: .audio(resolved.frame)
             )
-            audioDiscontinuous = !enqueue(output, bytes: frame.data.count)
+            audioDiscontinuous = !enqueue(
+                output,
+                bytes: frame.data.count
+            )
         }
     }
 
     /// Enqueues final processed video while preserving its native or interpolated PTS.
+    ///
+    /// - Parameters:
+    ///   - frame: The processed video frame and presentation timestamp.
+    ///   - streamID: The token identifying the producer's result-stream binding.
     func dispatchVideo(
         _ frame: RealtimeVideoFrame,
         streamID: UUID
     ) {
         lock.withLock {
-            guard self.streamID == streamID, listener != nil else { return }
+            guard self.streamID == streamID, listener != nil else {
+                return
+            }
             guard frame.presentationTimeStamp.isNumeric else {
                 videoDiscontinuous = true
                 return
@@ -148,7 +166,10 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                 isDiscontinuous: videoDiscontinuous || backwards || formatChanged,
                 content: .video(frame)
             )
-            videoDiscontinuous = !enqueue(output, bytes: CVPixelBufferGetDataSize(frame.pixelBuffer))
+            videoDiscontinuous = !enqueue(
+                output,
+                bytes: CVPixelBufferGetDataSize(frame.pixelBuffer)
+            )
         }
     }
 
@@ -162,20 +183,26 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
     }
 
     /// Admits one bounded callback in producer order. Requires `lock`.
+    ///
+    /// - Parameters:
+    ///   - frame: The audio or video packet to deliver.
+    ///   - bytes: The number of media bytes retained by this packet.
+    ///
+    /// - Returns: Whether the packet was admitted within the frame and byte limits.
     private func enqueue(
         _ frame: RealtimeMediaFrame,
         bytes: Int
     ) -> Bool {
-        guard pendingFrames < maximumPendingFrames,
-              bytes <= maximumPendingBytes - pendingBytes
-        else {
+        guard pendingFrames < maximumPendingFrames, bytes <= maximumPendingBytes - pendingBytes else {
             return false
         }
         pendingFrames += 1
         pendingBytes += bytes
         let revision = version
         queue.async { [weak self] in
-            guard let self else { return }
+            guard let self else {
+                return
+            }
             defer {
                 lock.withLock {
                     pendingFrames -= 1

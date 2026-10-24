@@ -118,9 +118,7 @@ final class StorageManager: StorageManaging, Sendable {
             throw Self.cancelledError(operation: "Storage download")
         } catch {
             let platformError = error as NSError
-            if platformError.domain == NSURLErrorDomain,
-                platformError.code == NSURLErrorCancelled
-            {
+            if platformError.domain == NSURLErrorDomain, platformError.code == NSURLErrorCancelled {
                 throw Self.cancelledError(operation: "Storage download")
             }
 

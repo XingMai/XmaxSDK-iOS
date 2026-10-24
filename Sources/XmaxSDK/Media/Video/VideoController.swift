@@ -114,7 +114,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
         guard currentTrack == nil else {
             throw XmaxError(
                 code: .invalidConfiguration,
-                message: "Stop the current local video stream before " + "creating another one"
+                message: "Stop the current local video stream before creating another one"
             )
         }
 
