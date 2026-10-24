@@ -74,6 +74,8 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
     private var localMediaOperationTask: Task<Void, Never>?
     private var cameraFormatTask: Task<Void, Never>?
     private var generationOperationTask: Task<Void, Never>?
+    private var generationRequestID: UUID?
+    private var disconnectTask: Task<Void, Never>?
     private var touchAnimationPreparationTask: Task<Void, Never>?
     private var realtimeListenerTask: Task<Void, Never>?
     private var mediaCleanupTask: Task<Void, Never>?
@@ -1254,6 +1256,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let previousCleanup = mediaCleanupTask
         let pendingLocalMediaOperation = localMediaOperationTask
         let pendingGenerationOperation = generationOperationTask
+        let pendingDisconnect = disconnectTask
+        disconnectTask = nil
+        generationRequestID = nil
         let pendingRealtimeListener = realtimeListenerTask
         let pendingCameraFormat = cameraFormatTask
         pendingCameraFormat?.cancel()
@@ -1309,6 +1314,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             try? await realtimeManager.setRemoteMediaFrameListener(nil)
 
             await pendingLocalMediaOperation?.value
+            await pendingDisconnect?.value
             await pendingGenerationOperation?.value
             await pendingCameraFormat?.value
 
@@ -1344,6 +1350,9 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         let pendingGenerationOperation = generationOperationTask
         pendingGenerationOperation?.cancel()
         generationOperationTask = nil
+        generationRequestID = nil
+        let pendingDisconnect = disconnectTask
+        disconnectTask = nil
         let pendingTouchAnimationPreparation = touchAnimationPreparationTask
         pendingTouchAnimationPreparation?.cancel()
         touchAnimationPreparationTask = nil
@@ -1369,6 +1378,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             guard let self else { return }
 
             await pendingLocalOperation?.value
+            await pendingDisconnect?.value
             await pendingGenerationOperation?.value
             await pendingTouchAnimationPreparation?.value
             guard !Task.isCancelled else { return }
@@ -1437,11 +1447,18 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
             return
         }
 
-        let previousOperation = generationOperationTask
-        previousOperation?.cancel()
+        let requestID = UUID()
+        generationRequestID = requestID
+        let pendingDisconnect = disconnectTask
         generationOperationTask = Task { @MainActor [weak self] in
-            await previousOperation?.value
-            guard let self, !Task.isCancelled else { return }
+            await pendingDisconnect?.value
+            guard let self, generationRequestID == requestID, !Task.isCancelled else { return }
+            defer {
+                if generationRequestID == requestID {
+                    generationRequestID = nil
+                    generationOperationTask = nil
+                }
+            }
 
             do {
                 let remoteStream = try await realtimeManager.startGeneration(
@@ -1449,20 +1466,19 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                     context: context,
                     faceRestoration: faceRestoration
                 )
-                guard !Task.isCancelled else {
-                    await realtimeManager.disconnect()
-                    return
-                }
+                guard generationRequestID == requestID, isGenerationRequested, !Task.isCancelled else { return }
                 remoteVideoTrack = remoteStream.videoTrack
                 previewView.displayRealtime(remoteStream.videoTrack)
                 loadingOverlay.hideLoading()
-            } catch is CancellationError {
-                return
             } catch {
-                guard !Task.isCancelled else { return }
-                if await realtimeManager.currentState.connectionState == .generating {
+                let resolvedError = XmaxError.from(error)
+                guard generationRequestID == requestID, isGenerationRequested,
+                      !Task.isCancelled, resolvedError.code != .cancelled else { return }
+                let state = await realtimeManager.currentState
+                guard generationRequestID == requestID, isGenerationRequested, !Task.isCancelled else { return }
+                if state.connectionState == .generating {
                     loadingOverlay.hideLoading()
-                    presentRealtimeError(XmaxError.from(error))
+                    presentRealtimeError(resolvedError)
                     return
                 }
                 isGenerationRequested = false
@@ -1473,7 +1489,7 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
                 }
                 loadingOverlay.hideLoading()
                 remoteVideoTrack = nil
-                presentRealtimeError(XmaxError.from(error))
+                presentRealtimeError(resolvedError)
                 if let selectedReferenceID {
                     controlPanelView.clearReferenceSelection(
                         matching: selectedReferenceID
@@ -1496,13 +1512,16 @@ final class RealtimeViewController: UIViewController, UIGestureRecognizerDelegat
         loadingOverlay.hideLoading()
         remoteVideoTrack = nil
         previewView.hideRealtime()
-        let previousOperation = generationOperationTask
-        previousOperation?.cancel()
-        generationOperationTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            await previousOperation?.value
-            // 新的生成请求会等待本任务；即使被取消，也必须完成旧连接清理。
+        generationRequestID = nil
+        let pendingGeneration = generationOperationTask
+        pendingGeneration?.cancel()
+        generationOperationTask = nil
+        let previousDisconnect = disconnectTask
+        let realtimeManager = realtimeManager
+        disconnectTask = Task {
+            await previousDisconnect?.value
             await realtimeManager.disconnect()
+            await pendingGeneration?.value
         }
     }
 

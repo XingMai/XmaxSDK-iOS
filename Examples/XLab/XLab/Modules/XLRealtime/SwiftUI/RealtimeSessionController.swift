@@ -39,6 +39,8 @@ final class RealtimeSessionController: ObservableObject {
     // 异步任务
     private var startupTask: Task<Void, Never>?
     private var generationTask: Task<Void, Never>?
+    private var generationRequestID: UUID?
+    private var disconnectTask: Task<Void, Never>?
     private var cameraSwitchTask: Task<Void, Never>?
     private var cameraFormatTask: Task<Void, Never>?
     private var frameInterpolationTask: Task<Void, Never>?
@@ -150,11 +152,18 @@ final class RealtimeSessionController: ObservableObject {
         isGenerationRequested = true
         isLoading = true
 
-        let previousTask = generationTask
-        previousTask?.cancel()
+        let requestID = UUID()
+        generationRequestID = requestID
+        let pendingDisconnect = disconnectTask
         generationTask = Task { [weak self] in
-            await previousTask?.value
-            guard let self, !Task.isCancelled else { return }
+            await pendingDisconnect?.value
+            guard let self, generationRequestID == requestID, !Task.isCancelled else { return }
+            defer {
+                if generationRequestID == requestID {
+                    generationRequestID = nil
+                    generationTask = nil
+                }
+            }
 
             do {
                 let remoteStream = try await realtimeManager.startGeneration(
@@ -162,22 +171,21 @@ final class RealtimeSessionController: ObservableObject {
                     context: context,
                     faceRestoration: faceRestoration
                 )
-                guard !Task.isCancelled else {
-                    await realtimeManager.disconnect()
-                    return
-                }
+                guard generationRequestID == requestID, isGenerationRequested, !Task.isCancelled else { return }
                 remoteVideoTrack = remoteStream.videoTrack
                 isLoading = false
-            } catch is CancellationError {
-                return
             } catch {
-                guard !Task.isCancelled else { return }
-                if await realtimeManager.currentState.connectionState != .generating {
+                let resolvedError = XmaxError.from(error)
+                guard generationRequestID == requestID, isGenerationRequested,
+                      !Task.isCancelled, resolvedError.code != .cancelled else { return }
+                let state = await realtimeManager.currentState
+                guard generationRequestID == requestID, isGenerationRequested, !Task.isCancelled else { return }
+                if state.connectionState != .generating {
                     isGenerationRequested = false
                     remoteVideoTrack = nil
                 }
                 isLoading = false
-                handleRealtimeError(XmaxError.from(error))
+                handleRealtimeError(resolvedError)
             }
         }
     }
@@ -189,14 +197,16 @@ final class RealtimeSessionController: ObservableObject {
         remoteVideoTrack = nil
         isLoading = connectionState == .preparing
 
-        let previousTask = generationTask
-        previousTask?.cancel()
-        generationTask = Task { [weak self] in
-            await previousTask?.value
-            guard let self else { return }
-            // 新的生成请求会等待本任务；即使被取消，也必须完成旧连接清理。
+        generationRequestID = nil
+        let pendingGeneration = generationTask
+        pendingGeneration?.cancel()
+        generationTask = nil
+        let previousDisconnect = disconnectTask
+        let realtimeManager = realtimeManager
+        disconnectTask = Task {
+            await previousDisconnect?.value
             await realtimeManager.disconnect()
-            remoteVideoTrack = nil
+            await pendingGeneration?.value
         }
     }
 
@@ -266,6 +276,9 @@ final class RealtimeSessionController: ObservableObject {
 
         let pendingStartup = startupTask
         let pendingGeneration = generationTask
+        let pendingDisconnect = disconnectTask
+        disconnectTask = nil
+        generationRequestID = nil
         let pendingCameraSwitch = cameraSwitchTask
         let pendingCameraFormat = cameraFormatTask
         cameraFormatTask?.cancel()
@@ -294,6 +307,7 @@ final class RealtimeSessionController: ObservableObject {
         let statistics = statistics
         cleanupTask = Task {
             await pendingStartup?.value
+            await pendingDisconnect?.value
             await pendingGeneration?.value
             await pendingCameraSwitch?.value
             await pendingCameraFormat?.value
