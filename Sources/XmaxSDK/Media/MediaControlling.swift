@@ -29,11 +29,6 @@ protocol MediaControlling: Actor, InteractionControlling {
         get
     }
 
-    /// Whether generation uses a separate canvas while retaining the media's aspect ratio.
-    var usesContainPadding: Bool {
-        get
-    }
-
     /// Whether the source includes SDK-managed audio.
     var hasAudio: Bool {
         get

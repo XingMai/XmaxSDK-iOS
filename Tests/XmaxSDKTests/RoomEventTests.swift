@@ -126,6 +126,7 @@ final class RoomEventTests: XCTestCase {
         let params = try XCTUnwrap(event["params"] as? [String: Any])
         XCTAssertEqual(params["model"] as? String, "default")
         XCTAssertEqual(params["size"] as? [Int], [720, 1280])
+        XCTAssertNil(params["padding"])
         XCTAssertNil(params["target_size"])
         XCTAssertEqual(params["prompt"] as? String, "a prompt")
         XCTAssertEqual(
@@ -169,6 +170,7 @@ final class RoomEventTests: XCTestCase {
         XCTAssertEqual(event["event"] as? String, "change_condition")
         XCTAssertNil(event["condition_version"])
         let params = try XCTUnwrap(event["params"] as? [String: Any])
+        XCTAssertNil(params["padding"])
         XCTAssertNil(params["target_size"])
         try assertRuntime(in: event)
     }

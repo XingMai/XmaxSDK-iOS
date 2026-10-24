@@ -14,6 +14,19 @@ import XCTest
 @testable import XmaxSDK
 
 final class MediaServiceTests: XCTestCase {
+    func testGenerationSizeSelectsBucketsByAspectRatioRatherThanExactDimensions() throws {
+        let service = MediaService()
+        for (mediaSize, expectedCanvas) in [
+            (CGSize(width: 1200, height: 1600), CGSize(width: 1152, height: 1536)),
+            (CGSize(width: 1280, height: 720), CGSize(width: 1920, height: 1080)),
+            (CGSize(width: 1408, height: 1408), CGSize(width: 1408, height: 1408)),
+            (CGSize(width: 1200, height: 1500), CGSize(width: 1152, height: 1536)),
+            (CGSize(width: 1156, height: 1536), CGSize(width: 1152, height: 1536))
+        ] {
+            XCTAssertEqual(try service.resolveGenerationSize(mediaSize), expectedCanvas)
+        }
+    }
+
     func testLargeImagesAndVideosShareModelAreaLimitWithoutMatchingBuckets() throws {
         let service = MediaService()
         let cases = [

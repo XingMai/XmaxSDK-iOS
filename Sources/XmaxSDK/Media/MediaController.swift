@@ -134,16 +134,6 @@ actor MediaController: MediaControlling {
         currentTrack?.videoFormat
     }
 
-    /// Whether the source preserves its complete contents within the generation canvas.
-    var usesContainPadding: Bool {
-        switch activeSource?.kind {
-        case .image, .video, .external:
-            true
-        default:
-            false
-        }
-    }
-
     /// Whether the source includes SDK-managed audio.
     var hasAudio: Bool {
         switch activeSource?.kind {

@@ -192,6 +192,11 @@ buckets. `resolveTargetSize(_:maximumSize:frameInterpolationEnabled:)` calculate
 the separate return `target_size` from the downlink bound and interpolation limit,
 with final dimensions aligned to multiples of 4.
 
+Generation requests include `padding: "contain"` only when the resolved media and
+generation canvas have different aspect ratios. Matching aspect ratios omit the
+field, even when the dimensions differ. This rule applies to every input source
+and does not depend on return dimensions, quality levels, or frame interpolation.
+
 The local-frame limit does not cap the memory required to decode the original
 image or video. Applications do not need to duplicate these sizing calculations.
 

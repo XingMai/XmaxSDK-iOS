@@ -76,10 +76,9 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
         await components.roomController.leave()
     }
 
-    func testAllMediaSourcesKeepTrajectoryBasisAcrossReturnSizeAndConditionChanges() async throws {
-        for source in RealtimeMediaSource.allCases {
+    func testTrajectoryBasisIsIndependentOfCanvasPaddingAndReturnSize() async throws {
+        for contain in [false, true] {
             let components = try await makeComponents()
-            let contain = source != .camera
             let start = Task {
                 try await components.manager.start(
                     videoFormat: videoFormat,
@@ -112,7 +111,7 @@ final class XmaxRealtimeGenerationManagerTests: XCTestCase {
                 ))
                 await waitForEventCount("tracks", count: index + 1, rtcManager: components.rtcManager)
                 let event = try XCTUnwrap(decodedEvents(components.rtcManager).last { $0["event"] as? String == "tracks" })
-                XCTAssertEqual(event["tracks"] as? [[Double]], [[0.25, 0.25]], "Source: \(source), target: \(targetSize)")
+                XCTAssertEqual(event["tracks"] as? [[Double]], [[0.25, 0.25]], "Contain: \(contain), target: \(targetSize)")
             }
             try await components.manager.stop(taskID: taskID)
             await components.roomController.leave()

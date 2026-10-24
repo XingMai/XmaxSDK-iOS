@@ -473,6 +473,73 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await components.manager.close()
     }
 
+    func testImageGenerationSelectsModelCanvasBeforeDecidingPadding() async throws {
+        let cases: [(CGSize, CGSize, Bool)] = [
+            (CGSize(width: 1200, height: 1600), CGSize(width: 1152, height: 1536), false),
+            (CGSize(width: 1280, height: 720), CGSize(width: 1920, height: 1080), false),
+            (CGSize(width: 1408, height: 1408), CGSize(width: 1408, height: 1408), false),
+            (CGSize(width: 1200, height: 1500), CGSize(width: 1152, height: 1536), true),
+            (CGSize(width: 1156, height: 1536), CGSize(width: 1152, height: 1536), true)
+        ]
+        for (mediaSize, canvasSize, contain) in cases {
+            let components = makeComponents(
+                imageVideoFormat: RealtimeVideoFormat(
+                    width: Int(mediaSize.width),
+                    height: Int(mediaSize.height),
+                    fps: 30
+                )
+            )
+            let local = try await components.manager.createLocalImageStream(
+                fileURL: URL(fileURLWithPath: "/tmp/reference.png")
+            )
+            try await assertGenerationPadding(
+                components: components,
+                localStream: local,
+                canvasSize: canvasSize,
+                contain: contain
+            )
+        }
+    }
+
+    func testCameraVideoAndExternalGenerationUseTheSamePaddingRule() async throws {
+        for source: RealtimeMediaSource in [.camera, .video, .external] {
+            let components = makeComponents(cameraMediaService: MediaService())
+            let local: RealtimeMediaStream
+            let canvasSize: CGSize
+            let contain: Bool
+            switch source {
+            case .camera:
+                local = try await components.manager.createLocalCameraStream(
+                    videoFormat: RealtimeModel.x2_1.defaultCameraVideoFormat,
+                    position: .front
+                )
+                canvasSize = CGSize(width: 1080, height: 1920)
+                contain = false
+            case .video:
+                local = try await components.manager.createLocalVideoStream(
+                    fileURL: URL(fileURLWithPath: "/tmp/video.mp4")
+                )
+                canvasSize = CGSize(width: 1080, height: 1920)
+                contain = true
+            case .external:
+                local = try await components.manager.createExternalVideoStream(
+                    source: RealtimeExternalVideoSourceStub()
+                )
+                canvasSize = CGSize(width: 1920, height: 1080)
+                contain = false
+            case .image:
+                XCTFail("Images are covered separately")
+                continue
+            }
+            try await assertGenerationPadding(
+                components: components,
+                localStream: local,
+                canvasSize: canvasSize,
+                contain: contain
+            )
+        }
+    }
+
     func testRuntimeInterpolationChangesTargetSizeWithoutRestartingGeneration() async throws {
         let components = makeComponents(
             frameInterpolationSupported: true
@@ -679,8 +746,6 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let state = await components.manager.currentState
         XCTAssertEqual(state.connectionState, .ready)
         XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, 24)
-        let usesContainPadding = await components.mediaController.usesContainPadding
-        XCTAssertTrue(usesContainPadding)
         let sink = try XCTUnwrap(source.sink)
         _ = try await components.manager.connect(localStream: stream)
         await components.manager.disconnect()
@@ -2011,6 +2076,50 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 }
 
 private extension XmaxRealtimeManagerTests {
+    func assertGenerationPadding(
+        components: Components,
+        localStream: RealtimeMediaStream,
+        canvasSize: CGSize,
+        contain: Bool
+    ) async throws {
+        do {
+            let mediaFormat = try XCTUnwrap(localStream.videoTrack?.videoFormat)
+            let start = Task {
+                try await components.manager.startGeneration(
+                    localStream: localStream,
+                    context: RealtimeContext(prompt: "initial")
+                )
+            }
+            await waitForEvent("start", rtcManager: components.rtcManager)
+            components.rtcManager.emitRemoteVideoAvailable(
+                stream: RemoteStream(roomID: "room-id", userID: "bot-user")
+            )
+            try components.rtcManager.emitRemoteVideoFrame()
+            _ = try await start.value
+            try await components.manager.startGeneration(
+                context: RealtimeContext(prompt: "updated")
+            )
+
+            let events = decodedEvents(components.rtcManager).filter {
+                ["start", "change_condition"].contains($0["event"] as? String ?? "")
+            }
+            XCTAssertEqual(events.count, 2)
+            for event in events {
+                let parameters = try XCTUnwrap(event["params"] as? [String: Any])
+                XCTAssertEqual(parameters["size"] as? [Int], [Int(canvasSize.width), Int(canvasSize.height)])
+                XCTAssertEqual(parameters["padding"] as? String, contain ? "contain" : nil)
+            }
+            let startEvent = try XCTUnwrap(events.first)
+            let startParameters = try XCTUnwrap(startEvent["params"] as? [String: Any])
+            XCTAssertEqual(startParameters["target_size"] as? [Int], [mediaFormat.width, mediaFormat.height])
+            XCTAssertEqual(localStream.videoTrack?.videoFormat, mediaFormat)
+        } catch {
+            await components.manager.close()
+            throw error
+        }
+        await components.manager.close()
+    }
+
     struct Components {
         let manager: XmaxRealtimeManager
         let connectionManager: XmaxRealtimeConnectionManager
@@ -2036,6 +2145,7 @@ private extension XmaxRealtimeManagerTests {
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
         cameraMediaService: (any MediaServicing)? = nil,
         model: RealtimeModel = .x2_1,
+        imageVideoFormat: RealtimeVideoFormat? = nil,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,
         frameInterpolationEnabled: Bool = false,
@@ -2082,7 +2192,7 @@ private extension XmaxRealtimeManagerTests {
             errorListener: { errorManager.forward($0, target: .all) }
         )
         let imageController = ImageControllingStub(
-            resolvedFormat: imageFormat
+            resolvedFormat: imageVideoFormat ?? imageFormat
         )
         let videoSource = VideoPlayerControllingStub()
         let videoController = VideoController(

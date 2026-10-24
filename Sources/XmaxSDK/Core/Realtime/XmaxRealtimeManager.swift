@@ -923,10 +923,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             )
         }
 
-        let paddingContain = await mediaController.usesContainPadding
-        let generationSize =
-            try paddingContain
-            ? mediaService.resolveGenerationSize(videoFormat.size) : videoFormat.size
+        let generationSize = try mediaService.resolveGenerationSize(videoFormat.size)
+        let paddingContain =
+            videoFormat.width * Int(generationSize.height)
+            != videoFormat.height * Int(generationSize.width)
         let generationFormat = videoFormat.resized(
             width: Int(generationSize.width),
             height: Int(generationSize.height)
