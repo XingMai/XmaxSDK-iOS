@@ -14,7 +14,7 @@ import Foundation
 enum QualityVideoFormat {
 
     /// The per-level dimension scale factors.
-    static let scales: [Double] = [1, 0.9, 0.75, 0.6, 0.4]
+    static let scales: [Double] = [1, 0.9, 0.75, 0.6, 0.5]
 
     /// The per-level target frame rates.
     static let frameRates = [30, 24, 24, 20, 16]

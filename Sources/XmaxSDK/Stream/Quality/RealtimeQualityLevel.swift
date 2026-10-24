@@ -25,6 +25,6 @@ public enum RealtimeQualityLevel: Int, CaseIterable, Sendable {
     /// Level 4, targeting 60% of the media baseline width and height.
     case l4 = 4
 
-    /// Level 5, targeting 40% of the media baseline width and height.
+    /// Level 5, targeting 50% of the media baseline width and height.
     case l5 = 5
 }

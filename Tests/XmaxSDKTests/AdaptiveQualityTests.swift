@@ -16,7 +16,7 @@ final class AdaptiveQualityTests: XCTestCase {
     private let baseline = RealtimeVideoFormat(width: 1024, height: 1920, fps: 30)
 
     func testTiersAlwaysDeriveFromMediaBaseline() {
-        let expected = [(1024, 1920, 30), (912, 1710, 24), (768, 1440, 24), (608, 1140, 20), (400, 750, 16)]
+        let expected = [(1024, 1920, 30), (912, 1710, 24), (768, 1440, 24), (608, 1140, 20), (512, 960, 16)]
         for (index, value) in expected.enumerated() {
             let format = QualityVideoFormat.resolve(baseline, level: RealtimeQualityLevel.allCases[index], downlink: false)
             XCTAssertEqual(format.width, value.0)
@@ -43,7 +43,7 @@ final class AdaptiveQualityTests: XCTestCase {
         XCTAssertEqual(uplink.fps, 16)
         XCTAssertEqual(
             QualityVideoFormat.resolve(baseline, level: .l5, downlink: true, minimumInputPixels: minimum).size,
-            CGSize(width: 400, height: 750)
+            CGSize(width: 512, height: 960)
         )
         for (width, height) in [(1024, 1920), (1920, 1024), (1080, 1920), (1000, 600), (1000, 500), (400, 1600)] {
             let format = RealtimeVideoFormat(width: width, height: height, fps: 30)
