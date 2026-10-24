@@ -13,29 +13,10 @@ import XCTest
 @testable import XmaxSDK
 
 final class RealtimeModelTests: XCTestCase {
-    func testModelDefaultFormatsAndPixelLimits() {
-        XCTAssertEqual(RealtimeModel.x2_1.defaultFrameRate, 30)
-        XCTAssertEqual(RealtimeModel.x2_1.maximumInputPixels, 2100000)
-        XCTAssertEqual(
-            RealtimeModel.x2_1.defaultCameraVideoFormat,
-            RealtimeVideoFormat(width: 1080, height: 1920, fps: 30)
-        )
-    }
-
-    func testModelSupportedVideoFormats() {
-        XCTAssertEqual(RealtimeModel.allCases, [.x2_1, .x2_1_1_preview_cn, .x2_1_1_preview_us])
+    func testOnlyRegionalPreviewModelsAreAvailable() {
+        XCTAssertEqual(RealtimeModel.allCases, [.x2_1_1_preview_cn, .x2_1_1_preview_us])
         XCTAssertNil(RealtimeModel(rawValue: "x2.0"))
-        XCTAssertEqual(RealtimeModel.x2_1.supportedVideoFormats.map(\.size), [
-            CGSize(width: 1920, height: 1080),
-            CGSize(width: 1080, height: 1920),
-            CGSize(width: 1408, height: 1408),
-            CGSize(width: 1152, height: 1536),
-            CGSize(width: 1536, height: 1152)
-        ])
-        XCTAssertEqual(RealtimeModel.x2_1.rawValue, "x2.1")
-        XCTAssertEqual(RealtimeModel.x2_1.displayName, "X2.1")
-        XCTAssertEqual(RealtimeCameraPreset.allCases.map(\.size), RealtimeModel.x2_1.supportedVideoFormats.map(\.size))
-        XCTAssertTrue(RealtimeModel.x2_1.supportedVideoFormats.allSatisfy { $0.fps == 30 })
+        XCTAssertNil(RealtimeModel(rawValue: "x2.1"))
     }
 
     func testPreviewModelCameraFormats() {
@@ -128,7 +109,7 @@ final class RealtimeModelTests: XCTestCase {
     }
 
     func testRealtimeEnumRawValuesMatchCrossPlatformContract() {
-        XCTAssertEqual(RealtimeModel.x2_1.rawValue, "x2.1")
+        XCTAssertEqual(RealtimeModel.x2_1_1_preview_cn.rawValue, "x2.1.1-preview-cn")
         XCTAssertEqual(RealtimeConnectionState.generating.rawValue, "Generating")
         XCTAssertEqual(RealtimeNetworkQualityLevel.veryBad.rawValue, "VeryBad")
         XCTAssertEqual(RealtimePerformanceStatus.recovered.rawValue, "Recovered")

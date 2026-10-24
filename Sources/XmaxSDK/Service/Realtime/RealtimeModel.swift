@@ -14,9 +14,6 @@ import CoreGraphics
 /// A realtime generation model supported by XmaxSDK.
 public enum RealtimeModel: String, CaseIterable, Sendable {
 
-    /// The X2.1 realtime generation model.
-    case x2_1 = "x2.1"
-
     /// The China preview of the X2.1.1 realtime generation model.
     case x2_1_1_preview_cn = "x2.1.1-preview-cn"
 
@@ -26,8 +23,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// The model's display name.
     public var displayName: String {
         switch self {
-        case .x2_1:
-            "X2.1"
         case .x2_1_1_preview_cn:
             "X2.1.1-preview-cn"
         case .x2_1_1_preview_us:
@@ -42,34 +37,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// dimensions, resolved using pixel limits and alignment.
     public var supportedVideoFormats: [RealtimeVideoFormat] {
         switch self {
-        case .x2_1:
-            [
-                RealtimeVideoFormat(
-                    width: 1920,
-                    height: 1080,
-                    fps: defaultFrameRate
-                ),
-                RealtimeVideoFormat(
-                    width: 1080,
-                    height: 1920,
-                    fps: defaultFrameRate
-                ),
-                RealtimeVideoFormat(
-                    width: 1408,
-                    height: 1408,
-                    fps: defaultFrameRate
-                ),
-                RealtimeVideoFormat(
-                    width: 1152,
-                    height: 1536,
-                    fps: defaultFrameRate
-                ),
-                RealtimeVideoFormat(
-                    width: 1536,
-                    height: 1152,
-                    fps: defaultFrameRate
-                )
-            ]
         case .x2_1_1_preview_cn, .x2_1_1_preview_us:
             [
                 RealtimeVideoFormat(
@@ -94,7 +61,7 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// The maximum local media area, in pixels; also limits variable generation canvases.
     public var maximumInputPixels: Int {
         switch self {
-        case .x2_1, .x2_1_1_preview_cn, .x2_1_1_preview_us:
+        case .x2_1_1_preview_cn, .x2_1_1_preview_us:
             2100000
         }
     }
@@ -112,12 +79,6 @@ public enum RealtimeModel: String, CaseIterable, Sendable {
     /// The default camera capture format.
     public var defaultCameraVideoFormat: RealtimeVideoFormat {
         switch self {
-        case .x2_1:
-            RealtimeVideoFormat(
-                width: 1080,
-                height: 1920,
-                fps: defaultFrameRate
-            )
         case .x2_1_1_preview_cn, .x2_1_1_preview_us:
             RealtimeVideoFormat(
                 width: 1024,

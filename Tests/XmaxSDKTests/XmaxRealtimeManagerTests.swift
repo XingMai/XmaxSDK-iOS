@@ -475,11 +475,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
     func testImageGenerationSelectsModelCanvasBeforeDecidingPadding() async throws {
         let cases: [(CGSize, CGSize, Bool)] = [
-            (CGSize(width: 1200, height: 1600), CGSize(width: 1152, height: 1536), false),
-            (CGSize(width: 1280, height: 720), CGSize(width: 1920, height: 1080), false),
-            (CGSize(width: 1408, height: 1408), CGSize(width: 1408, height: 1408), false),
-            (CGSize(width: 1200, height: 1500), CGSize(width: 1152, height: 1536), true),
-            (CGSize(width: 1156, height: 1536), CGSize(width: 1152, height: 1536), true)
+            (CGSize(width: 1024, height: 1920), CGSize(width: 1024, height: 1920), false),
+            (CGSize(width: 1920, height: 1024), CGSize(width: 1920, height: 1024), false),
+            (CGSize(width: 1200, height: 1600), CGSize(width: 1024, height: 1920), true),
+            (CGSize(width: 1280, height: 720), CGSize(width: 1920, height: 1024), true),
+            (CGSize(width: 1200, height: 1500), CGSize(width: 1024, height: 1920), true),
+            (CGSize(width: 1156, height: 1536), CGSize(width: 1024, height: 1920), true)
         ]
         for (mediaSize, canvasSize, contain) in cases {
             let components = makeComponents(
@@ -510,23 +511,23 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             switch source {
             case .camera:
                 local = try await components.manager.createLocalCameraStream(
-                    videoFormat: RealtimeModel.x2_1.defaultCameraVideoFormat,
+                    videoFormat: RealtimeModel.x2_1_1_preview_cn.defaultCameraVideoFormat,
                     position: .front
                 )
-                canvasSize = CGSize(width: 1080, height: 1920)
+                canvasSize = CGSize(width: 1024, height: 1920)
                 contain = false
             case .video:
                 local = try await components.manager.createLocalVideoStream(
                     fileURL: URL(fileURLWithPath: "/tmp/video.mp4")
                 )
-                canvasSize = CGSize(width: 1080, height: 1920)
+                canvasSize = CGSize(width: 1024, height: 1920)
                 contain = true
             case .external:
                 local = try await components.manager.createExternalVideoStream(
                     source: RealtimeExternalVideoSourceStub()
                 )
-                canvasSize = CGSize(width: 1920, height: 1080)
-                contain = false
+                canvasSize = CGSize(width: 1920, height: 1024)
+                contain = true
             case .image:
                 XCTFail("Images are covered separately")
                 continue
@@ -591,11 +592,11 @@ final class XmaxRealtimeManagerTests: XCTestCase {
             $0["event"] as? String == "change_condition"
         })
         let startParams = try XCTUnwrap(start["params"] as? [String: Any])
-        XCTAssertEqual(startParams["size"] as? [Int], [1080, 1920])
+        XCTAssertEqual(startParams["size"] as? [Int], [1024, 1920])
         XCTAssertEqual(startParams["target_size"] as? [Int], [832, 1472])
         XCTAssertEqual(startParams["padding"] as? String, "contain")
         let changeParams = try XCTUnwrap(change["params"] as? [String: Any])
-        XCTAssertEqual(changeParams["size"] as? [Int], [1080, 1920])
+        XCTAssertEqual(changeParams["size"] as? [Int], [1024, 1920])
         XCTAssertNil(changeParams["target_size"])
         XCTAssertEqual(remote.videoTrack?.videoFormat, targetFormat)
         await components.mediaController.submitInteraction(InteractionFrame(
@@ -698,12 +699,12 @@ final class XmaxRealtimeManagerTests: XCTestCase {
     }
 
     func testCameraUsesModelDefaultFrameRate() async throws {
-        let components = makeComponents(model: .x2_1)
+        let components = makeComponents(model: .x2_1_1_preview_cn)
         let manager: any XmaxRealtimeManaging = components.manager
         let stream = try await manager.createLocalCameraStream()
         let currentTrack = await components.mediaController.currentTrack
         XCTAssertTrue(currentTrack === stream.videoTrack)
-        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1.defaultFrameRate)
+        XCTAssertEqual(stream.videoTrack?.videoFormat?.fps, RealtimeModel.x2_1_1_preview_cn.defaultFrameRate)
         await manager.close()
     }
 
@@ -1016,7 +1017,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         let switchedStream = try await manager.switchCamera()
         try await manager.stopLocalCameraStream()
 
-        XCTAssertEqual(manager.options.model, .x2_1)
+        XCTAssertEqual(manager.options.model, .x2_1_1_preview_cn)
         XCTAssertTrue(stream.videoTrack === switchedStream.videoTrack)
         XCTAssertEqual(switchedStream.videoTrack?.position, .back)
         XCTAssertEqual(components.rtcManager.calls.first, .initialize)
@@ -1416,7 +1417,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
         XCTAssertEqual(
             components.sessionService.calls.filter {
-                $0 == .createSession(.x2_1)
+                $0 == .createSession(.x2_1_1_preview_cn)
             }.count,
             1
         )
@@ -1620,7 +1621,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         )
 
         XCTAssertFalse(
-            components.sessionService.calls.contains(.createSession(.x2_1))
+            components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn))
         )
 
         let startTask = Task {
@@ -1647,7 +1648,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 
         XCTAssertEqual(remoteStream.id, StreamID.remote.rawValue)
         XCTAssertTrue(
-            components.sessionService.calls.contains(.createSession(.x2_1))
+            components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn))
         )
 
         await components.manager.disconnect()
@@ -1769,7 +1770,7 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         }
         XCTAssertTrue(components.rtcManager.calls.contains(.stopAudioCapture))
         XCTAssertFalse(components.rtcManager.calls.contains(.publishLocalAudio))
-        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_1)))
+        XCTAssertFalse(components.sessionService.calls.contains(.createSession(.x2_1_1_preview_cn)))
         let ownsPreview = await components.mediaController.owns(stream)
         XCTAssertTrue(ownsPreview)
         await components.manager.close()
@@ -2061,20 +2062,21 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
-    func testCameraFormatUpdateRequiresReadyPreviewAndPreservesPresetEncodingOptions() async throws {
-        let components = makeComponents(cameraMediaService: MediaService(model: .x2_1))
+    func testCameraFormatUpdateRequiresReadyPreviewAndPreservesEncodingOptions() async throws {
+        let components = makeComponents(cameraMediaService: MediaService(model: .x2_1_1_preview_cn))
         let manager: any XmaxRealtimeManaging = components.manager
         let initial = RealtimeVideoFormat(
-            width: 1080, height: 1920, fps: 24,
+            width: 1024, height: 1920, fps: 24,
             minimumBitrate: 1500, maximumBitrate: 3000, encoderPreference: .maintainFramerate
         )
+        let updated = initial.resized(width: 1920, height: 1024)
         let ready = expectation(description: "Camera is ready")
         await manager.setStateListener { state in
             if state.connectionState == .ready { ready.fulfill() }
         }
         let stream = try await manager.createLocalCameraStream(videoFormat: initial)
         do {
-            try await manager.updateCameraFormat(.resolution1408x1408)
+            try await manager.updateCameraFormat(updated)
             XCTFail("Expected update during preparation to fail")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
@@ -2087,17 +2089,17 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await fulfillment(of: [ready], timeout: 2)
         await manager.setStateListener(nil)
 
-        try await manager.updateCameraFormat(.resolution1408x1408)
+        try await manager.updateCameraFormat(updated)
         let current = await manager.currentCameraVideoFormat
         let preset = await manager.currentCameraPreset
-        XCTAssertEqual(current, initial.resized(width: 1408, height: 1408))
-        XCTAssertEqual(preset, .resolution1408x1408)
+        XCTAssertEqual(current, updated)
+        XCTAssertNil(preset)
         XCTAssertEqual(track.videoFormat, current)
         XCTAssertEqual(view.bounds, .zero)
 
         try await manager.connect(localStream: stream)
         do {
-            try await manager.updateCameraFormat(.resolution1920x1080)
+            try await manager.updateCameraFormat(initial)
             XCTFail("Expected update while connected to fail")
         } catch {
             XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
@@ -2106,11 +2108,20 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await manager.close()
     }
 
-    func testCameraPresetCreationUsesModelDefaultFormat() async throws {
-        let components = makeComponents(cameraMediaService: MediaService(model: .x2_1))
+    func testCameraPresetCreationRejectsUnsupportedModelFormats() async throws {
+        let components = makeComponents(cameraMediaService: MediaService(model: .x2_1_1_preview_cn))
         let manager: any XmaxRealtimeManaging = components.manager
-        let stream = try await manager.createLocalCameraStream(preset: .resolution1152x1536)
-        XCTAssertEqual(stream.videoTrack?.videoFormat, RealtimeVideoFormat(width: 1152, height: 1536, fps: 30))
+        for preset in RealtimeCameraPreset.allCases {
+            do {
+                _ = try await manager.createLocalCameraStream(preset: preset)
+                XCTFail("Expected unsupported preset to fail")
+            } catch {
+                XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+            }
+        }
+        let state = await manager.currentState
+        XCTAssertEqual(state.connectionState, .idle)
+        XCTAssertTrue(components.captureManager.calls.isEmpty)
         await manager.close()
     }
 
@@ -2298,7 +2309,7 @@ private extension XmaxRealtimeManagerTests {
         captureManager: CameraCaptureManagingStub = CameraCaptureManagingStub(),
         permissionManager: PermissionManagingStub = PermissionManagingStub(),
         cameraMediaService: (any MediaServicing)? = nil,
-        model: RealtimeModel = .x2_1,
+        model: RealtimeModel = .x2_1_1_preview_cn,
         imageVideoFormat: RealtimeVideoFormat? = nil,
         sessionCreateError: (any Error)? = nil,
         sessionCloseError: (any Error)? = nil,

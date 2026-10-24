@@ -37,7 +37,7 @@ final class AdaptiveQualityTests: XCTestCase {
     }
 
     func testUplinkMinimumAppliesAfterAlignmentWithoutChangingDownlink() {
-        let minimum = RealtimeModel.x2_1.minimumInputPixels
+        let minimum = RealtimeModel.x2_1_1_preview_cn.minimumInputPixels
         let uplink = QualityVideoFormat.resolve(baseline, level: .l5, downlink: false, minimumInputPixels: minimum)
         XCTAssertEqual(uplink.size, CGSize(width: 528, height: 990))
         XCTAssertEqual(uplink.fps, 16)
@@ -60,10 +60,10 @@ final class AdaptiveQualityTests: XCTestCase {
 
     func testQualityConfigurationRetainsModelMinimumAcrossLevelChanges() {
         let controller = QualityController(rtcManager: RtcManagingStub())
-        let minimum = RealtimeModel.x2_1.minimumInputPixels
+        let minimum = RealtimeModel.x2_1_1_preview_cn.minimumInputPixels
         _ = controller.prepareQuality(
             baseline: baseline,
-            model: RealtimeModel.x2_1.rawValue,
+            model: RealtimeModel.x2_1_1_preview_cn.rawValue,
             minimumInputPixels: minimum,
             isAdaptiveQualityEnabled: false
         )

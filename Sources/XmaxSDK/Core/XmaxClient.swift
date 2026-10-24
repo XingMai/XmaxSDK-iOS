@@ -64,7 +64,7 @@ public final class XmaxClient: Sendable {
     ///
     /// - Parameter model: The model whose sizing rules the service uses.
     public func createMediaService(
-        model: RealtimeModel = .x2_1
+        model: RealtimeModel = .x2_1_1_preview_cn
     ) -> any MediaServicing {
         MediaService(model: model)
     }

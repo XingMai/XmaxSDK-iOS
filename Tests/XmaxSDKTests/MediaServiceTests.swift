@@ -17,11 +17,12 @@ final class MediaServiceTests: XCTestCase {
     func testGenerationSizeSelectsBucketsByAspectRatioRatherThanExactDimensions() throws {
         let service = MediaService()
         for (mediaSize, expectedCanvas) in [
-            (CGSize(width: 1200, height: 1600), CGSize(width: 1152, height: 1536)),
-            (CGSize(width: 1280, height: 720), CGSize(width: 1920, height: 1080)),
-            (CGSize(width: 1408, height: 1408), CGSize(width: 1408, height: 1408)),
-            (CGSize(width: 1200, height: 1500), CGSize(width: 1152, height: 1536)),
-            (CGSize(width: 1156, height: 1536), CGSize(width: 1152, height: 1536))
+            (CGSize(width: 1200, height: 1600), CGSize(width: 1024, height: 1920)),
+            (CGSize(width: 1280, height: 720), CGSize(width: 1920, height: 1024)),
+            (CGSize(width: 1024, height: 1920), CGSize(width: 1024, height: 1920)),
+            (CGSize(width: 1920, height: 1024), CGSize(width: 1920, height: 1024)),
+            (CGSize(width: 1200, height: 1500), CGSize(width: 1024, height: 1920)),
+            (CGSize(width: 1156, height: 1536), CGSize(width: 1024, height: 1920))
         ] {
             XCTAssertEqual(try service.resolveGenerationSize(mediaSize), expectedCanvas)
         }
@@ -120,17 +121,17 @@ final class MediaServiceTests: XCTestCase {
     }
 
     func testBucketResolutionsArePreservedInBothOrientations() throws {
-        let service = MediaService(model: .x2_1)
+        let service = MediaService(model: .x2_1_1_preview_cn)
         for size in service.model.supportedVideoFormats.map(\.size) {
             XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
         }
     }
 
     func testBucketRejectsOtherSizesWithoutResizingOrRounding() {
-        let service = MediaService(model: .x2_1)
+        let service = MediaService(model: .x2_1_1_preview_cn)
         let sizes: [CGSize] = [
             CGSize(width: 832, height: 1472),
-            CGSize(width: 1024, height: 1920),
+            CGSize(width: 1080, height: 1920),
             CGSize(width: 512, height: 960),
             CGSize(width: 2048, height: 3840),
             CGSize(width: 1120, height: 1120),
@@ -147,7 +148,7 @@ final class MediaServiceTests: XCTestCase {
     }
 
     func testInterpolationTargetIsIndependentOfInputBuckets() throws {
-        let target = try MediaService(model: .x2_1).resolveTargetSize(
+        let target = try MediaService(model: .x2_1_1_preview_cn).resolveTargetSize(
             CGSize(width: 1024, height: 1920),
             maximumSize: CGSize(width: 1024, height: 1920),
             frameInterpolationEnabled: true
@@ -241,24 +242,6 @@ final class MediaServiceTests: XCTestCase {
             let source = CGSize(width: format.width, height: format.height)
             let size = try MediaService(model: model).resolveMediaSize(source, source: .camera)
             XCTAssertEqual(size, source)
-        }
-    }
-
-    func testX21RequiresExactlyTheFiveResolutionBuckets() throws {
-        let buckets = [
-            CGSize(width: 1920, height: 1080), CGSize(width: 1080, height: 1920),
-            CGSize(width: 1408, height: 1408), CGSize(width: 1152, height: 1536),
-            CGSize(width: 1536, height: 1152)
-        ]
-        let service = MediaService(model: .x2_1)
-        XCTAssertEqual(service.model.supportedVideoFormats.map(\.size), buckets)
-        for size in buckets {
-            XCTAssertEqual(try service.resolveMediaSize(size, source: .camera), size)
-        }
-        for size in [CGSize(width: 640, height: 480), CGSize(width: 1024, height: 1920), CGSize(width: CGFloat.nan, height: 480)] {
-            XCTAssertThrowsError(try service.resolveMediaSize(size, source: .camera)) { error in
-                XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
-            }
         }
     }
 
