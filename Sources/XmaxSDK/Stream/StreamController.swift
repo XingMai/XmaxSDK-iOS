@@ -26,6 +26,9 @@ final class StreamController: StreamControlling, RtcEventListener,
     /// The RTC media publication, subscription, and frame adapter.
     private let rtcManager: any RtcManaging
 
+    /// The connection and generation startup timing recorder.
+    private let timingManager: XmaxRealtimeTimingManager
+
     /// The room connection and signaling controller.
     private let roomController: any RoomControlling
 
@@ -43,9 +46,6 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     /// The generation stream confirmation timeout.
     private let generationTiming: StreamGenerationTiming
-
-    /// The connection and generation startup timing recorder.
-    private let timingManager: XmaxRealtimeTimingManager
 
     // MARK: - State
 
@@ -81,21 +81,22 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameters:
     ///   - rtcManager: The RTC manager.
+    ///   - timingManager: The shared startup timing recorder.
     ///   - errorListener: The stream failure handler.
     ///   - remoteStreamListener: The remote result binding handler.
     ///   - generationTiming: The result stream confirmation timeout.
-    ///   - timingManager: The shared startup timing recorder.
     convenience init(
         rtcManager: any RtcManaging,
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
         errorListener: @escaping XmaxErrorListener = { _ in
         },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in
         },
-        generationTiming: StreamGenerationTiming = .live,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
+        generationTiming: StreamGenerationTiming = .live
     ) {
         self.init(
             rtcManager: rtcManager,
+            timingManager: timingManager,
             roomController: RoomController(
                 rtcManager: rtcManager,
                 timingManager: timingManager
@@ -104,8 +105,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             qualityController: QualityController(rtcManager: rtcManager),
             errorListener: errorListener,
             remoteStreamListener: remoteStreamListener,
-            generationTiming: generationTiming,
-            timingManager: timingManager
+            generationTiming: generationTiming
         )
     }
 
@@ -113,15 +113,16 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameters:
     ///   - rtcManager: The RTC manager.
+    ///   - timingManager: The shared startup timing recorder.
     ///   - roomController: The room connection and signaling component.
     ///   - encodingController: The video encoder component.
     ///   - qualityController: The quality and adaptation component.
     ///   - errorListener: The stream failure handler.
     ///   - remoteStreamListener: The remote result binding handler.
     ///   - generationTiming: The result stream confirmation timeout.
-    ///   - timingManager: The shared startup timing recorder.
     init(
         rtcManager: any RtcManaging,
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
         roomController: any RoomControlling,
         encodingController: any EncodingControlling,
         qualityController: any QualityControlling,
@@ -129,17 +130,16 @@ final class StreamController: StreamControlling, RtcEventListener,
         },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in
         },
-        generationTiming: StreamGenerationTiming = .live,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
+        generationTiming: StreamGenerationTiming = .live
     ) {
         self.rtcManager = rtcManager
+        self.timingManager = timingManager
         self.roomController = roomController
         self.encodingController = encodingController
         self.qualityController = qualityController
         self.errorListener = errorListener
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
-        self.timingManager = timingManager
         rtcManager.setEventListener(self)
     }
 

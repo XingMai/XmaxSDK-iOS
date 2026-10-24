@@ -336,10 +336,10 @@ private extension XmaxRealtimeConnectionManagerTests {
         )
         return Components(
             manager: XmaxRealtimeConnectionManager(
-                sessionService: sessionService,
                 interactionController: InteractionController(),
                 renderController: renderController,
-                streamController: streamController
+                streamController: streamController,
+                sessionService: sessionService
             ),
             renderController: renderController
         )

@@ -48,6 +48,7 @@ enum XmaxRealtimeFactory {
 
         let streamController = StreamController(
             rtcManager: rtcManager,
+            timingManager: timingManager,
             errorListener: {
                 errorManager.forward(
                     $0,
@@ -56,8 +57,7 @@ enum XmaxRealtimeFactory {
             },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
-            },
-            timingManager: timingManager
+            }
         )
 
         let mediaController = MediaController(
@@ -84,13 +84,13 @@ enum XmaxRealtimeFactory {
         )
 
         let connectionManager = XmaxRealtimeConnectionManager(
-            sessionService: RealtimeSessionService(apiService: apiService),
+            errorManager: errorManager,
+            timingManager: timingManager,
             interactionController: mediaController,
             renderController: renderController,
             streamController: streamController,
-            mediaService: mediaService,
-            errorManager: errorManager,
-            timingManager: timingManager
+            sessionService: RealtimeSessionService(apiService: apiService),
+            mediaService: mediaService
         )
 
         let generationManager = XmaxRealtimeGenerationManager(

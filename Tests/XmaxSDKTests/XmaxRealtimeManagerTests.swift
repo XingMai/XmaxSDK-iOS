@@ -2124,12 +2124,12 @@ private extension XmaxRealtimeManagerTests {
             closeError: sessionCloseError
         )
         let connectionManager = XmaxRealtimeConnectionManager(
-            sessionService: sessionService,
+            errorManager: errorManager,
             interactionController: mediaController,
             renderController: renderController,
             streamController: streamController,
-            mediaService: mediaService,
-            errorManager: errorManager
+            sessionService: sessionService,
+            mediaService: mediaService
         )
         return Components(
             manager: XmaxRealtimeManager(

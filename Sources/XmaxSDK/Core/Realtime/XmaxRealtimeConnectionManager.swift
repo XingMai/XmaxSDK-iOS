@@ -29,8 +29,11 @@ typealias RealtimeConnectionHeartbeatFailureHandler =
 /// Manages server sessions, RTC connections, and remote media resources.
 actor XmaxRealtimeConnectionManager {
 
-    /// The service that creates, maintains, and closes server sessions.
-    private let sessionService: any RealtimeSessionServicing
+    /// Reports recoverable output-configuration failures.
+    private let errorManager: XmaxRealtimeErrorManager
+
+    /// The recorder for connection startup timings.
+    private let timingManager: XmaxRealtimeTimingManager
 
     /// The media component that handles interactions from the remote video view.
     private let interactionController: any InteractionControlling
@@ -41,14 +44,11 @@ actor XmaxRealtimeConnectionManager {
     /// The controller that manages RTC connections and local stream publishing.
     private let streamController: any StreamControlling
 
+    /// The service that creates, maintains, and closes server sessions.
+    private let sessionService: any RealtimeSessionServicing
+
     /// Model sizing and capability rules for transport and remote output.
     private nonisolated let mediaService: any MediaServicing
-
-    /// Reports recoverable output-configuration failures.
-    private let errorManager: XmaxRealtimeErrorManager
-
-    /// The recorder for connection startup timings.
-    private let timingManager: XmaxRealtimeTimingManager
 
     /// The remote video track for the current connection.
     private var activeRemoteTrack: RealtimeVideoTrack?
@@ -59,23 +59,23 @@ actor XmaxRealtimeConnectionManager {
     /// The most recently applied target dimensions for server output, in pixels.
     private(set) var currentTargetSize: CGSize?
 
-    /// Creates a connection manager with the specified services and controllers.
+    /// Creates a connection manager with the specified dependencies.
     init(
-        sessionService: any RealtimeSessionServicing,
+        errorManager: XmaxRealtimeErrorManager = XmaxRealtimeErrorManager(),
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
         interactionController: any InteractionControlling,
         renderController: any RenderControlling,
         streamController: any StreamControlling,
-        mediaService: any MediaServicing = MediaService(),
-        errorManager: XmaxRealtimeErrorManager = XmaxRealtimeErrorManager(),
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
+        sessionService: any RealtimeSessionServicing,
+        mediaService: any MediaServicing = MediaService()
     ) {
-        self.sessionService = sessionService
+        self.errorManager = errorManager
+        self.timingManager = timingManager
         self.interactionController = interactionController
         self.renderController = renderController
         self.streamController = streamController
+        self.sessionService = sessionService
         self.mediaService = mediaService
-        self.errorManager = errorManager
-        self.timingManager = timingManager
     }
 
     /// The active session identifier, or an empty string if no session is active.
