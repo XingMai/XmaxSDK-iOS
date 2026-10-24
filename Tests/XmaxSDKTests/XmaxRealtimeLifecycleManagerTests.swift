@@ -144,7 +144,7 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
         let gate = LifecycleFailureGate()
         let events = XmaxRealtimeLifecycleManagerEventRecorder()
         let coordinator = XmaxRealtimeLifecycleManager(
-            errorHandler: RealtimeErrorHandler(),
+            errorManager: XmaxRealtimeErrorManager(),
             cleanup: { _, _ in
                 await gate.wait()
                 return .init(hasLocalMedia: true)
@@ -177,7 +177,7 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
         ] {
             let probe = XmaxRealtimeLifecycleManagerProbe()
             let coordinator = XmaxRealtimeLifecycleManager(
-                errorHandler: RealtimeErrorHandler(),
+                errorManager: XmaxRealtimeErrorManager(),
                 cleanup: { scope, _ in
                     await probe.recordCleanup(scope)
                     return .init(hasLocalMedia: true)
@@ -253,7 +253,7 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
         let gate = LifecycleFailureGate()
         let events = XmaxRealtimeLifecycleManagerEventRecorder()
         let coordinator = XmaxRealtimeLifecycleManager(
-            errorHandler: RealtimeErrorHandler(),
+            errorManager: XmaxRealtimeErrorManager(),
             cleanup: { _, _ in
                 await gate.wait()
                 events.append("cleanup-finished")
@@ -344,7 +344,7 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
 
     func testConnectionCleanupKeepsQueuedMediaFailureValidButCloseInvalidatesIt() async {
         for target: XmaxRealtimeLifecycleManager.TerminationScope in [.connection, .all] {
-            let handler = RealtimeErrorHandler()
+            let handler = XmaxRealtimeErrorManager()
             let gate = LifecycleFailureGate()
             let delivered = expectation(description: "Queued failure processed")
             let result = XmaxRealtimeLifecycleManagerEventRecorder()
@@ -386,7 +386,7 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
     func testStartupFailureClosesConnectionAndPreservesReadyMedia() async throws {
         let probe = XmaxRealtimeLifecycleManagerProbe()
         let coordinator = XmaxRealtimeLifecycleManager(
-            errorHandler: RealtimeErrorHandler(),
+            errorManager: XmaxRealtimeErrorManager(),
             cleanup: { scope, _ in
                 await probe.recordCleanup(scope)
                 return .init(sessionID: "session", hasLocalMedia: true)
@@ -463,7 +463,7 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
 
     func testOrientationDisconnectReturnsReadyAndNextConnectClearsReason() async throws {
         let coordinator = XmaxRealtimeLifecycleManager(
-            errorHandler: RealtimeErrorHandler(), cleanup: { _, _ in .init(hasLocalMedia: true) }
+            errorManager: XmaxRealtimeErrorManager(), cleanup: { _, _ in .init(hasLocalMedia: true) }
         )
         try await coordinator.run(kind: .connection) { token in
             try await coordinator.commit(RealtimeState(connectionState: .connected), token: token)
@@ -836,9 +836,9 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
 
     func testFatalErrorIsReportedAfterCleanup() async {
         let events = XmaxRealtimeLifecycleManagerEventRecorder()
-        let errorHandler = RealtimeErrorHandler()
+        let errorManager = XmaxRealtimeErrorManager()
         let coordinator = XmaxRealtimeLifecycleManager(
-            errorHandler: errorHandler,
+            errorManager: errorManager,
             cleanup: { scope, _ in
                 events.append("cleanup:\(scope.rawValue)")
                 return XmaxRealtimeLifecycleManager.CleanupResult()
@@ -900,9 +900,9 @@ final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
     func testBackgroundFatalErrorInterruptsActiveOperation() async {
         let probe = XmaxRealtimeLifecycleManagerProbe()
         let receivedError = XmaxRealtimeLifecycleManagerErrorRecorder()
-        let errorHandler = RealtimeErrorHandler()
+        let errorManager = XmaxRealtimeErrorManager()
         let coordinator = XmaxRealtimeLifecycleManager(
-            errorHandler: errorHandler,
+            errorManager: errorManager,
             cleanup: { scope, _ in
                 await probe.recordCleanup(scope)
                 return XmaxRealtimeLifecycleManager.CleanupResult()
@@ -948,7 +948,7 @@ private extension XmaxRealtimeLifecycleManagerTests {
         probe: XmaxRealtimeLifecycleManagerProbe
     ) -> XmaxRealtimeLifecycleManager {
         XmaxRealtimeLifecycleManager(
-            errorHandler: RealtimeErrorHandler(),
+            errorManager: XmaxRealtimeErrorManager(),
             cleanup: { scope, _ in
                 await probe.recordCleanup(scope)
                 return XmaxRealtimeLifecycleManager.CleanupResult()

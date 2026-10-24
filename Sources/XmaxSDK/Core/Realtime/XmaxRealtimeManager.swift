@@ -40,10 +40,10 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     private let generationManager: XmaxRealtimeGenerationManager
 
     /// The handler that logs and forwards media and connection failures.
-    private let errorHandler: RealtimeErrorHandler
+    private let errorManager: XmaxRealtimeErrorManager
 
     /// The recorder for generation startup stage durations.
-    private let timing: RealtimeTiming
+    private let timingManager: XmaxRealtimeTimingManager
 
     /// The lifecycle owner that admits operations and merges termination requests.
     private let lifecycleManager: XmaxRealtimeLifecycleManager
@@ -69,8 +69,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.mediaService = components.mediaService
         self.connectionManager = components.connectionManager
         self.generationManager = components.generationManager
-        self.errorHandler = components.errorHandler
-        self.timing = components.timing
+        self.errorManager = components.errorManager
+        self.timingManager = components.timingManager
         self.lifecycleManager = components.lifecycleManager
     }
 
@@ -82,9 +82,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         renderController: any RenderControlling,
         mediaService: any MediaServicing = MediaService(),
         connectionManager: XmaxRealtimeConnectionManager,
-        errorHandler: RealtimeErrorHandler,
+        errorManager: XmaxRealtimeErrorManager,
         generationManager: XmaxRealtimeGenerationManager,
-        timing: RealtimeTiming = RealtimeTiming()
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
     ) {
         self.init(
             options: options,
@@ -95,8 +95,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 mediaService: mediaService,
                 connectionManager: connectionManager,
                 generationManager: generationManager,
-                errorHandler: errorHandler,
-                timing: timing
+                errorManager: errorManager,
+                timingManager: timingManager
             )
         )
     }
@@ -446,7 +446,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             token.setFailureScope(.all)
             await mediaController.stopLocalCameraStream()
             try token.ensureCurrent()
-            errorHandler.invalidatePendingFailures()
+            errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
@@ -642,7 +642,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             token.setFailureScope(.all)
             await mediaController.stopLocalImageStream()
             try token.ensureCurrent()
-            errorHandler.invalidatePendingFailures()
+            errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
@@ -688,7 +688,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             token.setFailureScope(.all)
             await mediaController.stopLocalVideoStream()
             try token.ensureCurrent()
-            errorHandler.invalidatePendingFailures()
+            errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
@@ -727,7 +727,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             token.setFailureScope(.all)
             await mediaController.stopExternalVideoStream()
             try token.ensureCurrent()
-            errorHandler.invalidatePendingFailures()
+            errorManager.invalidatePendingFailures()
             let hasLocalMedia = await mediaController.currentTrack != nil
             try await lifecycleManager.complete(
                 RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
@@ -801,7 +801,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             try token.ensureCurrent()
             let measuresStartup = current.connectionState == .connected
             if measuresStartup {
-                timing.begin()
+                timingManager.begin()
             }
             do {
                 try await performStartGeneration(
@@ -811,7 +811,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             } catch {
                 if measuresStartup {
-                    timing.finishFailure(error)
+                    timingManager.finishFailure(error)
                 }
                 throw error
             }
@@ -846,7 +846,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 initialState.connectionState != .connecting
                 && initialState.connectionState != .disconnecting
             if measuresStartup {
-                timing.begin()
+                timingManager.begin()
             }
             do {
                 guard await mediaController.owns(localStream) else {
@@ -888,7 +888,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 return remoteStream
             } catch {
                 if measuresStartup {
-                    timing.finishFailure(error)
+                    timingManager.finishFailure(error)
                 }
                 throw error
             }
@@ -995,7 +995,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 ),
                 token: token
             )
-            timing.finish(taskID: taskID)
+            timingManager.finish(taskID: taskID)
         } catch {
             await mediaController.setLocalAudioPreviewMuted(false)
             throw error
@@ -1184,7 +1184,7 @@ private extension XmaxRealtimeManager {
                 )
             }
             try token.ensureCurrent()
-            errorHandler.invalidatePendingFailures()
+            errorManager.invalidatePendingFailures()
             try await lifecycleManager.commit(
                 RealtimeState(connectionState: .preparing),
                 token: token
@@ -1310,7 +1310,7 @@ private extension XmaxRealtimeManager {
         _ error: any Error
     ) async -> XmaxError {
         let xmaxError = XmaxError.from(error)
-        await errorHandler.report(xmaxError)
+        await errorManager.report(xmaxError)
         return xmaxError
     }
 

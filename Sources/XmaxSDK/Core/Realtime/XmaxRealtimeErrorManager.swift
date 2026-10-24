@@ -1,5 +1,5 @@
 //
-//  RealtimeErrorHandler.swift
+//  XmaxRealtimeErrorManager.swift
 //  XmaxSDK
 //
 //  Author: 翁跃庭 (Yueting Weng)
@@ -11,7 +11,7 @@
 import Foundation
 
 /// Logs realtime errors and forwards runtime failures for coordinated lifecycle termination.
-final class RealtimeErrorHandler: @unchecked Sendable {
+final class XmaxRealtimeErrorManager: @unchecked Sendable {
 
     /// A handler that terminates resources affected by a current runtime failure.
     typealias FailureHandler =

@@ -2043,7 +2043,7 @@ private extension XmaxRealtimeManagerTests {
         initialQualityLevel: RealtimeQualityLevel = .l1,
         isAdaptiveQualityEnabled: Bool = true
     ) -> Components {
-        let errorHandler = RealtimeErrorHandler()
+        let errorManager = XmaxRealtimeErrorManager()
         let mediaService = MediaServicingStub(
             resolvedSize: CGSize(width: 1_024, height: 768),
             frameInterpolationSupported: frameInterpolationSupported
@@ -2052,7 +2052,7 @@ private extension XmaxRealtimeManagerTests {
             rtcManager: rtcManager,
             frameInterpolationEnabled: frameInterpolationEnabled,
             frameInterpolationSupportChecker: { mediaService.supportsFrameInterpolation(for: $0) },
-            errorListener: { errorHandler.forward($0, target: .connection) }
+            errorListener: { errorManager.forward($0, target: .connection) }
         )
         let suite = "xmax-manager-test-" + UUID().uuidString
         qualityHistorySuites.append(suite)
@@ -2065,7 +2065,7 @@ private extension XmaxRealtimeManagerTests {
             roomController: RoomController(rtcManager: rtcManager),
             encodingController: EncodingController(rtcManager: rtcManager),
             qualityController: QualityController(rtcManager: rtcManager, historyDefaults: defaults),
-            errorListener: { errorHandler.forward($0, target: .connection) },
+            errorListener: { errorManager.forward($0, target: .connection) },
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             },
@@ -2079,7 +2079,7 @@ private extension XmaxRealtimeManagerTests {
             mediaService: cameraMediaService ?? mediaService,
             captureManager: captureManager,
             videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
-            errorListener: { errorHandler.forward($0, target: .all) }
+            errorListener: { errorManager.forward($0, target: .all) }
         )
         let imageController = ImageControllingStub(
             resolvedFormat: imageFormat
@@ -2104,7 +2104,7 @@ private extension XmaxRealtimeManagerTests {
                 mediaService: MediaService(model: model),
                 videoFrameListener: { try streamController.pushLocalVideoFrame($0) },
                 audioFrameListener: { try streamController.pushLocalAudioFrame($0) },
-                errorListener: { errorHandler.forward($0, target: .all) }
+                errorListener: { errorManager.forward($0, target: .all) }
             )
         )
         let sessionService = RealtimeSessionServicingStub(
@@ -2129,7 +2129,7 @@ private extension XmaxRealtimeManagerTests {
             renderController: renderController,
             streamController: streamController,
             mediaService: mediaService,
-            errorHandler: errorHandler
+            errorManager: errorManager
         )
         return Components(
             manager: XmaxRealtimeManager(
@@ -2144,7 +2144,7 @@ private extension XmaxRealtimeManagerTests {
                 renderController: renderController,
                 mediaService: mediaService,
                 connectionManager: connectionManager,
-                errorHandler: errorHandler,
+                errorManager: errorManager,
                 generationManager: XmaxRealtimeGenerationManager(
                     interactionController: mediaController,
                     streamController: streamController,

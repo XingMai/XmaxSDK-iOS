@@ -45,7 +45,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     private let generationTiming: StreamGenerationTiming
 
     /// The connection and generation startup timing recorder.
-    private let timing: RealtimeTiming
+    private let timingManager: XmaxRealtimeTimingManager
 
     // MARK: - State
 
@@ -84,7 +84,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///   - errorListener: The stream failure handler.
     ///   - remoteStreamListener: The remote result binding handler.
     ///   - generationTiming: The result stream confirmation timeout.
-    ///   - timing: The shared startup timing recorder.
+    ///   - timingManager: The shared startup timing recorder.
     convenience init(
         rtcManager: any RtcManaging,
         errorListener: @escaping XmaxErrorListener = { _ in
@@ -92,20 +92,20 @@ final class StreamController: StreamControlling, RtcEventListener,
         remoteStreamListener: @escaping RemoteStreamListener = { _ in
         },
         generationTiming: StreamGenerationTiming = .live,
-        timing: RealtimeTiming = RealtimeTiming()
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
     ) {
         self.init(
             rtcManager: rtcManager,
             roomController: RoomController(
                 rtcManager: rtcManager,
-                timing: timing
+                timingManager: timingManager
             ),
             encodingController: EncodingController(rtcManager: rtcManager),
             qualityController: QualityController(rtcManager: rtcManager),
             errorListener: errorListener,
             remoteStreamListener: remoteStreamListener,
             generationTiming: generationTiming,
-            timing: timing
+            timingManager: timingManager
         )
     }
 
@@ -119,7 +119,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///   - errorListener: The stream failure handler.
     ///   - remoteStreamListener: The remote result binding handler.
     ///   - generationTiming: The result stream confirmation timeout.
-    ///   - timing: The shared startup timing recorder.
+    ///   - timingManager: The shared startup timing recorder.
     init(
         rtcManager: any RtcManaging,
         roomController: any RoomControlling,
@@ -130,7 +130,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         remoteStreamListener: @escaping RemoteStreamListener = { _ in
         },
         generationTiming: StreamGenerationTiming = .live,
-        timing: RealtimeTiming = RealtimeTiming()
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
     ) {
         self.rtcManager = rtcManager
         self.roomController = roomController
@@ -139,7 +139,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         self.errorListener = errorListener
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
-        self.timing = timing
+        self.timingManager = timingManager
         rtcManager.setEventListener(self)
     }
 
@@ -318,9 +318,9 @@ final class StreamController: StreamControlling, RtcEventListener,
             ensureActive: ensureActive
         )
         try ensureActive()
-        timing.beginLocalPublication()
+        timingManager.beginLocalPublication()
         try publishLocalStream(includeAudio: includeLocalAudio)
-        timing.finishLocalPublication()
+        timingManager.finishLocalPublication()
     }
 
     /// Disconnects the RTC room and releases media and generation state; safe when no room is
@@ -353,7 +353,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         faceRestoration: Bool = false,
         paddingContain: Bool = false
     ) async throws -> Task<Void, any Error> {
-        timing.beginSignal(taskID: taskID)
+        timingManager.beginSignal(taskID: taskID)
         let confirmation = try beginGenerationConfirmation(taskID: taskID)
         do {
             try await roomController.startGeneration(

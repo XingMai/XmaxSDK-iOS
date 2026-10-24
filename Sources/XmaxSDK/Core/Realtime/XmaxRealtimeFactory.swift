@@ -15,8 +15,8 @@ struct XmaxRealtimeComponents: Sendable {
     let mediaService: any MediaServicing
     let connectionManager: XmaxRealtimeConnectionManager
     let generationManager: XmaxRealtimeGenerationManager
-    let errorHandler: RealtimeErrorHandler
-    let timing: RealtimeTiming
+    let errorManager: XmaxRealtimeErrorManager
+    let timingManager: XmaxRealtimeTimingManager
     let lifecycleManager: XmaxRealtimeLifecycleManager
 }
 
@@ -27,10 +27,10 @@ enum XmaxRealtimeFactory {
         options: RealtimeConfiguration,
         apiService: any ApiServicing
     ) -> XmaxRealtimeComponents {
-        let errorHandler = RealtimeErrorHandler()
+        let errorManager = XmaxRealtimeErrorManager()
         let rtcManager = RtcManager()
         let mediaService = MediaService(model: options.model)
-        let timing = RealtimeTiming()
+        let timingManager = XmaxRealtimeTimingManager()
 
         let renderController = RenderController(
             rtcManager: rtcManager,
@@ -39,7 +39,7 @@ enum XmaxRealtimeFactory {
                 mediaService.supportsFrameInterpolation(for: $0)
             },
             errorListener: {
-                errorHandler.forward(
+                errorManager.forward(
                     $0,
                     target: .connection
                 )
@@ -49,7 +49,7 @@ enum XmaxRealtimeFactory {
         let streamController = StreamController(
             rtcManager: rtcManager,
             errorListener: {
-                errorHandler.forward(
+                errorManager.forward(
                     $0,
                     target: .connection
                 )
@@ -57,7 +57,7 @@ enum XmaxRealtimeFactory {
             remoteStreamListener: { stream in
                 try renderController.setRemoteStream(stream)
             },
-            timing: timing
+            timingManager: timingManager
         )
 
         let mediaController = MediaController(
@@ -70,7 +70,7 @@ enum XmaxRealtimeFactory {
                 try streamController.pushLocalAudioFrame(frame)
             },
             errorListener: {
-                errorHandler.forward(
+                errorManager.forward(
                     $0,
                     target: .all
                 )
@@ -89,15 +89,15 @@ enum XmaxRealtimeFactory {
             renderController: renderController,
             streamController: streamController,
             mediaService: mediaService,
-            errorHandler: errorHandler,
-            timing: timing
+            errorManager: errorManager,
+            timingManager: timingManager
         )
 
         let generationManager = XmaxRealtimeGenerationManager(
             interactionController: mediaController,
             streamController: streamController,
             renderController: renderController,
-            timing: timing
+            timingManager: timingManager
         )
         return assemble(
             streamController: streamController,
@@ -106,8 +106,8 @@ enum XmaxRealtimeFactory {
             mediaService: mediaService,
             connectionManager: connectionManager,
             generationManager: generationManager,
-            errorHandler: errorHandler,
-            timing: timing
+            errorManager: errorManager,
+            timingManager: timingManager
         )
     }
 
@@ -119,11 +119,11 @@ enum XmaxRealtimeFactory {
         mediaService: any MediaServicing,
         connectionManager: XmaxRealtimeConnectionManager,
         generationManager: XmaxRealtimeGenerationManager,
-        errorHandler: RealtimeErrorHandler,
-        timing: RealtimeTiming
+        errorManager: XmaxRealtimeErrorManager,
+        timingManager: XmaxRealtimeTimingManager
     ) -> XmaxRealtimeComponents {
         let lifecycleManager = XmaxRealtimeLifecycleManager(
-            errorHandler: errorHandler,
+            errorManager: errorManager,
             cleanup: { scope, taskID in
                 if scope == .all {
                     await mediaController.setLocalAudioPreviewMuted(true)
@@ -185,7 +185,7 @@ enum XmaxRealtimeFactory {
                 )
             }
         )
-        errorHandler.setFailureHandler { [weak lifecycleManager] error, target, isCurrent in
+        errorManager.setFailureHandler { [weak lifecycleManager] error, target, isCurrent in
             await lifecycleManager?.terminate(
                 with: error,
                 target: target,
@@ -199,8 +199,8 @@ enum XmaxRealtimeFactory {
             mediaService: mediaService,
             connectionManager: connectionManager,
             generationManager: generationManager,
-            errorHandler: errorHandler,
-            timing: timing,
+            errorManager: errorManager,
+            timingManager: timingManager,
             lifecycleManager: lifecycleManager
         )
     }

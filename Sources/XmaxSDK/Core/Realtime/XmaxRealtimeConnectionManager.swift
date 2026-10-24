@@ -45,10 +45,10 @@ actor XmaxRealtimeConnectionManager {
     private nonisolated let mediaService: any MediaServicing
 
     /// Reports recoverable output-configuration failures.
-    private let errorHandler: RealtimeErrorHandler
+    private let errorManager: XmaxRealtimeErrorManager
 
     /// The recorder for connection startup timings.
-    private let timing: RealtimeTiming
+    private let timingManager: XmaxRealtimeTimingManager
 
     /// The remote video track for the current connection.
     private var activeRemoteTrack: RealtimeVideoTrack?
@@ -66,16 +66,16 @@ actor XmaxRealtimeConnectionManager {
         renderController: any RenderControlling,
         streamController: any StreamControlling,
         mediaService: any MediaServicing = MediaService(),
-        errorHandler: RealtimeErrorHandler = RealtimeErrorHandler(),
-        timing: RealtimeTiming = RealtimeTiming()
+        errorManager: XmaxRealtimeErrorManager = XmaxRealtimeErrorManager(),
+        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
     ) {
         self.sessionService = sessionService
         self.interactionController = interactionController
         self.renderController = renderController
         self.streamController = streamController
         self.mediaService = mediaService
-        self.errorHandler = errorHandler
-        self.timing = timing
+        self.errorManager = errorManager
+        self.timingManager = timingManager
     }
 
     /// The active session identifier, or an empty string if no session is active.
@@ -158,9 +158,9 @@ actor XmaxRealtimeConnectionManager {
         var sessionActivated = false
 
         do {
-            timing.beginSessionCreation()
+            timingManager.beginSessionCreation()
             session = try await sessionService.createSession(model: model)
-            timing.finishSessionCreation()
+            timingManager.finishSessionCreation()
             try Self.ensureCurrent(isCurrent)
             guard let session,
                 let connection = session.connection
@@ -510,7 +510,7 @@ actor XmaxRealtimeConnectionManager {
                 false,
                 videoFormat: fallbackFormat
             )
-            await errorHandler.report(XmaxError.from(error))
+            await errorManager.report(XmaxError.from(error))
             return fallbackFormat.size
         }
     }

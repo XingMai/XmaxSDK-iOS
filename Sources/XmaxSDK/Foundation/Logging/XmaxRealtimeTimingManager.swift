@@ -1,5 +1,5 @@
 //
-//  RealtimeTiming.swift
+//  XmaxRealtimeTimingManager.swift
 //  XmaxSDK
 //
 //  Author: 翁跃庭 (Yueting Weng)
@@ -11,7 +11,7 @@
 import Foundation
 
 /// Records the durations of realtime generation startup stages.
-final class RealtimeTiming: @unchecked Sendable {
+final class XmaxRealtimeTimingManager: @unchecked Sendable {
 
     /// The lock protecting stage timestamps across threads.
     private let lock = NSLock()
@@ -155,7 +155,7 @@ final class RealtimeTiming: @unchecked Sendable {
     }
 }
 
-extension RealtimeTiming {
+extension XmaxRealtimeTimingManager {
 
     /// The stage timestamps and task identifier for one startup, using monotonic nanoseconds.
     struct State {
@@ -253,7 +253,7 @@ extension RealtimeTiming {
     }
 }
 
-private extension RealtimeTiming {
+private extension XmaxRealtimeTimingManager {
 
     /// The current monotonic clock time, in nanoseconds.
     static var now: UInt64 {

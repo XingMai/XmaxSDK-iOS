@@ -125,7 +125,7 @@ actor XmaxRealtimeLifecycleManager {
     // MARK: - Dependencies
 
     /// The handler that logs errors and forwards runtime failures.
-    private let errorHandler: RealtimeErrorHandler
+    private let errorManager: XmaxRealtimeErrorManager
 
     /// The handler that releases resources for a termination scope.
     private let cleanup: CleanupHandler
@@ -149,10 +149,10 @@ actor XmaxRealtimeLifecycleManager {
 
     /// Creates a realtime lifecycle coordinator.
     init(
-        errorHandler: RealtimeErrorHandler,
+        errorManager: XmaxRealtimeErrorManager,
         cleanup: @escaping CleanupHandler
     ) {
-        self.errorHandler = errorHandler
+        self.errorManager = errorManager
         self.cleanup = cleanup
     }
 
@@ -205,7 +205,7 @@ actor XmaxRealtimeLifecycleManager {
                 code: .invalidConfiguration,
                 message: "Another realtime operation is in progress; " + "wait for it to finish"
             )
-            await errorHandler.report(error)
+            await errorManager.report(error)
             throw error
         }
 
@@ -671,7 +671,7 @@ private extension XmaxRealtimeLifecycleManager {
             if operation.didBeginMediaPreparation, state.connectionState == .preparing {
                 await setState(RealtimeState(connectionState: .idle))
             }
-            await errorHandler.report(resolvedError)
+            await errorManager.report(resolvedError)
             throw resolvedError
         }
         finish(operation)
@@ -797,12 +797,12 @@ private extension XmaxRealtimeLifecycleManager {
             let listener = state != finalState ? stateListener : nil
             state = finalState
             termination = nil
-            errorHandler.invalidatePendingFailures(target: requestedTarget)
+            errorManager.invalidatePendingFailures(target: requestedTarget)
             if let listener {
                 await listener(finalState)
             }
             if let error = pending.error {
-                await errorHandler.report(error)
+                await errorManager.report(error)
             }
             return
         }

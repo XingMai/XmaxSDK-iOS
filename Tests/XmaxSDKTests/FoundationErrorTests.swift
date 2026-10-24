@@ -56,7 +56,7 @@ final class FoundationErrorTests: XCTestCase {
 
     @MainActor
     func testReportingOperationErrorsDoesNotInvokeBackgroundFailureHandler() async {
-        let handler = RealtimeErrorHandler()
+        let handler = XmaxRealtimeErrorManager()
         let callback = expectation(description: "Operation errors are log-only")
         callback.isInverted = true
         handler.setFailureHandler { _, _, _ in callback.fulfill() }

@@ -1,5 +1,5 @@
 //
-//  RealtimeTimingTests.swift
+//  XmaxRealtimeTimingManagerTests.swift
 //  XmaxSDK
 //  Repo: https://github.com/Xmax-AI/XmaxSDK-iOS
 //
@@ -12,7 +12,7 @@
 import XCTest
 @testable import XmaxSDK
 
-final class RealtimeTimingTests: XCTestCase {
+final class XmaxRealtimeTimingManagerTests: XCTestCase {
     override func tearDown() {
         XmaxLogger.configure(options: [])
         super.tearDown()
@@ -20,7 +20,7 @@ final class RealtimeTimingTests: XCTestCase {
 
     func testStartupHasFourSiblingStagesUnderTotalDuration() {
         XmaxLogger.configure(options: [], language: .chinese)
-        let state = RealtimeTiming.State(
+        let state = XmaxRealtimeTimingManager.State(
             startedAt: 0,
             sessionStartedAt: 1000000,
             sessionFinishedAt: 151000000,
@@ -33,7 +33,7 @@ final class RealtimeTimingTests: XCTestCase {
             readyAt: 1321000000
         )
 
-        XCTAssertEqual(RealtimeTiming.format(state), """
+        XCTAssertEqual(XmaxRealtimeTimingManager.format(state), """
         实时生成启动耗时 (Realtime Generation Startup Timing)
         └─ 总耗时：1321.0 ms
            ├─ 创建会话：150.0 ms
@@ -45,14 +45,14 @@ final class RealtimeTimingTests: XCTestCase {
 
     func testReusedConnectionDoesNotInventConnectionDurations() {
         XmaxLogger.configure(options: [], language: .english)
-        let state = RealtimeTiming.State(
+        let state = XmaxRealtimeTimingManager.State(
             startedAt: 0,
             signalStartedAt: 1000000,
             firstFrameAt: 501000000,
             readyAt: 502000000
         )
 
-        XCTAssertEqual(RealtimeTiming.format(state), """
+        XCTAssertEqual(XmaxRealtimeTimingManager.format(state), """
         实时生成启动耗时 (Realtime Generation Startup Timing)
         └─ Total Duration: 502.0 ms
            ├─ Session Creation: —
@@ -64,7 +64,7 @@ final class RealtimeTimingTests: XCTestCase {
 
     func testFailureKeepsCompletedStagesAndMeasuresPendingStage() {
         XmaxLogger.configure(options: [], language: .chinese)
-        let state = RealtimeTiming.State(
+        let state = XmaxRealtimeTimingManager.State(
             startedAt: 0,
             sessionStartedAt: 0,
             sessionFinishedAt: 100000000,
@@ -73,7 +73,7 @@ final class RealtimeTimingTests: XCTestCase {
             publicationStartedAt: 200000000,
             failureAt: 205000000
         )
-        let message = RealtimeTiming.formatFailure(
+        let message = XmaxRealtimeTimingManager.formatFailure(
             state,
             error: XmaxError(code: .rtcError, message: "publish failed")
         )
