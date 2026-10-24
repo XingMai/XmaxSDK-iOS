@@ -34,9 +34,6 @@ actor XmaxRealtimeConnectionManager {
     /// Reports recoverable output-configuration failures.
     private let errorManager: XmaxRealtimeErrorManager
 
-    /// The recorder for connection startup timings.
-    private let timingManager: XmaxRealtimeTimingManager
-
     /// The media component that handles interactions from the remote video view.
     private let interactionController: any InteractionControlling
 
@@ -52,6 +49,9 @@ actor XmaxRealtimeConnectionManager {
     /// Model sizing and capability rules for transport and remote output.
     private nonisolated let mediaService: any MediaServicing
 
+    /// The recorder for connection startup timings.
+    private let timing: RealtimeTiming
+
     // MARK: - State
 
     /// The remote video track for the current connection.
@@ -66,20 +66,20 @@ actor XmaxRealtimeConnectionManager {
     /// Creates a connection manager with the specified dependencies.
     init(
         errorManager: XmaxRealtimeErrorManager = XmaxRealtimeErrorManager(),
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
         interactionController: any InteractionControlling,
         renderController: any RenderControlling,
         streamController: any StreamControlling,
         sessionService: any RealtimeSessionServicing,
-        mediaService: any MediaServicing = MediaService()
+        mediaService: any MediaServicing = MediaService(),
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.errorManager = errorManager
-        self.timingManager = timingManager
         self.interactionController = interactionController
         self.renderController = renderController
         self.streamController = streamController
         self.sessionService = sessionService
         self.mediaService = mediaService
+        self.timing = timing
     }
 
     /// The active session identifier, or an empty string if no session is active.
@@ -162,9 +162,9 @@ actor XmaxRealtimeConnectionManager {
         var sessionActivated = false
 
         do {
-            timingManager.beginSessionCreation()
+            timing.beginSessionCreation()
             session = try await sessionService.createSession(model: model)
-            timingManager.finishSessionCreation()
+            timing.finishSessionCreation()
             try Self.ensureCurrent(isCurrent)
             guard let session, let connection = session.connection else {
                 throw XmaxError(

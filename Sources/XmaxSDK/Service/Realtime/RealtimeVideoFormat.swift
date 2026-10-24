@@ -8,6 +8,8 @@
 //  Copyright (c) 2026 XMAX.AI PTE. LTD.
 //
 
+import CoreGraphics
+
 /// The encoding preference for realtime video.
 public enum RealtimeVideoEncoderPreference: Equatable, Sendable {
 
@@ -99,6 +101,14 @@ public struct RealtimeVideoFormat: Equatable, Sendable {
 }
 
 extension RealtimeVideoFormat {
+
+    /// The video format dimensions, in pixels.
+    var size: CGSize {
+        CGSize(
+            width: width,
+            height: height
+        )
+    }
 
     /// Returns a format with new dimensions, retaining frame rate and encoding settings.
     ///

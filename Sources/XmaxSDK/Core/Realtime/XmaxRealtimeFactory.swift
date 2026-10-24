@@ -13,17 +13,8 @@ import Foundation
 /// The shared components used by the public facade and its lifecycle manager.
 struct XmaxRealtimeComponents: Sendable {
 
-    /// The controller that owns remote rendering and processed output.
-    let renderController: any RenderControlling
-
-    /// The controller that manages RTC publishing and signaling.
-    let streamController: any StreamControlling
-
-    /// The controller that owns local media and interactions.
-    let mediaController: any MediaControlling
-
-    /// The service that resolves media dimensions and model constraints.
-    let mediaService: any MediaServicing
+    /// The manager that coordinates operation admission and resource cleanup.
+    let lifecycleManager: XmaxRealtimeLifecycleManager
 
     /// The manager that owns the server session and RTC connection.
     let connectionManager: XmaxRealtimeConnectionManager
@@ -34,11 +25,20 @@ struct XmaxRealtimeComponents: Sendable {
     /// The manager that logs and routes runtime failures.
     let errorManager: XmaxRealtimeErrorManager
 
-    /// The recorder for generation startup durations.
-    let timingManager: XmaxRealtimeTimingManager
+    /// The controller that owns local media and interactions.
+    let mediaController: any MediaControlling
 
-    /// The manager that coordinates operation admission and resource cleanup.
-    let lifecycleManager: XmaxRealtimeLifecycleManager
+    /// The controller that owns remote rendering and processed output.
+    let renderController: any RenderControlling
+
+    /// The controller that manages RTC publishing and signaling.
+    let streamController: any StreamControlling
+
+    /// The service that resolves media dimensions and model constraints.
+    let mediaService: any MediaServicing
+
+    /// The recorder for generation startup durations.
+    let timing: RealtimeTiming
 }
 
 /// Creates realtime components and wires their frame, failure, and cleanup callbacks.
@@ -59,7 +59,7 @@ enum XmaxRealtimeFactory {
         let errorManager = XmaxRealtimeErrorManager()
         let rtcManager = RtcManager()
         let mediaService = MediaService(model: options.model)
-        let timingManager = XmaxRealtimeTimingManager()
+        let timing = RealtimeTiming()
 
         let renderController = RenderController(
             rtcManager: rtcManager,
@@ -77,7 +77,7 @@ enum XmaxRealtimeFactory {
 
         let streamController = StreamController(
             rtcManager: rtcManager,
-            timingManager: timingManager,
+            timing: timing,
             errorListener: {
                 errorManager.forward(
                     $0,
@@ -114,54 +114,54 @@ enum XmaxRealtimeFactory {
 
         let connectionManager = XmaxRealtimeConnectionManager(
             errorManager: errorManager,
-            timingManager: timingManager,
             interactionController: mediaController,
             renderController: renderController,
             streamController: streamController,
             sessionService: RealtimeSessionService(apiService: apiService),
-            mediaService: mediaService
+            mediaService: mediaService,
+            timing: timing
         )
 
         let generationManager = XmaxRealtimeGenerationManager(
             interactionController: mediaController,
             streamController: streamController,
             renderController: renderController,
-            timingManager: timingManager
+            timing: timing
         )
         return assemble(
-            streamController: streamController,
-            mediaController: mediaController,
-            renderController: renderController,
-            mediaService: mediaService,
             connectionManager: connectionManager,
             generationManager: generationManager,
             errorManager: errorManager,
-            timingManager: timingManager
+            mediaController: mediaController,
+            renderController: renderController,
+            streamController: streamController,
+            mediaService: mediaService,
+            timing: timing
         )
     }
 
     /// Connects realtime components to shared failure handling and resource cleanup.
     ///
     /// - Parameters:
-    ///   - streamController: The RTC publishing and signaling controller.
-    ///   - mediaController: The local media and interaction controller.
-    ///   - renderController: The remote rendering and output controller.
-    ///   - mediaService: The model sizing and capability service.
     ///   - connectionManager: The server session and RTC connection manager.
     ///   - generationManager: The generation request and confirmation manager.
     ///   - errorManager: The shared runtime failure manager.
-    ///   - timingManager: The shared startup duration recorder.
+    ///   - mediaController: The local media and interaction controller.
+    ///   - renderController: The remote rendering and output controller.
+    ///   - streamController: The RTC publishing and signaling controller.
+    ///   - mediaService: The model sizing and capability service.
+    ///   - timing: The shared startup duration recorder.
     ///
     /// - Returns: The components with lifecycle admission and cleanup configured.
     static func assemble(
-        streamController: any StreamControlling,
-        mediaController: any MediaControlling,
-        renderController: any RenderControlling,
-        mediaService: any MediaServicing,
         connectionManager: XmaxRealtimeConnectionManager,
         generationManager: XmaxRealtimeGenerationManager,
         errorManager: XmaxRealtimeErrorManager,
-        timingManager: XmaxRealtimeTimingManager
+        mediaController: any MediaControlling,
+        renderController: any RenderControlling,
+        streamController: any StreamControlling,
+        mediaService: any MediaServicing,
+        timing: RealtimeTiming
     ) -> XmaxRealtimeComponents {
         let lifecycleManager = XmaxRealtimeLifecycleManager(
             errorManager: errorManager,
@@ -234,15 +234,15 @@ enum XmaxRealtimeFactory {
             )
         }
         return XmaxRealtimeComponents(
-            renderController: renderController,
-            streamController: streamController,
-            mediaController: mediaController,
-            mediaService: mediaService,
+            lifecycleManager: lifecycleManager,
             connectionManager: connectionManager,
             generationManager: generationManager,
             errorManager: errorManager,
-            timingManager: timingManager,
-            lifecycleManager: lifecycleManager
+            mediaController: mediaController,
+            renderController: renderController,
+            streamController: streamController,
+            mediaService: mediaService,
+            timing: timing
         )
     }
 }

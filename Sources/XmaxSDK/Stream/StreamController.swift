@@ -26,9 +26,6 @@ final class StreamController: StreamControlling, RtcEventListener,
     /// The RTC media publication, subscription, and frame adapter.
     private let rtcManager: any RtcManaging
 
-    /// The connection and generation startup timing recorder.
-    private let timingManager: XmaxRealtimeTimingManager
-
     /// The room connection and signaling controller.
     private let roomController: any RoomControlling
 
@@ -37,6 +34,9 @@ final class StreamController: StreamControlling, RtcEventListener,
 
     /// The quality statistics and adaptation controller.
     private let qualityController: any QualityControlling
+
+    /// The connection and generation startup timing recorder.
+    private let timing: RealtimeTiming
 
     /// The transport failure handler.
     private let errorListener: XmaxErrorListener
@@ -81,13 +81,13 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameters:
     ///   - rtcManager: The RTC manager.
-    ///   - timingManager: The shared startup timing recorder.
+    ///   - timing: The shared startup timing recorder.
     ///   - errorListener: The stream failure handler.
     ///   - remoteStreamListener: The remote result binding handler.
     ///   - generationTiming: The result stream confirmation timeout.
     convenience init(
         rtcManager: any RtcManaging,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
+        timing: RealtimeTiming = RealtimeTiming(),
         errorListener: @escaping XmaxErrorListener = { _ in
         },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in
@@ -96,13 +96,13 @@ final class StreamController: StreamControlling, RtcEventListener,
     ) {
         self.init(
             rtcManager: rtcManager,
-            timingManager: timingManager,
             roomController: RoomController(
                 rtcManager: rtcManager,
-                timingManager: timingManager
+                timing: timing
             ),
             encodingController: EncodingController(rtcManager: rtcManager),
             qualityController: QualityController(rtcManager: rtcManager),
+            timing: timing,
             errorListener: errorListener,
             remoteStreamListener: remoteStreamListener,
             generationTiming: generationTiming
@@ -113,19 +113,19 @@ final class StreamController: StreamControlling, RtcEventListener,
     ///
     /// - Parameters:
     ///   - rtcManager: The RTC manager.
-    ///   - timingManager: The shared startup timing recorder.
     ///   - roomController: The room connection and signaling component.
     ///   - encodingController: The video encoder component.
     ///   - qualityController: The quality and adaptation component.
+    ///   - timing: The shared startup timing recorder.
     ///   - errorListener: The stream failure handler.
     ///   - remoteStreamListener: The remote result binding handler.
     ///   - generationTiming: The result stream confirmation timeout.
     init(
         rtcManager: any RtcManaging,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
         roomController: any RoomControlling,
         encodingController: any EncodingControlling,
         qualityController: any QualityControlling,
+        timing: RealtimeTiming = RealtimeTiming(),
         errorListener: @escaping XmaxErrorListener = { _ in
         },
         remoteStreamListener: @escaping RemoteStreamListener = { _ in
@@ -133,10 +133,10 @@ final class StreamController: StreamControlling, RtcEventListener,
         generationTiming: StreamGenerationTiming = .live
     ) {
         self.rtcManager = rtcManager
-        self.timingManager = timingManager
         self.roomController = roomController
         self.encodingController = encodingController
         self.qualityController = qualityController
+        self.timing = timing
         self.errorListener = errorListener
         self.remoteStreamListener = remoteStreamListener
         self.generationTiming = generationTiming
@@ -318,9 +318,9 @@ final class StreamController: StreamControlling, RtcEventListener,
             ensureActive: ensureActive
         )
         try ensureActive()
-        timingManager.beginLocalPublication()
+        timing.beginLocalPublication()
         try publishLocalStream(includeAudio: includeLocalAudio)
-        timingManager.finishLocalPublication()
+        timing.finishLocalPublication()
     }
 
     /// Disconnects the RTC room and releases media and generation state; safe when no room is
@@ -353,7 +353,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         faceRestoration: Bool = false,
         paddingContain: Bool = false
     ) async throws -> Task<Void, any Error> {
-        timingManager.beginSignal(taskID: taskID)
+        timing.beginSignal(taskID: taskID)
         let confirmation = try beginGenerationConfirmation(taskID: taskID)
         do {
             try await roomController.startGeneration(

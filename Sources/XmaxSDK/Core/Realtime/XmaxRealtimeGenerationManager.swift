@@ -31,7 +31,7 @@ actor XmaxRealtimeGenerationManager {
     private let renderController: any RenderControlling
 
     /// The recorder for generation confirmation and first-frame durations.
-    private let timingManager: XmaxRealtimeTimingManager
+    private let timing: RealtimeTiming
 
     /// The closure that generates identifiers for new tasks.
     private let taskIDGenerator: @Sendable () -> String
@@ -54,14 +54,14 @@ actor XmaxRealtimeGenerationManager {
         interactionController: any InteractionControlling,
         streamController: any StreamControlling,
         renderController: any RenderControlling,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager(),
+        timing: RealtimeTiming = RealtimeTiming(),
         taskIDGenerator: @escaping @Sendable () -> String =
             XmaxRealtimeGenerationManager.createTaskID
     ) {
         self.interactionController = interactionController
         self.streamController = streamController
         self.renderController = renderController
-        self.timingManager = timingManager
+        self.timing = timing
         self.taskIDGenerator = taskIDGenerator
     }
 
@@ -137,7 +137,7 @@ actor XmaxRealtimeGenerationManager {
             try ensureCurrent()
             try await renderController.waitUntilRemoteFrameReady()
             try ensureCurrent()
-            timingManager.finishFirstFrame(taskID: taskID)
+            timing.finishFirstFrame(taskID: taskID)
             try streamController.activateRemoteAudio()
             try ensureCurrent()
             currentContext = resolvedContext

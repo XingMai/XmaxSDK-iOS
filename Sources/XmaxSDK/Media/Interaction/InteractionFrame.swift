@@ -22,14 +22,3 @@ struct InteractionFrame: Sendable {
     /// The view's video content mode.
     let contentMode: VideoContentMode
 }
-
-extension RealtimeVideoFormat {
-
-    /// The video format dimensions, in pixels.
-    var size: CGSize {
-        CGSize(
-            width: width,
-            height: height
-        )
-    }
-}

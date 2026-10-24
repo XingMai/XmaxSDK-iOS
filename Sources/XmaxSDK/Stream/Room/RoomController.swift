@@ -20,7 +20,7 @@ actor RoomController: RoomControlling {
     private let heartbeat: RoomHeartbeat
 
     /// The shared startup timing recorder.
-    private let timingManager: XmaxRealtimeTimingManager
+    private let timing: RealtimeTiming
 
     /// The room connection phase.
     private var state = State.idle
@@ -32,25 +32,25 @@ actor RoomController: RoomControlling {
     ///
     /// - Parameters:
     ///   - rtcManager: The RTC manager.
-    ///   - timingManager: The shared startup timing recorder.
+    ///   - timing: The shared startup timing recorder.
     init(
         rtcManager: any RtcManaging,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.rtcManager = rtcManager
         heartbeat = RoomHeartbeat(rtcManager: rtcManager)
-        self.timingManager = timingManager
+        self.timing = timing
     }
 
     /// Creates a room controller with a heartbeat dependency.
     init(
         rtcManager: any RtcManaging,
         heartbeat: RoomHeartbeat,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.rtcManager = rtcManager
         self.heartbeat = heartbeat
-        self.timingManager = timingManager
+        self.timing = timing
     }
 
     /// Joins a realtime room while checking operation validity.
@@ -82,7 +82,7 @@ actor RoomController: RoomControlling {
         heartbeat.stop()
 
         do {
-            timingManager.beginRoomJoin()
+            timing.beginRoomJoin()
             try await rtcManager.joinRoom(
                 configuration: RoomJoinConfiguration(
                     roomID: connection.roomID,
@@ -90,7 +90,7 @@ actor RoomController: RoomControlling {
                     token: connection.token
                 )
             )
-            timingManager.finishRoomJoin()
+            timing.finishRoomJoin()
             try ensureActive()
             guard case .joining(let currentID) = state,
                 currentID == operationID,

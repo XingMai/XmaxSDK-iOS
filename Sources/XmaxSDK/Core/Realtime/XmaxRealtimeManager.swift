@@ -33,9 +33,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// The manager that logs and forwards media and connection failures.
     private let errorManager: XmaxRealtimeErrorManager
 
-    /// The recorder for generation startup stage durations.
-    private let timingManager: XmaxRealtimeTimingManager
-
     /// The controller that manages local media, preview, and interactions.
     private let mediaController: any MediaControlling
 
@@ -47,6 +44,9 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
     /// The service that resolves media dimensions and model input constraints.
     private let mediaService: any MediaServicing
+
+    /// The recorder for generation startup stage durations.
+    private let timing: RealtimeTiming
 
     // MARK: - Initialization
 
@@ -75,11 +75,11 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         self.connectionManager = components.connectionManager
         self.generationManager = components.generationManager
         self.errorManager = components.errorManager
-        self.timingManager = components.timingManager
         self.mediaController = components.mediaController
         self.renderController = components.renderController
         self.streamController = components.streamController
         self.mediaService = components.mediaService
+        self.timing = components.timing
     }
 
     /// Creates a realtime manager with shared lifecycle management for the supplied components.
@@ -92,19 +92,19 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         connectionManager: XmaxRealtimeConnectionManager,
         errorManager: XmaxRealtimeErrorManager,
         generationManager: XmaxRealtimeGenerationManager,
-        timingManager: XmaxRealtimeTimingManager = XmaxRealtimeTimingManager()
+        timing: RealtimeTiming = RealtimeTiming()
     ) {
         self.init(
             options: options,
             components: XmaxRealtimeFactory.assemble(
-                streamController: streamController,
-                mediaController: mediaController,
-                renderController: renderController,
-                mediaService: mediaService,
                 connectionManager: connectionManager,
                 generationManager: generationManager,
                 errorManager: errorManager,
-                timingManager: timingManager
+                mediaController: mediaController,
+                renderController: renderController,
+                streamController: streamController,
+                mediaService: mediaService,
+                timing: timing
             )
         )
     }
@@ -776,7 +776,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
 
             let measuresStartup = current.connectionState == .connected
             if measuresStartup {
-                timingManager.begin()
+                timing.begin()
             }
 
             do {
@@ -787,7 +787,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 )
             } catch {
                 if measuresStartup {
-                    timingManager.finishFailure(error)
+                    timing.finishFailure(error)
                 }
                 throw error
             }
@@ -820,7 +820,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             let measuresStartup = initialState.connectionState != .connecting
                 && initialState.connectionState != .disconnecting
             if measuresStartup {
-                timingManager.begin()
+                timing.begin()
             }
 
             do {
@@ -861,7 +861,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 return remoteStream
             } catch {
                 if measuresStartup {
-                    timingManager.finishFailure(error)
+                    timing.finishFailure(error)
                 }
                 throw error
             }
@@ -969,7 +969,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
                 ),
                 token: token
             )
-            timingManager.finish(taskID: taskID)
+            timing.finish(taskID: taskID)
         } catch {
             await mediaController.setLocalAudioPreviewMuted(false)
             throw error
