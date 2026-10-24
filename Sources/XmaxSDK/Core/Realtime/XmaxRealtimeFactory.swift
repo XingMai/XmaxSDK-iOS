@@ -166,6 +166,22 @@ enum XmaxRealtimeFactory {
         let lifecycleManager = XmaxRealtimeLifecycleManager(
             errorManager: errorManager,
             cleanup: { scope, taskID in
+                if scope == .generation {
+                    do {
+                        try await generationManager.stop(taskID: taskID)
+                    } catch {
+                        XmaxLogger.realtime.error(
+                            message: """
+                                停止实时生成失败 (Failed to Stop Realtime Generation)
+                                └─ \(XmaxLogger.localized("原因：", "Reason: "))\((error as NSError).localizedDescription)
+                                """
+                        )
+                    }
+                    return XmaxRealtimeLifecycleManager.CleanupResult(
+                        sessionID: await connectionManager.currentSessionID,
+                        hasLocalMedia: await mediaController.currentTrack != nil
+                    )
+                }
                 if scope == .all {
                     await mediaController.setLocalAudioPreviewMuted(true)
                 }

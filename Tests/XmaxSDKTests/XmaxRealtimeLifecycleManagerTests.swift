@@ -14,6 +14,238 @@ import XCTest
 
 @MainActor
 final class XmaxRealtimeLifecycleManagerTests: XCTestCase {
+    func testReplacementWaitsForStartupAndRetainsTheEstablishedConnection() async throws {
+        let gate = LifecycleFailureGate()
+        let events = XmaxRealtimeLifecycleManagerEventRecorder()
+        let probe = XmaxRealtimeLifecycleManagerProbe()
+        let lifecycle = XmaxRealtimeLifecycleManager(
+            errorManager: XmaxRealtimeErrorManager(),
+            cleanup: { scope, _ in
+                await probe.recordCleanup(scope)
+                return .init(sessionID: "session", hasLocalMedia: true)
+            }
+        )
+        var states: [RealtimeState] = []
+        await lifecycle.setStateListener { states.append($0) }
+        let first = Task {
+            try await lifecycle.run(kind: .generation, failureScope: .connection) { token in
+                try await lifecycle.commit(RealtimeState(connectionState: .connected, sessionID: "session"), token: token)
+                await withTaskCancellationHandler {
+                    await gate.wait()
+                } onCancel: {
+                    events.append("cancelled")
+                }
+                try token.ensureCurrent()
+                XCTFail("Replaced startup must not commit a late result")
+            }
+        }
+        await waitUntil { await gate.isWaiting }
+        let replacement = Task {
+            try await lifecycle.run(kind: .generation) { token in
+                events.append("replacement")
+                try await lifecycle.complete(RealtimeState(connectionState: .generating, sessionID: "session", taskID: "new"), token: token)
+            }
+        }
+        await waitUntil { events.values.contains("cancelled") }
+        XCTAssertFalse(events.values.contains("replacement"))
+        await gate.release()
+        try await replacement.value
+        do { try await first.value; XCTFail("Expected replaced startup cancellation") }
+        catch { XCTAssertEqual((error as? XmaxError)?.code, .cancelled) }
+        let scopes = await probe.cleanupScopes
+        let state = await lifecycle.currentState
+        XCTAssertEqual(scopes, [.generation])
+        XCTAssertEqual(state.taskID, "new")
+        XCTAssertEqual(state.connectionState, .generating)
+        XCTAssertFalse(states.contains { $0.connectionState == .disconnecting })
+        XCTAssertFalse(states.contains { $0.reason != nil })
+    }
+
+    func testLatestGenerationSkipsIntermediateRequestWhileRollbackIsPending() async throws {
+        let cleanupGate = LifecycleFailureGate()
+        let events = XmaxRealtimeLifecycleManagerEventRecorder()
+        let lifecycle = XmaxRealtimeLifecycleManager(
+            errorManager: XmaxRealtimeErrorManager(),
+            cleanup: { _, _ in
+                await cleanupGate.wait()
+                return .init(sessionID: "session", hasLocalMedia: true)
+            }
+        )
+        let first = Task {
+            try await lifecycle.run(kind: .generation, failureScope: .connection) { token in
+                try await lifecycle.commit(RealtimeState(connectionState: .connected, sessionID: "session"), token: token)
+                events.append("first")
+                try await Task.sleep(nanoseconds: 30_000_000_000)
+            }
+        }
+        await waitUntil { events.values.contains("first") }
+        let intermediate = Task {
+            try await lifecycle.run(kind: .generation) { _ in events.append("intermediate") }
+        }
+        await waitUntil { await cleanupGate.isWaiting }
+        let release = Task {
+            try await Task.sleep(nanoseconds: 20_000_000)
+            await cleanupGate.release()
+        }
+        try await lifecycle.run(kind: .generation) { token in
+            events.append("latest")
+            try token.ensureCurrent()
+        }
+        try await release.value
+        do { try await first.value; XCTFail("Expected first cancellation") } catch {}
+        do { try await intermediate.value; XCTFail("Expected intermediate cancellation") } catch {}
+        XCTAssertEqual(events.values, ["first", "latest"])
+    }
+
+    func testReplacementDuringConnectionSetupReleasesTheIncompleteConnection() async throws {
+        let events = XmaxRealtimeLifecycleManagerEventRecorder()
+        let probe = XmaxRealtimeLifecycleManagerProbe()
+        let lifecycle = makeCoordinator(probe: probe)
+        let first = Task {
+            try await lifecycle.run(kind: .generation, failureScope: .connection) { token in
+                try await lifecycle.commit(RealtimeState(connectionState: .connecting), token: token)
+                events.append("connecting")
+                try await Task.sleep(nanoseconds: 30_000_000_000)
+            }
+        }
+        await waitUntil { events.values.contains("connecting") }
+        try await lifecycle.run(kind: .generation) { token in
+            try await lifecycle.complete(RealtimeState(connectionState: .generating, taskID: "new"), token: token)
+        }
+        do { try await first.value; XCTFail("Expected connection setup cancellation") } catch {}
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(scopes, [.connection])
+    }
+
+    func testOverlappingConditionUpdatesPreserveTheRunningGeneration() async throws {
+        let gate = LifecycleFailureGate()
+        let events = XmaxRealtimeLifecycleManagerEventRecorder()
+        let probe = XmaxRealtimeLifecycleManagerProbe()
+        let lifecycle = makeCoordinator(probe: probe)
+        try await lifecycle.run(kind: .generation) { token in
+            try await lifecycle.complete(RealtimeState(connectionState: .generating, taskID: "original"), token: token)
+        }
+        let first = Task {
+            try await lifecycle.run(kind: .generation, failureScope: .connection) { token in
+                await withTaskCancellationHandler {
+                    await gate.wait()
+                } onCancel: {
+                    events.append("cancelled")
+                }
+                try token.ensureCurrent()
+                events.append("stale")
+            }
+        }
+        await waitUntil { await gate.isWaiting }
+        let replacement = Task {
+            try await lifecycle.run(kind: .generation) { _ in events.append("latest") }
+        }
+        await waitUntil { events.values.contains("cancelled") }
+        await gate.release()
+        try await replacement.value
+        do { try await first.value; XCTFail("Expected update cancellation") } catch {}
+        let state = await lifecycle.currentState
+        let scopes = await probe.cleanupScopes
+        XCTAssertEqual(state.taskID, "original")
+        XCTAssertEqual(state.connectionState, .generating)
+        XCTAssertTrue(scopes.isEmpty)
+        XCTAssertEqual(events.values, ["cancelled", "latest"])
+    }
+
+    func testDisconnectAndCloseCancelTheLatestWaitingRequestWithoutRestarting() async throws {
+        for target in [XmaxRealtimeLifecycleManager.TerminationScope.connection, .all] {
+            let gate = LifecycleFailureGate()
+            let events = XmaxRealtimeLifecycleManagerEventRecorder()
+            let probe = XmaxRealtimeLifecycleManagerProbe()
+            let lifecycle = makeCoordinator(probe: probe)
+            let first = Task {
+                try await lifecycle.run(kind: .generation, failureScope: .connection) { token in
+                    try await lifecycle.commit(RealtimeState(connectionState: .connected), token: token)
+                    await withTaskCancellationHandler {
+                        await gate.wait()
+                    } onCancel: {
+                        events.append("cancelled")
+                    }
+                    try token.ensureCurrent()
+                }
+            }
+            await waitUntil { await gate.isWaiting }
+            let replacement = Task {
+                try await lifecycle.run(kind: .generation) { _ in events.append("unexpected restart") }
+            }
+            await waitUntil { events.values.contains("cancelled") }
+            let termination = Task { await lifecycle.terminate(target) }
+            await waitUntil { await lifecycle.currentState.connectionState == .disconnecting }
+            await gate.release()
+            await termination.value
+            do { try await first.value; XCTFail("Expected startup cancellation") } catch {}
+            do { try await replacement.value; XCTFail("Expected pending request cancellation") } catch {}
+            let scopes = await probe.cleanupScopes
+            XCTAssertEqual(scopes, [target])
+            XCTAssertFalse(events.values.contains("unexpected restart"))
+        }
+    }
+
+    func testConnectionFailureDuringGenerationRollbackCancelsReplacement() async throws {
+        let cleanupGate = LifecycleFailureGate()
+        let events = XmaxRealtimeLifecycleManagerEventRecorder()
+        let probe = XmaxRealtimeLifecycleManagerProbe()
+        let lifecycle = XmaxRealtimeLifecycleManager(
+            errorManager: XmaxRealtimeErrorManager(),
+            cleanup: { scope, _ in
+                await probe.recordCleanup(scope)
+                if scope == .generation {
+                    await cleanupGate.wait()
+                }
+                return .init(sessionID: "session", hasLocalMedia: true)
+            }
+        )
+        let first = Task {
+            try await lifecycle.run(kind: .generation, failureScope: .connection) { token in
+                try await lifecycle.commit(RealtimeState(connectionState: .connected), token: token)
+                events.append("first")
+                try await Task.sleep(nanoseconds: 30_000_000_000)
+            }
+        }
+        await waitUntil { events.values.contains("first") }
+        let replacement = Task {
+            try await lifecycle.run(kind: .generation) { _ in events.append("unexpected restart") }
+        }
+        await waitUntil { await cleanupGate.isWaiting }
+        let error = XmaxError(code: .rtcError, message: "Connection lost")
+        let failure = Task { await lifecycle.terminate(with: error, target: .connection) }
+        await waitUntil { await lifecycle.currentState.connectionState == .disconnecting }
+        await cleanupGate.release()
+        await failure.value
+        do { try await first.value; XCTFail("Expected startup failure") } catch {}
+        do { try await replacement.value; XCTFail("Expected pending request cancellation") } catch {}
+        let scopes = await probe.cleanupScopes
+        let state = await lifecycle.currentState
+        XCTAssertEqual(scopes, [.generation, .connection])
+        XCTAssertEqual(state.connectionState, .ready)
+        XCTAssertEqual(state.reason, .failure(error))
+        XCTAssertFalse(events.values.contains("unexpected restart"))
+    }
+
+    func testCompletionListenerCanSubmitAnotherGenerationRequest() async throws {
+        let lifecycle = makeCoordinator(probe: XmaxRealtimeLifecycleManagerProbe())
+        var followup: Task<Void, any Error>?
+        await lifecycle.setStateListener { state in
+            guard state.taskID == "first" else { return }
+            followup = Task {
+                try await lifecycle.run(kind: .generation) { token in
+                    try await lifecycle.complete(RealtimeState(connectionState: .generating, taskID: "second"), token: token)
+                }
+            }
+        }
+        try await lifecycle.run(kind: .generation) { token in
+            try await lifecycle.complete(RealtimeState(connectionState: .generating, taskID: "first"), token: token)
+        }
+        try await XCTUnwrap(followup).value
+        let state = await lifecycle.currentState
+        XCTAssertEqual(state.taskID, "second")
+    }
+
     func testRejectedMediaOperationPreservesTheExistingPreparation() async throws {
         let lifecycle = makeCoordinator(probe: XmaxRealtimeLifecycleManagerProbe())
         try await lifecycle.run(kind: .media) { token in

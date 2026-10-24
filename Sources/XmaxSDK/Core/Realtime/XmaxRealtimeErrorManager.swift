@@ -51,6 +51,9 @@ final class XmaxRealtimeErrorManager: @unchecked Sendable {
     func invalidatePendingFailures(
         target: XmaxRealtimeLifecycleManager.TerminationScope = .all
     ) {
+        guard target != .generation else {
+            return
+        }
         lock.withLock {
             connectionRevision = UUID()
             if target == .all {

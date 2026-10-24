@@ -1439,6 +1439,74 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         try await components.manager.stopLocalCameraStream()
     }
 
+    func testBothGenerationOverloadsReplaceStartupWithoutReconnecting() async throws {
+        for firstIncludesLocalStream in [false, true] {
+            let components = makeComponents()
+            let localStream = try await components.manager.createLocalImageStream(
+                fileURL: URL(fileURLWithPath: "/tmp/image.png")
+            )
+            _ = try await components.manager.connect(localStream: localStream)
+
+            let first = Task {
+                let context = RealtimeContext(prompt: "first")
+                if firstIncludesLocalStream {
+                    _ = try await components.manager.startGeneration(
+                        localStream: localStream,
+                        context: context
+                    )
+                } else {
+                    try await components.manager.startGeneration(context: context)
+                }
+            }
+            await waitForEvent("start", rtcManager: components.rtcManager)
+            let firstEvent = try XCTUnwrap(decodedEvents(components.rtcManager).first {
+                $0["event"] as? String == "start"
+            })
+
+            let replacement = Task {
+                let context = RealtimeContext(prompt: "latest")
+                if firstIncludesLocalStream {
+                    try await components.manager.startGeneration(context: context)
+                } else {
+                    _ = try await components.manager.startGeneration(
+                        localStream: localStream,
+                        context: context
+                    )
+                }
+            }
+            await waitForEventCount("start", count: 2, rtcManager: components.rtcManager)
+            let latestEvent = try XCTUnwrap(decodedEvents(components.rtcManager).last {
+                $0["event"] as? String == "start"
+            })
+            let latestTaskID = try XCTUnwrap(latestEvent["uid"] as? String)
+            XCTAssertNotEqual(firstEvent["uid"] as? String, latestTaskID)
+
+            components.rtcManager.emitRemoteVideoAvailable(
+                stream: RemoteStream(roomID: "room-id", userID: "bot-user")
+            )
+            try components.rtcManager.emitRemoteVideoFrame()
+            try await replacement.value
+            do {
+                try await first.value
+                XCTFail("Expected replaced startup cancellation")
+            } catch {
+                XCTAssertEqual(XmaxError.from(error).code, .cancelled)
+            }
+
+            let state = await components.manager.currentState
+            XCTAssertEqual(state.connectionState, .generating)
+            XCTAssertEqual(state.sessionID, "session-id")
+            XCTAssertEqual(state.taskID, latestTaskID)
+            XCTAssertEqual(components.sessionService.calls.filter {
+                if case .createSession = $0 { return true }
+                return false
+            }.count, 1)
+            XCTAssertFalse(components.sessionService.calls.contains(.closeSession("session-id")))
+            XCTAssertFalse(components.rtcManager.calls.contains(.leaveRoom))
+            await components.manager.close()
+        }
+    }
+
     func testGenerationLifecycleTransitionsAndUpdatesCondition() async throws {
         let components = makeComponents()
         let localStream = try await components.manager.createLocalCameraStream(
