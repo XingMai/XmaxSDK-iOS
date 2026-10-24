@@ -91,6 +91,7 @@ enum InteractionCoordinateMapper {
         else {
             return nil
         }
+
         if contentMode == .fit, !displayedFrame.contains(point) {
             return nil
         }

@@ -99,6 +99,7 @@ final class TrajectoryBinding: @unchecked Sendable {
         guard !points.isEmpty else {
             return
         }
+
         let frame = InteractionFrame(
             points: points,
             viewportSize: viewportSize,

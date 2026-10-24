@@ -102,6 +102,7 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         guard !pixelOverflow else {
             throw Self.processingError("Image dimensions are too large")
         }
+
         let (byteCount, byteOverflow) =
             pixelCount
             .multipliedReportingOverflow(by: 4)
@@ -113,6 +114,7 @@ final class CoreGraphicsDecodedImage: DecodedImage, @unchecked Sendable {
         var data = Data(count: byteCount)
         let bitmapInfo =
             CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
+
         let didRender = data.withUnsafeMutableBytes { bytes -> Bool in
             guard let address = bytes.baseAddress,
                 let context = CGContext(

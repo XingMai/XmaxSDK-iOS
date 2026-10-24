@@ -165,6 +165,7 @@ public final class DefaultTrajectoryEffectRenderer: UIView,
             trajectory.location = point.location
             activeTrajectories[point.id] = trajectory
         }
+
         startDisplayLink()
     }
 
@@ -233,6 +234,7 @@ private extension DefaultTrajectoryEffectRenderer {
         guard displayLink == nil else {
             return
         }
+
         let displayLink = CADisplayLink(
             target: self,
             selector: #selector(tick)
@@ -375,6 +377,7 @@ private extension DefaultTrajectoryEffectRenderer {
         guard width > 0, Style.glowColor != .clear else {
             return
         }
+
         let color = Style.glowColor.withAlphaComponent(alpha)
         context.saveGState()
         context.setLineCap(.round)
@@ -388,6 +391,7 @@ private extension DefaultTrajectoryEffectRenderer {
                 color: color.cgColor
             )
         }
+
         context.beginPath()
         context.move(to: start)
         context.addLine(to: end)
@@ -480,6 +484,7 @@ private extension DefaultTrajectoryEffectRenderer {
                 Style.glowColor.withAlphaComponent(0.54).cgColor,
                 Style.glowColor.withAlphaComponent(0).cgColor,
             ] as CFArray
+
         if Style.glowWidth > 0,
             let gradient = CGGradient(
                 colorsSpace: CGColorSpaceCreateDeviceRGB(),
@@ -521,6 +526,7 @@ private extension DefaultTrajectoryEffectRenderer {
     ) {
         let elapsed = CGFloat(now - trajectory.startTime)
         context.setLineWidth(2)
+
         for index in 0..<2 {
             let indexValue = CGFloat(index)
             let baseRadius = 14 + indexValue * 18
@@ -531,6 +537,7 @@ private extension DefaultTrajectoryEffectRenderer {
                 0.5
                 * (1 - indexValue * 0.2)
                 * (0.5 + pulse * 0.5)
+
             context.setStrokeColor(
                 Style.glowColor.withAlphaComponent(alpha).cgColor
             )
@@ -557,6 +564,7 @@ private extension DefaultTrajectoryEffectRenderer {
         in context: CGContext
     ) {
         let elapsed = CGFloat(now - trajectory.startTime)
+
         for index in 0..<4 {
             let indexValue = CGFloat(index)
             let direction: CGFloat = index.isMultiple(of: 2) ? 1 : -1
@@ -602,6 +610,7 @@ private extension DefaultTrajectoryEffectRenderer {
         else {
             return
         }
+
         context.drawRadialGradient(
             gradient,
             startCenter: point,

@@ -949,6 +949,7 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
             }
 
             await connectionManager.completeInitialQuality()
+
             if options.isAdaptiveQualityEnabled {
                 streamController.setAdaptiveQualityListener { [weak self] quality, time in
                     Task {
@@ -1012,6 +1013,7 @@ private extension XmaxRealtimeManager {
                     sample,
                     sampledAt: sampledAt
                 )
+
                 if let level = change.uplink {
                     try? await connectionManager.applyQualityLevel(
                         level,
@@ -1022,6 +1024,7 @@ private extension XmaxRealtimeManager {
                         }
                     )
                 }
+
                 try token.ensureCurrent()
 
                 if let level = change.downlink {
@@ -1209,6 +1212,7 @@ private extension XmaxRealtimeManager {
                         }
                     }
                 }
+
                 try token.ensureCurrent()
             }
 

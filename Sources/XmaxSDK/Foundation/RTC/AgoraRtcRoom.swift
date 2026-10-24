@@ -118,6 +118,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                 )
                 callback?(frame)
             }
+
             videoSink = sink
             guard platform.engine.setVideoFrameDelegate(sink) else {
                 throw XmaxError(
@@ -132,6 +133,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                     channelID: channelID
                 )
             }
+
             self.audioSink = audioSink
             let preMixFormatResult = platform.engine.setPlaybackAudioFrameBeforeMixingParametersWithSampleRate(
                 48_000,
@@ -142,6 +144,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                 preMixFormatResult,
                 operation: "configureRemoteAudioFrames"
             )
+
             let observerRegistered = platform.engine.setAudioFrameDelegate(audioSink)
             guard observerRegistered else {
                 throw XmaxError(
@@ -159,6 +162,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             options.publishCustomAudioTrack = false
             options.autoSubscribeAudio = false
             options.autoSubscribeVideo = false
+
             try AgoraRtcPlatform.checkResult(
                 platform.engine.joinChannelEx(
                     byToken: configuration.token,
@@ -179,6 +183,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
             guard !isClosed else {
                 return
             }
+
             isClosed = true
             isJoined = false
             listener = nil
@@ -198,6 +203,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                     leaveChannelBlock: nil
                 )
             }
+
             bridge = nil
             videoSink = nil
             audioSink = nil
@@ -222,6 +228,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                 options,
                 operation: "publishLocalVideo"
             )
+
             if publish {
                 try platform.reapplyVideoConfiguration()
             }
@@ -393,6 +400,7 @@ final class AgoraRtcRoom: RtcRoom, @unchecked Sendable {
                     message: "RTC signaling is unavailable"
                 )
             }
+
             return try sender.enqueue(
                 message,
                 reportFailure: reportFailure,
@@ -436,11 +444,13 @@ private extension AgoraRtcRoom {
             guard !isClosed else {
                 return []
             }
+
             switch event {
             case .joined(let uid):
                 guard !isJoined else {
                     return []
                 }
+
                 do {
                     try prepareJoinedRoom(uid: uid)
                     return [.joined]
@@ -496,6 +506,7 @@ private extension AgoraRtcRoom {
                 guard adaptation == 1 || adaptation == 2 else {
                     return events
                 }
+
                 return events + [
                     .performance(
                         limited: adaptation == 2,
@@ -533,6 +544,7 @@ private extension AgoraRtcRoom {
         uid: UInt
     ) throws {
         connection.localUid = uid
+
         let config = AgoraDataStreamConfig()
         config.ordered = true
         config.syncWithAudio = false
@@ -544,11 +556,13 @@ private extension AgoraRtcRoom {
             ),
             operation: "createDataStreamEx"
         )
+
         sender = RtcMessageQueue(
             send: { [weak self] data in
                 guard let self else {
                     throw CancellationError()
                 }
+
                 try platform.lock.withLock {
                     try requireJoined()
                     try AgoraRtcPlatform.checkResult(
@@ -565,6 +579,7 @@ private extension AgoraRtcRoom {
                 self?.emit(.failure(error))
             }
         )
+
         isJoined = true
     }
 
@@ -652,6 +667,7 @@ private extension AgoraRtcRoom {
         })?.key {
             return uid
         }
+
         if let info = platform.engine.getUserInfo(
             byUserAccountEx: account,
             connection: connection,
@@ -660,6 +676,7 @@ private extension AgoraRtcRoom {
             accounts[info.uid] = account
             return info.uid
         }
+
         throw XmaxError(
             code: .rtcError,
             message: "RTC user account is not available: \(account)"

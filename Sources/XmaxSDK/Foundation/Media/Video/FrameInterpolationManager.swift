@@ -88,6 +88,7 @@ actor FrameInterpolationManager: FrameInterpolationManaging {
         destinationPool = try Self.makePixelBufferPool(
             attributes: configuration.destinationPixelBufferAttributes
         )
+
         do {
             try processor.startSession(configuration: configuration)
         } catch {
@@ -275,6 +276,7 @@ private extension FrameInterpolationManager {
                 "Failed to allocate an interpolation output buffer: \(status)"
             )
         }
+
         return frame
     }
 
@@ -359,6 +361,7 @@ private extension FrameInterpolationManager {
         else {
             return fallback
         }
+
         return duration
     }
 
@@ -400,6 +403,7 @@ private extension FrameInterpolationManager {
                 "Failed to create an interpolation pixel buffer pool: \(status)"
             )
         }
+
         return pool
     }
 
@@ -441,6 +445,7 @@ private extension FrameInterpolationManager {
                 "Failed to resolve interpolation buffer attributes: \(status)"
             )
         }
+
         return try makePixelBufferPool(attributes: resolvedAttributes)
     }
 

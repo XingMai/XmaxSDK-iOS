@@ -319,48 +319,56 @@ private extension RealtimeTiming {
                 "First Frame Ready, Completing Startup"
             )
         }
+
         if state.signalStartedAt != nil {
             return XmaxLogger.localized(
                 "等待首帧到达",
                 "Waiting for First Frame"
             )
         }
+
         if state.publicationFinishedAt != nil {
             return XmaxLogger.localized(
                 "准备生成",
                 "Preparing Generation"
             )
         }
+
         if state.publicationStartedAt != nil {
             return XmaxLogger.localized(
                 "发布本地流",
                 "Publishing Local Stream"
             )
         }
+
         if state.roomJoinFinishedAt != nil {
             return XmaxLogger.localized(
                 "准备发布本地流",
                 "Preparing Local Stream Publication"
             )
         }
+
         if state.roomJoinStartedAt != nil {
             return XmaxLogger.localized(
                 "RTC 进房",
                 "Joining RTC Room"
             )
         }
+
         if state.sessionFinishedAt != nil {
             return XmaxLogger.localized(
                 "RTC 连接准备",
                 "RTC Connection Setup"
             )
         }
+
         if state.sessionStartedAt != nil {
             return XmaxLogger.localized(
                 "创建会话",
                 "Creating Session"
             )
         }
+
         return XmaxLogger.localized(
             "调用与本地准备",
             "Invocation and Local Preparation"

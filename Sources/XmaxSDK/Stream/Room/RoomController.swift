@@ -116,6 +116,7 @@ actor RoomController: RoomControlling {
                     state = .idle
                 }
             }
+
             throw XmaxError.from(error)
         }
     }
@@ -137,6 +138,7 @@ actor RoomController: RoomControlling {
             }
             await self.performLeave(operationID: operationID)
         }
+
         leaveOperation = LeaveOperation(
             id: operationID,
             task: task
@@ -371,6 +373,7 @@ private extension RoomController {
         } catch {
             throw XmaxError.from(error)
         }
+
         XmaxLogger.room.debug(
             message: formatSignalLog(message)
         )

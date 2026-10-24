@@ -131,6 +131,7 @@ final class ApiService: ApiServicing, Sendable {
             if let xmaxError = error as? XmaxError {
                 throw xmaxError
             }
+
             throw XmaxError(
                 code: .apiError,
                 message: ErrorMessageFormatter.format(error),
@@ -248,6 +249,7 @@ private extension ApiService {
             apiKey,
             forHTTPHeaderField: "X-Api-Key"
         )
+
         let runtime = RuntimeInfo.current
         request.setValue(
             runtime.platform,
@@ -265,6 +267,7 @@ private extension ApiService {
             runtime.deviceModel,
             forHTTPHeaderField: "X-Device-Model"
         )
+
         return request
     }
 
@@ -308,6 +311,7 @@ private extension ApiService {
             } else {
                 resolvedMessage = "Xmax API request failed"
             }
+
             throw XmaxError(
                 code: .apiError,
                 message: resolvedMessage,
@@ -330,6 +334,7 @@ private extension ApiService {
                     )
                 )
             }
+
             return value
         } catch {
             throw XmaxError(

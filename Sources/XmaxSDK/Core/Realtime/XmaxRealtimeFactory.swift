@@ -177,11 +177,13 @@ enum XmaxRealtimeFactory {
                                 """
                         )
                     }
+
                     return XmaxRealtimeLifecycleManager.CleanupResult(
                         sessionID: await connectionManager.currentSessionID,
                         hasLocalMedia: await mediaController.currentTrack != nil
                     )
                 }
+
                 if scope == .all {
                     await mediaController.setLocalAudioPreviewMuted(true)
                 }
@@ -210,6 +212,7 @@ enum XmaxRealtimeFactory {
 
                 let activeSessionID = await connectionManager.currentSessionID
                 var sessionID = activeSessionID.isEmpty ? nil : activeSessionID
+
                 do {
                     sessionID = try await connectionManager.disconnect() ?? sessionID
                 } catch {
@@ -236,6 +239,7 @@ enum XmaxRealtimeFactory {
                         )
                     }
                 }
+
                 return XmaxRealtimeLifecycleManager.CleanupResult(
                     sessionID: sessionID,
                     hasLocalMedia: await mediaController.currentTrack != nil
@@ -249,6 +253,7 @@ enum XmaxRealtimeFactory {
                 isCurrent: isCurrent
             )
         }
+
         return XmaxRealtimeComponents(
             lifecycleManager: lifecycleManager,
             connectionManager: connectionManager,

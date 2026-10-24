@@ -157,6 +157,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
             storedHasAudio = false
             return (track, hasAudio)
         }
+
         await playerController.stop()
 
         if state.1 {
@@ -171,6 +172,7 @@ final class VideoController: VideoControlling, @unchecked Sendable {
                 )
             }
         }
+
         if let track = state.0 {
             await MainActor.run {
                 VideoRenderRegistry.unregister(track)
@@ -217,6 +219,7 @@ private extension VideoController {
                 try rtcManager.startExternalAudioSource()
                 externalAudioStarted = true
             }
+
             await registerPreview(for: localTrack)
             try await playerController.start()
             try Task.checkCancellation()
@@ -231,6 +234,7 @@ private extension VideoController {
             )
         } catch {
             await playerController.stop()
+
             if externalAudioStarted {
                 do {
                     try rtcManager.stopExternalAudioSource()
@@ -243,11 +247,13 @@ private extension VideoController {
                     )
                 }
             }
+
             if let track {
                 await MainActor.run {
                     VideoRenderRegistry.unregister(track)
                 }
             }
+
             throw XmaxError.from(error)
         }
     }

@@ -92,6 +92,7 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
             guard active, converted.value > lastTimestampUs else {
                 return
             }
+
             do {
                 guard CVPixelBufferGetWidth(pixelBuffer) == sourceVideoFormat.width,
                     CVPixelBufferGetHeight(pixelBuffer) == sourceVideoFormat.height
@@ -101,6 +102,7 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
                         message: "External frame dimensions must match source.videoFormat"
                     )
                 }
+
                 let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
                 guard
                     pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -111,6 +113,7 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
                         message: "External video requires NV12 video-range (420v) or BGRA pixels"
                     )
                 }
+
                 let frame = try VideoFrameConverter.convert(
                     pixelBuffer: pixelBuffer,
                     outputWidth: videoFormat.width,
@@ -142,6 +145,7 @@ final class ExternalVideoFrameSink: RealtimeExternalFrameSink, @unchecked Sendab
             guard active, let audioConverter else {
                 return
             }
+
             do {
                 try audioConverter.append(
                     sampleBuffer,

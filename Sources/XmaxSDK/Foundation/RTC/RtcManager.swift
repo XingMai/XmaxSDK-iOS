@@ -70,6 +70,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
         guard !Task.isCancelled else {
             throw Self.cancelledError(operation: "RTC initialization")
         }
+
         let waiterID = UUID()
         let initialization = stateLock.withLock { () -> Initialization? in
             guard engineLease == nil else {
@@ -91,6 +92,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             self.initialization = initialization
             return initialization
         }
+
         guard let initialization else {
             return
         }
@@ -104,6 +106,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                     waiterID: waiterID
                 )
             }
+
             try await finishInitialization(
                 initializationID: initialization.id,
                 lease: lease
@@ -283,6 +286,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 pendingJoin = nil
                 return result
             }
+
             resources.1?.timeoutTask?.cancel()
             resources.1?.continuation.resume(
                 throwing: Self.cancelledError(operation: "RTC join room")
@@ -385,6 +389,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                 message: "RTC audio volume must be between 0 and 100"
             )
         }
+
         try withRoom {
             try $0.setRemoteAudioVolume(
                 volume,
@@ -435,6 +440,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             } else {
                 guardedListener = nil
             }
+
             try context.room.setRemoteVideoFrameListener(
                 guardedListener,
                 for: stream.userID
@@ -465,6 +471,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
                     message: "Remote audio stream is unavailable"
                 )
             }
+
             let id = context.id
             let guardedListener: RtcRemoteAudioFrameListener?
             if let listener {
@@ -477,6 +484,7 @@ final class RtcManager: RtcManaging, @unchecked Sendable {
             } else {
                 guardedListener = nil
             }
+
             try context.room.setRemoteAudioFrameListener(
                 guardedListener,
                 for: stream.userID
@@ -669,9 +677,11 @@ private extension RtcManager {
                 self.initialization = initialization
                 return nil
             }
+
             self.initialization = nil
             return initialization.task
         }
+
         task?.cancel()
     }
 
@@ -727,6 +737,7 @@ private extension RtcManager {
                 stateLock.withLock {
                     pendingJoin = pending
                 }
+
                 room.setEventListener { [weak self] event in
                     self?.handleRoomEvent(
                         event,
@@ -747,6 +758,7 @@ private extension RtcManager {
                         )
                     )
                 }
+
                 try room.join(configuration: configuration)
             } catch {
                 if stateLock.withLock({
@@ -850,10 +862,12 @@ private extension RtcManager {
         else {
             return
         }
+
         stateLock.withLock {
             activeRoom = context
             pendingJoin = nil
         }
+
         pending.timeoutTask?.cancel()
         pending.continuation.resume()
     }
@@ -879,6 +893,7 @@ private extension RtcManager {
             guard let pending else {
                 return
             }
+
             pending.timeoutTask?.cancel()
             tearDownRoom(pending.context)
             pending.continuation.resume(throwing: error)
@@ -903,6 +918,7 @@ private extension RtcManager {
             )
             return
         }
+
         Task { @MainActor [weak self] in
             guard let self else {
                 return
@@ -932,6 +948,7 @@ private extension RtcManager {
         else {
             return
         }
+
         Task { @MainActor [weak self] in
             guard let self else {
                 return

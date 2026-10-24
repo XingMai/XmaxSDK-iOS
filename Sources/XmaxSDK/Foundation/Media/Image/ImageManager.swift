@@ -67,6 +67,7 @@ final class ImageManager: ImageManaging, Sendable {
         else {
             throw Self.processingError("Failed to decode image")
         }
+
         return CoreGraphicsDecodedImage(image: image)
     }
 

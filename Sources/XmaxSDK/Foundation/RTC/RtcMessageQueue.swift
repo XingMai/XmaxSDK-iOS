@@ -48,9 +48,11 @@ enum RtcMessageCodec {
             chunk += value
             length += encoded
         }
+
         if !chunk.isEmpty {
             chunks.append(chunk)
         }
+
         guard chunks.count <= 512 else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -154,6 +156,7 @@ final class RtcMessageQueue: @unchecked Sendable {
             guard !closed else {
                 throw CancellationError()
             }
+
             if let key, let pending = pendingMessages[key], let task = tasks[pending.id] {
                 pendingMessages[key] = PendingMessage(
                     id: pending.id,
@@ -161,6 +164,7 @@ final class RtcMessageQueue: @unchecked Sendable {
                 )
                 return task
             }
+
             guard tasks.count < 64 else {
                 throw XmaxError(
                     code: .rtcError,
@@ -177,6 +181,7 @@ final class RtcMessageQueue: @unchecked Sendable {
                     packets: packets
                 )
             }
+
             let task = Task { [self] in
                 defer {
                     lock.withLock {
@@ -186,12 +191,14 @@ final class RtcMessageQueue: @unchecked Sendable {
                         }
                     }
                 }
+
                 do {
                     if previousFailureIsFatal {
                         try await previous?.value
                     } else {
                         _ = try? await previous?.value
                     }
+
                     try Task.checkCancellation()
                     let currentPackets: [Data]
                     if let key {
@@ -202,6 +209,7 @@ final class RtcMessageQueue: @unchecked Sendable {
                     } else {
                         currentPackets = packets
                     }
+
                     for packet in currentPackets {
                         try await limiter.wait(byteCount: packet.count)
                         try Task.checkCancellation()
@@ -217,6 +225,7 @@ final class RtcMessageQueue: @unchecked Sendable {
                     {
                         return
                     }
+
                     if !Task.isCancelled,
                         !lock.withLock({
                             closed
@@ -234,6 +243,7 @@ final class RtcMessageQueue: @unchecked Sendable {
                     throw error
                 }
             }
+
             tasks[id] = task
             lastTask = task
             lastFailureIsFatal = reportFailure
@@ -288,12 +298,15 @@ final class RtcMessageQueue: @unchecked Sendable {
                     continuation.finish(throwing: error)
                 }
             }
+
             continuation.onTermination = { _ in
                 observer.cancel()
             }
         }
+
         for try await _ in completion {
         }
+
         try Task.checkCancellation()
     }
 
@@ -344,6 +357,7 @@ private extension RtcMessageQueue {
                 }
                 return pending.packets[0].count
             }
+
             try await limiter.wait(byteCount: byteCount)
             let packets: [Data]? = try lock.withLock {
                 guard !closed, let pending = pendingMessages[key], pending.id == id else {
@@ -392,6 +406,7 @@ private extension RtcMessageQueue {
                 {
                     return
                 }
+
                 let elapsed = now - sent[0].time
                 try await Task.sleep(nanoseconds: 1000000000 - elapsed)
             }

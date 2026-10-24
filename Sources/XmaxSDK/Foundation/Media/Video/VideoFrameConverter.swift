@@ -45,6 +45,7 @@ enum VideoFrameConverter {
                 timestampUs: timestampUs
             )
         }
+
         let isNV12 =
             pixelFormat
             == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -133,6 +134,7 @@ enum VideoFrameConverter {
             targetWidth: scaledDimensions.width,
             targetHeight: scaledDimensions.height
         )
+
         let scaledData = try scale(
             lumaBaseAddress: lumaBaseAddress,
             lumaStride: lumaStride,
@@ -142,6 +144,7 @@ enum VideoFrameConverter {
             outputWidth: scaledDimensions.width,
             outputHeight: scaledDimensions.height
         )
+
         let data = try rotate(
             scaledData,
             sourceWidth: scaledDimensions.width,
@@ -217,6 +220,7 @@ enum VideoFrameConverter {
                 .readOnly
             )
         }
+
         guard let source = CVPixelBufferGetBaseAddress(pixelBuffer) else {
             throw mediaError("BGRA video pixels are unavailable")
         }
@@ -235,10 +239,12 @@ enum VideoFrameConverter {
         let stride = CVPixelBufferGetBytesPerRow(pixelBuffer)
         let start = source.advanced(by: crop.y * stride + crop.x * 4)
         var data = Data(count: byteCount)
+
         try data.withUnsafeMutableBytes { bytes in
             guard let destination = bytes.baseAddress else {
                 throw mediaError("Failed to allocate BGRA video data")
             }
+
             let rowBytes = dimensions.width * 4
             if crop.width == dimensions.width, crop.height == dimensions.height {
                 for row in 0..<dimensions.height {
@@ -284,6 +290,7 @@ enum VideoFrameConverter {
                     else {
                         throw mediaError("Failed to allocate rotated BGRA video data")
                     }
+
                     var input = vImage_Buffer(
                         data: UnsafeMutableRawPointer(mutating: source),
                         height: vImagePixelCount(dimensions.height),
@@ -310,6 +317,7 @@ enum VideoFrameConverter {
                     }
                 }
             }
+
             data = rotated
         }
 
@@ -362,6 +370,7 @@ enum VideoFrameConverter {
             if crop.width == outputWidth, crop.height == outputHeight {
                 let luma = lumaBaseAddress.advanced(by: crop.y * lumaStride + crop.x)
                 let chroma = chromaBaseAddress.advanced(by: crop.y / 2 * chromaStride + crop.x)
+
                 for row in 0..<outputHeight {
                     memcpy(
                         destination.advanced(by: row * outputWidth),
@@ -369,6 +378,7 @@ enum VideoFrameConverter {
                         outputWidth
                     )
                 }
+
                 for row in 0..<(outputHeight / 2) {
                     memcpy(
                         destination.advanced(by: lumaLength + row * outputWidth),
@@ -376,6 +386,7 @@ enum VideoFrameConverter {
                         outputWidth
                     )
                 }
+
                 return
             }
 
@@ -430,6 +441,7 @@ enum VideoFrameConverter {
                 throw mediaError("Failed to scale decoded NV12 chroma data")
             }
         }
+
         return data
     }
 
@@ -525,6 +537,7 @@ enum VideoFrameConverter {
                 }
             }
         }
+
         return output
     }
 

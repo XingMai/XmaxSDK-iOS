@@ -160,17 +160,20 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                 message: "Stop the current local camera stream before creating another one"
             )
         }
+
         let resolvedFormat = try resolveVideoFormat(videoFormat)
         let track = RealtimeVideoTrack(
             id: Self.localVideoTrackID,
             videoFormat: resolvedFormat,
             position: position
         )
+
         do {
             try await permissionManager.ensureCameraPermission()
             if useMicrophone {
                 try await permissionManager.ensureMicrophonePermission()
             }
+
             try Task.checkCancellation()
             try rtcManager.useExternalVideoSource()
             try rtcManager.configureLocalVideoMirror(for: position)
@@ -185,6 +188,7 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                 hasCapturedFrame = false
                 isPreviewAttached = false
             }
+
             try await captureManager.start(
                 videoFormat: VideoFormat(
                     width: resolvedFormat.width,
@@ -207,6 +211,7 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                     errorListener(error)
                 }
             )
+
             try Task.checkCancellation()
             return RealtimeMediaStream(
                 id: StreamID.local.rawValue,
@@ -257,6 +262,7 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                     """
             )
         }
+
         let resources = stateLock.withLock {
             let resources = (activeTrack, preview)
             activeTrack = nil
@@ -268,6 +274,7 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             isPreviewAttached = false
             return resources
         }
+
         await captureManager.stop()
         resources.1?.dispatcher.reset()
         await MainActor.run {
@@ -292,8 +299,10 @@ final class CameraController: CameraControlling, @unchecked Sendable {
                 message: "Local camera preview is not started"
             )
         }
+
         let nextPosition: CameraPosition = position == .front ? .back : .front
         try await captureManager.switchCamera(to: nextPosition)
+
         do {
             try rtcManager.configureLocalVideoMirror(for: nextPosition)
         } catch {
@@ -301,10 +310,12 @@ final class CameraController: CameraControlling, @unchecked Sendable {
             try? rtcManager.configureLocalVideoMirror(for: position)
             throw error
         }
+
         track.updatePosition(nextPosition)
         let preview = stateLock.withLock {
             self.preview
         }
+
         await preview?.presenter.setMirrored(nextPosition == .front)
         return RealtimeMediaStream(
             id: StreamID.local.rawValue,
@@ -366,6 +377,7 @@ private extension CameraController {
                 message: "Camera preview is not started"
             )
         }
+
         let previous = formatUpdateTask
         let task = Task { @MainActor [self] in
             _ = try? await previous?.value
@@ -376,6 +388,7 @@ private extension CameraController {
                     message: "Camera stream is no longer active"
                 )
             }
+
             var requested = videoFormat ?? current
             if let orientation, let appliedOrientation,
                 orientation.isLandscape != appliedOrientation.isLandscape
@@ -385,6 +398,7 @@ private extension CameraController {
                     height: current.width
                 )
             }
+
             let resolved = try resolveVideoFormat(requested)
             let output = try VideoFormat(
                 width: resolved.width,
@@ -411,6 +425,7 @@ private extension CameraController {
                     message: "Camera stream is no longer active"
                 )
             }
+
             stateLock.withLock {
                 preview?.dispatcher.reset()
                 track.updateVideoFormat(resolved)
@@ -419,6 +434,7 @@ private extension CameraController {
                 appliedOrientation = orientation
             }
         }
+
         formatUpdateTask = task
         try await withTaskCancellationHandler {
             try await task.value
@@ -455,6 +471,7 @@ private extension CameraController {
             presenter: presenter,
             dispatcher: DecodedVideoPreviewDispatcher(presenter: presenter)
         )
+
         VideoRenderRegistry.register(
             track,
             binding: VideoRenderBinding(
@@ -465,6 +482,7 @@ private extension CameraController {
                             message: "Camera tracks require an XmaxVideoView"
                         )
                     }
+
                     presenter.attach(
                         to: videoView,
                         contentMode: contentMode
@@ -472,6 +490,7 @@ private extension CameraController {
                     self?.stateLock.withLock {
                         self?.isPreviewAttached = true
                     }
+
                     self?.notifyPreviewReady(for: track)
                 },
                 detachHandler: { [weak self] view in
@@ -527,10 +546,12 @@ private extension CameraController {
         guard shouldNotify else {
             return
         }
+
         Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
+
             let handler = stateLock.withLock { () -> CameraPreviewReadyHandler? in
                 guard activeTrack === track, hasCapturedFrame, isPreviewAttached else {
                     return nil
@@ -539,6 +560,7 @@ private extension CameraController {
                 previewReadyHandler = nil
                 return handler
             }
+
             handler? { [weak self] in
                 guard let self else {
                     return false

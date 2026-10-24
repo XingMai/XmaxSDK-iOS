@@ -139,6 +139,7 @@ final class StorageDownloadOperation: NSObject, URLSessionDownloadDelegate, @unc
                     message: "Storage download returned no response"
                 )
             }
+
             let temporaryURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
             try FileManager.default.moveItem(
@@ -251,6 +252,7 @@ private extension StorageDownloadOperation {
         defer {
             try? fileManager.removeItem(at: stagingDirectory)
         }
+
         let stagedURL = stagingDirectory.appendingPathComponent("download")
         try fileManager.moveItem(
             at: temporaryURL,

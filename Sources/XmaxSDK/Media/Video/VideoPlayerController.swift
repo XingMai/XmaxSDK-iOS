@@ -194,6 +194,7 @@ final class VideoPlayerController: VideoPlayerControlling {
             audioPreviewPlayer.start()
             audioPreviewPlayer.setMuted(false)
         }
+
         let timeline = MediaPlaybackTimeline(
             mediaDurationSeconds: configuration.metadata.durationSeconds
         )
@@ -202,6 +203,7 @@ final class VideoPlayerController: VideoPlayerControlling {
         let errorListener = errorListener
         let audioPreviewPlayer = audioPreviewPlayer
         let previewDispatcher = previewDispatcher
+
         playbackTask = Task.detached(priority: .userInitiated) {
             do {
                 try await Self.play(
@@ -338,6 +340,7 @@ private extension VideoPlayerController {
                     handler: videoHandler
                 )
             }
+
             if configuration.metadata.hasAudio {
                 group.addTask {
                     try await produceAudioFrames(
@@ -347,6 +350,7 @@ private extension VideoPlayerController {
                     )
                 }
             }
+
             try await group.waitForAll()
         }
     }
@@ -378,6 +382,7 @@ private extension VideoPlayerController {
             guard let track = tracks.first else {
                 throw mediaError("The media file does not contain a video track")
             }
+
             let timeRange = try await track.load(.timeRange)
             let reader = try AVAssetReader(asset: asset)
             let output = AVAssetReaderTrackOutput(
@@ -391,6 +396,7 @@ private extension VideoPlayerController {
             guard reader.canAdd(output) else {
                 throw mediaError("The media video track cannot be decoded")
             }
+
             reader.add(output)
             guard reader.startReading() else {
                 throw mediaError(
@@ -406,11 +412,13 @@ private extension VideoPlayerController {
 
             var yieldedFrame = false
             var lastYieldedSeconds = -Double.infinity
+
             while reader.status == .reading {
                 try Task.checkCancellation()
                 guard let sampleBuffer = output.copyNextSampleBuffer() else {
                     break
                 }
+
                 let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
                 let relativeTime = CMTimeSubtract(
                     pts,
@@ -437,6 +445,7 @@ private extension VideoPlayerController {
                 if now > target, now - target > frameIntervalNanoseconds {
                     continue
                 }
+
                 let frame: VideoFrame
                 do {
                     frame = try VideoFrameConverter.convert(
@@ -453,6 +462,7 @@ private extension VideoPlayerController {
                     )
                     continue
                 }
+
                 try await sleep(untilNanoseconds: target)
                 try handler(frame)
                 yieldedFrame = true
@@ -465,9 +475,11 @@ private extension VideoPlayerController {
                         ?? "The media video track failed while decoding"
                 )
             }
+
             guard yieldedFrame else {
                 throw mediaError("The media file produced no video frames")
             }
+
             loopIndex += 1
             let nextLoop = timeline.target(
                 loopIndex: loopIndex,
@@ -492,6 +504,7 @@ private extension VideoPlayerController {
         handler: @escaping AudioHandler
     ) async throws {
         var loopIndex = 0
+
         while true {
             try Task.checkCancellation()
             let asset = AVURLAsset(url: configuration.fileURL)
@@ -499,6 +512,7 @@ private extension VideoPlayerController {
             guard let track = tracks.first else {
                 throw mediaError("The media file does not contain an audio track")
             }
+
             let timeRange = try await track.load(.timeRange)
             let reader = try AVAssetReader(asset: asset)
             let output = AVAssetReaderAudioMixOutput(
@@ -517,6 +531,7 @@ private extension VideoPlayerController {
             guard reader.canAdd(output) else {
                 throw mediaError("The media audio track cannot be decoded")
             }
+
             reader.add(output)
             guard reader.startReading() else {
                 throw mediaError(
@@ -533,11 +548,13 @@ private extension VideoPlayerController {
             var packetizer = PCMFramePacketizer(
                 totalSamples: timeline.cycleSampleCount
             )
+
             while reader.status == .reading {
                 try Task.checkCancellation()
                 guard let sampleBuffer = output.copyNextSampleBuffer() else {
                     break
                 }
+
                 let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
                 let relativeTime = CMTimeSubtract(
                     pts,
@@ -550,6 +567,7 @@ private extension VideoPlayerController {
                 guard relativeSeconds.isFinite else {
                     continue
                 }
+
                 let startSample = Int(
                     (relativeSeconds * Double(AudioFrame.sampleRate)).rounded()
                 )
@@ -571,6 +589,7 @@ private extension VideoPlayerController {
                         ?? "The media audio track failed while decoding"
                 )
             }
+
             packetizer.finishWithSilence()
             try await emitAudioFrames(
                 packetizer: &packetizer,
@@ -608,6 +627,7 @@ private extension VideoPlayerController {
             } else if now - target > 30_000_000 {
                 continue
             }
+
             try handler(
                 AudioFrame(
                     data: packet.data,
@@ -630,6 +650,7 @@ private extension VideoPlayerController {
         guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
             return Data()
         }
+
         let length = CMBlockBufferGetDataLength(blockBuffer)
         var data = Data(count: length)
         let status = data.withUnsafeMutableBytes { bytes in
@@ -646,6 +667,7 @@ private extension VideoPlayerController {
         guard status == kCMBlockBufferNoErr else {
             throw mediaError("The decoded PCM data could not be read")
         }
+
         return data
     }
 

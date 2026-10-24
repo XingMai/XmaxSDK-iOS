@@ -55,6 +55,7 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
             channels: AVAudioChannelCount(AudioFrame.channelCount),
             interleaved: false
         )!
+
         engine.attach(playerNode)
         engine.connect(
             playerNode,
@@ -125,6 +126,7 @@ final class LocalAudioPreviewPlayer: @unchecked Sendable {
                     engine.prepare()
                     try engine.start()
                 }
+
                 playerNode.scheduleBuffer(buffer)
                 if !playerNode.isPlaying {
                     playerNode.play()
@@ -172,6 +174,7 @@ private extension LocalAudioPreviewPlayer {
             )
             hasConfiguredPlaybackSession = true
         }
+
         try audioSession.setActive(true)
     }
 

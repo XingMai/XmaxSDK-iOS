@@ -102,6 +102,7 @@ enum QualityVideoFormat {
         while remainder != 0 {
             (divisor, remainder) = (remainder, divisor % remainder)
         }
+
         let pixels = Double(width) * Double(height)
         let minimumScale = sqrt(min(Double(max(0, minimumPixels)), pixels) / pixels)
         let minimumUnits = Int(ceil(Double(divisor) * minimumScale / 2)) * 2
@@ -113,6 +114,7 @@ enum QualityVideoFormat {
                 height: height / divisor * resolvedUnits
             )
         }
+
         return CGSize(
             width: max(
                 2,

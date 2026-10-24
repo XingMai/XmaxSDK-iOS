@@ -176,6 +176,7 @@ actor XmaxRealtimeLifecycleManager {
         _ listener: RealtimeStateListener?
     ) async {
         stateListener = listener
+
         if let listener {
             await listener(state)
         }
@@ -202,12 +203,14 @@ actor XmaxRealtimeLifecycleManager {
         defer {
             foregroundRequests -= 1
         }
+
         if kind == .generation {
             return try await runGeneration(
                 failureScope: failureScope,
                 operation: body
             )
         }
+
         return try await runOperation(
             kind: kind,
             failureScope: failureScope,
@@ -237,6 +240,7 @@ actor XmaxRealtimeLifecycleManager {
             await background.waitForCompletion()
             finish(background)
         }
+
         try Task.checkCancellation()
         if let request, generationRequest !== request {
             throw Self.cancelledError()
@@ -265,12 +269,14 @@ actor XmaxRealtimeLifecycleManager {
         let task = Task {
             try await body(token)
         }
+
         operation.cancel = {
             task.cancel()
         }
         operation.waitForCompletion = {
             _ = try? await task.value
         }
+
         activeOperation = operation
 
         do {
@@ -280,8 +286,10 @@ actor XmaxRealtimeLifecycleManager {
                 operation.lease.invalidate()
                 task.cancel()
             }
+
             try Task.checkCancellation()
             try token.ensureCurrent()
+
             let completionState = operation.completionState
             finish(operation)
             if let completionState {
@@ -307,11 +315,13 @@ actor XmaxRealtimeLifecycleManager {
     func runAdaptiveConfiguration(
         _ body: @escaping @Sendable (Token) async throws -> Void
     ) async throws -> Bool {
-        guard termination == nil, activeOperation == nil, generationRequest == nil, foregroundRequests == 0,
+        guard termination == nil, activeOperation == nil,
+            generationRequest == nil, foregroundRequests == 0,
             state.connectionState == .generating
         else {
             return false
         }
+
         let operation = Operation(
             kind: .configuration,
             failureScope: nil,
@@ -321,22 +331,26 @@ actor XmaxRealtimeLifecycleManager {
         let task = Task {
             try await body(token)
         }
+
         operation.cancel = {
             task.cancel()
         }
         operation.waitForCompletion = {
             _ = try? await task.value
         }
+
         activeOperation = operation
         defer {
             finish(operation)
         }
+
         try await withTaskCancellationHandler {
             try await task.value
         } onCancel: {
             operation.lease.invalidate()
             task.cancel()
         }
+
         try token.ensureCurrent()
         return true
     }
@@ -353,12 +367,14 @@ actor XmaxRealtimeLifecycleManager {
         token: Token
     ) async throws {
         try token.ensureCurrent()
+
         if nextState.connectionState == .preparing,
             let activeOperation, activeOperation.lease === token.lease,
             activeOperation.kind == .media
         {
             activeOperation.didBeginMediaPreparation = true
         }
+
         await setState(nextState)
     }
 
@@ -380,6 +396,7 @@ actor XmaxRealtimeLifecycleManager {
         guard let activeOperation, activeOperation.lease === token.lease else {
             throw Self.cancelledError()
         }
+
         activeOperation.completionState = nextState
     }
 
@@ -393,6 +410,7 @@ actor XmaxRealtimeLifecycleManager {
         guard state.connectionState == .preparing, isCurrent() else {
             return
         }
+
         await setState(RealtimeState(connectionState: .ready))
     }
 
@@ -419,6 +437,7 @@ actor XmaxRealtimeLifecycleManager {
             activeOperation.map {
                 TerminationScope.connection.affects($0.kind)
             } ?? false
+
         guard
             hasConnectionOperation || generationRequest != nil || termination != nil
                 || (state.connectionState != .idle && state.connectionState != .preparing
@@ -426,6 +445,7 @@ actor XmaxRealtimeLifecycleManager {
         else {
             return nil
         }
+
         return await requestTermination(
             .connection,
             reason: reason
@@ -464,10 +484,12 @@ actor XmaxRealtimeLifecycleManager {
         guard isCurrent() else {
             return
         }
+
         // Ignore late remote failures during cleanup; media failures may still expand the cleanup scope.
         if let termination, termination.target != .generation, target != .all {
             return
         }
+
         let task = await requestTermination(
             target,
             error: error,
@@ -504,6 +526,7 @@ private extension XmaxRealtimeLifecycleManager {
                     waiters.append(continuation)
                     return false
                 }
+
                 if alreadyCompleted {
                     continuation.resume()
                 }
@@ -518,6 +541,7 @@ private extension XmaxRealtimeLifecycleManager {
                 waiters.removeAll()
                 return pending
             }
+
             for waiter in pending {
                 waiter.resume()
             }
@@ -555,6 +579,7 @@ private extension XmaxRealtimeLifecycleManager {
         let task = Task {
             await previous?.waitForCompletion()
             defer { request.finish() }
+
             try Task.checkCancellation()
             return try await runOperation(
                 kind: .generation,
@@ -563,6 +588,7 @@ private extension XmaxRealtimeLifecycleManager {
                 operation: body
             )
         }
+
         request.cancel = { task.cancel() }
         generationRequest = request
         previous?.cancel()
@@ -658,12 +684,14 @@ private extension XmaxRealtimeLifecycleManager {
             let result = lock.withLock {
                 (valid, terminalError)
             }
+
             guard result.0 else {
                 if let error = result.1 {
                     throw error
                 }
                 throw Self.cancelledError()
             }
+
             try Task.checkCancellation()
         }
 
@@ -794,6 +822,7 @@ private extension XmaxRealtimeLifecycleManager {
                 }
                 throw Self.cancelledError()
             }
+
             let terminationTask: Task<Void, Never>
             if let assignedTask = operation.terminationTask {
                 terminationTask = assignedTask
@@ -809,8 +838,10 @@ private extension XmaxRealtimeLifecycleManager {
                     origin: operation
                 )
             }
+
             await terminationTask.value
             finish(operation)
+
             if let failure = operation.lease.failure {
                 throw failure
             }
@@ -834,6 +865,7 @@ private extension XmaxRealtimeLifecycleManager {
             await errorManager.report(resolvedError)
             throw resolvedError
         }
+
         finish(operation)
         throw resolvedError
     }
@@ -858,6 +890,7 @@ private extension XmaxRealtimeLifecycleManager {
             generationRequest?.cancel()
             generationRequest = nil
         }
+
         let pending: Termination
         if let termination {
             pending = termination
@@ -907,6 +940,7 @@ private extension XmaxRealtimeLifecycleManager {
                 )
             )
         }
+
         return pending.task
     }
 
@@ -949,11 +983,13 @@ private extension XmaxRealtimeLifecycleManager {
             } else {
                 connectionState = result.hasLocalMedia ? .ready : .idle
             }
+
             let finalState = RealtimeState(
                 connectionState: connectionState,
                 sessionID: pending.sessionID ?? state.sessionID,
                 reason: requestedTarget == .generation ? nil : pending.reason
             )
+
             // Finish internal cleanup before notifying listeners so reentrant termination cannot be overwritten.
             if let activeOperation,
                 requestedTarget.affects(activeOperation.kind)
@@ -964,6 +1000,7 @@ private extension XmaxRealtimeLifecycleManager {
             state = finalState
             termination = nil
             errorManager.invalidatePendingFailures(target: requestedTarget)
+
             if let listener {
                 await listener(finalState)
             }
@@ -998,6 +1035,7 @@ private extension XmaxRealtimeLifecycleManager {
         guard state != nextState else {
             return
         }
+
         state = nextState
         if let stateListener {
             await stateListener(nextState)

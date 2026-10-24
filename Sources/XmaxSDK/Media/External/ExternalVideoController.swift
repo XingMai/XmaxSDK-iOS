@@ -97,6 +97,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
                 message: "Stop the current external video stream before creating another one"
             )
         }
+
         let requested = source.videoFormat
         let hasAudio = source.hasAudio
         try requested.validate()
@@ -131,6 +132,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
             audioFrameListener: audioFrameListener,
             errorListener: errorListener
         )
+
         self.source = source
         self.sink = sink
         self.presenter = presenter
@@ -145,6 +147,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
             if hasAudio {
                 try rtcManager.startExternalAudioSource()
             }
+
             VideoRenderRegistry.register(
                 track,
                 binding: VideoRenderBinding(
@@ -167,6 +170,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
                     }
                 )
             )
+
             try await source.start(sink: sink)
             try Task.checkCancellation()
             guard sink.isRequestingFrames else {
@@ -175,6 +179,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
                     message: "External video source failed during setup"
                 )
             }
+
             return RealtimeMediaStream(
                 id: StreamID.local.rawValue,
                 videoTrack: track
@@ -203,6 +208,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
             storedHasAudio = false
             return (track: previous, hasAudio: hadAudio)
         }
+
         if previousState.hasAudio {
             do {
                 try rtcManager.stopExternalAudioSource()
@@ -215,6 +221,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
                 )
             }
         }
+
         if let previousTrack = previousState.track {
             do {
                 try VideoRenderRegistry.binding(for: previousTrack)?.detach()
@@ -226,6 +233,7 @@ final class ExternalVideoController: ExternalVideoControlling, @unchecked Sendab
             }
             VideoRenderRegistry.unregister(previousTrack)
         }
+
         await previousSource?.stop()
     }
 }

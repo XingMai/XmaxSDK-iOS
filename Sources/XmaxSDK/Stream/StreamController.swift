@@ -283,12 +283,14 @@ final class StreamController: StreamControlling, RtcEventListener,
             let userIDs = stateLock.withLock {
                 state.subscribedRemoteAudioUserIDs.sorted()
             }
+
             for userID in userIDs {
                 try rtcManager.setRemoteAudioVolume(
                     rtcVolume,
                     for: userID
                 )
             }
+
             stateLock.withLock {
                 remoteAudioVolumePercentage = rtcVolume
             }
@@ -355,6 +357,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     ) async throws -> Task<Void, any Error> {
         timing.beginSignal(taskID: taskID)
         let confirmation = try beginGenerationConfirmation(taskID: taskID)
+
         do {
             try await roomController.startGeneration(
                 taskID: taskID,
@@ -368,6 +371,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 group.addTask {
                     try await self.rtcManager.awaitPendingMessages()
                 }
+
                 group.addTask {
                     try await Task.sleep(nanoseconds: self.generationTiming.timeoutNanoseconds)
                     throw XmaxError(
@@ -378,8 +382,10 @@ final class StreamController: StreamControlling, RtcEventListener,
                 defer {
                     group.cancelAll()
                 }
+
                 try await group.next()
             }
+
             try Task.checkCancellation()
             await confirmPublishedRemoteStream(taskID: taskID)
             return confirmation
@@ -407,6 +413,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                     message: "Remote generation audio stream is unavailable"
                 )
             }
+
             try subscribeRemoteAudio(userID: remoteStream.userID)
         }
     }
@@ -506,6 +513,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                         message: "Reset the current RTC room before configuring another one"
                     )
                 }
+
                 state.roomID = roomID
                 state.botName = botName
             }
@@ -532,6 +540,7 @@ final class StreamController: StreamControlling, RtcEventListener,
             }
 
             var publishedVideoInOperation = false
+
             do {
                 if !currentState.localVideoPublished {
                     try rtcManager.publishLocalVideo()
@@ -572,6 +581,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         else {
             return
         }
+
         do {
             try rtcManager.pushExternalVideoFrame(frame)
         } catch {
@@ -594,6 +604,7 @@ final class StreamController: StreamControlling, RtcEventListener,
         else {
             return
         }
+
         do {
             try rtcManager.pushExternalAudioFrame(frame)
         } catch {
@@ -667,6 +678,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                     message: "Failed to create generation confirmation"
                 )
             }
+
             let waiter = GenerationWaiter(
                 taskID: taskID,
                 continuation: continuation
@@ -675,10 +687,12 @@ final class StreamController: StreamControlling, RtcEventListener,
                 state.generationTask = GenerationTask(id: taskID)
                 state.generationWaiter = waiter
             }
+
             waiter.timeoutTask = Task { [weak self, weak waiter] in
                 guard let self, let waiter else {
                     return
                 }
+
                 do {
                     try await Task.sleep(
                         nanoseconds: self.generationTiming.timeoutNanoseconds
@@ -686,6 +700,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 } catch {
                     return
                 }
+
                 self.rejectGenerationStart(
                     taskID: waiter.taskID,
                     error: XmaxError(
@@ -747,6 +762,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 state.subscribedRemoteAudioUserIDs.removeAll()
                 return (waiter, remoteAudioUserIDs)
             }
+
             return StopResult(
                 taskID: currentTaskID,
                 waiter: stoppedState.0,
@@ -764,6 +780,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 message: reason
             )
         )
+
         for userID in result.remoteAudioUserIDs.sorted() {
             performCleanup(
                 "取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)"
@@ -774,6 +791,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                 )
             }
         }
+
         await clearRemoteStream()
         return result.taskID
     }
@@ -782,6 +800,7 @@ final class StreamController: StreamControlling, RtcEventListener,
     func resetStream() async {
         qualityController.setUplinkVideoStatisticsEnabled(false)
         _ = await stopStreamGeneration(taskID: "")
+
         operationLock.withLock {
             let previousState = stateLock.withLock { () -> State in
                 let previousState = state
@@ -799,6 +818,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                     )
                 }
             }
+
             if previousState.localAudioPublished {
                 performCleanup(
                     "取消发布 RTC 本地音频失败 (Failed to Unpublish RTC Local Audio)"
@@ -806,6 +826,7 @@ final class StreamController: StreamControlling, RtcEventListener,
                     try rtcManager.unpublishLocalAudio()
                 }
             }
+
             if previousState.localVideoPublished {
                 performCleanup(
                     "取消发布 RTC 本地视频失败 (Failed to Unpublish RTC Local Video)"
@@ -898,6 +919,7 @@ private extension StreamController {
             guard let waiter = state.generationWaiter, waiter.taskID == taskID else {
                 return nil
             }
+
             waiter.signalSent = true
             guard
                 let userID = state.subscribedRemoteUserIDs.first(
@@ -908,11 +930,13 @@ private extension StreamController {
             else {
                 return nil
             }
+
             return RemoteStream(
                 roomID: state.roomID,
                 userID: userID
             )
         }
+
         if let stream {
             confirmRemoteStream(stream)
         }
@@ -937,6 +961,7 @@ private extension StreamController {
                 else {
                     return nil
                 }
+
                 waiter.confirmationPending = true
                 return waiter
             }
@@ -944,6 +969,7 @@ private extension StreamController {
         guard let waiter else {
             return
         }
+
         do {
             try remoteStreamListener(stream)
             stateLock.withLock {
@@ -1128,6 +1154,7 @@ private extension StreamController {
         guard wasSubscribed else {
             return
         }
+
         performCleanup(
             "取消订阅 RTC 远端音频失败 (Failed to Unsubscribe from RTC Remote Audio)"
         ) {
@@ -1157,6 +1184,7 @@ private extension StreamController {
         guard let waiter else {
             return
         }
+
         waiter.timeoutTask?.cancel()
         waiter.continuation.yield()
         waiter.continuation.finish()
@@ -1181,6 +1209,7 @@ private extension StreamController {
                 return waiter
             }
         }
+
         reject(
             waiter,
             error: error
@@ -1221,6 +1250,7 @@ private extension StreamController {
     /// Unpublishes this operation's video and clears uplink statistics.
     func rollbackLocalVideoPublication() {
         qualityController.setUplinkVideoStatisticsEnabled(false)
+
         do {
             try rtcManager.unpublishLocalVideo()
             stateLock.withLock {

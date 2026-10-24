@@ -49,6 +49,7 @@ final class RtcVideoFrame {
         case .rgba, .bgra, .argb:
             layout = [(width * 4, height)]
         }
+
         guard frame.planes.count == layout.count else {
             throw XmaxError(
                 code: .invalidConfiguration,
@@ -71,6 +72,7 @@ final class RtcVideoFrame {
                     message: "Video frame plane is smaller than its dimensions"
                 )
             }
+
             plane.data.withUnsafeBytes { bytes in
                 for row in 0..<size.rows {
                     let start = bytes.baseAddress!.advanced(
@@ -188,6 +190,7 @@ enum RtcVideoConverter {
             case .maintainQuality:
                 .maintainQuality
             }
+
         return result
     }
 

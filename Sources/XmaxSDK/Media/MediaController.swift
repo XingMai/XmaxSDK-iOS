@@ -63,20 +63,24 @@ actor MediaController: MediaControlling {
         interactionListener: @escaping InteractionListener
     ) {
         self.rtcManager = rtcManager
+
         cameraController = CameraController(
             rtcManager: rtcManager,
             mediaService: mediaService,
             videoFrameListener: videoFrameListener,
             errorListener: errorListener
         )
+
         imageController = ImageController(
             rtcManager: rtcManager,
             mediaService: mediaService,
             frameListener: videoFrameListener
         )
+
         interactionController = InteractionController(
             listener: interactionListener
         )
+
         videoController = VideoController(
             rtcManager: rtcManager,
             mediaService: mediaService,
@@ -84,6 +88,7 @@ actor MediaController: MediaControlling {
             audioFrameListener: audioFrameListener,
             errorListener: errorListener
         )
+
         externalController = ExternalVideoController(
             rtcManager: rtcManager,
             mediaService: mediaService,
@@ -599,6 +604,7 @@ private extension MediaController {
                 operationID: operationID
             )
         }
+
         stopOperation = LocalMediaStopOperation(
             id: operationID,
             sourceID: sourceID,

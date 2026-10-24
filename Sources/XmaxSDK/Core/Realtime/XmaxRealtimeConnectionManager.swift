@@ -282,6 +282,7 @@ actor XmaxRealtimeConnectionManager {
         guard let quality = streamController.qualityConfiguration else {
             return
         }
+
         streamController.completeQuality(
             downlink: false,
             level: quality.uplinkLevel,
@@ -311,6 +312,7 @@ actor XmaxRealtimeConnectionManager {
         interpolation: Bool
     ) throws -> RealtimeVideoFormat {
         try baseline.validate()
+
         let maximumSize = QualityVideoFormat.resolveDownlinkMaximumSize(
             baseline,
             level: level
@@ -350,6 +352,7 @@ actor XmaxRealtimeConnectionManager {
         guard let configuration = streamController.qualityConfiguration else {
             return
         }
+
         do {
             try ensureCurrent()
             let format: RealtimeVideoFormat
@@ -378,6 +381,7 @@ actor XmaxRealtimeConnectionManager {
                             try ensureCurrent()
                         }
                     )
+
                     // Commit expected dimensions after signaling; disconnection waits for this commit before cleanup.
                     await updateTargetSize(
                         format.size,
@@ -397,6 +401,7 @@ actor XmaxRealtimeConnectionManager {
                 )
                 try streamController.setVideoEncoderConfig(format)
             }
+
             try ensureCurrent()
             streamController.completeQuality(
                 downlink: downlink,
@@ -411,6 +416,7 @@ actor XmaxRealtimeConnectionManager {
             guard (try? ensureCurrent()) != nil else {
                 throw error
             }
+
             streamController.completeQuality(
                 downlink: downlink,
                 level: level,
@@ -457,6 +463,7 @@ actor XmaxRealtimeConnectionManager {
                         + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
                 )
             }
+
             try ensureCurrent()
             if let taskID, let targetSize,
                 currentTargetSize != targetSize
@@ -477,6 +484,7 @@ actor XmaxRealtimeConnectionManager {
                     videoFormat: mediaFormat
                 )
             }
+
             var returnFormat = mediaFormat
             if let mediaFormat, let targetSize {
                 returnFormat = mediaFormat.resized(
@@ -484,6 +492,7 @@ actor XmaxRealtimeConnectionManager {
                     height: Int(targetSize.height)
                 )
             }
+
             try await renderController.setFrameInterpolationEnabled(
                 enabled,
                 videoFormat: returnFormat
@@ -509,6 +518,7 @@ actor XmaxRealtimeConnectionManager {
         guard let videoFormat else {
             return nil
         }
+
         let level = streamController.qualityConfiguration?.downlinkLevel ?? .l2
         let fallbackFormat = try resolveTargetVideoFormat(
             baseline: videoFormat,
@@ -516,6 +526,7 @@ actor XmaxRealtimeConnectionManager {
             interpolation: false
         )
         let interpolation = await renderController.isFrameInterpolationEnabled
+
         do {
             let targetSize = try resolveTargetVideoFormat(
                 baseline: videoFormat,
@@ -529,6 +540,7 @@ actor XmaxRealtimeConnectionManager {
                         + "\(Int(targetSize.width)) × \(Int(targetSize.height)) video"
                 )
             }
+
             try await renderController.setFrameInterpolationEnabled(
                 interpolation,
                 videoFormat: videoFormat.resized(

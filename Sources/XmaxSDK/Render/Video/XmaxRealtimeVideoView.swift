@@ -156,12 +156,15 @@ private extension XmaxRealtimeVideoView {
         guard let remoteTrack else {
             return
         }
+
         remoteVideoView.frameDisplayHandler = { [weak self, weak remoteTrack] in
             guard let self, self.remoteTrack === remoteTrack else {
                 return
             }
+
             showRemoteVideo()
         }
+
         remoteVideoView.track = remoteTrack
     }
 
@@ -171,6 +174,7 @@ private extension XmaxRealtimeVideoView {
         guard remoteVideoView.isHidden || remoteVideoView.alpha < 1 else {
             return
         }
+
         remoteVideoView.layer.removeAllAnimations()
         remoteVideoView.isHidden = false
         UIView.animate(

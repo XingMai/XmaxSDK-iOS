@@ -198,6 +198,7 @@ final class TrajectoryOverlayView: UIView {
             touches,
             with: event
         )
+
         let timestamp = CACurrentMediaTime()
         let points = touches.map { touch -> TrajectoryPoint in
             let location = clamped(touch.location(in: self))
@@ -211,6 +212,7 @@ final class TrajectoryOverlayView: UIView {
                 timestamp: timestamp
             )
         }
+
         renderer.renderBegan(points)
         submitIfNeeded(
             now: timestamp,
@@ -245,6 +247,7 @@ final class TrajectoryOverlayView: UIView {
                 guard dx * dx + dy * dy >= 0.25 else {
                     continue
                 }
+
                 activeTouch.location = location
                 activeTouches[key] = activeTouch
                 moved.append(
@@ -345,12 +348,14 @@ private extension TrajectoryOverlayView {
         guard !points.isEmpty else {
             return
         }
+
         if !force,
             let lastSampleTime,
             now - lastSampleTime < Sampling.interval
         {
             return
         }
+
         lastSampleTime = now
         binding?.submit(
             points: points,
@@ -375,6 +380,7 @@ private extension TrajectoryOverlayView {
         guard displayLink == nil else {
             return
         }
+
         let displayLink = CADisplayLink(
             target: self,
             selector: #selector(displayLinkDidTick)
@@ -463,6 +469,7 @@ private extension TrajectoryOverlayView {
         guard let interactionFrame else {
             return point
         }
+
         return CGPoint(
             x: min(
                 max(

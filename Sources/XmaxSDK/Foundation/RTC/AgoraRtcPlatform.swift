@@ -64,6 +64,7 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
             AgoraRtcEngineKit.destroy()
             return nil
         }
+
         return AgoraRtcPlatform(engine: engine)
     }
 
@@ -217,6 +218,7 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
             guard let audioTrackID else {
                 return
             }
+
             data.withUnsafeBytes { bytes in
                 _ = engine.pushExternalAudioFrameRawData(
                     UnsafeMutableRawPointer(mutating: bytes.baseAddress!),
@@ -247,6 +249,7 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
                     message: "RTC room is already active"
                 )
             }
+
             let room = AgoraRtcRoom(
                 platform: self,
                 roomID: roomID
@@ -303,6 +306,7 @@ final class AgoraRtcPlatform: RtcPlatform, @unchecked Sendable {
         } else {
             result = engine.setVideoEncoderConfiguration(rtcConfiguration)
         }
+
         try Self.checkResult(
             result,
             operation: "setVideoEncoderConfiguration"

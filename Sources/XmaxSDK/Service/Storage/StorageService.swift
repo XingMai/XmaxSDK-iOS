@@ -474,6 +474,7 @@ private extension StorageService {
         progress: StorageProgressListener?
     ) async throws -> StoredFile {
         let startedAt = Date()
+
         do {
             let safeName = try validateUpload(
                 source: source,
@@ -486,6 +487,7 @@ private extension StorageService {
                 source: source,
                 mediaType: mediaType
             )
+
             XmaxLogger.storage.info(
                 message: "开始上传 (Upload Started)\n"
                     + "├─ \(XmaxLogger.localized("类型：", "Type: "))\(mediaType.rawValue)\n"
@@ -634,6 +636,7 @@ private extension StorageService {
                 message: message
             )
         }
+
         return checkedURL
     }
 
@@ -832,6 +835,7 @@ private extension StorageService {
                 with: "_"
             )
         }
+
         return result.trimmingCharacters(
             in: CharacterSet(charactersIn: "._-")
         )
@@ -920,6 +924,7 @@ private extension StorageService {
                 nil
             )
         }
+
         guard let imageSource,
             let properties = CGImageSourceCopyPropertiesAtIndex(
                 imageSource,
@@ -931,6 +936,7 @@ private extension StorageService {
         else {
             return "--"
         }
+
         return formatResolution(
             width: width.intValue,
             height: height.intValue
@@ -950,6 +956,7 @@ private extension StorageService {
         guard case .file(let fileURL) = source else {
             return "--"
         }
+
         let asset = AVURLAsset(url: fileURL)
         guard
             let track = try await asset.loadTracks(
@@ -958,6 +965,7 @@ private extension StorageService {
         else {
             return "--"
         }
+
         let naturalSize = try await track.load(.naturalSize)
         let transform = try await track.load(.preferredTransform)
         let transformedSize = naturalSize.applying(transform)

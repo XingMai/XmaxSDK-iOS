@@ -154,6 +154,7 @@ final class RenderController: RenderControlling {
             }
             return
         }
+
         if let previousStream {
             try deactivateRemoteFrames(for: previousStream)
             try deactivateRemoteAudio(for: previousStream)
@@ -262,6 +263,7 @@ final class RenderController: RenderControlling {
                 message: "Remote video stream is unavailable"
             )
         }
+
         if latestRemoteFrame != nil {
             return
         }
@@ -278,12 +280,15 @@ final class RenderController: RenderControlling {
                 message: "Failed to create remote first frame waiter"
             )
         }
+
         let waiter = RemoteFrameReadyWaiter(continuation: continuation)
         remoteFrameReadyWaiters[waiterID] = waiter
+
         waiter.timeoutTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
+
             do {
                 try await Task.sleep(
                     nanoseconds: remoteFrameReadyTimeoutNanoseconds
@@ -291,6 +296,7 @@ final class RenderController: RenderControlling {
             } catch {
                 return
             }
+
             finishRemoteFrameReadyWaiter(
                 waiterID,
                 error: XmaxError(
@@ -308,9 +314,11 @@ final class RenderController: RenderControlling {
                 )
                 throw Self.remoteFrameWaitCancelledError()
             }
+
             if latestRemoteFrame != nil {
                 finishRemoteFrameReadyWaiter(waiterID)
             }
+
             for try await _ in stream {
                 return
             }
@@ -483,7 +491,9 @@ private extension RenderController {
         guard activeRemoteFrameStream != remoteStream else {
             return
         }
+
         let outputToken = renderingToken
+
         do {
             try rtcManager.setRemoteVideoFrameListener(
                 { [weak remoteFramePipeline] frame in
@@ -548,14 +558,17 @@ private extension RenderController {
         guard outputToken == renderingToken else {
             return
         }
+
         latestRemoteFrame = frame
         finishAllRemoteFrameReadyWaiters()
+
         if let remoteMediaStreamID {
             remoteMediaFrameDispatcher.dispatchVideo(
                 frame,
                 streamID: remoteMediaStreamID
             )
         }
+
         if let remoteView {
             remoteView.displayRemoteVideoFrame(
                 frame,
@@ -580,7 +593,9 @@ private extension RenderController {
         else {
             return
         }
+
         waiter.timeoutTask?.cancel()
+
         if let error {
             waiter.continuation.finish(throwing: error)
         } else {

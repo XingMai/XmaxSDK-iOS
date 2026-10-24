@@ -113,6 +113,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                         else {
                             throw Self.cameraError("Camera does not support NV12 video output")
                         }
+
                         output.videoSettings = [
                             kCVPixelBufferPixelFormatTypeKey as String:
                                 kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -127,6 +128,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                         session.commitConfiguration()
                         throw error
                     }
+
                     session.commitConfiguration()
 
                     observeSession()
@@ -171,6 +173,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                     }
 
                     let previousInput = input
+
                     do {
                         try replaceInput(position: position)
                         try configureConnection()
@@ -237,6 +240,7 @@ final class CameraCaptureManager: NSObject, CameraCaptureManaging, @unchecked Se
                         defer {
                             device.unlockForConfiguration()
                         }
+
                         session.beginConfiguration()
                         device.activeFormat = selected
                         let duration = CMTime(
@@ -361,6 +365,7 @@ extension CameraCaptureManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         else {
             return
         }
+
         lastTimestampUs = timestampUs
 
         do {

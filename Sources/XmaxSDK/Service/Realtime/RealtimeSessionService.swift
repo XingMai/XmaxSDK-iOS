@@ -59,6 +59,7 @@ final class RealtimeSessionService: RealtimeSessionServicing, @unchecked Sendabl
             body: CreateSessionRequest(model: model.rawValue),
             as: SessionPayload.self
         )
+
         do {
             return try Self.makeSession(
                 from: payload,
@@ -486,6 +487,7 @@ private extension RealtimeSessionService {
         else {
             return nil
         }
+
         return RealtimeSessionConnection(
             roomID: roomID,
             userID: userID,

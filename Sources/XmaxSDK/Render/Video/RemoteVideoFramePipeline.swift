@@ -134,13 +134,16 @@ actor RemoteVideoFramePipeline {
         guard outputToken >= self.outputToken else {
             return
         }
+
         if outputToken > self.outputToken {
             resetProcessing(outputToken: outputToken)
         }
+
         pendingFrame = frame
         guard drainTask == nil else {
             return
         }
+
         let activeGeneration = generation
         let activeOutputToken = outputToken
         drainTask = Task { [weak self, cleanupTask] in
@@ -173,6 +176,7 @@ actor RemoteVideoFramePipeline {
                 throw Self.unsupportedError(videoSize: videoSize)
             }
         }
+
         interpolationEnabled = enabled
         interpolationVideoSize = enabled ? videoSize : nil
         // Mode changes must not overwrite a stream identifier replaced across an asynchronous boundary.
@@ -281,6 +285,7 @@ private extension RemoteVideoFramePipeline {
             guard !Task.isCancelled, generation == activeGeneration else {
                 break
             }
+
             for outputFrame in outputFrames {
                 guard !Task.isCancelled, generation == activeGeneration else {
                     break
@@ -291,6 +296,7 @@ private extension RemoteVideoFramePipeline {
                 )
             }
         }
+
         if generation == activeGeneration {
             drainTask = nil
         }
@@ -319,6 +325,7 @@ private extension RemoteVideoFramePipeline {
         }
 
         let signature = FrameSignature(frame)
+
         // While target dimensions change, display old-size frames without interpolating or disabling the requested setting.
         if let interpolationVideoSize, signature.size != interpolationVideoSize {
             let previousManager = interpolationManager
@@ -331,6 +338,7 @@ private extension RemoteVideoFramePipeline {
                 )
             ]
         }
+
         guard frameInterpolationSupportChecker(signature.size) else {
             await disableAfterFailure(Self.unsupportedError(videoSize: signature.size))
             return [
@@ -352,9 +360,11 @@ private extension RemoteVideoFramePipeline {
                 }
                 interpolationManager = try interpolationManagerFactory(frame)
             }
+
             guard let interpolationManager else {
                 throw Self.unsupportedError(videoSize: signature.size)
             }
+
             return try await interpolationManager.process(
                 frame,
                 sourceDuration: sourceDuration
@@ -363,6 +373,7 @@ private extension RemoteVideoFramePipeline {
             guard !Task.isCancelled, generation == activeGeneration else {
                 return []
             }
+
             let resolvedError: XmaxError
             if let xmaxError = error as? XmaxError {
                 resolvedError = xmaxError
@@ -373,6 +384,7 @@ private extension RemoteVideoFramePipeline {
                         + (error as NSError).localizedDescription
                 )
             }
+
             await disableAfterFailure(resolvedError)
             return [
                 passthrough(
@@ -427,6 +439,7 @@ private extension RemoteVideoFramePipeline {
                 previousPresentationTimeStamp = presentationTimeStamp
             }
         }
+
         guard presentationTimeStamp.isValid,
             let previousPresentationTimeStamp,
             previousPresentationTimeStamp.isValid
@@ -451,6 +464,7 @@ private extension RemoteVideoFramePipeline {
                 timescale: 24
             )
         }
+
         return duration
     }
 

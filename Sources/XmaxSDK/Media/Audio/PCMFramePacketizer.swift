@@ -67,6 +67,7 @@ struct PCMFramePacketizer {
         guard !data.isEmpty, timelineWriteCursor < sampleLimit else {
             return
         }
+
         let startSample = max(
             0,
             requestedStartSample
@@ -127,10 +128,12 @@ struct PCMFramePacketizer {
 
         var data = Data(count: Self.frameByteCount)
         var destinationSampleOffset = 0
+
         while destinationSampleOffset < AudioFrame.samplesPerFrame {
             guard segmentIndex < segments.count else {
                 return nil
             }
+
             let availableSamples =
                 segments[segmentIndex].sampleCount - segments[segmentIndex].consumedSamples
             let copiedSamples = min(
@@ -147,6 +150,7 @@ struct PCMFramePacketizer {
                     with: segmentData[sourceStart..<sourceEnd]
                 )
             }
+
             segments[segmentIndex].consumedSamples += copiedSamples
             destinationSampleOffset += copiedSamples
             if segments[segmentIndex].consumedSamples == segments[segmentIndex].sampleCount {

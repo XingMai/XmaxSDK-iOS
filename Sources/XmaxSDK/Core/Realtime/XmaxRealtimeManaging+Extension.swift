@@ -44,6 +44,7 @@ public extension XmaxRealtimeManaging {
                 message: "Model does not support the requested camera preset"
             )
         }
+
         return try await createLocalCameraStream(
             videoFormat: format,
             position: position,

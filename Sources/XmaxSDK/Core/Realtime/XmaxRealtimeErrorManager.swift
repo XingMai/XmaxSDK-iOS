@@ -74,11 +74,13 @@ final class XmaxRealtimeErrorManager: @unchecked Sendable {
         let (revision, handler) = lock.withLock {
             (target == .all ? mediaRevision : connectionRevision, failureHandler)
         }
+
         Task { [self] in
             guard let target, let handler else {
                 await report(error)
                 return
             }
+
             await handler(
                 error,
                 target,

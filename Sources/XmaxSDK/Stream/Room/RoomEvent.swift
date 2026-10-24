@@ -198,6 +198,7 @@ private extension RoomEvent {
                 message: "Invalid return video dimensions"
             )
         }
+
         let budget = try EncodingBitratePolicy.resolve(
             RealtimeVideoFormat(
                 width: Int(size.width),
@@ -237,9 +238,11 @@ private extension RoomEvent {
                 message: "Failed to encode RTC room event"
             )
         }
+
         if let taskID = object["uid"] {
             object["session_uid"] = taskID
         }
+
         let data = try JSONSerialization.data(
             withJSONObject: object,
             options: [.sortedKeys]
@@ -255,6 +258,7 @@ private extension RoomEvent {
                 message: "Failed to encode RTC room event"
             )
         }
+
         return message
     }
 
@@ -354,6 +358,7 @@ private extension RoomEvent {
             self.mirror = mirror
             self.faceRestoration = faceRestoration
             padding = paddingContain ? "contain" : nil
+
             if mirror != nil {
                 let budget = try RoomEvent.downlinkBitrates(targetSize ?? videoFormat.size)
                 minimumBitrate = budget.minimum

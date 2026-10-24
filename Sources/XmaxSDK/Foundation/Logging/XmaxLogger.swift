@@ -245,6 +245,7 @@ struct XmaxLogger: Sendable {
         let formatted = formattedMessage(
             message: message()
         )
+
         switch level {
         case .debug:
             Self.logger.debug("\(formatted, privacy: .public)")

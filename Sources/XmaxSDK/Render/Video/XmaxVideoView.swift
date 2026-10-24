@@ -270,9 +270,11 @@ extension XmaxVideoView {
         default:
             return
         }
+
         guard orientation != displayOrientation else {
             return
         }
+
         let changedAxis =
             displayOrientation.map {
                 $0.isLandscape != next.isLandscape
@@ -366,6 +368,7 @@ extension XmaxVideoView {
                 decodedVideoTimebase = timebase
             }
         }
+
         decodedVideoLayer.videoGravity = contentMode == .fit ? .resizeAspect : .resizeAspectFill
     }
 
@@ -432,6 +435,7 @@ extension XmaxVideoView {
             else {
                 throw Self.invalidImageFrameError
             }
+
             CMSetAttachment(
                 sampleBuffer,
                 key: kCMSampleAttachmentKey_DisplayImmediately,
@@ -488,6 +492,7 @@ extension XmaxVideoView {
         } else {
             presentationTime = currentTime
         }
+
         let duration =
             frame.duration.isValid && frame.duration > .zero
             ? frame.duration
@@ -513,6 +518,7 @@ extension XmaxVideoView {
         else {
             return
         }
+
         decodedVideoLayer.enqueue(sampleBuffer)
         nextDecodedVideoPresentationTime = presentationTime + duration
         frameDisplayHandler?()
@@ -642,6 +648,7 @@ extension XmaxVideoView {
         guard frame.planes.count == 1 else {
             throw Self.invalidImageFrameError
         }
+
         let plane = frame.planes[0]
         let (requiredByteCount, byteCountOverflow) = plane.stride
             .multipliedReportingOverflow(by: height)
@@ -683,6 +690,7 @@ extension XmaxVideoView {
                 message: "Failed to create the image preview"
             )
         }
+
         return UIImage(cgImage: image)
     }
 
@@ -714,6 +722,7 @@ extension XmaxVideoView {
         else {
             throw invalidImageFrameError
         }
+
         return UIImage(cgImage: cgImage)
     }
 
@@ -736,6 +745,7 @@ extension XmaxVideoView {
         default:
             throw Self.invalidImageFrameError
         }
+
         if localPreviewFormat != frame.format || localPreviewPixelBufferPool == nil {
             let attributes: [String: Any] = [
                 kCVPixelBufferWidthKey as String: frame.format.width,
@@ -755,6 +765,7 @@ extension XmaxVideoView {
             else {
                 throw Self.invalidImageFrameError
             }
+
             localPreviewPixelBufferPool = pool
             localPreviewFormat = frame.format
             localPreviewFormatDescription = nil
@@ -793,6 +804,7 @@ extension XmaxVideoView {
         else {
             throw invalidImageFrameError
         }
+
         var buffer: CVPixelBuffer?
         let status: CVReturn
         if let pool {
@@ -811,6 +823,7 @@ extension XmaxVideoView {
                 &buffer
             )
         }
+
         guard status == kCVReturnSuccess, let buffer,
             CVPixelBufferGetWidth(buffer) == width,
             CVPixelBufferGetHeight(buffer) == height,
@@ -828,6 +841,7 @@ extension XmaxVideoView {
                 []
             )
         }
+
         try copyPlane(
             frame.planes[0],
             rowByteCount: rowBytes,
@@ -867,6 +881,7 @@ extension XmaxVideoView {
         else {
             throw Self.invalidImageFrameError
         }
+
         localPreviewFormatDescription = description
         return description
     }
@@ -918,6 +933,7 @@ extension XmaxVideoView {
                 &pixelBuffer
             )
         }
+
         guard status == kCVReturnSuccess, let pixelBuffer,
             CVPixelBufferGetWidth(pixelBuffer) == width,
             CVPixelBufferGetHeight(pixelBuffer) == height,
@@ -955,6 +971,7 @@ extension XmaxVideoView {
                 0
             )
         )
+
         try copyPlane(
             frame.planes[1],
             rowByteCount: width,
@@ -968,6 +985,7 @@ extension XmaxVideoView {
                 1
             )
         )
+
         return pixelBuffer
     }
 
@@ -1006,6 +1024,7 @@ extension XmaxVideoView {
             guard let source = bytes.baseAddress else {
                 return
             }
+
             let sourceStart = source.advanced(by: plane.byteOffset)
             if plane.stride == rowByteCount, destinationStride == rowByteCount {
                 memcpy(
@@ -1015,6 +1034,7 @@ extension XmaxVideoView {
                 )
                 return
             }
+
             for row in 0..<rowCount {
                 memcpy(
                     destination.advanced(by: row * destinationStride),

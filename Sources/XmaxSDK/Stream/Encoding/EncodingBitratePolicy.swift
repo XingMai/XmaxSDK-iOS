@@ -41,6 +41,7 @@ enum EncodingBitratePolicy {
                     message: "Realtime video format exceeds the supported bitrate range"
                 )
             }
+
             let defaultMaximum = max(
                 100,
                 Int(maximumBitrate)
@@ -159,6 +160,7 @@ private extension EncodingBitratePolicy {
         if value <= first.value {
             return first.bitrate * (value / first.value)
         }
+
         for index in 1..<points.count {
             let upper = points[index]
             if value <= upper.value {
@@ -167,6 +169,7 @@ private extension EncodingBitratePolicy {
                 return lower.bitrate + (upper.bitrate - lower.bitrate) * ratio
             }
         }
+
         let last = points[points.count - 1]
         return last.bitrate * (value / last.value)
     }

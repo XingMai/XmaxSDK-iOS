@@ -122,6 +122,7 @@ actor XmaxRealtimeGenerationManager {
             faceRestoration: faceRestoration,
             paddingContain: paddingContain
         )
+
         do {
             try await withTaskCancellationHandler {
                 try await confirmation.value
@@ -234,6 +235,7 @@ actor XmaxRealtimeGenerationManager {
         let data = withUnsafeBytes(of: &uuid) {
             Data($0)
         }
+
         let encoded = data.base64EncodedString()
             .replacingOccurrences(
                 of: "+",

@@ -135,6 +135,7 @@ private extension InteractionController {
             let points = pendingPoints
         {
             pendingPoints = nil
+
             do {
                 try await listener(
                     interaction.taskID,
@@ -151,9 +152,11 @@ private extension InteractionController {
                 )
             }
         }
+
         guard generation == drainGeneration else {
             return
         }
+
         drainTask = nil
 
         if activeInteraction != nil, pendingPoints != nil {

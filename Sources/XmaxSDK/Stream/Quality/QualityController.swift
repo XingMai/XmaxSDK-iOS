@@ -113,6 +113,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
                 level: history?.read(downlink: true) ?? .l1,
                 downlink: true
             )
+
             return configuration()!
         }
     }
@@ -169,6 +170,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
     ) {
         listenerLock.withLock {
             let now = ProcessInfo.processInfo.systemUptime
+
             if downlink {
                 downlinkQuality?.complete(
                     level: level,
@@ -182,6 +184,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
                     now: now
                 )
             }
+
             if success {
                 history?.write(
                     level: level,
@@ -357,6 +360,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
         let listener = listenerLock.withLock {
             networkQualityListener
         }
+
         let quality = RealtimeNetworkQuality(
             uplink: Self.networkQualityLevel(uplink),
             downlink: Self.networkQualityLevel(downlink)
@@ -364,6 +368,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
         let adaptive = listenerLock.withLock {
             adaptiveListener
         }
+
         adaptive?(
             quality,
             ProcessInfo.processInfo.systemUptime
@@ -388,6 +393,7 @@ final class QualityController: QualityControlling, RtcQualityListener,
         let listener = listenerLock.withLock {
             performanceAlarmListener
         }
+
         listener?(
             RealtimePerformanceAlarm(
                 status: limited ? .limited : .recovered,

@@ -40,6 +40,7 @@ enum ApiLogger {
             durationMs: durationMs,
             responseBody: successful ? nil : responseBody
         )
+
         if successful {
             XmaxLogger.api.debug(message: message)
         } else {
@@ -125,6 +126,7 @@ enum ApiLogger {
                 encoding: .utf8
             ) ?? "<Non-UTF-8 response body>"
         }
+
         return formattedBody.replacingOccurrences(
             of: "\n",
             with: "\n   "

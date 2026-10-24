@@ -82,6 +82,7 @@ private extension RuntimeInfo {
         guard uname(&systemInfo) == 0 else {
             return "unknown"
         }
+
         let capacity = MemoryLayout.size(ofValue: systemInfo.machine)
         return withUnsafePointer(to: &systemInfo.machine) { pointer in
             pointer.withMemoryRebound(

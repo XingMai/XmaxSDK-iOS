@@ -107,6 +107,7 @@ final class ExternalAudioFrameConverter {
         else {
             throw Self.audioError("Could not allocate external audio input")
         }
+
         input.frameLength = AVAudioFrameCount(sampleCount)
         let status = CMSampleBufferCopyPCMDataIntoAudioBufferList(
             sampleBuffer,
@@ -130,6 +131,7 @@ final class ExternalAudioFrameConverter {
                 handler: handler
             )
         }
+
         nextInputTime = CMTimeAdd(
             timestamp,
             CMTimeMakeWithSeconds(
@@ -162,6 +164,7 @@ private extension ExternalAudioFrameConverter {
         else {
             throw Self.audioError("External audio must contain linear PCM")
         }
+
         if let inputFormat {
             guard inputFormat == format else {
                 throw Self.audioError("External PCM format cannot change during a binding")
@@ -180,6 +183,7 @@ private extension ExternalAudioFrameConverter {
             converter.primeMethod = .none
             self.converter = converter
         }
+
         inputFormat = format
         return format
     }
@@ -231,6 +235,7 @@ private extension ExternalAudioFrameConverter {
                     error?.localizedDescription ?? "External PCM conversion failed"
                 )
             }
+
             try emit(
                 output,
                 handler: handler
@@ -257,6 +262,7 @@ private extension ExternalAudioFrameConverter {
         else {
             return
         }
+
         packetizer.append(
             Data(
                 bytes: samples,
@@ -265,6 +271,7 @@ private extension ExternalAudioFrameConverter {
             at: outputSampleCount
         )
         outputSampleCount += Int(buffer.frameLength)
+
         while let packet = packetizer.nextFrame() {
             let timestamp = CMTimeAdd(
                 anchor,
@@ -278,6 +285,7 @@ private extension ExternalAudioFrameConverter {
                 timescale: 1000000,
                 method: .roundTowardZero
             )
+
             try handler(
                 AudioFrame(
                     data: packet.data,

@@ -81,6 +81,7 @@ final class MediaService: MediaServicing, Sendable {
                 message: "Media resolution must contain at least \(model.minimumInputPixels) pixels"
             )
         }
+
         return size
     }
 
@@ -265,9 +266,11 @@ private extension MediaService {
         while remainder != 0 {
             (divisor, remainder) = (remainder, divisor % remainder)
         }
+
         let ratioWidth = width / divisor
         let ratioHeight = height / divisor
         let alignedScale = Int(floor(Double(divisor) * scale / Double(alignment))) * alignment
+
         if alignedScale >= alignment {
             return CGSize(
                 width: ratioWidth * alignedScale,
@@ -283,6 +286,7 @@ private extension MediaService {
                 message: "No aligned video size is available within the size limits"
             )
         }
+
         return CGSize(
             width: alignedWidth,
             height: alignedHeight
@@ -313,6 +317,7 @@ private extension MediaService {
             guard minimumHeight <= maximumHeight else {
                 continue
             }
+
             let heightUnits = min(
                 max(
                     Int((height / Double(alignment)).rounded()),
@@ -339,6 +344,7 @@ private extension MediaService {
                 )
             }
         }
+
         return bestSize
     }
 
@@ -364,6 +370,7 @@ private extension MediaService {
                 message: "Image width and height must be finite numbers greater than zero"
             )
         }
+
         return CGSize(
             width: max(
                 size.width.rounded(),

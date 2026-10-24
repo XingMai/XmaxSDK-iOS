@@ -32,6 +32,7 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
         }
 
         let asset = AVURLAsset(url: fileURL)
+
         do {
             let videoTracks = try await asset.loadTracks(withMediaType: .video)
             guard let videoTrack = videoTracks.first else {
@@ -39,6 +40,7 @@ final class MediaFileMetadataManager: MediaFileMetadataManaging, Sendable {
                     "The media file does not contain a video track"
                 )
             }
+
             async let naturalSize = videoTrack.load(.naturalSize)
             async let preferredTransform = videoTrack.load(
                 .preferredTransform

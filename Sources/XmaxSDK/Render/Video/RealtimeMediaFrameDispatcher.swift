@@ -123,6 +123,7 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                 audioDiscontinuous = true
                 return
             }
+
             let output = RealtimeMediaFrame(
                 streamID: streamID,
                 isDiscontinuous: audioDiscontinuous || resolved.discontinuous,
@@ -152,6 +153,7 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                 videoDiscontinuous = true
                 return
             }
+
             let backwards = lastVideoPTS.map { frame.presentationTimeStamp <= $0 } ?? false
             let format = [
                 CVPixelBufferGetWidth(frame.pixelBuffer),
@@ -161,11 +163,13 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
             let formatChanged = lastVideoFormat.map { $0 != format } ?? false
             lastVideoPTS = frame.presentationTimeStamp
             lastVideoFormat = format
+
             let output = RealtimeMediaFrame(
                 streamID: streamID,
                 isDiscontinuous: videoDiscontinuous || backwards || formatChanged,
                 content: .video(frame)
             )
+
             videoDiscontinuous = !enqueue(
                 output,
                 bytes: CVPixelBufferGetDataSize(frame.pixelBuffer)
@@ -196,9 +200,11 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
         guard pendingFrames < maximumPendingFrames, bytes <= maximumPendingBytes - pendingBytes else {
             return false
         }
+
         pendingFrames += 1
         pendingBytes += bytes
         let revision = version
+
         queue.async { [weak self] in
             guard let self else {
                 return
@@ -209,6 +215,7 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                     pendingBytes -= bytes
                 }
             }
+
             let callback = lock.withLock {
                 version == revision && streamID == frame.streamID ? listener : nil
             }
@@ -216,6 +223,7 @@ final class RealtimeMediaFrameDispatcher: @unchecked Sendable {
                 callback(frame)
             }
         }
+
         return true
     }
 }

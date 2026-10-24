@@ -58,6 +58,7 @@ extension ImageManager {
                 message: "Failed to decode the UIKit image"
             )
         }
+
         return CoreGraphicsDecodedImage(image: cgImage)
     }
 }

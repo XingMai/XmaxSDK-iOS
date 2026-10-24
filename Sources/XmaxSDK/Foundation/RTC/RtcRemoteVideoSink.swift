@@ -126,6 +126,7 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
         guard CVPixelBufferGetPlaneCount(source) == 2 else {
             return nil
         }
+
         if pool == nil || dimensions != size || pixelFormat != format {
             let attributes: [CFString: Any] = [
                 kCVPixelBufferWidthKey: width,
@@ -144,12 +145,15 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
             else {
                 return nil
             }
+
             dimensions = size
             pixelFormat = format
         }
+
         guard let pool else {
             return nil
         }
+
         var output: CVPixelBuffer?
         guard
             CVPixelBufferPoolCreatePixelBuffer(
@@ -180,6 +184,7 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
                 .readOnly
             )
         }
+
         for plane in 0..<CVPixelBufferGetPlaneCount(source) {
             guard
                 let src = CVPixelBufferGetBaseAddressOfPlane(
@@ -193,6 +198,7 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
             else {
                 return nil
             }
+
             let srcStride = CVPixelBufferGetBytesPerRowOfPlane(
                 source,
                 plane
@@ -205,6 +211,7 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
                 srcStride,
                 dstStride
             )
+
             for row
                 in 0..<CVPixelBufferGetHeightOfPlane(
                     source,
@@ -218,6 +225,7 @@ final class RtcRemoteVideoSink: NSObject, AgoraVideoFrameDelegate, @unchecked Se
                 )
             }
         }
+
         CVBufferPropagateAttachments(
             source,
             output

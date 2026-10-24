@@ -57,6 +57,7 @@ struct PermissionAuthorizationClient: Sendable {
             let status = AVCaptureDevice.authorizationStatus(
                 for: permission.mediaType
             )
+
             switch status {
             case .notDetermined:
                 return .notDetermined

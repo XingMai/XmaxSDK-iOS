@@ -152,6 +152,7 @@ final class StorageManager: StorageManaging, Sendable {
         {
             return url
         }
+
         if let url = URL(string: location) {
             let scheme = url.scheme?.lowercased()
             if scheme == "https" || scheme == "http" {
@@ -543,6 +544,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
                 )
             )
         }
+
         request.finishBlock = { [weak self] result, error in
             guard let self else {
                 return
@@ -557,6 +559,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
                         + "├─ \(XmaxLogger.localized("错误信息：", "Error Message: "))\(platformError.localizedDescription)\n"
                         + "└─ \(XmaxLogger.localized("耗时：", "Duration: "))\(formatDuration())"
                 )
+
                 finish(
                     .failure(
                         XmaxError(
@@ -586,6 +589,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
                     )?.trimmingCharacters(
                         in: .whitespacesAndNewlines
                     ) ?? ""
+
                 finish(
                     .success(
                         StoredFile(
@@ -657,6 +661,7 @@ private final class StorageUploadOperation: @unchecked Sendable {
             lock.unlock()
             return
         }
+
         completed = true
         let continuation = self.continuation
         self.continuation = nil

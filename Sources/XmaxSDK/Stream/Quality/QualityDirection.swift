@@ -116,10 +116,12 @@ struct QualityDirection: Sendable {
         else {
             return nil
         }
+
         if let lastSample, sampledAt - lastSample > 5 {
             resetSamples()
         }
         lastSample = sampledAt
+
         guard now - sampledAt <= 5, now >= stableUntil else {
             goodSamples = 0
             poorSamples = 0
@@ -174,6 +176,7 @@ struct QualityDirection: Sendable {
         guard success else {
             return
         }
+
         if next.rawValue < level.rawValue {
             probeUntil = now + 20
         } else if next.rawValue > level.rawValue {
@@ -182,6 +185,7 @@ struct QualityDirection: Sendable {
             }
             probeUntil = 0
         }
+
         level = next
     }
 
