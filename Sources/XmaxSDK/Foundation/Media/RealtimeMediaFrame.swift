@@ -61,7 +61,7 @@ public struct RealtimeAudioFrame: Sendable {
 /// Events are serialized in delivery order, not sorted by presentation time across tracks. Video
 /// processing can delay delivery relative to audio. Buffer and schedule both tracks by their PTS;
 /// use one recording origin for both. An event does not represent an audio/video pair.
-/// Treat video pixel buffers as read-only: rendering and the video-only listener may share them.
+/// Treat video pixel buffers as read-only because rendering may share them.
 public struct RealtimeMediaFrame: Sendable {
 
     /// The media carried by an output event.

@@ -122,16 +122,6 @@ public protocol XmaxRealtimeManaging: Sendable {
         _ listener: RealtimeStateListener?
     ) async
 
-    /// Sets a listener for remote video frames after optional interpolation.
-    ///
-    /// Frames are delivered on an internal serial queue before display. Forward frames promptly and
-    /// avoid expensive encoding in the callback. Pass `nil` to remove the listener.
-    ///
-    /// - Parameter listener: The handler for remote output frames.
-    func setRemoteVideoFrameListener(
-        _ listener: RealtimeVideoFrameListener?
-    ) async
-
     /// Sets one listener for the result user's PCM and processed remote video.
     ///
     /// Audio is copied before remote-user mixing; video includes optional interpolation. Both use
@@ -142,7 +132,6 @@ public protocol XmaxRealtimeManaging: Sendable {
     /// serial background queue, in delivery order rather than cross-track PTS order. Forward packets
     /// promptly: pending output is bounded to 256 packets and 32 MiB, and discarded packets mark the
     /// next event of that track as discontinuous. A callback already running may finish after removal.
-    /// This listener and the video-only listener can be used independently.
     ///
     /// - Parameter listener: The remote output handler, or `nil` to remove it and queued output.
     /// - Throws: An error if observation of an already-bound remote user cannot be configured.

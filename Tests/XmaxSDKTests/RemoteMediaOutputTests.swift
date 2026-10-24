@@ -22,8 +22,6 @@ final class RemoteMediaOutputTests: XCTestCase {
         let recorder = MediaOutputRecorder()
         let media = expectation(description: "Both output tracks")
         media.expectedFulfillmentCount = 2
-        let legacy = expectation(description: "Independent legacy video output")
-        controller.setRemoteVideoFrameListener { _ in legacy.fulfill() }
         try controller.setRemoteMediaFrameListener { frame in
             recorder.append(frame)
             media.fulfill()
@@ -31,7 +29,7 @@ final class RemoteMediaOutputTests: XCTestCase {
         try controller.setRemoteStream(stream)
         rtc.emitRemoteAudioFrame(audioPacket(1_065))
         try rtc.emitRemoteVideoFrame(presentationTimeStamp: CMTime(value: 1_000, timescale: 1_000))
-        await fulfillment(of: [media, legacy], timeout: 3)
+        await fulfillment(of: [media], timeout: 3)
 
         let frames = recorder.frames
         XCTAssertEqual(Set(frames.map(\.streamID)).count, 1)

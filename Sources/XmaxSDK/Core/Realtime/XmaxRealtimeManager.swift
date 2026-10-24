@@ -243,18 +243,6 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
         await lifecycleManager.setStateListener(listener)
     }
 
-    /// Sets a listener for remote video frames after optional interpolation.
-    ///
-    /// Frames are delivered on an internal serial queue before display. Forward frames promptly and
-    /// avoid expensive encoding in the callback. Pass `nil` to remove the listener.
-    ///
-    /// - Parameter listener: The handler for remote output frames.
-    func setRemoteVideoFrameListener(
-        _ listener: RealtimeVideoFrameListener?
-    ) async {
-        await renderController.setRemoteVideoFrameListener(listener)
-    }
-
     /// Sets serialized remote PCM and processed video output without changing playback.
     ///
     /// - Parameter listener: The output handler, or `nil` to stop output.

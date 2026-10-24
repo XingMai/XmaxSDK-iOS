@@ -480,12 +480,12 @@ to Photos. A session without remote audio still produces a video-only movie.
 
 ### Video-only output
 
-To record or process output outside the SDK, register a final-frame listener before
-starting generation. Here, `recorder` represents your app's recording pipeline,
-not an SDK-provided object:
+To process only video, filter the media listener's events. Here, `recorder`
+represents your app's thread-safe recording pipeline, not an SDK-provided object:
 
 ```swift
-await realtime.setRemoteVideoFrameListener { frame in
+try await realtime.setRemoteMediaFrameListener { event in
+    guard case .video(let frame) = event.content else { return }
     recorder.append(
         pixelBuffer: frame.pixelBuffer,
         presentationTimeStamp: frame.presentationTimeStamp,
@@ -494,17 +494,15 @@ await realtime.setRemoteVideoFrameListener { frame in
 }
 ```
 
-The listener receives frames accepted by the final render pipeline, after optional
-frame interpolation, on a dedicated serial background queue. Frame timestamps do
-not necessarily start at zero; rebase the recording timeline to the first received
-frame. Transfer frames to a thread-safe recording pipeline quickly and avoid
-synchronous encoding in the callback. This video-only listener remains available
-independently of the media listener.
+Video frames include optional frame interpolation. Their timestamps do not
+necessarily start at zero; use the first received video frame as the origin for a
+video-only recording. The media listener's queue limits and discontinuity rules
+also apply when audio events are ignored.
 
 Clear the listener when frame delivery is no longer needed:
 
 ```swift
-await realtime.setRemoteVideoFrameListener(nil)
+try await realtime.setRemoteMediaFrameListener(nil)
 ```
 
 <br>

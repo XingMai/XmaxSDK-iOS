@@ -28,13 +28,19 @@ final class RenderControllerTests: XCTestCase {
         for index in 1...3 {
             try await controller.setFrameInterpolationEnabled(false, videoFormat: nil)
             let recorder = RemoteVideoFrameRecorder()
-            controller.setRemoteVideoFrameListener { recorder.record($0) }
+            try controller.setRemoteMediaFrameListener { event in
+                guard case .video(let frame) = event.content else { return }
+                recorder.record(frame)
+            }
             let timestamp = CMTime(value: Int64(index), timescale: 24)
             try rtcManager.emitRemoteVideoFrame(presentationTimeStamp: timestamp)
             let frame = try await waitForRemoteVideoFrame(recorder)
             XCTAssertEqual(frame.presentationTimeStamp, timestamp)
         }
-        XCTAssertEqual(rtcManager.calls, [.setRemoteVideoFrameListener(stream, enabled: true)])
+        XCTAssertEqual(rtcManager.calls, [
+            .setRemoteVideoFrameListener(stream, enabled: true),
+            .setRemoteAudioFrameListener(stream, enabled: true)
+        ])
     }
 
     func testDisablingInterpolationPreservesPendingFirstFrameWait() async throws {
@@ -166,12 +172,13 @@ final class RenderControllerTests: XCTestCase {
         try await readiness.value
     }
 
-    func testRemoteFrameListenerReceivesFinalFrameWithoutView() async throws {
+    func testRemoteMediaListenerReceivesFinalVideoFrameWithoutView() async throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let recorder = RemoteVideoFrameRecorder()
         let timestamp = CMTime(value: 42, timescale: 1_000)
-        controller.setRemoteVideoFrameListener { frame in
+        try controller.setRemoteMediaFrameListener { event in
+            guard case .video(let frame) = event.content else { return }
             recorder.record(frame)
         }
         try controller.setRemoteStream(
@@ -188,14 +195,15 @@ final class RenderControllerTests: XCTestCase {
         XCTAssertEqual(frame.duration, CMTime(value: 1, timescale: 24))
     }
 
-    func testClearingRemoteFrameListenerStopsDelivery() async throws {
+    func testClearingRemoteMediaListenerStopsVideoDelivery() async throws {
         let rtcManager = RtcManagingStub()
         let controller = RenderController(rtcManager: rtcManager)
         let recorder = RemoteVideoFrameRecorder()
-        controller.setRemoteVideoFrameListener { frame in
+        try controller.setRemoteMediaFrameListener { event in
+            guard case .video(let frame) = event.content else { return }
             recorder.record(frame)
         }
-        controller.setRemoteVideoFrameListener(nil)
+        try controller.setRemoteMediaFrameListener(nil)
         try controller.setRemoteStream(
             RemoteStream(roomID: "room-id", userID: "bot-user")
         )

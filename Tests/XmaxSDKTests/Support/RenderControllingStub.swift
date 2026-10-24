@@ -9,7 +9,6 @@ final class RenderControllingStub: RenderControlling {
     private(set) var frameReadyWaitCount = 0
 
     func setRemoteStream(_ stream: RemoteStream?) throws {}
-    func setRemoteVideoFrameListener(_ listener: RealtimeVideoFrameListener?) {}
     func setRemoteMediaFrameListener(_ listener: RealtimeMediaFrameListener?) throws {}
     func registerRemoteTrack(
         _ track: RealtimeVideoTrack,

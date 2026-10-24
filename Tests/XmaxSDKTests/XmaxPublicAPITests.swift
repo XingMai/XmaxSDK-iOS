@@ -46,26 +46,6 @@ final class XmaxPublicAPITests: XCTestCase {
     }
 
     @MainActor
-    func testPublicRemoteVideoFrameListenerIsAvailable() async {
-        let client = XmaxClient(
-            configuration: XmaxConfiguration(apiKey: "test-key")
-        )
-        let manager = client.createRealtimeManager(
-            options: RealtimeConfiguration(model: .x2_1)
-        )
-        let listener: RealtimeVideoFrameListener = { frame in
-            _ = frame.pixelBuffer
-            _ = frame.presentationTimeStamp
-            _ = frame.duration
-        }
-
-        await manager.setRemoteVideoFrameListener(listener)
-        await manager.setRemoteVideoFrameListener(nil)
-
-        XCTAssertNotNil(listener)
-    }
-
-    @MainActor
     func testPublicRemoteMediaListenerIsAvailable() async throws {
         let manager = XmaxClient(configuration: XmaxConfiguration(apiKey: "test-key"))
             .createRealtimeManager(options: RealtimeConfiguration(model: .x2_1))
@@ -84,6 +64,8 @@ final class XmaxPublicAPITests: XCTestCase {
                 _ = frame.duration
             case .video(let frame):
                 _ = frame.pixelBuffer
+                _ = frame.presentationTimeStamp
+                _ = frame.duration
             }
         }
         try await manager.setRemoteMediaFrameListener(listener)

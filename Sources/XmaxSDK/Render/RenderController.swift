@@ -52,9 +52,6 @@ final class RenderController: RenderControlling {
 
     // MARK: - State
 
-    /// The final remote frame dispatcher.
-    private let remoteVideoFrameDispatcher = RealtimeVideoFrameDispatcher()
-
     /// The bounded, shared audio/video output queue and sample timeline.
     private let remoteMediaFrameDispatcher = RealtimeMediaFrameDispatcher()
 
@@ -173,15 +170,6 @@ final class RenderController: RenderControlling {
         if remoteMediaFrameDispatcher.hasListener {
             try activateRemoteAudioIfReady()
         }
-    }
-
-    /// Sets the final remote video frame listener.
-    ///
-    /// - Parameter listener: The handler on a separate serial queue, or `nil` to remove it.
-    func setRemoteVideoFrameListener(
-        _ listener: RealtimeVideoFrameListener?
-    ) {
-        remoteVideoFrameDispatcher.setListener(listener)
     }
 
     /// Sets shared media output and attaches PCM only while an application requests it.
@@ -511,7 +499,6 @@ private extension RenderController {
             error: Self.remoteFrameWaitCancelledError()
         )
         latestRemoteFrame = nil
-        remoteVideoFrameDispatcher.invalidatePendingFrames()
         renderingToken &+= 1
         let token = renderingToken
         Task { [remoteFramePipeline] in
@@ -533,7 +520,6 @@ private extension RenderController {
         }
         latestRemoteFrame = frame
         finishAllRemoteFrameReadyWaiters()
-        remoteVideoFrameDispatcher.dispatch(frame)
         if let remoteMediaStreamID {
             remoteMediaFrameDispatcher.dispatchVideo(
                 frame,
