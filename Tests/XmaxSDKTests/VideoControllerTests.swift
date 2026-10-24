@@ -64,7 +64,11 @@ final class VideoControllerTests: XCTestCase {
         )
         let stream = try await controller.createLocalVideoStream(fileURL: fileURL)
         XCTAssertEqual(stream.videoTrack?.videoFormat, videoFormat)
-        XCTAssertEqual(player.calls.first, configurationCall(hasAudio: true))
+        XCTAssertEqual(player.calls.first, configurationCall(
+            hasAudio: true,
+            sourceWidth: 3840,
+            sourceHeight: 2160
+        ))
         await controller.stopLocalVideoStream()
     }
 
@@ -83,6 +87,17 @@ final class VideoControllerTests: XCTestCase {
         let stream = try await controller.createLocalVideoStream(fileURL: fileURL)
         XCTAssertEqual(stream.videoTrack?.videoFormat, RealtimeVideoFormat(width: 1280, height: 720, fps: 30))
         XCTAssertEqual(service.requestedSizes, [CGSize(width: 1280, height: 720)])
+        XCTAssertEqual(player.calls.first, .configure(
+            fileURL: fileURL,
+            metadata: MediaFileMetadata(
+                width: 1280,
+                height: 720,
+                rotation: .rotation0,
+                durationSeconds: 5,
+                hasAudio: false
+            ),
+            videoFormat: RealtimeVideoFormat(width: 1280, height: 720, fps: 30)
+        ))
         await controller.stopLocalVideoStream()
     }
 
@@ -178,9 +193,22 @@ final class VideoControllerTests: XCTestCase {
         RealtimeVideoFormat(width: 1080, height: 1920, fps: 30)
     }
 
-    private func configurationCall(hasAudio: Bool) -> VideoPlayerControllingCall {
-        .configure(fileURL: fileURL, outputWidth: 1080, outputHeight: 1920,
-                   rotation: .rotation90, frameRate: 30, hasAudio: hasAudio, durationSeconds: 2.0000001)
+    private func configurationCall(
+        hasAudio: Bool,
+        sourceWidth: Int = 1920,
+        sourceHeight: Int = 1080
+    ) -> VideoPlayerControllingCall {
+        .configure(
+            fileURL: fileURL,
+            metadata: MediaFileMetadata(
+                width: sourceWidth,
+                height: sourceHeight,
+                rotation: .rotation90,
+                durationSeconds: 2.0000001,
+                hasAudio: hasAudio
+            ),
+            videoFormat: videoFormat
+        )
     }
 
     private func makeComponents(hasAudio: Bool) -> (controller: VideoController, rtc: RtcManagingStub, player: VideoPlayerControllingStub) {

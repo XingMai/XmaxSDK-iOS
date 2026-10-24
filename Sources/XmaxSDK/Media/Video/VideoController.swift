@@ -203,12 +203,8 @@ private extension VideoController {
             try Task.checkCancellation()
             try await playerController.configure(
                 fileURL: fileURL,
-                outputWidth: videoFormat.width,
-                outputHeight: videoFormat.height,
-                rotation: metadata.rotation,
-                frameRate: videoFormat.fps,
-                hasAudio: metadata.hasAudio,
-                durationSeconds: metadata.durationSeconds
+                metadata: metadata,
+                videoFormat: videoFormat
             )
             let localTrack = RealtimeVideoTrack(
                 id: Self.localVideoTrackID,

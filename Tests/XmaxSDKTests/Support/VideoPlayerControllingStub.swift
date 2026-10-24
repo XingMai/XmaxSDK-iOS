@@ -14,12 +14,8 @@ import UIKit
 enum VideoPlayerControllingCall: Equatable {
     case configure(
         fileURL: URL,
-        outputWidth: Int,
-        outputHeight: Int,
-        rotation: VideoRotation,
-        frameRate: Int,
-        hasAudio: Bool,
-        durationSeconds: Double
+        metadata: MediaFileMetadata,
+        videoFormat: RealtimeVideoFormat
     )
     case start
     case setLocalAudioPreviewMuted(Bool)
@@ -39,21 +35,13 @@ final class VideoPlayerControllingStub: VideoPlayerControlling {
 
     func configure(
         fileURL: URL,
-        outputWidth: Int,
-        outputHeight: Int,
-        rotation: VideoRotation,
-        frameRate: Int,
-        hasAudio: Bool,
-        durationSeconds: Double
+        metadata: MediaFileMetadata,
+        videoFormat: RealtimeVideoFormat
     ) throws {
         calls.append(.configure(
             fileURL: fileURL,
-            outputWidth: outputWidth,
-            outputHeight: outputHeight,
-            rotation: rotation,
-            frameRate: frameRate,
-            hasAudio: hasAudio,
-            durationSeconds: durationSeconds
+            metadata: metadata,
+            videoFormat: videoFormat
         ))
         if let configureError { throw configureError }
     }

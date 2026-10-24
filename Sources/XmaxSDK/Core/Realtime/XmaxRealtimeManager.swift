@@ -477,21 +477,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalCameraStream() async throws {
-        try await lifecycleManager.run(kind: .media) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local camera stream"
-            )
-
-            token.setFailureScope(.all)
+        try await stopLocalMediaStream(source: .camera) { [mediaController] in
             await mediaController.stopLocalCameraStream()
-            try token.ensureCurrent()
-
-            errorManager.invalidatePendingFailures()
-            let hasLocalMedia = await mediaController.currentTrack != nil
-            try await lifecycleManager.complete(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
-                token: token
-            )
         }
     }
 
@@ -661,21 +648,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalImageStream() async throws {
-        try await lifecycleManager.run(kind: .media) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local image stream"
-            )
-
-            token.setFailureScope(.all)
+        try await stopLocalMediaStream(source: .image) { [mediaController] in
             await mediaController.stopLocalImageStream()
-            try token.ensureCurrent()
-
-            errorManager.invalidatePendingFailures()
-            let hasLocalMedia = await mediaController.currentTrack != nil
-            try await lifecycleManager.complete(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
-                token: token
-            )
         }
     }
 
@@ -705,21 +679,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, another operation conflicts, or the
     ///   operation is cancelled.
     func stopLocalVideoStream() async throws {
-        try await lifecycleManager.run(kind: .media) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the local video stream"
-            )
-
-            token.setFailureScope(.all)
+        try await stopLocalMediaStream(source: .video) { [mediaController] in
             await mediaController.stopLocalVideoStream()
-            try token.ensureCurrent()
-
-            errorManager.invalidatePendingFailures()
-            let hasLocalMedia = await mediaController.currentTrack != nil
-            try await lifecycleManager.complete(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
-                token: token
-            )
         }
     }
 
@@ -746,21 +707,8 @@ actor XmaxRealtimeManager: XmaxRealtimeManaging {
     /// - Throws: An error if realtime is still connected, an operation conflicts, or the operation
     ///   is cancelled.
     func stopExternalVideoStream() async throws {
-        try await lifecycleManager.run(kind: .media) { [self] token in
-            try await ensureLocalMediaCanChange(
-                message: "Disconnect realtime before stopping the external video stream"
-            )
-
-            token.setFailureScope(.all)
+        try await stopLocalMediaStream(source: .external) { [mediaController] in
             await mediaController.stopExternalVideoStream()
-            try token.ensureCurrent()
-
-            errorManager.invalidatePendingFailures()
-            let hasLocalMedia = await mediaController.currentTrack != nil
-            try await lifecycleManager.complete(
-                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
-                token: token
-            )
         }
     }
 
@@ -1284,6 +1232,37 @@ private extension XmaxRealtimeManager {
             }
 
             return stream
+        }
+    }
+
+    /// Stops one media source and publishes the remaining local media state.
+    ///
+    /// - Parameters:
+    ///   - source: The kind of local media being stopped.
+    ///   - stop: The operation that releases only the requested source.
+    ///
+    /// - Throws: An error if realtime is connected, an operation conflicts, or the operation is
+    ///   cancelled.
+    func stopLocalMediaStream(
+        source: RealtimeMediaSource,
+        stop: @escaping @Sendable () async -> Void
+    ) async throws {
+        try await lifecycleManager.run(kind: .media) { [self] token in
+            let streamName = source == .external ? "external video" : "local \(source.rawValue)"
+            try await ensureLocalMediaCanChange(
+                message: "Disconnect realtime before stopping the \(streamName) stream"
+            )
+
+            token.setFailureScope(.all)
+            await stop()
+            try token.ensureCurrent()
+
+            errorManager.invalidatePendingFailures()
+            let hasLocalMedia = await mediaController.currentTrack != nil
+            try await lifecycleManager.complete(
+                RealtimeState(connectionState: hasLocalMedia ? .ready : .idle),
+                token: token
+            )
         }
     }
 

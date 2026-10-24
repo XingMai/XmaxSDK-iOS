@@ -834,6 +834,76 @@ final class XmaxRealtimeManagerTests: XCTestCase {
         await components.manager.close()
     }
 
+    func testStoppingEachMediaSourceReturnsToIdleAndCanBeRepeated() async throws {
+        for source in RealtimeMediaSource.allCases {
+            let components = makeComponents()
+            switch source {
+            case .camera:
+                _ = try await components.manager.createLocalCameraStream()
+            case .image:
+                _ = try await components.manager.createLocalImageStream(imageData: Data([1]))
+            case .video:
+                _ = try await components.manager.createLocalVideoStream(fileURL: URL(fileURLWithPath: "/tmp/source.mp4"))
+            case .external:
+                _ = try await components.manager.createExternalVideoStream(source: RealtimeExternalVideoSourceStub())
+            }
+
+            for _ in 0..<2 {
+                try await stopMediaStream(source, using: components.manager)
+                let state = await components.manager.currentState
+                let track = await components.mediaController.currentTrack
+                XCTAssertEqual(state, RealtimeState(connectionState: .idle), "Source: \(source)")
+                XCTAssertNil(track, "Source: \(source)")
+            }
+            XCTAssertEqual(components.rtcManager.calls.filter { $0 == .destroy }.count, 1)
+            await components.manager.close()
+        }
+    }
+
+    func testStoppingOtherMediaSourcesPreservesTheActiveImagePreview() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalImageStream(imageData: Data([1]))
+        let track = try XCTUnwrap(local.videoTrack)
+
+        for source in RealtimeMediaSource.allCases where source != .image {
+            try await stopMediaStream(source, using: components.manager)
+            let state = await components.manager.currentState
+            let currentTrack = await components.mediaController.currentTrack
+            XCTAssertEqual(state, RealtimeState(connectionState: .ready))
+            XCTAssertTrue(currentTrack === track)
+            XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
+        }
+        await components.manager.close()
+    }
+
+    func testStoppingAnyMediaSourceWhileConnectedPreservesTheSessionAndPreview() async throws {
+        let components = makeComponents()
+        let local = try await components.manager.createLocalImageStream(imageData: Data([1]))
+        _ = try await components.manager.connect(localStream: local)
+        let expectedMessages: [(RealtimeMediaSource, String)] = [
+            (.camera, "Disconnect realtime before stopping the local camera stream"),
+            (.image, "Disconnect realtime before stopping the local image stream"),
+            (.video, "Disconnect realtime before stopping the local video stream"),
+            (.external, "Disconnect realtime before stopping the external video stream")
+        ]
+
+        for (source, message) in expectedMessages {
+            do {
+                try await stopMediaStream(source, using: components.manager)
+                XCTFail("Expected stopping \(source) while connected to fail")
+            } catch {
+                XCTAssertEqual(error as? XmaxError, XmaxError(code: .invalidConfiguration, message: message))
+            }
+            let state = await components.manager.currentState
+            let ownsStream = await components.mediaController.owns(local)
+            XCTAssertEqual(state.connectionState, .connected)
+            XCTAssertEqual(state.sessionID, "session-id")
+            XCTAssertTrue(ownsStream)
+            XCTAssertFalse(components.rtcManager.calls.contains(.destroy))
+        }
+        await components.manager.close()
+    }
+
     func testFailedMediaCreationPreservesRemoteVolume() async throws {
         let components = makeComponents(captureManager: CameraCaptureManagingStub(
             startError: XmaxError(code: .mediaError, message: "Capture failed")
@@ -2076,6 +2146,22 @@ final class XmaxRealtimeManagerTests: XCTestCase {
 }
 
 private extension XmaxRealtimeManagerTests {
+    func stopMediaStream(
+        _ source: RealtimeMediaSource,
+        using manager: any XmaxRealtimeManaging
+    ) async throws {
+        switch source {
+        case .camera:
+            try await manager.stopLocalCameraStream()
+        case .image:
+            try await manager.stopLocalImageStream()
+        case .video:
+            try await manager.stopLocalVideoStream()
+        case .external:
+            try await manager.stopExternalVideoStream()
+        }
+    }
+
     func assertGenerationPadding(
         components: Components,
         localStream: RealtimeMediaStream,

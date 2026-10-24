@@ -27,23 +27,15 @@ protocol VideoPlayerControlling: Sendable {
     ///
     /// - Parameters:
     ///   - fileURL: The video file URL whose metadata has been read.
-    ///   - outputWidth: The output width, in pixels.
-    ///   - outputHeight: The output height, in pixels.
-    ///   - rotation: The source video's display rotation.
-    ///   - frameRate: The output frame rate.
-    ///   - hasAudio: Whether the source has an audio track.
-    ///   - durationSeconds: The source duration, in seconds.
+    ///   - metadata: The source orientation, duration, and audio information.
+    ///   - videoFormat: The resolved output dimensions and frame rate.
     ///
     /// - Throws: An error if the file, output format, or playback state is invalid.
     @MainActor
     func configure(
         fileURL: URL,
-        outputWidth: Int,
-        outputHeight: Int,
-        rotation: VideoRotation,
-        frameRate: Int,
-        hasAudio: Bool,
-        durationSeconds: Double
+        metadata: MediaFileMetadata,
+        videoFormat: RealtimeVideoFormat
     ) throws
 
     /// Starts preview and frame delivery on a shared timeline.
@@ -104,23 +96,11 @@ final class VideoPlayerController: VideoPlayerControlling {
         /// The local video file URL.
         let fileURL: URL
 
-        /// The resolved width, in pixels.
-        let outputWidth: Int
+        /// The source orientation, duration, and audio information.
+        let metadata: MediaFileMetadata
 
-        /// The resolved height, in pixels.
-        let outputHeight: Int
-
-        /// The rotation from encoded pixels to display.
-        let rotation: VideoRotation
-
-        /// The video output frame rate, in frames per second.
-        let frameRate: Int
-
-        /// Whether the source file has audio.
-        let hasAudio: Bool
-
-        /// The source duration, in seconds.
-        let durationSeconds: Double
+        /// The resolved dimensions and frame rate for decoded output.
+        let videoFormat: RealtimeVideoFormat
     }
 
     /// The video frame handler.
@@ -169,48 +149,36 @@ final class VideoPlayerController: VideoPlayerControlling {
     ///
     /// - Parameters:
     ///   - fileURL: The video file URL whose metadata has been read.
-    ///   - outputWidth: The output width, in pixels.
-    ///   - outputHeight: The output height, in pixels.
-    ///   - rotation: The source video's display rotation.
-    ///   - frameRate: The output frame rate.
-    ///   - hasAudio: Whether the source has an audio track.
-    ///   - durationSeconds: The source duration, in seconds.
+    ///   - metadata: The source orientation, duration, and audio information.
+    ///   - videoFormat: The resolved output dimensions and frame rate.
     ///
     /// - Throws: An error if the file, output format, or playback state is invalid.
     func configure(
         fileURL: URL,
-        outputWidth: Int,
-        outputHeight: Int,
-        rotation: VideoRotation,
-        frameRate: Int,
-        hasAudio: Bool,
-        durationSeconds: Double
+        metadata: MediaFileMetadata,
+        videoFormat: RealtimeVideoFormat
     ) throws {
         guard fileURL.isFileURL,
             FileManager.default.fileExists(atPath: fileURL.path),
-            outputWidth > 0,
-            outputHeight > 0,
-            outputWidth.isMultiple(of: 2),
-            outputHeight.isMultiple(of: 2),
-            frameRate > 0,
+            videoFormat.width > 0,
+            videoFormat.height > 0,
+            videoFormat.width.isMultiple(of: 2),
+            videoFormat.height.isMultiple(of: 2),
+            videoFormat.fps > 0,
             configuration == nil,
             playbackTask == nil
         else {
             throw Self.mediaError("Video player configuration is invalid")
         }
 
-        guard durationSeconds.isFinite, durationSeconds > 0 else {
+        guard metadata.durationSeconds.isFinite, metadata.durationSeconds > 0 else {
             throw Self.mediaError("The media file has an invalid duration")
         }
 
         configuration = PlaybackConfiguration(
             fileURL: fileURL,
-            outputWidth: outputWidth,
-            outputHeight: outputHeight,
-            rotation: rotation,
-            frameRate: frameRate,
-            hasAudio: hasAudio,
-            durationSeconds: durationSeconds
+            metadata: metadata,
+            videoFormat: videoFormat
         )
     }
 
@@ -222,12 +190,12 @@ final class VideoPlayerController: VideoPlayerControlling {
             throw Self.mediaError("Configure the video player before starting it")
         }
 
-        if configuration.hasAudio {
+        if configuration.metadata.hasAudio {
             audioPreviewPlayer.start()
             audioPreviewPlayer.setMuted(false)
         }
         let timeline = MediaPlaybackTimeline(
-            mediaDurationSeconds: configuration.durationSeconds
+            mediaDurationSeconds: configuration.metadata.durationSeconds
         )
         let videoListener = videoFrameListener
         let audioListener = audioFrameListener
@@ -370,7 +338,7 @@ private extension VideoPlayerController {
                     handler: videoHandler
                 )
             }
-            if configuration.hasAudio {
+            if configuration.metadata.hasAudio {
                 group.addTask {
                     try await produceAudioFrames(
                         configuration: configuration,
@@ -397,7 +365,7 @@ private extension VideoPlayerController {
         timeline: MediaPlaybackTimeline,
         handler: @escaping VideoHandler
     ) async throws {
-        let frameIntervalSeconds = 1 / Double(configuration.frameRate)
+        let frameIntervalSeconds = 1 / Double(configuration.videoFormat.fps)
         let frameIntervalNanoseconds = UInt64(
             frameIntervalSeconds * 1_000_000_000
         )
@@ -473,9 +441,9 @@ private extension VideoPlayerController {
                 do {
                     frame = try VideoFrameConverter.convert(
                         pixelBuffer: pixelBuffer,
-                        outputWidth: configuration.outputWidth,
-                        outputHeight: configuration.outputHeight,
-                        rotation: configuration.rotation,
+                        outputWidth: configuration.videoFormat.width,
+                        outputHeight: configuration.videoFormat.height,
+                        rotation: configuration.metadata.rotation,
                         timestampUs: Int64(target / 1_000)
                     )
                 } catch {
