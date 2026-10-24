@@ -35,6 +35,18 @@ public protocol MediaServicing: Sendable {
         source: RealtimeMediaSource
     ) throws -> CGSize
 
+    /// Selects the closest generation canvas without changing local media dimensions.
+    ///
+    /// - Parameter resolvedMediaSize: The resolved local media dimensions.
+    ///
+    /// - Returns: The closest model bucket, or dimensions satisfying model area and alignment
+    ///   rules.
+    ///
+    /// - Throws: An error if media dimensions are invalid.
+    func resolveGenerationSize(
+        _ resolvedMediaSize: CGSize
+    ) throws -> CGSize
+
     /// Resolves returned dimensions within quality and optional interpolation limits.
     ///
     /// - Parameters:

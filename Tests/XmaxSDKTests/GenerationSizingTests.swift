@@ -13,6 +13,31 @@ import XCTest
 @testable import XmaxSDK
 
 final class GenerationSizingTests: XCTestCase {
+    func testGenerationSizeUsesTheProtocolConformersImplementation() throws {
+        let expectedSize = CGSize(width: 1280, height: 720)
+        let service: any MediaServicing = MediaServicingStub(
+            resolvedSize: expectedSize,
+            resolvedGenerationSize: expectedSize
+        )
+
+        XCTAssertEqual(
+            try service.resolveGenerationSize(CGSize(width: 1920, height: 1080)),
+            expectedSize
+        )
+    }
+
+    func testGenerationSizeThroughProtocolPreservesModelRulesAndErrors() throws {
+        let service: any MediaServicing = MediaService()
+
+        XCTAssertEqual(
+            try service.resolveGenerationSize(CGSize(width: 720, height: 1280)),
+            CGSize(width: 1080, height: 1920)
+        )
+        XCTAssertThrowsError(try service.resolveGenerationSize(.zero)) { error in
+            XCTAssertEqual((error as? XmaxError)?.code, .invalidConfiguration)
+        }
+    }
+
     func testCappedMediaSizeBecomesUplinkBaselineWithoutChangingGenerationBucket() throws {
         let service = MediaService()
         let sourceMediaSize = CGSize(width: 3840, height: 2160)

@@ -18,6 +18,7 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
     // 测试配置
     let model: RealtimeModel
     private let resolvedSize: CGSize
+    private let resolvedGenerationSize: CGSize?
     private let resolutionError: (any Error)?
     private let frameInterpolationSupported: Bool
 
@@ -27,11 +28,13 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
 
     init(
         resolvedSize: CGSize,
+        resolvedGenerationSize: CGSize? = nil,
         model: RealtimeModel = .x2_1,
         resolutionError: (any Error)? = nil,
         frameInterpolationSupported: Bool = false
     ) {
         self.resolvedSize = resolvedSize
+        self.resolvedGenerationSize = resolvedGenerationSize
         self.model = model
         self.resolutionError = resolutionError
         self.frameInterpolationSupported = frameInterpolationSupported
@@ -49,6 +52,15 @@ final class MediaServicingStub: MediaServicing, @unchecked Sendable {
             }
             return source == .camera ? resolvedSize : try MediaService(model: model).resolveMediaSize(sourceMediaSize, source: source)
         }
+    }
+
+    func resolveGenerationSize(
+        _ resolvedMediaSize: CGSize
+    ) throws -> CGSize {
+        if let resolvedGenerationSize {
+            return resolvedGenerationSize
+        }
+        return try MediaService(model: model).resolveGenerationSize(resolvedMediaSize)
     }
 
     func resolveTargetSize(_ resolvedMediaSize: CGSize, maximumSize: CGSize, frameInterpolationEnabled: Bool) throws -> CGSize {
